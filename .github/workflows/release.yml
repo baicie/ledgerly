@@ -54,7 +54,7 @@ jobs:
         run: |
           flutter build web --release
           cd build
-          zip -r ../../ledgerly-web.zip web
+          zip -r ../../../ledgerly-web.zip web
 
       - name: Build Android APK
         working-directory: apps/client
@@ -64,10 +64,22 @@ jobs:
           cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk ../../ledgerly-android-armeabi-v7a.apk
           cp build/app/outputs/flutter-apk/app-x86_64-release.apk ../../ledgerly-android-x86_64.apk
 
+      - name: Verify client artifacts
+        run: |
+          for archive in \
+            ledgerly-web.zip \
+            ledgerly-android-arm64-v8a.apk \
+            ledgerly-android-armeabi-v7a.apk \
+            ledgerly-android-x86_64.apk; do
+            test -s "$archive"
+            unzip -tq "$archive"
+          done
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: client-packages
+          if-no-files-found: error
           path: |
             ledgerly-web.zip
             ledgerly-android-arm64-v8a.apk
