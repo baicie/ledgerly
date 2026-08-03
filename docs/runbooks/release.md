@@ -28,7 +28,7 @@ export LEDGER_DB_PASSWORD='your-strong-password'
 ssh ubuntu@82.156.234.84
 sudo mkdir -p /opt/ledgerly && sudo chown ubuntu:ubuntu /opt/ledgerly
 # 从仓库复制示例并改密
-scp infrastructure/docker/.env.prod.example ubuntu@82.156.234.84:/opt/ledgerly/.env.prod
+scp infrastructure/docker/env.prod.example ubuntu@82.156.234.84:/opt/ledgerly/.env.prod
 # 编辑 DATABASE_URL=postgres://ledgerly:...@host.docker.internal:5432/ledgerly
 ```
 

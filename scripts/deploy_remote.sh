@@ -28,7 +28,7 @@ echo "==> remote pull & up ($IMAGE)"
 "${ssh_base[@]}" bash -s <<EOF
 set -euo pipefail
 cd '$DIR'
-test -f .env.prod || { echo 'Create $DIR/.env.prod from .env.prod.example first'; exit 1; }
+test -f .env.prod || { echo 'Create $DIR/.env.prod from env.prod.example first'; exit 1; }
 export LEDGER_IMAGE='$IMAGE'
 # shellcheck disable=SC1091
 set -a; source .env.prod; set +a
