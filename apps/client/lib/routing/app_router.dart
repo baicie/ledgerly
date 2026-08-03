@@ -20,17 +20,49 @@ import '../presentation/pages/sync_center_page.dart';
 import '../presentation/pages/transaction_revisions_page.dart';
 
 String? authRedirect(AuthState auth, String location) {
+  final uri = Uri.parse(location);
+  final path = uri.path;
+  final returnLocation = _safeReturnLocation(uri.queryParameters['from']);
+
   if (auth.status == AuthStatus.restoring ||
       auth.status == AuthStatus.failure) {
-    return location == '/startup' ? null : '/startup';
+    return path == '/startup'
+        ? null
+        : _routeWithReturn('/startup', _safeReturnLocation(uri.toString()));
   }
   if (auth.status != AuthStatus.authenticated) {
-    return location == '/auth' ? null : '/auth';
+    if (path == '/auth') return null;
+    return _routeWithReturn(
+      '/auth',
+      path == '/startup' ? returnLocation : _safeReturnLocation(uri.toString()),
+    );
   }
-  if (location == '/auth' || location == '/startup') {
-    return '/feed';
+  if (path == '/auth' || path == '/startup') {
+    return returnLocation ?? '/feed';
   }
   return null;
+}
+
+String _routeWithReturn(String path, String? returnLocation) {
+  return Uri(
+    path: path,
+    queryParameters: returnLocation == null ? null : {'from': returnLocation},
+  ).toString();
+}
+
+String? _safeReturnLocation(String? value) {
+  if (value == null) return null;
+  final uri = Uri.tryParse(value);
+  if (uri == null ||
+      uri.hasScheme ||
+      uri.hasAuthority ||
+      !uri.path.startsWith('/') ||
+      uri.path.startsWith('//') ||
+      uri.path == '/auth' ||
+      uri.path == '/startup') {
+    return null;
+  }
+  return uri.toString();
 }
 
 GoRouter createAppRouter(AuthController controller) {
@@ -38,7 +70,7 @@ GoRouter createAppRouter(AuthController controller) {
     initialLocation: '/startup',
     refreshListenable: controller,
     redirect: (context, state) {
-      return authRedirect(controller.state, state.matchedLocation);
+      return authRedirect(controller.state, state.uri.toString());
     },
     routes: [
       GoRoute(
