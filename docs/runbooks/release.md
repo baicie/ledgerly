@@ -111,7 +111,10 @@ flutter build web --release \
 
 服务端 `CORS_ALLOWED_ORIGINS` 填 Web 应用的 origin（协议、域名和端口），
 不要填 API 地址或路径。Web Refresh Token 仅通过 `Secure`、`HttpOnly`
-Cookie 传输，因此 API 和 Web 站点都必须使用 TLS。
+Cookie 传输，因此 API 和 Web 站点都必须使用 TLS。Cookie 使用
+`SameSite=Strict`，跨 origin 部署时 Web 与 API 仍须属于同一站点（例如
+`app.ledgerly.example.com` 与 `api.ledgerly.example.com`）；不同注册域名的
+组合不会发送刷新 Cookie。
 
 Android APK 按 ABI 拆分发布：大多数现代手机使用 `ledgerly-android-arm64-v8a.apk`，旧版 32 位 ARM 设备使用 `ledgerly-android-armeabi-v7a.apk`，x86_64 设备或模拟器使用 `ledgerly-android-x86_64.apk`。
 

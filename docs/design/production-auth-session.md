@@ -2,7 +2,7 @@
 
 * Branch: `codex/production-auth-session`
 * ADR: [011 Auth Security Privacy](../adr/011-auth-security-privacy.md)
-* Status: In progress
+* Status: Complete
 
 ## Goal
 
@@ -36,6 +36,8 @@ data stay in the local database and are not deleted by logout.
 * Dio sends credentialed browser requests. JavaScript never reads or stores the
   refresh token.
 * Only the non-secret device ID is persisted in browser local storage.
+* A non-secret signed-out marker suppresses cookie restore after an offline
+  logout; a successful login clears the marker.
 * Logout revokes the active session and expires the refresh cookie.
 
 ### Shared
@@ -43,6 +45,9 @@ data stay in the local database and are not deleted by logout.
 * Access tokens are attached by an authorized Dio instance.
 * A 401 starts one shared refresh operation. Concurrent failed requests await
   that operation and each original request is retried at most once.
+* A late 401 from the previous access token reuses the already-rotated token
+  instead of rotating again. Session epochs prevent a late refresh response
+  from restoring authentication after logout.
 * Refresh failure clears the in-memory access token and persisted session
   material and moves routing state to signed out.
 * Passwords and tokens are never logged.
@@ -56,8 +61,13 @@ Existing native JSON clients remain compatible.
   mixed, or unsupported credentials return a stable 400/401 API error.
 * Cookie-mode login and refresh omit `refreshToken` from the response body and
   rotate the cookie atomically with the server session.
+* PostgreSQL claims a refresh token and creates its replacement in one
+  transaction. Only one concurrent rotation can succeed, and tokens idle for
+  30 days are rejected.
 * `POST /v1/auth/logout` remains access-token authenticated and always expires
   the cookie in its response.
+* Authentication request bodies are limited to 16 KiB. Token responses use
+  `Cache-Control: no-store` and `Pragma: no-cache`.
 * Credentialed CORS uses explicit origins from `CORS_ALLOWED_ORIGINS`; wildcard
   origins are never combined with credentials. Production requires at least
   one HTTPS origin when browser sessions are enabled.
@@ -88,6 +98,8 @@ ID and attempts refresh without touching Drift tokens.
 * `/auth` contains login and registration modes.
 * All application-shell routes redirect to `/auth` unless authenticated.
 * An authenticated user visiting `/auth` redirects to `/feed`.
+* Guarded deep links retain a validated same-origin return location through
+  startup restore and login.
 * Settings exposes the current API origin and a logout command.
 
 ## Data Migration
@@ -97,14 +109,21 @@ Drift schema version 4 removes `access_token` and `refresh_token` from
 does not copy legacy token columns. `LedgerRepository` receives the stable
 device ID rather than defining a process-wide constant.
 
+The first sync binds the local ledger to the authenticated remote book and
+resets its pull cursor. A later login for a different remote book cannot
+silently rebind or upload the retained local ledger.
+
 ## Acceptance Tests
 
 * Server tests prove native JSON compatibility, cookie attributes, body token
   omission, cookie refresh rotation, stale-cookie rejection, logout revocation,
-  cookie expiry, and explicit credentialed CORS configuration.
+  cookie expiry, bounded auth payloads, stable session-mode errors, atomic
+  PostgreSQL rotation, idle expiry, and explicit credentialed CORS
+  configuration.
 * Client unit tests prove endpoint validation, native/web session-store
   semantics, startup restore, failed restore, logout cleanup, one-flight
-  refresh, one retry per request, and refresh-failure sign-out.
+  refresh, stale-response handling, one retry per request, refresh-failure
+  sign-out, and cross-account sync protection.
 * Widget tests prove login/register validation, guarded navigation, signed-in
   routing, visible failure feedback, and logout.
 * Drift migration tests prove legacy token values are discarded.
@@ -123,3 +142,11 @@ Implementation follows the official package and framework guidance:
   <https://docs.rs/axum-extra/latest/axum_extra/extract/cookie/struct.CookieJar.html>
 * tower-http credentialed CORS configuration:
   <https://docs.rs/tower-http/latest/tower_http/cors/struct.CorsLayer.html>
+
+## Rollback
+
+The server migration adds indexes only, so a previous server image can run
+against the migrated database. Client schema version 4 intentionally removes
+legacy plaintext token columns; rolling a migrated client installation back to
+a schema-v3 binary is unsupported. Release rollback should therefore publish a
+forward client fix while the server can be reverted independently.
