@@ -1,4 +1,3 @@
-import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../application/ledger_app_service.dart';
@@ -180,6 +179,3 @@ String formatMinor(BigInt minor) {
   final cents = abs % BigInt.from(100);
   return '${negative ? '-' : ''}$yuan.${cents.toString().padLeft(2, '0')}';
 }
-
-/// Test-only database override helper.
-AppDatabase memoryDatabase() => AppDatabase.forTesting(NativeDatabase.memory());

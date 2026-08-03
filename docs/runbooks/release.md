@@ -70,6 +70,8 @@ git push origin v0.0.1
 | Build & push server image | `ghcr.io/<owner>/ledgerly-server:v0.0.1` + `latest` |
 | Publish GitHub Release | 附客户端文件 + release notes |
 
+Web 打包依赖 `apps/client/web/{sqlite3.wasm,drift_worker.js}`（与 `pubspec.lock` 中 drift/sqlite3 版本对齐；可用 `./scripts/fetch_drift_web_assets.sh` 更新）。
+
 手动部署：
 
 - Actions → **Release** → **Run workflow** →勾选 `deploy`

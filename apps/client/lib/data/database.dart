@@ -22,7 +22,13 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   static QueryExecutor _open() {
-    return driftDatabase(name: 'ledgerly');
+    return driftDatabase(
+      name: 'ledgerly',
+      web: DriftWebOptions(
+        sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+        driftWorker: Uri.parse('drift_worker.js'),
+      ),
+    );
   }
 
   @override
