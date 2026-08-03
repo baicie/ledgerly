@@ -2,17 +2,13 @@ import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../application/ledger_app_service.dart';
+import '../application/sync_service.dart';
 import '../data/database.dart';
 import '../data/ledger_repository.dart';
+import '../data/sync_api.dart';
 
 final databaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
-  ref.onDispose(db.close);
-  return db;
-});
-
-final testingDatabaseProvider = Provider<AppDatabase>((ref) {
-  final db = AppDatabase.forTesting(NativeDatabase.memory());
   ref.onDispose(db.close);
   return db;
 });
@@ -25,11 +21,40 @@ final ledgerAppServiceProvider = Provider<LedgerAppService>((ref) {
   return LedgerAppService(ref.watch(ledgerRepositoryProvider));
 });
 
+final syncApiProvider = Provider<SyncApi>((ref) => SyncApi());
+
+final syncServiceProvider = Provider<SyncService>((ref) {
+  return SyncService(
+    ref.watch(ledgerRepositoryProvider),
+    ref.watch(syncApiProvider),
+  );
+});
+
+final selectedMonthProvider = StateProvider<DateTime>((ref) {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month);
+});
+
 final transactionListProvider =
     StreamProvider<List<TransactionSummary>>((ref) async* {
   final repo = ref.watch(ledgerRepositoryProvider);
   await repo.seedIfEmpty();
   yield* repo.watchSummaries('book_default');
+});
+
+final monthTransactionsProvider =
+    FutureProvider<List<TransactionSummary>>((ref) async {
+  final repo = ref.watch(ledgerRepositoryProvider);
+  await repo.seedIfEmpty();
+  await ref.watch(transactionListProvider.future);
+  final month = ref.watch(selectedMonthProvider);
+  final start = DateTime.utc(month.year, month.month);
+  final end = DateTime.utc(month.year, month.month + 1);
+  return repo.watchSummariesSync(
+    'book_default',
+    monthStart: start,
+    monthEnd: end,
+  );
 });
 
 class AccountBalanceRow {
@@ -49,7 +74,6 @@ final accountBalancesProvider =
     FutureProvider<List<AccountBalanceRow>>((ref) async {
   final repo = ref.watch(ledgerRepositoryProvider);
   await repo.seedIfEmpty();
-  // Rebuild when transactions change.
   await ref.watch(transactionListProvider.future);
   final accounts = await repo.listAccounts('book_default');
   final rows = <AccountBalanceRow>[];
@@ -80,55 +104,57 @@ final categoryReportProvider = FutureProvider<List<CategoryAmount>>((ref) async 
       .toList();
 });
 
-class SyncStatus {
-  const SyncStatus({
+class SyncStatusView {
+  const SyncStatusView({
     required this.label,
     required this.cursor,
     required this.pendingCount,
+    this.lastError,
   });
   final String label;
   final int cursor;
   final int pendingCount;
+  final String? lastError;
 }
 
-class SyncStatusNotifier extends Notifier<SyncStatus> {
-  @override
-  SyncStatus build() =>
-      const SyncStatus(label: '空闲', cursor: 0, pendingCount: 0);
+final syncStatusProvider = FutureProvider<SyncStatusView>((ref) async {
+  final repo = ref.watch(ledgerRepositoryProvider);
+  await repo.seedIfEmpty();
+  final state = await repo.syncState('book_default');
+  final pending = await repo.listPending('book_default');
+  return SyncStatusView(
+    label: state?.lastError == null ? '就绪' : '出错',
+    cursor: state?.cursor ?? 0,
+    pendingCount: pending.length,
+    lastError: state?.lastError,
+  );
+});
 
-  void markSynced() {
-    state = SyncStatus(
-      label: '已同步',
-      cursor: state.cursor + 1,
-      pendingCount: 0,
-    );
-  }
-}
+final conflictsProvider = FutureProvider<List<SyncConflictItem>>((ref) async {
+  final repo = ref.watch(ledgerRepositoryProvider);
+  await repo.seedIfEmpty();
+  final rows = await repo.listConflicts('book_default');
+  return rows
+      .map(
+        (c) => SyncConflictItem(
+          id: c.id,
+          entityId: c.entityId,
+          reason: c.reason,
+        ),
+      )
+      .toList();
+});
 
-final syncStatusProvider =
-    NotifierProvider<SyncStatusNotifier, SyncStatus>(SyncStatusNotifier.new);
-
-class ConflictItem {
-  ConflictItem({required this.entityId, required this.reason});
+class SyncConflictItem {
+  SyncConflictItem({
+    required this.id,
+    required this.entityId,
+    required this.reason,
+  });
+  final String id;
   final String entityId;
   final String reason;
 }
-
-class ConflictsNotifier extends Notifier<List<ConflictItem>> {
-  @override
-  List<ConflictItem> build() => [
-        ConflictItem(entityId: 'tx_demo', reason: 'LEDGER_VERSION_CONFLICT'),
-      ];
-
-  void keepRemote(String entityId) {
-    state = state.where((c) => c.entityId != entityId).toList();
-  }
-}
-
-final conflictsProvider =
-    NotifierProvider<ConflictsNotifier, List<ConflictItem>>(
-  ConflictsNotifier.new,
-);
 
 final exportCsvProvider = FutureProvider<String>((ref) async {
   final repo = ref.watch(ledgerRepositoryProvider);
@@ -150,3 +176,6 @@ String formatMinor(BigInt minor) {
   final cents = abs % BigInt.from(100);
   return '${negative ? '-' : ''}$yuan.${cents.toString().padLeft(2, '0')}';
 }
+
+/// Test-only database override helper.
+AppDatabase memoryDatabase() => AppDatabase.forTesting(NativeDatabase.memory());

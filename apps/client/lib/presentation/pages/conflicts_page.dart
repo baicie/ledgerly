@@ -11,23 +11,34 @@ class ConflictsPage extends ConsumerWidget {
     final conflicts = ref.watch(conflictsProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('冲突处理')),
-      body: conflicts.isEmpty
-          ? const Center(child: Text('当前无冲突'))
-          : ListView.builder(
-              itemCount: conflicts.length,
-              itemBuilder: (context, index) {
-                final c = conflicts[index];
-                return ListTile(
-                  title: Text(c.entityId),
-                  subtitle: Text(c.reason),
-                  trailing: TextButton(
-                    onPressed: () =>
-                        ref.read(conflictsProvider.notifier).keepRemote(c.entityId),
-                    child: const Text('保留云端'),
-                  ),
-                );
-              },
-            ),
+      body: conflicts.when(
+        data: (items) {
+          if (items.isEmpty) {
+            return const Center(child: Text('当前无冲突'));
+          }
+          return ListView.builder(
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final c = items[index];
+              return ListTile(
+                title: Text(c.entityId),
+                subtitle: Text(c.reason),
+                trailing: TextButton(
+                  onPressed: () async {
+                    await ref
+                        .read(ledgerRepositoryProvider)
+                        .resolveConflict(c.id);
+                    ref.invalidate(conflictsProvider);
+                  },
+                  child: const Text('确认'),
+                ),
+              );
+            },
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('$e')),
+      ),
     );
   }
 }

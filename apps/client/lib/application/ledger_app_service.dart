@@ -21,6 +21,7 @@ class LedgerAppService {
         _asDomain(accounts.firstWhere((a) => a.id == expenseAccountId));
     final funding =
         _asDomain(accounts.firstWhere((a) => a.id == fundingAccountId));
+    final mutationId = _repo.newId();
     final tx = factory.expense(
       id: domain.TransactionId(_repo.newId()),
       bookId: bookId,
@@ -33,7 +34,7 @@ class LedgerAppService {
       ),
       description: description,
     );
-    await _repo.saveDomainTransaction(tx);
+    await _repo.saveDomainTransaction(tx, mutationId: mutationId);
   }
 
   Future<void> createIncome({
@@ -47,6 +48,7 @@ class LedgerAppService {
         _asDomain(accounts.firstWhere((a) => a.id == incomeAccountId));
     final deposit =
         _asDomain(accounts.firstWhere((a) => a.id == depositAccountId));
+    final mutationId = _repo.newId();
     final tx = factory.income(
       id: domain.TransactionId(_repo.newId()),
       bookId: bookId,
@@ -59,7 +61,7 @@ class LedgerAppService {
       ),
       description: description,
     );
-    await _repo.saveDomainTransaction(tx);
+    await _repo.saveDomainTransaction(tx, mutationId: mutationId);
   }
 
   Future<void> createTransfer({
@@ -71,6 +73,7 @@ class LedgerAppService {
     final accounts = await _repo.listAccounts(bookId.value);
     final from = _asDomain(accounts.firstWhere((a) => a.id == fromAccountId));
     final to = _asDomain(accounts.firstWhere((a) => a.id == toAccountId));
+    final mutationId = _repo.newId();
     final tx = factory.transfer(
       id: domain.TransactionId(_repo.newId()),
       bookId: bookId,
@@ -83,7 +86,23 @@ class LedgerAppService {
       ),
       description: description,
     );
-    await _repo.saveDomainTransaction(tx);
+    await _repo.saveDomainTransaction(tx, mutationId: mutationId);
+  }
+
+  Future<void> deleteTransaction(String txId) {
+    return _repo.softDeleteTransaction(txId, bookId.value);
+  }
+
+  Future<void> createAccount({
+    required String name,
+    required String type,
+  }) {
+    return _repo.upsertAccount(
+      id: _repo.newId(),
+      bookId: bookId.value,
+      name: name,
+      type: type,
+    );
   }
 
   domain.Account _asDomain(Account row) {

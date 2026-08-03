@@ -626,9 +626,15 @@ class $TransactionsTable extends Transactions
   late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
       'created_at', aliasedName, false,
       type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _deletedAtMeta =
+      const VerificationMeta('deletedAt');
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+      'deleted_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns =>
-      [id, bookId, occurredAt, description, version, createdAt];
+      [id, bookId, occurredAt, description, version, createdAt, deletedAt];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -674,6 +680,10 @@ class $TransactionsTable extends Transactions
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('deleted_at')) {
+      context.handle(_deletedAtMeta,
+          deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta));
+    }
     return context;
   }
 
@@ -695,6 +705,8 @@ class $TransactionsTable extends Transactions
           .read(DriftSqlType.int, data['${effectivePrefix}version'])!,
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      deletedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}deleted_at']),
     );
   }
 
@@ -711,13 +723,15 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   final String? description;
   final int version;
   final DateTime createdAt;
+  final DateTime? deletedAt;
   const Transaction(
       {required this.id,
       required this.bookId,
       required this.occurredAt,
       this.description,
       required this.version,
-      required this.createdAt});
+      required this.createdAt,
+      this.deletedAt});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -729,6 +743,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     }
     map['version'] = Variable<int>(version);
     map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
     return map;
   }
 
@@ -742,6 +759,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           : Value(description),
       version: Value(version),
       createdAt: Value(createdAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
     );
   }
 
@@ -755,6 +775,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       description: serializer.fromJson<String?>(json['description']),
       version: serializer.fromJson<int>(json['version']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
     );
   }
   @override
@@ -767,6 +788,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       'description': serializer.toJson<String?>(description),
       'version': serializer.toJson<int>(version),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
     };
   }
 
@@ -776,7 +798,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           DateTime? occurredAt,
           Value<String?> description = const Value.absent(),
           int? version,
-          DateTime? createdAt}) =>
+          DateTime? createdAt,
+          Value<DateTime?> deletedAt = const Value.absent()}) =>
       Transaction(
         id: id ?? this.id,
         bookId: bookId ?? this.bookId,
@@ -784,6 +807,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
         description: description.present ? description.value : this.description,
         version: version ?? this.version,
         createdAt: createdAt ?? this.createdAt,
+        deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
       );
   Transaction copyWithCompanion(TransactionsCompanion data) {
     return Transaction(
@@ -795,6 +819,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           data.description.present ? data.description.value : this.description,
       version: data.version.present ? data.version.value : this.version,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
     );
   }
 
@@ -806,14 +831,15 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ..write('occurredAt: $occurredAt, ')
           ..write('description: $description, ')
           ..write('version: $version, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('deletedAt: $deletedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, bookId, occurredAt, description, version, createdAt);
+  int get hashCode => Object.hash(
+      id, bookId, occurredAt, description, version, createdAt, deletedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -823,7 +849,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           other.occurredAt == this.occurredAt &&
           other.description == this.description &&
           other.version == this.version &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.deletedAt == this.deletedAt);
 }
 
 class TransactionsCompanion extends UpdateCompanion<Transaction> {
@@ -833,6 +860,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<String?> description;
   final Value<int> version;
   final Value<DateTime> createdAt;
+  final Value<DateTime?> deletedAt;
   final Value<int> rowid;
   const TransactionsCompanion({
     this.id = const Value.absent(),
@@ -841,6 +869,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.description = const Value.absent(),
     this.version = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TransactionsCompanion.insert({
@@ -850,6 +879,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.description = const Value.absent(),
     this.version = const Value.absent(),
     required DateTime createdAt,
+    this.deletedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         bookId = Value(bookId),
@@ -862,6 +892,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Expression<String>? description,
     Expression<int>? version,
     Expression<DateTime>? createdAt,
+    Expression<DateTime>? deletedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -871,6 +902,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       if (description != null) 'description': description,
       if (version != null) 'version': version,
       if (createdAt != null) 'created_at': createdAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -882,6 +914,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       Value<String?>? description,
       Value<int>? version,
       Value<DateTime>? createdAt,
+      Value<DateTime?>? deletedAt,
       Value<int>? rowid}) {
     return TransactionsCompanion(
       id: id ?? this.id,
@@ -890,6 +923,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       description: description ?? this.description,
       version: version ?? this.version,
       createdAt: createdAt ?? this.createdAt,
+      deletedAt: deletedAt ?? this.deletedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -915,6 +949,9 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -930,6 +967,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
           ..write('description: $description, ')
           ..write('version: $version, ')
           ..write('createdAt: $createdAt, ')
+          ..write('deletedAt: $deletedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1298,6 +1336,1286 @@ class TransactionEntriesCompanion extends UpdateCompanion<TransactionEntry> {
   }
 }
 
+class $PendingMutationsTable extends PendingMutations
+    with TableInfo<$PendingMutationsTable, PendingMutation> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PendingMutationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _mutationIdMeta =
+      const VerificationMeta('mutationId');
+  @override
+  late final GeneratedColumn<String> mutationId = GeneratedColumn<String>(
+      'mutation_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _bookIdMeta = const VerificationMeta('bookId');
+  @override
+  late final GeneratedColumn<String> bookId = GeneratedColumn<String>(
+      'book_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _deviceIdMeta =
+      const VerificationMeta('deviceId');
+  @override
+  late final GeneratedColumn<String> deviceId = GeneratedColumn<String>(
+      'device_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _entityTypeMeta =
+      const VerificationMeta('entityType');
+  @override
+  late final GeneratedColumn<String> entityType = GeneratedColumn<String>(
+      'entity_type', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _entityIdMeta =
+      const VerificationMeta('entityId');
+  @override
+  late final GeneratedColumn<String> entityId = GeneratedColumn<String>(
+      'entity_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _operationMeta =
+      const VerificationMeta('operation');
+  @override
+  late final GeneratedColumn<String> operation = GeneratedColumn<String>(
+      'operation', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _baseVersionMeta =
+      const VerificationMeta('baseVersion');
+  @override
+  late final GeneratedColumn<int> baseVersion = GeneratedColumn<int>(
+      'base_version', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _payloadJsonMeta =
+      const VerificationMeta('payloadJson');
+  @override
+  late final GeneratedColumn<String> payloadJson = GeneratedColumn<String>(
+      'payload_json', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [
+        mutationId,
+        bookId,
+        deviceId,
+        entityType,
+        entityId,
+        operation,
+        baseVersion,
+        payloadJson,
+        createdAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pending_mutations';
+  @override
+  VerificationContext validateIntegrity(Insertable<PendingMutation> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('mutation_id')) {
+      context.handle(
+          _mutationIdMeta,
+          mutationId.isAcceptableOrUnknown(
+              data['mutation_id']!, _mutationIdMeta));
+    } else if (isInserting) {
+      context.missing(_mutationIdMeta);
+    }
+    if (data.containsKey('book_id')) {
+      context.handle(_bookIdMeta,
+          bookId.isAcceptableOrUnknown(data['book_id']!, _bookIdMeta));
+    } else if (isInserting) {
+      context.missing(_bookIdMeta);
+    }
+    if (data.containsKey('device_id')) {
+      context.handle(_deviceIdMeta,
+          deviceId.isAcceptableOrUnknown(data['device_id']!, _deviceIdMeta));
+    } else if (isInserting) {
+      context.missing(_deviceIdMeta);
+    }
+    if (data.containsKey('entity_type')) {
+      context.handle(
+          _entityTypeMeta,
+          entityType.isAcceptableOrUnknown(
+              data['entity_type']!, _entityTypeMeta));
+    } else if (isInserting) {
+      context.missing(_entityTypeMeta);
+    }
+    if (data.containsKey('entity_id')) {
+      context.handle(_entityIdMeta,
+          entityId.isAcceptableOrUnknown(data['entity_id']!, _entityIdMeta));
+    } else if (isInserting) {
+      context.missing(_entityIdMeta);
+    }
+    if (data.containsKey('operation')) {
+      context.handle(_operationMeta,
+          operation.isAcceptableOrUnknown(data['operation']!, _operationMeta));
+    } else if (isInserting) {
+      context.missing(_operationMeta);
+    }
+    if (data.containsKey('base_version')) {
+      context.handle(
+          _baseVersionMeta,
+          baseVersion.isAcceptableOrUnknown(
+              data['base_version']!, _baseVersionMeta));
+    } else if (isInserting) {
+      context.missing(_baseVersionMeta);
+    }
+    if (data.containsKey('payload_json')) {
+      context.handle(
+          _payloadJsonMeta,
+          payloadJson.isAcceptableOrUnknown(
+              data['payload_json']!, _payloadJsonMeta));
+    } else if (isInserting) {
+      context.missing(_payloadJsonMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {mutationId};
+  @override
+  PendingMutation map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PendingMutation(
+      mutationId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}mutation_id'])!,
+      bookId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}book_id'])!,
+      deviceId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}device_id'])!,
+      entityType: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}entity_type'])!,
+      entityId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}entity_id'])!,
+      operation: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}operation'])!,
+      baseVersion: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}base_version'])!,
+      payloadJson: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}payload_json'])!,
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $PendingMutationsTable createAlias(String alias) {
+    return $PendingMutationsTable(attachedDatabase, alias);
+  }
+}
+
+class PendingMutation extends DataClass implements Insertable<PendingMutation> {
+  final String mutationId;
+  final String bookId;
+  final String deviceId;
+  final String entityType;
+  final String entityId;
+  final String operation;
+  final int baseVersion;
+  final String payloadJson;
+  final DateTime createdAt;
+  const PendingMutation(
+      {required this.mutationId,
+      required this.bookId,
+      required this.deviceId,
+      required this.entityType,
+      required this.entityId,
+      required this.operation,
+      required this.baseVersion,
+      required this.payloadJson,
+      required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['mutation_id'] = Variable<String>(mutationId);
+    map['book_id'] = Variable<String>(bookId);
+    map['device_id'] = Variable<String>(deviceId);
+    map['entity_type'] = Variable<String>(entityType);
+    map['entity_id'] = Variable<String>(entityId);
+    map['operation'] = Variable<String>(operation);
+    map['base_version'] = Variable<int>(baseVersion);
+    map['payload_json'] = Variable<String>(payloadJson);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  PendingMutationsCompanion toCompanion(bool nullToAbsent) {
+    return PendingMutationsCompanion(
+      mutationId: Value(mutationId),
+      bookId: Value(bookId),
+      deviceId: Value(deviceId),
+      entityType: Value(entityType),
+      entityId: Value(entityId),
+      operation: Value(operation),
+      baseVersion: Value(baseVersion),
+      payloadJson: Value(payloadJson),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory PendingMutation.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PendingMutation(
+      mutationId: serializer.fromJson<String>(json['mutationId']),
+      bookId: serializer.fromJson<String>(json['bookId']),
+      deviceId: serializer.fromJson<String>(json['deviceId']),
+      entityType: serializer.fromJson<String>(json['entityType']),
+      entityId: serializer.fromJson<String>(json['entityId']),
+      operation: serializer.fromJson<String>(json['operation']),
+      baseVersion: serializer.fromJson<int>(json['baseVersion']),
+      payloadJson: serializer.fromJson<String>(json['payloadJson']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'mutationId': serializer.toJson<String>(mutationId),
+      'bookId': serializer.toJson<String>(bookId),
+      'deviceId': serializer.toJson<String>(deviceId),
+      'entityType': serializer.toJson<String>(entityType),
+      'entityId': serializer.toJson<String>(entityId),
+      'operation': serializer.toJson<String>(operation),
+      'baseVersion': serializer.toJson<int>(baseVersion),
+      'payloadJson': serializer.toJson<String>(payloadJson),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  PendingMutation copyWith(
+          {String? mutationId,
+          String? bookId,
+          String? deviceId,
+          String? entityType,
+          String? entityId,
+          String? operation,
+          int? baseVersion,
+          String? payloadJson,
+          DateTime? createdAt}) =>
+      PendingMutation(
+        mutationId: mutationId ?? this.mutationId,
+        bookId: bookId ?? this.bookId,
+        deviceId: deviceId ?? this.deviceId,
+        entityType: entityType ?? this.entityType,
+        entityId: entityId ?? this.entityId,
+        operation: operation ?? this.operation,
+        baseVersion: baseVersion ?? this.baseVersion,
+        payloadJson: payloadJson ?? this.payloadJson,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  PendingMutation copyWithCompanion(PendingMutationsCompanion data) {
+    return PendingMutation(
+      mutationId:
+          data.mutationId.present ? data.mutationId.value : this.mutationId,
+      bookId: data.bookId.present ? data.bookId.value : this.bookId,
+      deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
+      entityType:
+          data.entityType.present ? data.entityType.value : this.entityType,
+      entityId: data.entityId.present ? data.entityId.value : this.entityId,
+      operation: data.operation.present ? data.operation.value : this.operation,
+      baseVersion:
+          data.baseVersion.present ? data.baseVersion.value : this.baseVersion,
+      payloadJson:
+          data.payloadJson.present ? data.payloadJson.value : this.payloadJson,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingMutation(')
+          ..write('mutationId: $mutationId, ')
+          ..write('bookId: $bookId, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('operation: $operation, ')
+          ..write('baseVersion: $baseVersion, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(mutationId, bookId, deviceId, entityType,
+      entityId, operation, baseVersion, payloadJson, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PendingMutation &&
+          other.mutationId == this.mutationId &&
+          other.bookId == this.bookId &&
+          other.deviceId == this.deviceId &&
+          other.entityType == this.entityType &&
+          other.entityId == this.entityId &&
+          other.operation == this.operation &&
+          other.baseVersion == this.baseVersion &&
+          other.payloadJson == this.payloadJson &&
+          other.createdAt == this.createdAt);
+}
+
+class PendingMutationsCompanion extends UpdateCompanion<PendingMutation> {
+  final Value<String> mutationId;
+  final Value<String> bookId;
+  final Value<String> deviceId;
+  final Value<String> entityType;
+  final Value<String> entityId;
+  final Value<String> operation;
+  final Value<int> baseVersion;
+  final Value<String> payloadJson;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const PendingMutationsCompanion({
+    this.mutationId = const Value.absent(),
+    this.bookId = const Value.absent(),
+    this.deviceId = const Value.absent(),
+    this.entityType = const Value.absent(),
+    this.entityId = const Value.absent(),
+    this.operation = const Value.absent(),
+    this.baseVersion = const Value.absent(),
+    this.payloadJson = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PendingMutationsCompanion.insert({
+    required String mutationId,
+    required String bookId,
+    required String deviceId,
+    required String entityType,
+    required String entityId,
+    required String operation,
+    required int baseVersion,
+    required String payloadJson,
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  })  : mutationId = Value(mutationId),
+        bookId = Value(bookId),
+        deviceId = Value(deviceId),
+        entityType = Value(entityType),
+        entityId = Value(entityId),
+        operation = Value(operation),
+        baseVersion = Value(baseVersion),
+        payloadJson = Value(payloadJson),
+        createdAt = Value(createdAt);
+  static Insertable<PendingMutation> custom({
+    Expression<String>? mutationId,
+    Expression<String>? bookId,
+    Expression<String>? deviceId,
+    Expression<String>? entityType,
+    Expression<String>? entityId,
+    Expression<String>? operation,
+    Expression<int>? baseVersion,
+    Expression<String>? payloadJson,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (mutationId != null) 'mutation_id': mutationId,
+      if (bookId != null) 'book_id': bookId,
+      if (deviceId != null) 'device_id': deviceId,
+      if (entityType != null) 'entity_type': entityType,
+      if (entityId != null) 'entity_id': entityId,
+      if (operation != null) 'operation': operation,
+      if (baseVersion != null) 'base_version': baseVersion,
+      if (payloadJson != null) 'payload_json': payloadJson,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PendingMutationsCompanion copyWith(
+      {Value<String>? mutationId,
+      Value<String>? bookId,
+      Value<String>? deviceId,
+      Value<String>? entityType,
+      Value<String>? entityId,
+      Value<String>? operation,
+      Value<int>? baseVersion,
+      Value<String>? payloadJson,
+      Value<DateTime>? createdAt,
+      Value<int>? rowid}) {
+    return PendingMutationsCompanion(
+      mutationId: mutationId ?? this.mutationId,
+      bookId: bookId ?? this.bookId,
+      deviceId: deviceId ?? this.deviceId,
+      entityType: entityType ?? this.entityType,
+      entityId: entityId ?? this.entityId,
+      operation: operation ?? this.operation,
+      baseVersion: baseVersion ?? this.baseVersion,
+      payloadJson: payloadJson ?? this.payloadJson,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (mutationId.present) {
+      map['mutation_id'] = Variable<String>(mutationId.value);
+    }
+    if (bookId.present) {
+      map['book_id'] = Variable<String>(bookId.value);
+    }
+    if (deviceId.present) {
+      map['device_id'] = Variable<String>(deviceId.value);
+    }
+    if (entityType.present) {
+      map['entity_type'] = Variable<String>(entityType.value);
+    }
+    if (entityId.present) {
+      map['entity_id'] = Variable<String>(entityId.value);
+    }
+    if (operation.present) {
+      map['operation'] = Variable<String>(operation.value);
+    }
+    if (baseVersion.present) {
+      map['base_version'] = Variable<int>(baseVersion.value);
+    }
+    if (payloadJson.present) {
+      map['payload_json'] = Variable<String>(payloadJson.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingMutationsCompanion(')
+          ..write('mutationId: $mutationId, ')
+          ..write('bookId: $bookId, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('operation: $operation, ')
+          ..write('baseVersion: $baseVersion, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SyncStatesTable extends SyncStates
+    with TableInfo<$SyncStatesTable, SyncState> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncStatesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _bookIdMeta = const VerificationMeta('bookId');
+  @override
+  late final GeneratedColumn<String> bookId = GeneratedColumn<String>(
+      'book_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _deviceIdMeta =
+      const VerificationMeta('deviceId');
+  @override
+  late final GeneratedColumn<String> deviceId = GeneratedColumn<String>(
+      'device_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _cursorMeta = const VerificationMeta('cursor');
+  @override
+  late final GeneratedColumn<int> cursor = GeneratedColumn<int>(
+      'cursor', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _accessTokenMeta =
+      const VerificationMeta('accessToken');
+  @override
+  late final GeneratedColumn<String> accessToken = GeneratedColumn<String>(
+      'access_token', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _refreshTokenMeta =
+      const VerificationMeta('refreshToken');
+  @override
+  late final GeneratedColumn<String> refreshToken = GeneratedColumn<String>(
+      'refresh_token', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _lastErrorMeta =
+      const VerificationMeta('lastError');
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+      'last_error', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [
+        bookId,
+        deviceId,
+        cursor,
+        accessToken,
+        refreshToken,
+        lastError,
+        updatedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_states';
+  @override
+  VerificationContext validateIntegrity(Insertable<SyncState> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('book_id')) {
+      context.handle(_bookIdMeta,
+          bookId.isAcceptableOrUnknown(data['book_id']!, _bookIdMeta));
+    } else if (isInserting) {
+      context.missing(_bookIdMeta);
+    }
+    if (data.containsKey('device_id')) {
+      context.handle(_deviceIdMeta,
+          deviceId.isAcceptableOrUnknown(data['device_id']!, _deviceIdMeta));
+    } else if (isInserting) {
+      context.missing(_deviceIdMeta);
+    }
+    if (data.containsKey('cursor')) {
+      context.handle(_cursorMeta,
+          cursor.isAcceptableOrUnknown(data['cursor']!, _cursorMeta));
+    }
+    if (data.containsKey('access_token')) {
+      context.handle(
+          _accessTokenMeta,
+          accessToken.isAcceptableOrUnknown(
+              data['access_token']!, _accessTokenMeta));
+    }
+    if (data.containsKey('refresh_token')) {
+      context.handle(
+          _refreshTokenMeta,
+          refreshToken.isAcceptableOrUnknown(
+              data['refresh_token']!, _refreshTokenMeta));
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(_lastErrorMeta,
+          lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta));
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {bookId};
+  @override
+  SyncState map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncState(
+      bookId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}book_id'])!,
+      deviceId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}device_id'])!,
+      cursor: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}cursor'])!,
+      accessToken: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}access_token']),
+      refreshToken: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}refresh_token']),
+      lastError: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}last_error']),
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+    );
+  }
+
+  @override
+  $SyncStatesTable createAlias(String alias) {
+    return $SyncStatesTable(attachedDatabase, alias);
+  }
+}
+
+class SyncState extends DataClass implements Insertable<SyncState> {
+  final String bookId;
+  final String deviceId;
+  final int cursor;
+  final String? accessToken;
+  final String? refreshToken;
+  final String? lastError;
+  final DateTime updatedAt;
+  const SyncState(
+      {required this.bookId,
+      required this.deviceId,
+      required this.cursor,
+      this.accessToken,
+      this.refreshToken,
+      this.lastError,
+      required this.updatedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['book_id'] = Variable<String>(bookId);
+    map['device_id'] = Variable<String>(deviceId);
+    map['cursor'] = Variable<int>(cursor);
+    if (!nullToAbsent || accessToken != null) {
+      map['access_token'] = Variable<String>(accessToken);
+    }
+    if (!nullToAbsent || refreshToken != null) {
+      map['refresh_token'] = Variable<String>(refreshToken);
+    }
+    if (!nullToAbsent || lastError != null) {
+      map['last_error'] = Variable<String>(lastError);
+    }
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  SyncStatesCompanion toCompanion(bool nullToAbsent) {
+    return SyncStatesCompanion(
+      bookId: Value(bookId),
+      deviceId: Value(deviceId),
+      cursor: Value(cursor),
+      accessToken: accessToken == null && nullToAbsent
+          ? const Value.absent()
+          : Value(accessToken),
+      refreshToken: refreshToken == null && nullToAbsent
+          ? const Value.absent()
+          : Value(refreshToken),
+      lastError: lastError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastError),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory SyncState.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncState(
+      bookId: serializer.fromJson<String>(json['bookId']),
+      deviceId: serializer.fromJson<String>(json['deviceId']),
+      cursor: serializer.fromJson<int>(json['cursor']),
+      accessToken: serializer.fromJson<String?>(json['accessToken']),
+      refreshToken: serializer.fromJson<String?>(json['refreshToken']),
+      lastError: serializer.fromJson<String?>(json['lastError']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'bookId': serializer.toJson<String>(bookId),
+      'deviceId': serializer.toJson<String>(deviceId),
+      'cursor': serializer.toJson<int>(cursor),
+      'accessToken': serializer.toJson<String?>(accessToken),
+      'refreshToken': serializer.toJson<String?>(refreshToken),
+      'lastError': serializer.toJson<String?>(lastError),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  SyncState copyWith(
+          {String? bookId,
+          String? deviceId,
+          int? cursor,
+          Value<String?> accessToken = const Value.absent(),
+          Value<String?> refreshToken = const Value.absent(),
+          Value<String?> lastError = const Value.absent(),
+          DateTime? updatedAt}) =>
+      SyncState(
+        bookId: bookId ?? this.bookId,
+        deviceId: deviceId ?? this.deviceId,
+        cursor: cursor ?? this.cursor,
+        accessToken: accessToken.present ? accessToken.value : this.accessToken,
+        refreshToken:
+            refreshToken.present ? refreshToken.value : this.refreshToken,
+        lastError: lastError.present ? lastError.value : this.lastError,
+        updatedAt: updatedAt ?? this.updatedAt,
+      );
+  SyncState copyWithCompanion(SyncStatesCompanion data) {
+    return SyncState(
+      bookId: data.bookId.present ? data.bookId.value : this.bookId,
+      deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
+      cursor: data.cursor.present ? data.cursor.value : this.cursor,
+      accessToken:
+          data.accessToken.present ? data.accessToken.value : this.accessToken,
+      refreshToken: data.refreshToken.present
+          ? data.refreshToken.value
+          : this.refreshToken,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncState(')
+          ..write('bookId: $bookId, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('cursor: $cursor, ')
+          ..write('accessToken: $accessToken, ')
+          ..write('refreshToken: $refreshToken, ')
+          ..write('lastError: $lastError, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(bookId, deviceId, cursor, accessToken,
+      refreshToken, lastError, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncState &&
+          other.bookId == this.bookId &&
+          other.deviceId == this.deviceId &&
+          other.cursor == this.cursor &&
+          other.accessToken == this.accessToken &&
+          other.refreshToken == this.refreshToken &&
+          other.lastError == this.lastError &&
+          other.updatedAt == this.updatedAt);
+}
+
+class SyncStatesCompanion extends UpdateCompanion<SyncState> {
+  final Value<String> bookId;
+  final Value<String> deviceId;
+  final Value<int> cursor;
+  final Value<String?> accessToken;
+  final Value<String?> refreshToken;
+  final Value<String?> lastError;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const SyncStatesCompanion({
+    this.bookId = const Value.absent(),
+    this.deviceId = const Value.absent(),
+    this.cursor = const Value.absent(),
+    this.accessToken = const Value.absent(),
+    this.refreshToken = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SyncStatesCompanion.insert({
+    required String bookId,
+    required String deviceId,
+    this.cursor = const Value.absent(),
+    this.accessToken = const Value.absent(),
+    this.refreshToken = const Value.absent(),
+    this.lastError = const Value.absent(),
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  })  : bookId = Value(bookId),
+        deviceId = Value(deviceId),
+        updatedAt = Value(updatedAt);
+  static Insertable<SyncState> custom({
+    Expression<String>? bookId,
+    Expression<String>? deviceId,
+    Expression<int>? cursor,
+    Expression<String>? accessToken,
+    Expression<String>? refreshToken,
+    Expression<String>? lastError,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (bookId != null) 'book_id': bookId,
+      if (deviceId != null) 'device_id': deviceId,
+      if (cursor != null) 'cursor': cursor,
+      if (accessToken != null) 'access_token': accessToken,
+      if (refreshToken != null) 'refresh_token': refreshToken,
+      if (lastError != null) 'last_error': lastError,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SyncStatesCompanion copyWith(
+      {Value<String>? bookId,
+      Value<String>? deviceId,
+      Value<int>? cursor,
+      Value<String?>? accessToken,
+      Value<String?>? refreshToken,
+      Value<String?>? lastError,
+      Value<DateTime>? updatedAt,
+      Value<int>? rowid}) {
+    return SyncStatesCompanion(
+      bookId: bookId ?? this.bookId,
+      deviceId: deviceId ?? this.deviceId,
+      cursor: cursor ?? this.cursor,
+      accessToken: accessToken ?? this.accessToken,
+      refreshToken: refreshToken ?? this.refreshToken,
+      lastError: lastError ?? this.lastError,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (bookId.present) {
+      map['book_id'] = Variable<String>(bookId.value);
+    }
+    if (deviceId.present) {
+      map['device_id'] = Variable<String>(deviceId.value);
+    }
+    if (cursor.present) {
+      map['cursor'] = Variable<int>(cursor.value);
+    }
+    if (accessToken.present) {
+      map['access_token'] = Variable<String>(accessToken.value);
+    }
+    if (refreshToken.present) {
+      map['refresh_token'] = Variable<String>(refreshToken.value);
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncStatesCompanion(')
+          ..write('bookId: $bookId, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('cursor: $cursor, ')
+          ..write('accessToken: $accessToken, ')
+          ..write('refreshToken: $refreshToken, ')
+          ..write('lastError: $lastError, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SyncConflictsTable extends SyncConflicts
+    with TableInfo<$SyncConflictsTable, SyncConflict> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncConflictsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+      'id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _bookIdMeta = const VerificationMeta('bookId');
+  @override
+  late final GeneratedColumn<String> bookId = GeneratedColumn<String>(
+      'book_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _entityIdMeta =
+      const VerificationMeta('entityId');
+  @override
+  late final GeneratedColumn<String> entityId = GeneratedColumn<String>(
+      'entity_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _reasonMeta = const VerificationMeta('reason');
+  @override
+  late final GeneratedColumn<String> reason = GeneratedColumn<String>(
+      'reason', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _localPayloadJsonMeta =
+      const VerificationMeta('localPayloadJson');
+  @override
+  late final GeneratedColumn<String> localPayloadJson = GeneratedColumn<String>(
+      'local_payload_json', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _remoteVersionMeta =
+      const VerificationMeta('remoteVersion');
+  @override
+  late final GeneratedColumn<int> remoteVersion = GeneratedColumn<int>(
+      'remote_version', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        bookId,
+        entityId,
+        reason,
+        localPayloadJson,
+        remoteVersion,
+        createdAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_conflicts';
+  @override
+  VerificationContext validateIntegrity(Insertable<SyncConflict> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('book_id')) {
+      context.handle(_bookIdMeta,
+          bookId.isAcceptableOrUnknown(data['book_id']!, _bookIdMeta));
+    } else if (isInserting) {
+      context.missing(_bookIdMeta);
+    }
+    if (data.containsKey('entity_id')) {
+      context.handle(_entityIdMeta,
+          entityId.isAcceptableOrUnknown(data['entity_id']!, _entityIdMeta));
+    } else if (isInserting) {
+      context.missing(_entityIdMeta);
+    }
+    if (data.containsKey('reason')) {
+      context.handle(_reasonMeta,
+          reason.isAcceptableOrUnknown(data['reason']!, _reasonMeta));
+    } else if (isInserting) {
+      context.missing(_reasonMeta);
+    }
+    if (data.containsKey('local_payload_json')) {
+      context.handle(
+          _localPayloadJsonMeta,
+          localPayloadJson.isAcceptableOrUnknown(
+              data['local_payload_json']!, _localPayloadJsonMeta));
+    } else if (isInserting) {
+      context.missing(_localPayloadJsonMeta);
+    }
+    if (data.containsKey('remote_version')) {
+      context.handle(
+          _remoteVersionMeta,
+          remoteVersion.isAcceptableOrUnknown(
+              data['remote_version']!, _remoteVersionMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SyncConflict map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncConflict(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      bookId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}book_id'])!,
+      entityId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}entity_id'])!,
+      reason: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}reason'])!,
+      localPayloadJson: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}local_payload_json'])!,
+      remoteVersion: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}remote_version']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $SyncConflictsTable createAlias(String alias) {
+    return $SyncConflictsTable(attachedDatabase, alias);
+  }
+}
+
+class SyncConflict extends DataClass implements Insertable<SyncConflict> {
+  final String id;
+  final String bookId;
+  final String entityId;
+  final String reason;
+  final String localPayloadJson;
+  final int? remoteVersion;
+  final DateTime createdAt;
+  const SyncConflict(
+      {required this.id,
+      required this.bookId,
+      required this.entityId,
+      required this.reason,
+      required this.localPayloadJson,
+      this.remoteVersion,
+      required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['book_id'] = Variable<String>(bookId);
+    map['entity_id'] = Variable<String>(entityId);
+    map['reason'] = Variable<String>(reason);
+    map['local_payload_json'] = Variable<String>(localPayloadJson);
+    if (!nullToAbsent || remoteVersion != null) {
+      map['remote_version'] = Variable<int>(remoteVersion);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  SyncConflictsCompanion toCompanion(bool nullToAbsent) {
+    return SyncConflictsCompanion(
+      id: Value(id),
+      bookId: Value(bookId),
+      entityId: Value(entityId),
+      reason: Value(reason),
+      localPayloadJson: Value(localPayloadJson),
+      remoteVersion: remoteVersion == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remoteVersion),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory SyncConflict.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncConflict(
+      id: serializer.fromJson<String>(json['id']),
+      bookId: serializer.fromJson<String>(json['bookId']),
+      entityId: serializer.fromJson<String>(json['entityId']),
+      reason: serializer.fromJson<String>(json['reason']),
+      localPayloadJson: serializer.fromJson<String>(json['localPayloadJson']),
+      remoteVersion: serializer.fromJson<int?>(json['remoteVersion']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'bookId': serializer.toJson<String>(bookId),
+      'entityId': serializer.toJson<String>(entityId),
+      'reason': serializer.toJson<String>(reason),
+      'localPayloadJson': serializer.toJson<String>(localPayloadJson),
+      'remoteVersion': serializer.toJson<int?>(remoteVersion),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  SyncConflict copyWith(
+          {String? id,
+          String? bookId,
+          String? entityId,
+          String? reason,
+          String? localPayloadJson,
+          Value<int?> remoteVersion = const Value.absent(),
+          DateTime? createdAt}) =>
+      SyncConflict(
+        id: id ?? this.id,
+        bookId: bookId ?? this.bookId,
+        entityId: entityId ?? this.entityId,
+        reason: reason ?? this.reason,
+        localPayloadJson: localPayloadJson ?? this.localPayloadJson,
+        remoteVersion:
+            remoteVersion.present ? remoteVersion.value : this.remoteVersion,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  SyncConflict copyWithCompanion(SyncConflictsCompanion data) {
+    return SyncConflict(
+      id: data.id.present ? data.id.value : this.id,
+      bookId: data.bookId.present ? data.bookId.value : this.bookId,
+      entityId: data.entityId.present ? data.entityId.value : this.entityId,
+      reason: data.reason.present ? data.reason.value : this.reason,
+      localPayloadJson: data.localPayloadJson.present
+          ? data.localPayloadJson.value
+          : this.localPayloadJson,
+      remoteVersion: data.remoteVersion.present
+          ? data.remoteVersion.value
+          : this.remoteVersion,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncConflict(')
+          ..write('id: $id, ')
+          ..write('bookId: $bookId, ')
+          ..write('entityId: $entityId, ')
+          ..write('reason: $reason, ')
+          ..write('localPayloadJson: $localPayloadJson, ')
+          ..write('remoteVersion: $remoteVersion, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      id, bookId, entityId, reason, localPayloadJson, remoteVersion, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncConflict &&
+          other.id == this.id &&
+          other.bookId == this.bookId &&
+          other.entityId == this.entityId &&
+          other.reason == this.reason &&
+          other.localPayloadJson == this.localPayloadJson &&
+          other.remoteVersion == this.remoteVersion &&
+          other.createdAt == this.createdAt);
+}
+
+class SyncConflictsCompanion extends UpdateCompanion<SyncConflict> {
+  final Value<String> id;
+  final Value<String> bookId;
+  final Value<String> entityId;
+  final Value<String> reason;
+  final Value<String> localPayloadJson;
+  final Value<int?> remoteVersion;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const SyncConflictsCompanion({
+    this.id = const Value.absent(),
+    this.bookId = const Value.absent(),
+    this.entityId = const Value.absent(),
+    this.reason = const Value.absent(),
+    this.localPayloadJson = const Value.absent(),
+    this.remoteVersion = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SyncConflictsCompanion.insert({
+    required String id,
+    required String bookId,
+    required String entityId,
+    required String reason,
+    required String localPayloadJson,
+    this.remoteVersion = const Value.absent(),
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  })  : id = Value(id),
+        bookId = Value(bookId),
+        entityId = Value(entityId),
+        reason = Value(reason),
+        localPayloadJson = Value(localPayloadJson),
+        createdAt = Value(createdAt);
+  static Insertable<SyncConflict> custom({
+    Expression<String>? id,
+    Expression<String>? bookId,
+    Expression<String>? entityId,
+    Expression<String>? reason,
+    Expression<String>? localPayloadJson,
+    Expression<int>? remoteVersion,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (bookId != null) 'book_id': bookId,
+      if (entityId != null) 'entity_id': entityId,
+      if (reason != null) 'reason': reason,
+      if (localPayloadJson != null) 'local_payload_json': localPayloadJson,
+      if (remoteVersion != null) 'remote_version': remoteVersion,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SyncConflictsCompanion copyWith(
+      {Value<String>? id,
+      Value<String>? bookId,
+      Value<String>? entityId,
+      Value<String>? reason,
+      Value<String>? localPayloadJson,
+      Value<int?>? remoteVersion,
+      Value<DateTime>? createdAt,
+      Value<int>? rowid}) {
+    return SyncConflictsCompanion(
+      id: id ?? this.id,
+      bookId: bookId ?? this.bookId,
+      entityId: entityId ?? this.entityId,
+      reason: reason ?? this.reason,
+      localPayloadJson: localPayloadJson ?? this.localPayloadJson,
+      remoteVersion: remoteVersion ?? this.remoteVersion,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (bookId.present) {
+      map['book_id'] = Variable<String>(bookId.value);
+    }
+    if (entityId.present) {
+      map['entity_id'] = Variable<String>(entityId.value);
+    }
+    if (reason.present) {
+      map['reason'] = Variable<String>(reason.value);
+    }
+    if (localPayloadJson.present) {
+      map['local_payload_json'] = Variable<String>(localPayloadJson.value);
+    }
+    if (remoteVersion.present) {
+      map['remote_version'] = Variable<int>(remoteVersion.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncConflictsCompanion(')
+          ..write('id: $id, ')
+          ..write('bookId: $bookId, ')
+          ..write('entityId: $entityId, ')
+          ..write('reason: $reason, ')
+          ..write('localPayloadJson: $localPayloadJson, ')
+          ..write('remoteVersion: $remoteVersion, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1306,12 +2624,23 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $TransactionsTable transactions = $TransactionsTable(this);
   late final $TransactionEntriesTable transactionEntries =
       $TransactionEntriesTable(this);
+  late final $PendingMutationsTable pendingMutations =
+      $PendingMutationsTable(this);
+  late final $SyncStatesTable syncStates = $SyncStatesTable(this);
+  late final $SyncConflictsTable syncConflicts = $SyncConflictsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities =>
-      [books, accounts, transactions, transactionEntries];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [
+        books,
+        accounts,
+        transactions,
+        transactionEntries,
+        pendingMutations,
+        syncStates,
+        syncConflicts
+      ];
 }
 
 typedef $$BooksTableCreateCompanionBuilder = BooksCompanion Function({
@@ -1638,6 +2967,7 @@ typedef $$TransactionsTableCreateCompanionBuilder = TransactionsCompanion
   Value<String?> description,
   Value<int> version,
   required DateTime createdAt,
+  Value<DateTime?> deletedAt,
   Value<int> rowid,
 });
 typedef $$TransactionsTableUpdateCompanionBuilder = TransactionsCompanion
@@ -1648,6 +2978,7 @@ typedef $$TransactionsTableUpdateCompanionBuilder = TransactionsCompanion
   Value<String?> description,
   Value<int> version,
   Value<DateTime> createdAt,
+  Value<DateTime?> deletedAt,
   Value<int> rowid,
 });
 
@@ -1677,6 +3008,9 @@ class $$TransactionsTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+      column: $table.deletedAt, builder: (column) => ColumnFilters(column));
 }
 
 class $$TransactionsTableOrderingComposer
@@ -1705,6 +3039,9 @@ class $$TransactionsTableOrderingComposer
 
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+      column: $table.deletedAt, builder: (column) => ColumnOrderings(column));
 }
 
 class $$TransactionsTableAnnotationComposer
@@ -1733,6 +3070,9 @@ class $$TransactionsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
 }
 
 class $$TransactionsTableTableManager extends RootTableManager<
@@ -1767,6 +3107,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             Value<String?> description = const Value.absent(),
             Value<int> version = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime?> deletedAt = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               TransactionsCompanion(
@@ -1776,6 +3117,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             description: description,
             version: version,
             createdAt: createdAt,
+            deletedAt: deletedAt,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -1785,6 +3127,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             Value<String?> description = const Value.absent(),
             Value<int> version = const Value.absent(),
             required DateTime createdAt,
+            Value<DateTime?> deletedAt = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               TransactionsCompanion.insert(
@@ -1794,6 +3137,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             description: description,
             version: version,
             createdAt: createdAt,
+            deletedAt: deletedAt,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
@@ -2010,6 +3354,642 @@ typedef $$TransactionEntriesTableProcessedTableManager = ProcessedTableManager<
     ),
     TransactionEntry,
     PrefetchHooks Function()>;
+typedef $$PendingMutationsTableCreateCompanionBuilder
+    = PendingMutationsCompanion Function({
+  required String mutationId,
+  required String bookId,
+  required String deviceId,
+  required String entityType,
+  required String entityId,
+  required String operation,
+  required int baseVersion,
+  required String payloadJson,
+  required DateTime createdAt,
+  Value<int> rowid,
+});
+typedef $$PendingMutationsTableUpdateCompanionBuilder
+    = PendingMutationsCompanion Function({
+  Value<String> mutationId,
+  Value<String> bookId,
+  Value<String> deviceId,
+  Value<String> entityType,
+  Value<String> entityId,
+  Value<String> operation,
+  Value<int> baseVersion,
+  Value<String> payloadJson,
+  Value<DateTime> createdAt,
+  Value<int> rowid,
+});
+
+class $$PendingMutationsTableFilterComposer
+    extends Composer<_$AppDatabase, $PendingMutationsTable> {
+  $$PendingMutationsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get mutationId => $composableBuilder(
+      column: $table.mutationId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get bookId => $composableBuilder(
+      column: $table.bookId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get deviceId => $composableBuilder(
+      column: $table.deviceId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get entityType => $composableBuilder(
+      column: $table.entityType, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get entityId => $composableBuilder(
+      column: $table.entityId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get operation => $composableBuilder(
+      column: $table.operation, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get baseVersion => $composableBuilder(
+      column: $table.baseVersion, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get payloadJson => $composableBuilder(
+      column: $table.payloadJson, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$PendingMutationsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PendingMutationsTable> {
+  $$PendingMutationsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get mutationId => $composableBuilder(
+      column: $table.mutationId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get bookId => $composableBuilder(
+      column: $table.bookId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get deviceId => $composableBuilder(
+      column: $table.deviceId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get entityType => $composableBuilder(
+      column: $table.entityType, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get entityId => $composableBuilder(
+      column: $table.entityId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get operation => $composableBuilder(
+      column: $table.operation, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get baseVersion => $composableBuilder(
+      column: $table.baseVersion, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get payloadJson => $composableBuilder(
+      column: $table.payloadJson, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$PendingMutationsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PendingMutationsTable> {
+  $$PendingMutationsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get mutationId => $composableBuilder(
+      column: $table.mutationId, builder: (column) => column);
+
+  GeneratedColumn<String> get bookId =>
+      $composableBuilder(column: $table.bookId, builder: (column) => column);
+
+  GeneratedColumn<String> get deviceId =>
+      $composableBuilder(column: $table.deviceId, builder: (column) => column);
+
+  GeneratedColumn<String> get entityType => $composableBuilder(
+      column: $table.entityType, builder: (column) => column);
+
+  GeneratedColumn<String> get entityId =>
+      $composableBuilder(column: $table.entityId, builder: (column) => column);
+
+  GeneratedColumn<String> get operation =>
+      $composableBuilder(column: $table.operation, builder: (column) => column);
+
+  GeneratedColumn<int> get baseVersion => $composableBuilder(
+      column: $table.baseVersion, builder: (column) => column);
+
+  GeneratedColumn<String> get payloadJson => $composableBuilder(
+      column: $table.payloadJson, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$PendingMutationsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $PendingMutationsTable,
+    PendingMutation,
+    $$PendingMutationsTableFilterComposer,
+    $$PendingMutationsTableOrderingComposer,
+    $$PendingMutationsTableAnnotationComposer,
+    $$PendingMutationsTableCreateCompanionBuilder,
+    $$PendingMutationsTableUpdateCompanionBuilder,
+    (
+      PendingMutation,
+      BaseReferences<_$AppDatabase, $PendingMutationsTable, PendingMutation>
+    ),
+    PendingMutation,
+    PrefetchHooks Function()> {
+  $$PendingMutationsTableTableManager(
+      _$AppDatabase db, $PendingMutationsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PendingMutationsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PendingMutationsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PendingMutationsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> mutationId = const Value.absent(),
+            Value<String> bookId = const Value.absent(),
+            Value<String> deviceId = const Value.absent(),
+            Value<String> entityType = const Value.absent(),
+            Value<String> entityId = const Value.absent(),
+            Value<String> operation = const Value.absent(),
+            Value<int> baseVersion = const Value.absent(),
+            Value<String> payloadJson = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              PendingMutationsCompanion(
+            mutationId: mutationId,
+            bookId: bookId,
+            deviceId: deviceId,
+            entityType: entityType,
+            entityId: entityId,
+            operation: operation,
+            baseVersion: baseVersion,
+            payloadJson: payloadJson,
+            createdAt: createdAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String mutationId,
+            required String bookId,
+            required String deviceId,
+            required String entityType,
+            required String entityId,
+            required String operation,
+            required int baseVersion,
+            required String payloadJson,
+            required DateTime createdAt,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              PendingMutationsCompanion.insert(
+            mutationId: mutationId,
+            bookId: bookId,
+            deviceId: deviceId,
+            entityType: entityType,
+            entityId: entityId,
+            operation: operation,
+            baseVersion: baseVersion,
+            payloadJson: payloadJson,
+            createdAt: createdAt,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$PendingMutationsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $PendingMutationsTable,
+    PendingMutation,
+    $$PendingMutationsTableFilterComposer,
+    $$PendingMutationsTableOrderingComposer,
+    $$PendingMutationsTableAnnotationComposer,
+    $$PendingMutationsTableCreateCompanionBuilder,
+    $$PendingMutationsTableUpdateCompanionBuilder,
+    (
+      PendingMutation,
+      BaseReferences<_$AppDatabase, $PendingMutationsTable, PendingMutation>
+    ),
+    PendingMutation,
+    PrefetchHooks Function()>;
+typedef $$SyncStatesTableCreateCompanionBuilder = SyncStatesCompanion Function({
+  required String bookId,
+  required String deviceId,
+  Value<int> cursor,
+  Value<String?> accessToken,
+  Value<String?> refreshToken,
+  Value<String?> lastError,
+  required DateTime updatedAt,
+  Value<int> rowid,
+});
+typedef $$SyncStatesTableUpdateCompanionBuilder = SyncStatesCompanion Function({
+  Value<String> bookId,
+  Value<String> deviceId,
+  Value<int> cursor,
+  Value<String?> accessToken,
+  Value<String?> refreshToken,
+  Value<String?> lastError,
+  Value<DateTime> updatedAt,
+  Value<int> rowid,
+});
+
+class $$SyncStatesTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncStatesTable> {
+  $$SyncStatesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get bookId => $composableBuilder(
+      column: $table.bookId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get deviceId => $composableBuilder(
+      column: $table.deviceId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get cursor => $composableBuilder(
+      column: $table.cursor, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get accessToken => $composableBuilder(
+      column: $table.accessToken, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get refreshToken => $composableBuilder(
+      column: $table.refreshToken, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get lastError => $composableBuilder(
+      column: $table.lastError, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$SyncStatesTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncStatesTable> {
+  $$SyncStatesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get bookId => $composableBuilder(
+      column: $table.bookId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get deviceId => $composableBuilder(
+      column: $table.deviceId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get cursor => $composableBuilder(
+      column: $table.cursor, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get accessToken => $composableBuilder(
+      column: $table.accessToken, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get refreshToken => $composableBuilder(
+      column: $table.refreshToken,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get lastError => $composableBuilder(
+      column: $table.lastError, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$SyncStatesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncStatesTable> {
+  $$SyncStatesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get bookId =>
+      $composableBuilder(column: $table.bookId, builder: (column) => column);
+
+  GeneratedColumn<String> get deviceId =>
+      $composableBuilder(column: $table.deviceId, builder: (column) => column);
+
+  GeneratedColumn<int> get cursor =>
+      $composableBuilder(column: $table.cursor, builder: (column) => column);
+
+  GeneratedColumn<String> get accessToken => $composableBuilder(
+      column: $table.accessToken, builder: (column) => column);
+
+  GeneratedColumn<String> get refreshToken => $composableBuilder(
+      column: $table.refreshToken, builder: (column) => column);
+
+  GeneratedColumn<String> get lastError =>
+      $composableBuilder(column: $table.lastError, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$SyncStatesTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $SyncStatesTable,
+    SyncState,
+    $$SyncStatesTableFilterComposer,
+    $$SyncStatesTableOrderingComposer,
+    $$SyncStatesTableAnnotationComposer,
+    $$SyncStatesTableCreateCompanionBuilder,
+    $$SyncStatesTableUpdateCompanionBuilder,
+    (SyncState, BaseReferences<_$AppDatabase, $SyncStatesTable, SyncState>),
+    SyncState,
+    PrefetchHooks Function()> {
+  $$SyncStatesTableTableManager(_$AppDatabase db, $SyncStatesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncStatesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncStatesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncStatesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> bookId = const Value.absent(),
+            Value<String> deviceId = const Value.absent(),
+            Value<int> cursor = const Value.absent(),
+            Value<String?> accessToken = const Value.absent(),
+            Value<String?> refreshToken = const Value.absent(),
+            Value<String?> lastError = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              SyncStatesCompanion(
+            bookId: bookId,
+            deviceId: deviceId,
+            cursor: cursor,
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+            lastError: lastError,
+            updatedAt: updatedAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String bookId,
+            required String deviceId,
+            Value<int> cursor = const Value.absent(),
+            Value<String?> accessToken = const Value.absent(),
+            Value<String?> refreshToken = const Value.absent(),
+            Value<String?> lastError = const Value.absent(),
+            required DateTime updatedAt,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              SyncStatesCompanion.insert(
+            bookId: bookId,
+            deviceId: deviceId,
+            cursor: cursor,
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+            lastError: lastError,
+            updatedAt: updatedAt,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$SyncStatesTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $SyncStatesTable,
+    SyncState,
+    $$SyncStatesTableFilterComposer,
+    $$SyncStatesTableOrderingComposer,
+    $$SyncStatesTableAnnotationComposer,
+    $$SyncStatesTableCreateCompanionBuilder,
+    $$SyncStatesTableUpdateCompanionBuilder,
+    (SyncState, BaseReferences<_$AppDatabase, $SyncStatesTable, SyncState>),
+    SyncState,
+    PrefetchHooks Function()>;
+typedef $$SyncConflictsTableCreateCompanionBuilder = SyncConflictsCompanion
+    Function({
+  required String id,
+  required String bookId,
+  required String entityId,
+  required String reason,
+  required String localPayloadJson,
+  Value<int?> remoteVersion,
+  required DateTime createdAt,
+  Value<int> rowid,
+});
+typedef $$SyncConflictsTableUpdateCompanionBuilder = SyncConflictsCompanion
+    Function({
+  Value<String> id,
+  Value<String> bookId,
+  Value<String> entityId,
+  Value<String> reason,
+  Value<String> localPayloadJson,
+  Value<int?> remoteVersion,
+  Value<DateTime> createdAt,
+  Value<int> rowid,
+});
+
+class $$SyncConflictsTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncConflictsTable> {
+  $$SyncConflictsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get bookId => $composableBuilder(
+      column: $table.bookId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get entityId => $composableBuilder(
+      column: $table.entityId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get reason => $composableBuilder(
+      column: $table.reason, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get localPayloadJson => $composableBuilder(
+      column: $table.localPayloadJson,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get remoteVersion => $composableBuilder(
+      column: $table.remoteVersion, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$SyncConflictsTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncConflictsTable> {
+  $$SyncConflictsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get bookId => $composableBuilder(
+      column: $table.bookId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get entityId => $composableBuilder(
+      column: $table.entityId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get reason => $composableBuilder(
+      column: $table.reason, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get localPayloadJson => $composableBuilder(
+      column: $table.localPayloadJson,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get remoteVersion => $composableBuilder(
+      column: $table.remoteVersion,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$SyncConflictsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncConflictsTable> {
+  $$SyncConflictsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get bookId =>
+      $composableBuilder(column: $table.bookId, builder: (column) => column);
+
+  GeneratedColumn<String> get entityId =>
+      $composableBuilder(column: $table.entityId, builder: (column) => column);
+
+  GeneratedColumn<String> get reason =>
+      $composableBuilder(column: $table.reason, builder: (column) => column);
+
+  GeneratedColumn<String> get localPayloadJson => $composableBuilder(
+      column: $table.localPayloadJson, builder: (column) => column);
+
+  GeneratedColumn<int> get remoteVersion => $composableBuilder(
+      column: $table.remoteVersion, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$SyncConflictsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $SyncConflictsTable,
+    SyncConflict,
+    $$SyncConflictsTableFilterComposer,
+    $$SyncConflictsTableOrderingComposer,
+    $$SyncConflictsTableAnnotationComposer,
+    $$SyncConflictsTableCreateCompanionBuilder,
+    $$SyncConflictsTableUpdateCompanionBuilder,
+    (
+      SyncConflict,
+      BaseReferences<_$AppDatabase, $SyncConflictsTable, SyncConflict>
+    ),
+    SyncConflict,
+    PrefetchHooks Function()> {
+  $$SyncConflictsTableTableManager(_$AppDatabase db, $SyncConflictsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncConflictsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncConflictsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncConflictsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> id = const Value.absent(),
+            Value<String> bookId = const Value.absent(),
+            Value<String> entityId = const Value.absent(),
+            Value<String> reason = const Value.absent(),
+            Value<String> localPayloadJson = const Value.absent(),
+            Value<int?> remoteVersion = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              SyncConflictsCompanion(
+            id: id,
+            bookId: bookId,
+            entityId: entityId,
+            reason: reason,
+            localPayloadJson: localPayloadJson,
+            remoteVersion: remoteVersion,
+            createdAt: createdAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String id,
+            required String bookId,
+            required String entityId,
+            required String reason,
+            required String localPayloadJson,
+            Value<int?> remoteVersion = const Value.absent(),
+            required DateTime createdAt,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              SyncConflictsCompanion.insert(
+            id: id,
+            bookId: bookId,
+            entityId: entityId,
+            reason: reason,
+            localPayloadJson: localPayloadJson,
+            remoteVersion: remoteVersion,
+            createdAt: createdAt,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$SyncConflictsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $SyncConflictsTable,
+    SyncConflict,
+    $$SyncConflictsTableFilterComposer,
+    $$SyncConflictsTableOrderingComposer,
+    $$SyncConflictsTableAnnotationComposer,
+    $$SyncConflictsTableCreateCompanionBuilder,
+    $$SyncConflictsTableUpdateCompanionBuilder,
+    (
+      SyncConflict,
+      BaseReferences<_$AppDatabase, $SyncConflictsTable, SyncConflict>
+    ),
+    SyncConflict,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2022,4 +4002,10 @@ class $AppDatabaseManager {
       $$TransactionsTableTableManager(_db, _db.transactions);
   $$TransactionEntriesTableTableManager get transactionEntries =>
       $$TransactionEntriesTableTableManager(_db, _db.transactionEntries);
+  $$PendingMutationsTableTableManager get pendingMutations =>
+      $$PendingMutationsTableTableManager(_db, _db.pendingMutations);
+  $$SyncStatesTableTableManager get syncStates =>
+      $$SyncStatesTableTableManager(_db, _db.syncStates);
+  $$SyncConflictsTableTableManager get syncConflicts =>
+      $$SyncConflictsTableTableManager(_db, _db.syncConflicts);
 }

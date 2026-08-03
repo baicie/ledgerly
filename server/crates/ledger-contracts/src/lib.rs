@@ -38,6 +38,8 @@ pub struct TokenResponse {
     pub token_type: String,
     #[serde(rename = "expiresIn")]
     pub expires_in: u64,
+    #[serde(rename = "bookId")]
+    pub book_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

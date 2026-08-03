@@ -34,12 +34,50 @@ async fn push(
 ) -> Result<Json<SyncPushResponse>, ApiError> {
     let mut receipts = Vec::new();
     for mutation in req.mutations {
+        if let Some(pool) = &state.pool {
+            let existing: Option<(String, String, Option<i64>)> = sqlx::query_as(
+                "SELECT status, result_code, entity_version FROM sync_mutations
+                 WHERE book_id=$1 AND device_id=$2 AND mutation_id=$3",
+            )
+            .bind(&book_id)
+            .bind(&req.device_id)
+            .bind(&mutation.mutation_id)
+            .fetch_optional(pool)
+            .await
+            .map_err(db_err)?;
+            if let Some((status, result_code, entity_version)) = existing {
+                receipts.push(MutationReceiptDto {
+                    mutation_id: mutation.mutation_id.clone(),
+                    status,
+                    result_code,
+                    entity_version,
+                });
+                continue;
+            }
+            let receipt = process_mutation_pg(&state, &book_id, &mutation).await;
+            sqlx::query(
+                "INSERT INTO sync_mutations
+                 (book_id, device_id, mutation_id, status, result_code, entity_version)
+                 VALUES ($1,$2,$3,$4,$5,$6)",
+            )
+            .bind(&book_id)
+            .bind(&req.device_id)
+            .bind(&mutation.mutation_id)
+            .bind(&receipt.status)
+            .bind(&receipt.result_code)
+            .bind(receipt.entity_version)
+            .execute(pool)
+            .await
+            .map_err(db_err)?;
+            receipts.push(receipt);
+            continue;
+        }
+
         let key = (
             book_id.clone(),
             req.device_id.clone(),
             mutation.mutation_id.clone(),
         );
-
         {
             let store = state.store.read().await;
             if let Some(existing) = store.mutations.get(&key) {
@@ -52,8 +90,7 @@ async fn push(
                 continue;
             }
         }
-
-        let receipt = process_mutation(&state, &book_id, &mutation).await;
+        let receipt = process_mutation_mem(&state, &book_id, &mutation).await;
         {
             let mut store = state.store.write().await;
             store.mutations.insert(
@@ -70,31 +107,17 @@ async fn push(
     Ok(Json(SyncPushResponse { receipts }))
 }
 
-async fn process_mutation(
-    state: &AppState,
-    book_id: &str,
-    mutation: &ledger_contracts::SyncMutationDto,
-) -> MutationReceiptDto {
-    if mutation.entity_type != "transaction" || mutation.operation != "create" {
-        return MutationReceiptDto {
+fn parse_entries(mutation: &ledger_contracts::SyncMutationDto) -> Result<Vec<EntryDraft>, MutationReceiptDto> {
+    let entries = mutation
+        .payload
+        .get("entries")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| MutationReceiptDto {
             mutation_id: mutation.mutation_id.clone(),
             status: "rejected".into(),
-            result_code: "UNSUPPORTED_MUTATION".into(),
+            result_code: "INVALID_PAYLOAD".into(),
             entity_version: None,
-        };
-    }
-
-    let entries = match mutation.payload.get("entries").and_then(|v| v.as_array()) {
-        Some(arr) => arr,
-        None => {
-            return MutationReceiptDto {
-                mutation_id: mutation.mutation_id.clone(),
-                status: "rejected".into(),
-                result_code: "INVALID_PAYLOAD".into(),
-                entity_version: None,
-            };
-        }
-    };
+        })?;
 
     let mut drafts = Vec::new();
     for e in entries {
@@ -119,24 +142,196 @@ async fn process_mutation(
             currency,
         });
     }
+    Ok(drafts)
+}
 
-    if let Err(err) = validate_balanced(&drafts) {
+fn validate_or_reject(
+    mutation: &ledger_contracts::SyncMutationDto,
+    drafts: &[EntryDraft],
+) -> Option<MutationReceiptDto> {
+    if mutation.entity_type != "transaction"
+        || (mutation.operation != "create" && mutation.operation != "update")
+    {
+        return Some(MutationReceiptDto {
+            mutation_id: mutation.mutation_id.clone(),
+            status: "rejected".into(),
+            result_code: "UNSUPPORTED_MUTATION".into(),
+            entity_version: None,
+        });
+    }
+    if let Err(err) = validate_balanced(drafts) {
         let code = if err == ledger_domain::DomainError::Unbalanced {
             "LEDGER_UNBALANCED"
         } else {
             "LEDGER_INVALID"
         };
-        return MutationReceiptDto {
+        return Some(MutationReceiptDto {
             mutation_id: mutation.mutation_id.clone(),
             status: "rejected".into(),
             result_code: code.into(),
             entity_version: None,
+        });
+    }
+    None
+}
+
+async fn process_mutation_pg(
+    state: &AppState,
+    book_id: &str,
+    mutation: &ledger_contracts::SyncMutationDto,
+) -> MutationReceiptDto {
+    let pool = state.pool.as_ref().unwrap();
+    let drafts = match parse_entries(mutation) {
+        Ok(d) => d,
+        Err(r) => return r,
+    };
+    if let Some(r) = validate_or_reject(mutation, &drafts) {
+        return r;
+    }
+
+    let existing: Option<(i64,)> =
+        match sqlx::query_as("SELECT version FROM transactions WHERE id = $1 AND book_id = $2")
+            .bind(&mutation.entity_id)
+            .bind(book_id)
+            .fetch_optional(pool)
+            .await
+        {
+            Ok(v) => v,
+            Err(_) => {
+                return MutationReceiptDto {
+                    mutation_id: mutation.mutation_id.clone(),
+                    status: "rejected".into(),
+                    result_code: "DB_ERROR".into(),
+                    entity_version: None,
+                };
+            }
         };
+
+    if let Some((version,)) = existing {
+        if mutation.operation == "create" || mutation.base_version != version {
+            return MutationReceiptDto {
+                mutation_id: mutation.mutation_id.clone(),
+                status: "rejected".into(),
+                result_code: "LEDGER_VERSION_CONFLICT".into(),
+                entity_version: Some(version),
+            };
+        }
+    }
+
+    let version = existing.map(|(v,)| v + 1).unwrap_or(1);
+    let commit_id = Uuid::now_v7().to_string();
+    let description = mutation
+        .payload
+        .get("description")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    let Ok(mut tx) = pool.begin().await else {
+        return MutationReceiptDto {
+            mutation_id: mutation.mutation_id.clone(),
+            status: "rejected".into(),
+            result_code: "DB_ERROR".into(),
+            entity_version: None,
+        };
+    };
+
+    let write_ok = async {
+        if existing.is_some() {
+            sqlx::query(
+                "UPDATE transactions SET description=$1, version=$2
+                 WHERE id=$3 AND book_id=$4 AND version=$5",
+            )
+            .bind(&description)
+            .bind(version)
+            .bind(&mutation.entity_id)
+            .bind(book_id)
+            .bind(mutation.base_version)
+            .execute(&mut *tx)
+            .await?;
+            sqlx::query("DELETE FROM transaction_entries WHERE transaction_id=$1")
+                .bind(&mutation.entity_id)
+                .execute(&mut *tx)
+                .await?;
+        } else {
+            sqlx::query(
+                "INSERT INTO transactions (id, book_id, description, version)
+                 VALUES ($1,$2,$3,$4)",
+            )
+            .bind(&mutation.entity_id)
+            .bind(book_id)
+            .bind(&description)
+            .bind(version)
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        for (idx, d) in drafts.iter().enumerate() {
+            let entry_id = format!("{}-{idx}", mutation.entity_id);
+            sqlx::query(
+                "INSERT INTO transaction_entries
+                 (id, transaction_id, account_id, amount_minor, currency_code, entry_index)
+                 VALUES ($1,$2,$3,$4,$5,$6)",
+            )
+            .bind(&entry_id)
+            .bind(&mutation.entity_id)
+            .bind(&d.account_id)
+            .bind(d.amount_minor as i64)
+            .bind(&d.currency)
+            .bind(idx as i32)
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        sqlx::query(
+            "INSERT INTO sync_changes
+             (book_id, commit_id, entity_type, entity_id, operation, entity_version, payload)
+             VALUES ($1,$2,'transaction',$3,'upsert',$4,$5)",
+        )
+        .bind(book_id)
+        .bind(&commit_id)
+        .bind(&mutation.entity_id)
+        .bind(version)
+        .bind(&mutation.payload)
+        .execute(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        Ok::<(), sqlx::Error>(())
+    }
+    .await;
+
+    if write_ok.is_err() {
+        return MutationReceiptDto {
+            mutation_id: mutation.mutation_id.clone(),
+            status: "rejected".into(),
+            result_code: "DB_ERROR".into(),
+            entity_version: None,
+        };
+    }
+
+    MutationReceiptDto {
+        mutation_id: mutation.mutation_id.clone(),
+        status: "applied".into(),
+        result_code: "OK".into(),
+        entity_version: Some(version),
+    }
+}
+
+async fn process_mutation_mem(
+    state: &AppState,
+    book_id: &str,
+    mutation: &ledger_contracts::SyncMutationDto,
+) -> MutationReceiptDto {
+    let drafts = match parse_entries(mutation) {
+        Ok(d) => d,
+        Err(r) => return r,
+    };
+    if let Some(r) = validate_or_reject(mutation, &drafts) {
+        return r;
     }
 
     let mut store = state.store.write().await;
     if let Some(existing) = store.transactions.get(&mutation.entity_id) {
-        if existing.version != mutation.base_version && mutation.base_version != 0 {
+        if mutation.base_version != 0 && existing.version != mutation.base_version {
             return MutationReceiptDto {
                 mutation_id: mutation.mutation_id.clone(),
                 status: "rejected".into(),
@@ -150,7 +345,13 @@ async fn process_mutation(
     let commit_id = Uuid::now_v7().to_string();
     let entry_tuples: Vec<(String, i64, String)> = drafts
         .iter()
-        .map(|d| (d.account_id.clone(), d.amount_minor as i64, d.currency.clone()))
+        .map(|d| {
+            (
+                d.account_id.clone(),
+                d.amount_minor as i64,
+                d.currency.clone(),
+            )
+        })
         .collect();
     store.transactions.insert(
         mutation.entity_id.clone(),
@@ -163,7 +364,7 @@ async fn process_mutation(
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string()),
             version,
-            entries: entry_tuples.clone(),
+            entries: entry_tuples,
         },
     );
     let sequence = (store.changes.len() as i64) + 1;
@@ -193,6 +394,72 @@ async fn pull(
 ) -> Result<Json<SyncPullResponse>, ApiError> {
     let cursor = q.cursor.unwrap_or(0);
     let limit = q.limit.unwrap_or(500).min(1000);
+
+    if let Some(pool) = &state.pool {
+        let rows: Vec<(i64, String, String, String, String, i64, serde_json::Value)> =
+            sqlx::query_as(
+                "SELECT sequence, commit_id, entity_type, entity_id, operation, entity_version, payload
+                 FROM sync_changes
+                 WHERE book_id=$1 AND sequence > $2
+                 ORDER BY sequence ASC
+                 LIMIT $3",
+            )
+            .bind(&book_id)
+            .bind(cursor)
+            .bind((limit as i64) + 50)
+            .fetch_all(pool)
+            .await
+            .map_err(db_err)?;
+
+        let mut page = Vec::new();
+        let mut last_commit: Option<String> = None;
+        for (sequence, commit_id, entity_type, entity_id, operation, entity_version, payload) in rows
+        {
+            if page.len() >= limit {
+                if last_commit.as_ref() == Some(&commit_id) {
+                    page.push(SyncChangeDto {
+                        sequence: sequence.to_string(),
+                        commit_id,
+                        entity_type,
+                        entity_id,
+                        operation,
+                        version: entity_version,
+                        payload,
+                    });
+                    continue;
+                }
+                break;
+            }
+            last_commit = Some(commit_id.clone());
+            page.push(SyncChangeDto {
+                sequence: sequence.to_string(),
+                commit_id,
+                entity_type,
+                entity_id,
+                operation,
+                version: entity_version,
+                payload,
+            });
+        }
+        let next_cursor = page
+            .last()
+            .and_then(|c| c.sequence.parse::<i64>().ok())
+            .unwrap_or(cursor);
+        let has_more: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*)::bigint FROM sync_changes WHERE book_id=$1 AND sequence > $2",
+        )
+        .bind(&book_id)
+        .bind(next_cursor)
+        .fetch_one(pool)
+        .await
+        .map_err(db_err)?;
+        return Ok(Json(SyncPullResponse {
+            next_cursor: next_cursor.to_string(),
+            has_more: has_more.0 > 0,
+            changes: page,
+        }));
+    }
+
     let store = state.store.read().await;
     let mut changes: Vec<_> = store
         .changes
@@ -202,7 +469,6 @@ async fn pull(
         .collect();
     changes.sort_by_key(|c| c.sequence);
 
-    // Keep commit atomic: do not split same commit_id across pages.
     let mut page = Vec::new();
     let mut last_commit = None;
     for change in changes {
@@ -245,6 +511,59 @@ async fn bootstrap(
     State(state): State<AppState>,
     Path(book_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
+    if let Some(pool) = &state.pool {
+        let exists: Option<(String,)> = sqlx::query_as("SELECT id FROM books WHERE id=$1")
+            .bind(&book_id)
+            .fetch_optional(pool)
+            .await
+            .map_err(db_err)?;
+        if exists.is_none() {
+            return Err(ApiError::new(
+                StatusCode::NOT_FOUND,
+                "BOOK_NOT_FOUND",
+                "book missing",
+            ));
+        }
+        let high: (i64,) = sqlx::query_as(
+            "SELECT COALESCE(MAX(sequence),0)::bigint FROM sync_changes WHERE book_id=$1",
+        )
+        .bind(&book_id)
+        .fetch_one(pool)
+        .await
+        .map_err(db_err)?;
+        let txs: Vec<(String, i64, Option<String>)> = sqlx::query_as(
+            "SELECT id, version, description FROM transactions WHERE book_id=$1 AND deleted_at IS NULL",
+        )
+        .bind(&book_id)
+        .fetch_all(pool)
+        .await
+        .map_err(db_err)?;
+        let mut out = Vec::new();
+        for (id, version, description) in txs {
+            let entries: Vec<(String, i64, String)> = sqlx::query_as(
+                "SELECT account_id, amount_minor, currency_code FROM transaction_entries
+                 WHERE transaction_id=$1 ORDER BY entry_index",
+            )
+            .bind(&id)
+            .fetch_all(pool)
+            .await
+            .map_err(db_err)?;
+            out.push(serde_json::json!({
+                "id": id,
+                "version": version,
+                "description": description,
+                "entries": entries.iter().map(|(a,m,c)| serde_json::json!({
+                    "accountId": a, "amountMinor": m.to_string(), "currency": c
+                })).collect::<Vec<_>>(),
+            }));
+        }
+        return Ok(Json(serde_json::json!({
+            "bootstrapId": Uuid::now_v7().to_string(),
+            "highWaterCursor": high.0.to_string(),
+            "transactions": out,
+        })));
+    }
+
     let store = state.store.read().await;
     if !store.books.contains_key(&book_id) {
         return Err(ApiError::new(
@@ -276,4 +595,8 @@ async fn bootstrap(
             "entries": t.entries,
         })).collect::<Vec<_>>(),
     })))
+}
+
+fn db_err(e: sqlx::Error) -> ApiError {
+    ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "DB_ERROR", e.to_string())
 }
