@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ledgerly_client/application/ledger_app_service.dart';
@@ -58,5 +60,91 @@ void main() {
     );
     final pending = await repo.listPending(defaultBookId);
     expect(pending.any((p) => p.operation == 'delete'), isTrue);
+  });
+
+  test('adopting remote clears a conflict without requeueing local work',
+      () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final repo = LedgerRepository(db);
+    await repo.seedIfEmpty();
+    await repo.addConflict(
+      bookId: defaultBookId,
+      entityId: 'tx-remote-wins',
+      reason: 'LEDGER_VERSION_CONFLICT',
+      localPayloadJson: jsonEncode({'description': 'Local edit'}),
+      remoteVersion: 3,
+    );
+
+    final conflict = (await repo.listConflicts(defaultBookId)).single;
+    await repo.resolveConflict(
+      conflict.id,
+      resolution: ConflictResolution.useRemote,
+    );
+
+    expect(await repo.listConflicts(defaultBookId), isEmpty);
+    expect(await repo.listPending(defaultBookId), isEmpty);
+  });
+
+  test('keeping local requeues an update against the remote version',
+      () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final repo = LedgerRepository(db);
+    await repo.seedIfEmpty();
+    final payload = {
+      'description': 'Local edit',
+      'entries': [
+        {'accountId': accountKeyFood(defaultBookId), 'amountMinor': '2500'},
+        {'accountId': accountKeyCash(defaultBookId), 'amountMinor': '-2500'},
+      ],
+    };
+    await repo.addConflict(
+      bookId: defaultBookId,
+      entityId: 'tx-local-wins',
+      reason: 'LEDGER_VERSION_CONFLICT',
+      localPayloadJson: jsonEncode(payload),
+      remoteVersion: 4,
+    );
+
+    final conflict = (await repo.listConflicts(defaultBookId)).single;
+    await repo.resolveConflict(
+      conflict.id,
+      resolution: ConflictResolution.keepLocal,
+    );
+
+    expect(await repo.listConflicts(defaultBookId), isEmpty);
+    final pending = await repo.listPending(defaultBookId);
+    expect(pending, hasLength(1));
+    expect(pending.single.entityId, 'tx-local-wins');
+    expect(pending.single.operation, 'update');
+    expect(pending.single.baseVersion, 4);
+    expect(jsonDecode(pending.single.payloadJson), payload);
+  });
+
+  test('keeping local requeues a delete conflict as a delete mutation',
+      () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final repo = LedgerRepository(db);
+    await repo.seedIfEmpty();
+    await repo.addConflict(
+      bookId: defaultBookId,
+      entityId: 'tx-delete-local',
+      reason: 'LEDGER_VERSION_CONFLICT',
+      localPayloadJson: jsonEncode({'deleted': true}),
+      remoteVersion: 5,
+    );
+
+    final conflict = (await repo.listConflicts(defaultBookId)).single;
+    await repo.resolveConflict(
+      conflict.id,
+      resolution: ConflictResolution.keepLocal,
+    );
+
+    final pending = await repo.listPending(defaultBookId);
+    expect(pending, hasLength(1));
+    expect(pending.single.operation, 'delete');
+    expect(pending.single.baseVersion, 5);
   });
 }
