@@ -22,6 +22,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Test Android release signing verifier
+        run: scripts/tests/verify_android_release_signing_test.sh
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
