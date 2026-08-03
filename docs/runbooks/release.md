@@ -47,9 +47,19 @@ GHCR 拉取：公开包可用 `GITHUB_TOKEN`；私有包再加 `GHCR_PULL_TOKEN`
 
 ## 二、发版（推荐）
 
+在干净的 `main` 上：
+
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+./scripts/release.sh 0.0.1
+# 等价于：校验分支干净且与 origin/main 同步 → 打 annotated tag → push
+# 预览：./scripts/release.sh 0.0.1 --dry-run
+```
+
+手动等价：
+
+```bash
+git tag -a v0.0.1 -m "Release v0.0.1"
+git push origin v0.0.1
 ```
 
 触发 [`.github/workflows/release.yml`](../../.github/workflows/release.yml)：
@@ -57,7 +67,7 @@ git push origin v0.1.0
 | Job | 产物 |
 |-----|------|
 | Package Flutter clients | `ledgerly-web.zip`、`ledgerly-android.apk` → GitHub Release |
-| Build & push server image | `ghcr.io/<owner>/ledgerly-server:v0.1.0` + `latest` |
+| Build & push server image | `ghcr.io/<owner>/ledgerly-server:v0.0.1` + `latest` |
 | Publish GitHub Release | 附客户端文件 + release notes |
 
 手动部署：
