@@ -15,7 +15,26 @@ class AuthSession {
   final String plan;
 }
 
-class AuthRepository extends ChangeNotifier {
+abstract interface class AuthGateway implements Listenable {
+  AuthSession? get currentSession;
+
+  Future<AuthSession?> restore();
+
+  Future<AuthSession> login({
+    required String email,
+    required String password,
+  });
+
+  Future<AuthSession> registerAndLogin({
+    required String email,
+    required String password,
+    required String displayName,
+  });
+
+  Future<void> logout();
+}
+
+class AuthRepository extends ChangeNotifier implements AuthGateway {
   AuthRepository({
     required ApiEndpoint endpoint,
     required SessionStore sessionStore,
@@ -53,6 +72,7 @@ class AuthRepository extends ChangeNotifier {
   AuthSession? _currentSession;
   Future<AuthSession>? _refreshing;
 
+  @override
   AuthSession? get currentSession => _currentSession;
 
   Dio get authenticatedClient => _authenticatedDio;
@@ -72,6 +92,7 @@ class AuthRepository extends ChangeNotifier {
     );
   }
 
+  @override
   Future<AuthSession> registerAndLogin({
     required String email,
     required String password,
@@ -81,6 +102,7 @@ class AuthRepository extends ChangeNotifier {
     return login(email: email, password: password);
   }
 
+  @override
   Future<AuthSession> login({
     required String email,
     required String password,
@@ -98,6 +120,7 @@ class AuthRepository extends ChangeNotifier {
     return _acceptTokens(response.data);
   }
 
+  @override
   Future<AuthSession?> restore() async {
     if (!_sessionStore.usesCookieSession &&
         await _sessionStore.readRefreshToken() == null) {
@@ -114,6 +137,7 @@ class AuthRepository extends ChangeNotifier {
     }
   }
 
+  @override
   Future<void> logout() async {
     try {
       if (_currentSession != null) {
