@@ -53,6 +53,37 @@ void main() {
     expect(controller.state.status, AuthStatus.authenticated);
   });
 
+  testWidgets('registration accepts a one-character display name',
+      (tester) async {
+    final gateway = FakeAuthGateway();
+    final controller = AuthController(gateway);
+    addTearDown(controller.dispose);
+    await controller.restore();
+
+    await tester.pumpWidget(
+      MaterialApp(home: AuthPage(controller: controller)),
+    );
+    await tester.tap(find.text('注册'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('auth-email')),
+      'person@example.com',
+    );
+    await tester.enterText(
+      find.byKey(const Key('auth-display-name')),
+      '李',
+    );
+    await tester.enterText(
+      find.byKey(const Key('auth-password')),
+      'password123',
+    );
+    await tester.tap(find.byKey(const Key('auth-submit')));
+    await tester.pumpAndSettle();
+
+    expect(gateway.registerDisplayName, '李');
+    expect(controller.state.status, AuthStatus.authenticated);
+  });
+
   testWidgets('login failure is visible and password remains hidden',
       (tester) async {
     final gateway = FakeAuthGateway()..loginError = Exception('offline');

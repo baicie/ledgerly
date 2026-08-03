@@ -158,8 +158,8 @@ class _AuthPageState extends State<AuthPage> {
                                     ),
                                     validator: (value) {
                                       final length = value?.trim().length ?? 0;
-                                      if (length < 2) {
-                                        return '称呼至少 2 个字符';
+                                      if (length < 1) {
+                                        return '请输入称呼';
                                       }
                                       return length > _maxDisplayNameLength
                                           ? '称呼不能超过 80 个字符'
