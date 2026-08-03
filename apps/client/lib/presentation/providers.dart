@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../application/ledger_app_service.dart';
 import '../application/sync_service.dart';
 import '../auth/auth_repository.dart';
+import '../auth/auth_controller.dart';
 import '../auth/platform_session_store.dart';
 import '../auth/session_store.dart';
 import '../config/api_endpoint.dart';
@@ -32,6 +35,12 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   );
   ref.onDispose(repository.dispose);
   return repository;
+});
+
+final authControllerProvider = ChangeNotifierProvider<AuthController>((ref) {
+  final controller = AuthController(ref.watch(authRepositoryProvider));
+  unawaited(controller.restore());
+  return controller;
 });
 
 final ledgerRepositoryProvider = Provider<LedgerRepository>((ref) {
@@ -126,7 +135,8 @@ class CategoryAmount {
   final BigInt amount;
 }
 
-final categoryReportProvider = FutureProvider<List<CategoryAmount>>((ref) async {
+final categoryReportProvider =
+    FutureProvider<List<CategoryAmount>>((ref) async {
   final balances = await ref.watch(accountBalancesProvider.future);
   return balances
       .where((b) => b.type == 'expense' && b.balance > BigInt.zero)
