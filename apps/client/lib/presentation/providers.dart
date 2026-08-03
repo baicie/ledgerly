@@ -154,6 +154,7 @@ class SyncConflictItem {
     required this.id,
     required this.entityId,
     required this.reason,
+    required this.remoteVersion,
   });
   final String id;
   final String entityId;
