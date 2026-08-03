@@ -13,7 +13,10 @@ void main() {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
 
-    final repo = LedgerRepository(db);
+    final repo = LedgerRepository(
+      db,
+      deviceIdLoader: () async => 'test-device',
+    );
     await repo.seedIfEmpty();
     final service = LedgerAppService(repo);
 
@@ -38,12 +41,16 @@ void main() {
     final pending = await repo.listPending(defaultBookId);
     expect(pending, hasLength(1));
     expect(pending.first.operation, 'create');
+    expect(pending.first.deviceId, 'test-device');
   });
 
   test('soft delete hides transaction from balance', () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
-    final repo = LedgerRepository(db);
+    final repo = LedgerRepository(
+      db,
+      deviceIdLoader: () async => 'test-device',
+    );
     await repo.seedIfEmpty();
     final service = LedgerAppService(repo);
     await service.createExpense(
@@ -66,7 +73,10 @@ void main() {
       () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
-    final repo = LedgerRepository(db);
+    final repo = LedgerRepository(
+      db,
+      deviceIdLoader: () async => 'test-device',
+    );
     await repo.seedIfEmpty();
     await repo.addConflict(
       bookId: defaultBookId,
@@ -86,11 +96,13 @@ void main() {
     expect(await repo.listPending(defaultBookId), isEmpty);
   });
 
-  test('keeping local requeues an update against the remote version',
-      () async {
+  test('keeping local requeues an update against the remote version', () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
-    final repo = LedgerRepository(db);
+    final repo = LedgerRepository(
+      db,
+      deviceIdLoader: () async => 'test-device',
+    );
     await repo.seedIfEmpty();
     final payload = {
       'description': 'Local edit',
@@ -126,7 +138,10 @@ void main() {
       () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
-    final repo = LedgerRepository(db);
+    final repo = LedgerRepository(
+      db,
+      deviceIdLoader: () async => 'test-device',
+    );
     await repo.seedIfEmpty();
     await repo.addConflict(
       bookId: defaultBookId,

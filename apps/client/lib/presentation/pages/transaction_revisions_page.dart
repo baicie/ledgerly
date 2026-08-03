@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../domain/ids.dart';
 import '../providers.dart';
 
 class TransactionRevisionsPage extends ConsumerStatefulWidget {
@@ -33,14 +32,8 @@ class _TransactionRevisionsPageState
     });
     try {
       final sync = ref.read(syncServiceProvider);
-      await sync.ensureSession(
-        email: 'local@ledgerly.dev',
-        password: 'password123',
-      );
       await sync.syncNow();
-      final state =
-          await ref.read(ledgerRepositoryProvider).syncState(defaultBookId);
-      final bookId = state?.remoteBookId;
+      final bookId = ref.read(authRepositoryProvider).currentSession?.bookId;
       if (bookId == null) {
         setState(() => _error = '无远端账本');
         return;

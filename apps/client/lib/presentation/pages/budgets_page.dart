@@ -32,14 +32,7 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
   }
 
   Future<String?> _remoteBookId() async {
-    final sync = ref.read(syncServiceProvider);
-    await sync.ensureSession(
-      email: 'local@ledgerly.dev',
-      password: 'password123',
-    );
-    final state =
-        await ref.read(ledgerRepositoryProvider).syncState(defaultBookId);
-    return state?.remoteBookId;
+    return ref.read(authRepositoryProvider).currentSession?.bookId;
   }
 
   Future<void> _load() async {

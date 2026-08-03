@@ -8,16 +8,33 @@ import 'database.dart';
 
 enum ConflictResolution { useRemote, keepLocal }
 
+typedef DeviceIdLoader = Future<String> Function();
+
 class LedgerRepository {
-  LedgerRepository(this._db);
+  LedgerRepository(
+    this._db, {
+    required DeviceIdLoader deviceIdLoader,
+  }) : _deviceIdLoader = deviceIdLoader;
 
   final AppDatabase _db;
+  final DeviceIdLoader _deviceIdLoader;
+  Future<String>? _deviceId;
   var _seq = 0;
-  static const deviceId = 'device_local_1';
+
+  Future<String> get deviceId => _deviceId ??= _deviceIdLoader();
 
   Future<void> seedIfEmpty() async {
     final books = await _db.select(_db.books).get();
-    if (books.isNotEmpty) return;
+    final currentDeviceId = await deviceId;
+    if (books.isNotEmpty) {
+      await _db.update(_db.syncStates).write(
+            SyncStatesCompanion(deviceId: Value(currentDeviceId)),
+          );
+      await _db.update(_db.pendingMutations).write(
+            PendingMutationsCompanion(deviceId: Value(currentDeviceId)),
+          );
+      return;
+    }
 
     final bookId = defaultBookId;
     final now = DateTime.now().toUtc();
@@ -51,7 +68,7 @@ class LedgerRepository {
     await _db.into(_db.syncStates).insert(
           SyncStatesCompanion.insert(
             bookId: bookId,
-            deviceId: deviceId,
+            deviceId: currentDeviceId,
             updatedAt: now,
           ),
         );
@@ -138,6 +155,7 @@ class LedgerRepository {
     domain.LedgerTransaction tx, {
     required String mutationId,
   }) async {
+    final currentDeviceId = await deviceId;
     await _db.transaction(() async {
       await _db.into(_db.transactions).insert(
             TransactionsCompanion.insert(
@@ -177,7 +195,7 @@ class LedgerRepository {
             PendingMutationsCompanion.insert(
               mutationId: mutationId,
               bookId: tx.bookId.value,
-              deviceId: deviceId,
+              deviceId: currentDeviceId,
               entityType: 'transaction',
               entityId: tx.id.value,
               operation: 'create',
@@ -194,6 +212,7 @@ class LedgerRepository {
           ..where((t) => t.id.equals(txId)))
         .getSingle();
     final mutationId = newId();
+    final currentDeviceId = await deviceId;
     await _db.transaction(() async {
       await (_db.update(_db.transactions)..where((t) => t.id.equals(txId)))
           .write(
@@ -206,7 +225,7 @@ class LedgerRepository {
             PendingMutationsCompanion.insert(
               mutationId: mutationId,
               bookId: bookId,
-              deviceId: deviceId,
+              deviceId: currentDeviceId,
               entityType: 'transaction',
               entityId: txId,
               operation: 'delete',
@@ -239,8 +258,6 @@ class LedgerRepository {
   Future<void> updateSyncState({
     required String bookId,
     int? cursor,
-    String? accessToken,
-    String? refreshToken,
     String? remoteBookId,
     String? lastError,
   }) async {
@@ -249,10 +266,8 @@ class LedgerRepository {
       await _db.into(_db.syncStates).insert(
             SyncStatesCompanion.insert(
               bookId: bookId,
-              deviceId: deviceId,
+              deviceId: await deviceId,
               cursor: Value(cursor ?? 0),
-              accessToken: Value(accessToken),
-              refreshToken: Value(refreshToken),
               remoteBookId: Value(remoteBookId),
               lastError: Value(lastError),
               updatedAt: DateTime.now().toUtc(),
@@ -264,10 +279,7 @@ class LedgerRepository {
         .write(
       SyncStatesCompanion(
         cursor: cursor != null ? Value(cursor) : const Value.absent(),
-        accessToken:
-            accessToken != null ? Value(accessToken) : const Value.absent(),
-        refreshToken:
-            refreshToken != null ? Value(refreshToken) : const Value.absent(),
+        deviceId: Value(await deviceId),
         remoteBookId:
             remoteBookId != null ? Value(remoteBookId) : const Value.absent(),
         lastError: Value(lastError),
@@ -320,6 +332,9 @@ class LedgerRepository {
     String id, {
     required ConflictResolution resolution,
   }) async {
+    final currentDeviceId = resolution == ConflictResolution.keepLocal
+        ? await deviceId
+        : null;
     await _db.transaction(() async {
       final conflict = await (_db.select(_db.syncConflicts)
             ..where((t) => t.id.equals(id)))
@@ -336,7 +351,7 @@ class LedgerRepository {
               PendingMutationsCompanion.insert(
                 mutationId: newId(),
                 bookId: conflict.bookId,
-                deviceId: deviceId,
+                deviceId: currentDeviceId!,
                 entityType: 'transaction',
                 entityId: conflict.entityId,
                 operation: operation,
