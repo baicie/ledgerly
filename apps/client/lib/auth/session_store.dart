@@ -13,6 +13,10 @@ abstract interface class SessionStore {
 
   Future<String> getOrCreateDeviceId();
 
+  Future<bool> shouldAttemptRestore();
+
+  Future<void> markAuthenticated();
+
   Future<String?> readRefreshToken();
 
   Future<void> writeRefreshToken(String token);
@@ -29,6 +33,7 @@ abstract base class BaseSessionStore implements SessionStore {
 
   static const deviceIdKey = 'ledgerly.device_id.v1';
   static const refreshTokenKey = 'ledgerly.refresh_token.v1';
+  static const webSignedOutKey = 'ledgerly.web_signed_out.v1';
 
   final SessionKeyValueStore _keyValueStore;
   final DeviceIdFactory _idFactory;
@@ -60,6 +65,15 @@ final class NativeSessionStore extends BaseSessionStore {
   bool get usesCookieSession => false;
 
   @override
+  Future<bool> shouldAttemptRestore() async {
+    final token = await readRefreshToken();
+    return token != null && token.isNotEmpty;
+  }
+
+  @override
+  Future<void> markAuthenticated() async {}
+
+  @override
   Future<String?> readRefreshToken() =>
       keyValueStore.read(BaseSessionStore.refreshTokenKey);
 
@@ -86,6 +100,16 @@ final class CookieSessionStore extends BaseSessionStore {
   bool get usesCookieSession => true;
 
   @override
+  Future<bool> shouldAttemptRestore() async {
+    return await keyValueStore.read(BaseSessionStore.webSignedOutKey) != 'true';
+  }
+
+  @override
+  Future<void> markAuthenticated() {
+    return keyValueStore.delete(BaseSessionStore.webSignedOutKey);
+  }
+
+  @override
   Future<String?> readRefreshToken() async => null;
 
   @override
@@ -94,7 +118,9 @@ final class CookieSessionStore extends BaseSessionStore {
   }
 
   @override
-  Future<void> clearAuthentication() async {}
+  Future<void> clearAuthentication() {
+    return keyValueStore.write(BaseSessionStore.webSignedOutKey, 'true');
+  }
 }
 
 final class MemorySessionKeyValueStore implements SessionKeyValueStore {

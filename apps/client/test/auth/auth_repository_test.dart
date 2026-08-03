@@ -154,6 +154,41 @@ void main() {
     expect(resourceAdapter.requests, hasLength(4));
   });
 
+  test('a late 401 reuses the token from a completed refresh', () async {
+    var refreshCount = 0;
+    var oldTokenRequests = 0;
+    final releaseLateResponse = Completer<void>();
+    authAdapter.handler = (request) async {
+      if (request.path.endsWith('/login')) {
+        return jsonResponse(200, tokenBody('access-old', 'refresh-old'));
+      }
+      refreshCount++;
+      return jsonResponse(200, tokenBody('access-new', 'refresh-new'));
+    };
+    resourceAdapter.handler = (request) async {
+      if (request.headers['Authorization'] == 'Bearer access-old') {
+        oldTokenRequests++;
+        if (oldTokenRequests == 2) {
+          await releaseLateResponse.future;
+        }
+        return jsonResponse(401, {'code': 'UNAUTHORIZED'});
+      }
+      expect(request.headers['Authorization'], 'Bearer access-new');
+      return jsonResponse(200, {'ok': true});
+    };
+    final repo = repository();
+    await repo.login(email: 'person@example.com', password: 'password123');
+
+    final first = repo.authenticatedClient.get('/first');
+    final late = repo.authenticatedClient.get('/late');
+    expect((await first).statusCode, 200);
+    releaseLateResponse.complete();
+    expect((await late).statusCode, 200);
+
+    expect(refreshCount, 1);
+    expect(resourceAdapter.requests, hasLength(4));
+  });
+
   test('a request is not retried again after the refreshed token gets 401',
       () async {
     var refreshCount = 0;
@@ -235,6 +270,74 @@ void main() {
     expect(repo.currentSession, isNull);
     expect(await store.readRefreshToken(), isNull);
   });
+
+  test('storage cleanup failure still broadcasts the signed-out state',
+      () async {
+    final failingStore = FailingClearSessionStore(
+      NativeSessionStore(
+        keyValueStore: values,
+        idFactory: () => 'stable-device',
+      ),
+    );
+    authAdapter.handler =
+        (_) async => jsonResponse(200, tokenBody('access-one', 'refresh-one'));
+    resourceAdapter.handler = (_) async => ResponseBody.fromString('', 204);
+    final repo = repository(sessionStore: failingStore);
+    var notifications = 0;
+    repo.addListener(() => notifications++);
+    await repo.login(email: 'person@example.com', password: 'password123');
+    notifications = 0;
+
+    await expectLater(repo.logout(), throwsStateError);
+
+    expect(repo.currentSession, isNull);
+    expect(notifications, 1);
+  });
+
+  test('a refresh response arriving after logout cannot restore the session',
+      () async {
+    final refreshStarted = Completer<void>();
+    final releaseRefresh = Completer<void>();
+    authAdapter.handler = (request) async {
+      if (request.path.endsWith('/login')) {
+        return jsonResponse(200, tokenBody('access-old', 'refresh-old'));
+      }
+      refreshStarted.complete();
+      await releaseRefresh.future;
+      return jsonResponse(200, tokenBody('access-new', 'refresh-new'));
+    };
+    resourceAdapter.handler = (request) async {
+      if (request.path == '/v1/auth/logout') {
+        return ResponseBody.fromString('', 204);
+      }
+      return jsonResponse(401, {'code': 'UNAUTHORIZED'});
+    };
+    final repo = repository();
+    await repo.login(email: 'person@example.com', password: 'password123');
+
+    final expiredRequest = repo.authenticatedClient.get('/expired');
+    await refreshStarted.future;
+    await repo.logout();
+    releaseRefresh.complete();
+    await expectLater(expiredRequest, throwsA(isA<DioException>()));
+
+    expect(repo.currentSession, isNull);
+    expect(await store.readRefreshToken(), isNull);
+  });
+
+  test('web signed-out marker suppresses cookie restore', () async {
+    final cookieStore = CookieSessionStore(
+      keyValueStore: values,
+      idFactory: () => 'web-device',
+    );
+    await cookieStore.clearAuthentication();
+    authAdapter.handler =
+        (_) async => jsonResponse(200, tokenBody('unexpected-access', null));
+    final repo = repository(sessionStore: cookieStore);
+
+    expect(await repo.restore(), isNull);
+    expect(authAdapter.requests, isEmpty);
+  });
 }
 
 Map<String, dynamic> tokenBody(String access, String? refresh) => {
@@ -278,4 +381,34 @@ class CallbackAdapter implements HttpClientAdapter {
 
   @override
   void close({bool force = false}) {}
+}
+
+final class FailingClearSessionStore implements SessionStore {
+  FailingClearSessionStore(this._delegate);
+
+  final NativeSessionStore _delegate;
+
+  @override
+  bool get usesCookieSession => _delegate.usesCookieSession;
+
+  @override
+  Future<void> clearAuthentication() async {
+    throw StateError('secure storage unavailable');
+  }
+
+  @override
+  Future<String> getOrCreateDeviceId() => _delegate.getOrCreateDeviceId();
+
+  @override
+  Future<void> markAuthenticated() => _delegate.markAuthenticated();
+
+  @override
+  Future<String?> readRefreshToken() => _delegate.readRefreshToken();
+
+  @override
+  Future<bool> shouldAttemptRestore() => _delegate.shouldAttemptRestore();
+
+  @override
+  Future<void> writeRefreshToken(String token) =>
+      _delegate.writeRefreshToken(token);
 }

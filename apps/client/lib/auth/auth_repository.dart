@@ -63,6 +63,8 @@ class AuthRepository extends ChangeNotifier implements AuthGateway {
   }
 
   static const _retriedKey = 'ledgerly.auth.retried';
+  static const _requestTokenKey = 'ledgerly.auth.access_token';
+  static const _sessionEpochKey = 'ledgerly.auth.session_epoch';
 
   final SessionStore _sessionStore;
   final Dio _authDio;
@@ -71,6 +73,7 @@ class AuthRepository extends ChangeNotifier implements AuthGateway {
   String? _accessToken;
   AuthSession? _currentSession;
   Future<AuthSession>? _refreshing;
+  var _sessionEpoch = 0;
 
   @override
   AuthSession? get currentSession => _currentSession;
@@ -117,17 +120,16 @@ class AuthRepository extends ChangeNotifier implements AuthGateway {
         if (_sessionStore.usesCookieSession) 'sessionMode': 'cookie',
       },
     );
-    return _acceptTokens(response.data);
+    return _acceptTokens(response.data, startsSession: true);
   }
 
   @override
   Future<AuthSession?> restore() async {
-    if (!_sessionStore.usesCookieSession &&
-        await _sessionStore.readRefreshToken() == null) {
+    if (!await _sessionStore.shouldAttemptRestore()) {
       return null;
     }
     try {
-      return await _performRefresh();
+      return await _performRefresh(startsSession: true);
     } on DioException catch (error) {
       if (error.response?.statusCode case 400 || 401) {
         await _clearLocalAuthentication();
@@ -152,9 +154,11 @@ class AuthRepository extends ChangeNotifier implements AuthGateway {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) {
+    options.extra[_sessionEpochKey] = _sessionEpoch;
     final token = _accessToken;
     if (token != null) {
       options.headers['Authorization'] = 'Bearer $token';
+      options.extra[_requestTokenKey] = token;
     }
     handler.next(options);
   }
@@ -170,10 +174,27 @@ class AuthRepository extends ChangeNotifier implements AuthGateway {
       return;
     }
 
+    final requestEpoch = request.extra[_sessionEpochKey];
+    if (requestEpoch != _sessionEpoch || _currentSession == null) {
+      handler.next(error);
+      return;
+    }
+
     try {
-      await _refreshOnce();
+      final failedToken = request.extra[_requestTokenKey];
+      if (failedToken == _accessToken) {
+        await _refreshOnce();
+      }
+      if (requestEpoch != _sessionEpoch) {
+        throw const NoSessionException();
+      }
+      final token = _accessToken;
+      if (token == null) {
+        throw const NoSessionException();
+      }
       request.extra[_retriedKey] = true;
-      request.headers['Authorization'] = 'Bearer $_accessToken';
+      request.extra[_requestTokenKey] = token;
+      request.headers['Authorization'] = 'Bearer $token';
       final response = await _authenticatedDio.fetch<dynamic>(request);
       handler.resolve(response);
     } catch (_) {
@@ -192,8 +213,9 @@ class AuthRepository extends ChangeNotifier implements AuthGateway {
   }
 
   Future<AuthSession> _runRefresh() async {
+    final expectedEpoch = _sessionEpoch;
     try {
-      return await _performRefresh();
+      return await _performRefresh(expectedEpoch: expectedEpoch);
     } catch (_) {
       await _clearLocalAuthentication();
       rethrow;
@@ -202,7 +224,10 @@ class AuthRepository extends ChangeNotifier implements AuthGateway {
     }
   }
 
-  Future<AuthSession> _performRefresh() async {
+  Future<AuthSession> _performRefresh({
+    bool startsSession = false,
+    int? expectedEpoch,
+  }) async {
     final data = <String, dynamic>{};
     if (_sessionStore.usesCookieSession) {
       data['sessionMode'] = 'cookie';
@@ -217,10 +242,16 @@ class AuthRepository extends ChangeNotifier implements AuthGateway {
       '/v1/auth/refresh',
       data: data,
     );
-    return _acceptTokens(response.data);
+    if (expectedEpoch != null && expectedEpoch != _sessionEpoch) {
+      throw const NoSessionException();
+    }
+    return _acceptTokens(response.data, startsSession: startsSession);
   }
 
-  Future<AuthSession> _acceptTokens(Map<String, dynamic>? body) async {
+  Future<AuthSession> _acceptTokens(
+    Map<String, dynamic>? body, {
+    bool startsSession = false,
+  }) async {
     final accessToken = body?['accessToken'];
     final bookId = body?['bookId'];
     final plan = body?['plan'];
@@ -246,6 +277,10 @@ class AuthRepository extends ChangeNotifier implements AuthGateway {
       await _sessionStore.writeRefreshToken(refreshToken);
     }
 
+    await _sessionStore.markAuthenticated();
+    if (startsSession) {
+      _sessionEpoch++;
+    }
     _accessToken = accessToken;
     _currentSession = AuthSession(
       bookId: bookId,
@@ -257,11 +292,15 @@ class AuthRepository extends ChangeNotifier implements AuthGateway {
 
   Future<void> _clearLocalAuthentication() async {
     final changed = _accessToken != null || _currentSession != null;
+    _sessionEpoch++;
     _accessToken = null;
     _currentSession = null;
-    await _sessionStore.clearAuthentication();
-    if (changed) {
-      notifyListeners();
+    try {
+      await _sessionStore.clearAuthentication();
+    } finally {
+      if (changed) {
+        notifyListeners();
+      }
     }
   }
 

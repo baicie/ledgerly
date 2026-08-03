@@ -46,5 +46,11 @@ void main() {
       throwsStateError,
     );
     expect(values.values.values, isNot(contains('must-not-be-written')));
+
+    expect(await store.shouldAttemptRestore(), isTrue);
+    await store.clearAuthentication();
+    expect(await store.shouldAttemptRestore(), isFalse);
+    await store.markAuthenticated();
+    expect(await store.shouldAttemptRestore(), isTrue);
   });
 }
