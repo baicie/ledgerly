@@ -1,0 +1,41 @@
+# Production compose: ledger-server only.
+# Reuses an existing PostgreSQL on the host (or reachable network).
+# Set DATABASE_URL to the host PG, e.g.:
+#   postgres://ledgerly:SECRET@host.docker.internal:5432/ledgerly
+#
+# Usage:
+#   docker compose -f infrastructure/docker/docker-compose.prod.yml --env-file .env.prod up -d
+
+services:
+  ledger-server:
+    image: ${LEDGER_IMAGE:-ghcr.io/baicie/ledgerly-server:latest}
+    container_name: ledgerly-server
+    restart: unless-stopped
+    ports:
+      - "${LEDGER_PORT:-8080}:8080"
+    environment:
+      LEDGER_LISTEN: 0.0.0.0:8080
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ED25519_SEED: ${JWT_ED25519_SEED:-}
+      OBJECT_STORE_DIR: /var/lib/ledgerly/objects
+      OBJECT_STORE_HMAC_SECRET: ${OBJECT_STORE_HMAC_SECRET}
+      OBJECT_STORE_PUBLIC_BASE: ${OBJECT_STORE_PUBLIC_BASE:-http://127.0.0.1:8080}
+      RATE_LIMIT_RPS: ${RATE_LIMIT_RPS:-100}
+      AUTH_RATE_LIMIT_RPS: ${AUTH_RATE_LIMIT_RPS:-20}
+      LEDGER_ENV: ${LEDGER_ENV:-production}
+      RUST_LOG: ${RUST_LOG:-info}
+    volumes:
+      - ledgerly_objects:/var/lib/ledgerly/objects
+    extra_hosts:
+      # Linux Docker: resolve host.docker.internal → host gateway (existing PG)
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8080/health/ready"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  ledgerly_objects:
