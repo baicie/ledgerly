@@ -30,15 +30,22 @@ cd packages/ledger_domain && dart test
 # 同步双设备测试
 cd packages/ledger_sync && dart test
 
-# Flutter 离线仓储测试
+# Flutter 离线 / 同步测试
 cd apps/client && flutter test
+# 联调 live sync（需本机 server:8080 + DATABASE_URL）
+flutter test test/live_sync_test.dart
 
-# 后端
-cd server
-cargo test --workspace
-cargo run -- doctor
-cargo run -- all   # http://0.0.0.0:8080
+# 后端（内存模式）
+cd server && cargo test --workspace && cargo run -- all
+
+# 后端（PostgreSQL）
+export DATABASE_URL=postgres://ledgerly:ledgerly@127.0.0.1:5432/ledgerly
+cargo run -- migrate
+cargo run -- all
+cargo test --test postgres_flow
 ```
+
+开发环境可参考 `.env.example`；Docker Compose 见 `infrastructure/docker/docker-compose.yml`。
 
 ## 开发原则
 
