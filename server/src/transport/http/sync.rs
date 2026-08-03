@@ -57,11 +57,12 @@ async fn push(
                 });
                 continue;
             }
-            let receipt = process_mutation_pg(&state, &book_id, &mutation).await;
+            let receipt = process_mutation_pg(&state, &book_id, &req.device_id, &mutation).await;
             sqlx::query(
                 "INSERT INTO sync_mutations
                  (book_id, device_id, mutation_id, status, result_code, entity_version)
-                 VALUES ($1,$2,$3,$4,$5,$6)",
+                 VALUES ($1,$2,$3,$4,$5,$6)
+                 ON CONFLICT (book_id, device_id, mutation_id) DO NOTHING",
             )
             .bind(&book_id)
             .bind(&req.device_id)
@@ -188,69 +189,119 @@ fn validate_or_reject(
 async fn process_mutation_pg(
     state: &AppState,
     book_id: &str,
+    device_id: &str,
     mutation: &ledger_contracts::SyncMutationDto,
 ) -> MutationReceiptDto {
     let pool = state.pool.as_ref().unwrap();
-    if mutation.operation == "delete" {
-        return process_delete_pg(pool, book_id, mutation).await;
-    }
-    let drafts = match parse_entries(mutation) {
-        Ok(d) => d,
-        Err(r) => return r,
-    };
-    if let Some(r) = validate_or_reject(mutation, &drafts) {
-        return r;
-    }
-
-    let existing: Option<(i64,)> =
-        match sqlx::query_as("SELECT version FROM transactions WHERE id = $1 AND book_id = $2")
-            .bind(&mutation.entity_id)
-            .bind(book_id)
-            .fetch_optional(pool)
-            .await
-        {
-            Ok(v) => v,
-            Err(_) => {
-                return MutationReceiptDto {
-                    mutation_id: mutation.mutation_id.clone(),
-                    status: "rejected".into(),
-                    result_code: "DB_ERROR".into(),
-                    entity_version: None,
-                };
+    let drafts = if mutation.operation == "delete" {
+        None
+    } else {
+        match parse_entries(mutation) {
+            Ok(drafts) => {
+                if let Some(receipt) = validate_or_reject(mutation, &drafts) {
+                    return receipt;
+                }
+                Some(drafts)
             }
-        };
-
-    if let Some((version,)) = existing {
-        if mutation.operation == "create" || mutation.base_version != version {
-            return MutationReceiptDto {
-                mutation_id: mutation.mutation_id.clone(),
-                status: "rejected".into(),
-                result_code: "LEDGER_VERSION_CONFLICT".into(),
-                entity_version: Some(version),
-            };
+            Err(receipt) => return receipt,
         }
-    }
-
-    let version = existing.map(|(v,)| v + 1).unwrap_or(1);
-    let commit_id = Uuid::now_v7().to_string();
-    let description = mutation
-        .payload
-        .get("description")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string());
+    };
 
     let Ok(mut tx) = pool.begin().await else {
-        return MutationReceiptDto {
-            mutation_id: mutation.mutation_id.clone(),
-            status: "rejected".into(),
-            result_code: "DB_ERROR".into(),
-            entity_version: None,
-        };
+        return db_error_receipt(mutation);
     };
 
-    let write_ok = async {
+    let result = async {
+        let lock_key = format!("{book_id}:{}", mutation.entity_id);
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtext($1))")
+            .bind(lock_key)
+            .execute(&mut *tx)
+            .await?;
+
+        let existing_receipt: Option<(String, String, Option<i64>)> = sqlx::query_as(
+            "SELECT status, result_code, entity_version
+             FROM sync_mutations
+             WHERE book_id=$1 AND device_id=$2 AND mutation_id=$3",
+        )
+        .bind(book_id)
+        .bind(device_id)
+        .bind(&mutation.mutation_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+        if let Some((status, result_code, entity_version)) = existing_receipt {
+            let receipt = MutationReceiptDto {
+                mutation_id: mutation.mutation_id.clone(),
+                status,
+                result_code,
+                entity_version,
+            };
+            tx.commit().await?;
+            return Ok(receipt);
+        }
+
+        let existing: Option<(i64,)> = sqlx::query_as(
+            "SELECT version FROM transactions
+             WHERE id=$1 AND book_id=$2
+             FOR UPDATE",
+        )
+        .bind(&mutation.entity_id)
+        .bind(book_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+
+        if mutation.operation == "delete" {
+            let Some((version,)) = existing else {
+                let receipt = rejected_receipt(mutation, "NOT_FOUND", None);
+                insert_pg_receipt(&mut tx, book_id, device_id, &receipt).await?;
+                tx.commit().await?;
+                return Ok(receipt);
+            };
+            if mutation.base_version != 0 && mutation.base_version != version {
+                let receipt = rejected_receipt(mutation, "LEDGER_VERSION_CONFLICT", Some(version));
+                insert_pg_receipt(&mut tx, book_id, device_id, &receipt).await?;
+                tx.commit().await?;
+                return Ok(receipt);
+            }
+
+            let new_version = version + 1;
+            let commit_id = Uuid::now_v7().to_string();
+            let updated = sqlx::query(
+                "UPDATE transactions SET deleted_at=now(), version=$1
+                 WHERE id=$2 AND book_id=$3 AND version=$4",
+            )
+            .bind(new_version)
+            .bind(&mutation.entity_id)
+            .bind(book_id)
+            .bind(version)
+            .execute(&mut *tx)
+            .await?;
+            if updated.rows_affected() != 1 {
+                return Err(sqlx::Error::Protocol("transaction CAS failed".into()));
+            }
+            insert_delete_change(&mut tx, book_id, mutation, &commit_id, new_version).await?;
+            let receipt = applied_receipt(mutation, new_version);
+            insert_pg_receipt(&mut tx, book_id, device_id, &receipt).await?;
+            tx.commit().await?;
+            return Ok(receipt);
+        }
+
+        if let Some((version,)) = existing {
+            if mutation.operation == "create" || mutation.base_version != version {
+                let receipt = rejected_receipt(mutation, "LEDGER_VERSION_CONFLICT", Some(version));
+                insert_pg_receipt(&mut tx, book_id, device_id, &receipt).await?;
+                tx.commit().await?;
+                return Ok(receipt);
+            }
+        }
+
+        let version = existing.map(|(version,)| version + 1).unwrap_or(1);
+        let description = mutation
+            .payload
+            .get("description")
+            .and_then(|value| value.as_str())
+            .map(str::to_string);
         if existing.is_some() {
-            sqlx::query(
+            let updated = sqlx::query(
                 "UPDATE transactions SET description=$1, version=$2
                  WHERE id=$3 AND book_id=$4 AND version=$5",
             )
@@ -261,6 +312,9 @@ async fn process_mutation_pg(
             .bind(mutation.base_version)
             .execute(&mut *tx)
             .await?;
+            if updated.rows_affected() != 1 {
+                return Err(sqlx::Error::Protocol("transaction CAS failed".into()));
+            }
             sqlx::query("DELETE FROM transaction_entries WHERE transaction_id=$1")
                 .bind(&mutation.entity_id)
                 .execute(&mut *tx)
@@ -278,7 +332,12 @@ async fn process_mutation_pg(
             .await?;
         }
 
-        for (idx, d) in drafts.iter().enumerate() {
+        for (idx, entry) in drafts
+            .as_ref()
+            .expect("non-delete drafts")
+            .iter()
+            .enumerate()
+        {
             let entry_id = format!("{}-{idx}", mutation.entity_id);
             sqlx::query(
                 "INSERT INTO transaction_entries
@@ -287,14 +346,15 @@ async fn process_mutation_pg(
             )
             .bind(&entry_id)
             .bind(&mutation.entity_id)
-            .bind(&d.account_id)
-            .bind(d.amount_minor as i64)
-            .bind(&d.currency)
+            .bind(&entry.account_id)
+            .bind(entry.amount_minor as i64)
+            .bind(&entry.currency)
             .bind(idx as i32)
             .execute(&mut *tx)
             .await?;
         }
 
+        let commit_id = Uuid::now_v7().to_string();
         sqlx::query(
             "INSERT INTO sync_changes
              (book_id, commit_id, entity_type, entity_id, operation, entity_version, payload)
@@ -320,26 +380,99 @@ async fn process_mutation_pg(
         .bind(&mutation.payload)
         .execute(&mut *tx)
         .await?;
+        let receipt = applied_receipt(mutation, version);
+        insert_pg_receipt(&mut tx, book_id, device_id, &receipt).await?;
         tx.commit().await?;
-        Ok::<(), sqlx::Error>(())
+        Ok(receipt)
     }
     .await;
 
-    if write_ok.is_err() {
-        return MutationReceiptDto {
-            mutation_id: mutation.mutation_id.clone(),
-            status: "rejected".into(),
-            result_code: "DB_ERROR".into(),
-            entity_version: None,
-        };
-    }
+    result.unwrap_or_else(|_| db_error_receipt(mutation))
+}
 
+fn db_error_receipt(mutation: &ledger_contracts::SyncMutationDto) -> MutationReceiptDto {
+    rejected_receipt(mutation, "DB_ERROR", None)
+}
+
+fn rejected_receipt(
+    mutation: &ledger_contracts::SyncMutationDto,
+    result_code: &str,
+    entity_version: Option<i64>,
+) -> MutationReceiptDto {
+    MutationReceiptDto {
+        mutation_id: mutation.mutation_id.clone(),
+        status: "rejected".into(),
+        result_code: result_code.into(),
+        entity_version,
+    }
+}
+
+fn applied_receipt(
+    mutation: &ledger_contracts::SyncMutationDto,
+    version: i64,
+) -> MutationReceiptDto {
     MutationReceiptDto {
         mutation_id: mutation.mutation_id.clone(),
         status: "applied".into(),
         result_code: "OK".into(),
         entity_version: Some(version),
     }
+}
+
+async fn insert_pg_receipt(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    book_id: &str,
+    device_id: &str,
+    receipt: &MutationReceiptDto,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "INSERT INTO sync_mutations
+         (book_id, device_id, mutation_id, status, result_code, entity_version)
+         VALUES ($1,$2,$3,$4,$5,$6)",
+    )
+    .bind(book_id)
+    .bind(device_id)
+    .bind(&receipt.mutation_id)
+    .bind(&receipt.status)
+    .bind(&receipt.result_code)
+    .bind(receipt.entity_version)
+    .execute(&mut **tx)
+    .await?;
+    Ok(())
+}
+
+async fn insert_delete_change(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    book_id: &str,
+    mutation: &ledger_contracts::SyncMutationDto,
+    commit_id: &str,
+    version: i64,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "INSERT INTO sync_changes
+         (book_id, commit_id, entity_type, entity_id, operation, entity_version, payload)
+         VALUES ($1,$2,'transaction',$3,'delete',$4,$5)",
+    )
+    .bind(book_id)
+    .bind(commit_id)
+    .bind(&mutation.entity_id)
+    .bind(version)
+    .bind(&mutation.payload)
+    .execute(&mut **tx)
+    .await?;
+    sqlx::query(
+        "INSERT INTO transaction_revisions
+         (id, book_id, transaction_id, version, operation, payload)
+         VALUES ($1,$2,$3,$4,'delete',$5)",
+    )
+    .bind(Uuid::now_v7().to_string())
+    .bind(book_id)
+    .bind(&mutation.entity_id)
+    .bind(version)
+    .bind(&mutation.payload)
+    .execute(&mut **tx)
+    .await?;
+    Ok(())
 }
 
 async fn process_mutation_mem(
@@ -630,109 +763,6 @@ async fn bootstrap(
             "entries": t.entries,
         })).collect::<Vec<_>>(),
     })))
-}
-
-async fn process_delete_pg(
-    pool: &sqlx::PgPool,
-    book_id: &str,
-    mutation: &ledger_contracts::SyncMutationDto,
-) -> MutationReceiptDto {
-    let existing: Option<(i64,)> =
-        match sqlx::query_as("SELECT version FROM transactions WHERE id=$1 AND book_id=$2")
-            .bind(&mutation.entity_id)
-            .bind(book_id)
-            .fetch_optional(pool)
-            .await
-        {
-            Ok(v) => v,
-            Err(_) => {
-                return MutationReceiptDto {
-                    mutation_id: mutation.mutation_id.clone(),
-                    status: "rejected".into(),
-                    result_code: "DB_ERROR".into(),
-                    entity_version: None,
-                };
-            }
-        };
-    let Some((version,)) = existing else {
-        return MutationReceiptDto {
-            mutation_id: mutation.mutation_id.clone(),
-            status: "rejected".into(),
-            result_code: "NOT_FOUND".into(),
-            entity_version: None,
-        };
-    };
-    if mutation.base_version != 0 && mutation.base_version != version {
-        return MutationReceiptDto {
-            mutation_id: mutation.mutation_id.clone(),
-            status: "rejected".into(),
-            result_code: "LEDGER_VERSION_CONFLICT".into(),
-            entity_version: Some(version),
-        };
-    }
-    let new_version = version + 1;
-    let commit_id = Uuid::now_v7().to_string();
-    let Ok(mut tx) = pool.begin().await else {
-        return MutationReceiptDto {
-            mutation_id: mutation.mutation_id.clone(),
-            status: "rejected".into(),
-            result_code: "DB_ERROR".into(),
-            entity_version: None,
-        };
-    };
-    let ok = async {
-        sqlx::query(
-            "UPDATE transactions SET deleted_at=now(), version=$1
-             WHERE id=$2 AND book_id=$3 AND version=$4",
-        )
-        .bind(new_version)
-        .bind(&mutation.entity_id)
-        .bind(book_id)
-        .bind(version)
-        .execute(&mut *tx)
-        .await?;
-        sqlx::query(
-            "INSERT INTO sync_changes
-             (book_id, commit_id, entity_type, entity_id, operation, entity_version, payload)
-             VALUES ($1,$2,'transaction',$3,'delete',$4,$5)",
-        )
-        .bind(book_id)
-        .bind(&commit_id)
-        .bind(&mutation.entity_id)
-        .bind(new_version)
-        .bind(&mutation.payload)
-        .execute(&mut *tx)
-        .await?;
-        sqlx::query(
-            "INSERT INTO transaction_revisions
-             (id, book_id, transaction_id, version, operation, payload)
-             VALUES ($1,$2,$3,$4,'delete',$5)",
-        )
-        .bind(Uuid::now_v7().to_string())
-        .bind(book_id)
-        .bind(&mutation.entity_id)
-        .bind(new_version)
-        .bind(&mutation.payload)
-        .execute(&mut *tx)
-        .await?;
-        tx.commit().await?;
-        Ok::<(), sqlx::Error>(())
-    }
-    .await;
-    if ok.is_err() {
-        return MutationReceiptDto {
-            mutation_id: mutation.mutation_id.clone(),
-            status: "rejected".into(),
-            result_code: "DB_ERROR".into(),
-            entity_version: None,
-        };
-    }
-    MutationReceiptDto {
-        mutation_id: mutation.mutation_id.clone(),
-        status: "applied".into(),
-        result_code: "OK".into(),
-        entity_version: Some(new_version),
-    }
 }
 
 async fn process_delete_mem(
