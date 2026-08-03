@@ -6,6 +6,7 @@ import '../application/sync_service.dart';
 import '../data/database.dart';
 import '../data/ledger_repository.dart';
 import '../data/sync_api.dart';
+import '../domain/ids.dart';
 
 final databaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
@@ -39,7 +40,7 @@ final transactionListProvider =
     StreamProvider<List<TransactionSummary>>((ref) async* {
   final repo = ref.watch(ledgerRepositoryProvider);
   await repo.seedIfEmpty();
-  yield* repo.watchSummaries('book_default');
+  yield* repo.watchSummaries(defaultBookId);
 });
 
 final monthTransactionsProvider =
@@ -51,7 +52,7 @@ final monthTransactionsProvider =
   final start = DateTime.utc(month.year, month.month);
   final end = DateTime.utc(month.year, month.month + 1);
   return repo.watchSummariesSync(
-    'book_default',
+    defaultBookId,
     monthStart: start,
     monthEnd: end,
   );
@@ -75,7 +76,7 @@ final accountBalancesProvider =
   final repo = ref.watch(ledgerRepositoryProvider);
   await repo.seedIfEmpty();
   await ref.watch(transactionListProvider.future);
-  final accounts = await repo.listAccounts('book_default');
+  final accounts = await repo.listAccounts(defaultBookId);
   final rows = <AccountBalanceRow>[];
   for (final a in accounts) {
     rows.add(
@@ -110,30 +111,33 @@ class SyncStatusView {
     required this.cursor,
     required this.pendingCount,
     this.lastError,
+    this.remoteBookId,
   });
   final String label;
   final int cursor;
   final int pendingCount;
   final String? lastError;
+  final String? remoteBookId;
 }
 
 final syncStatusProvider = FutureProvider<SyncStatusView>((ref) async {
   final repo = ref.watch(ledgerRepositoryProvider);
   await repo.seedIfEmpty();
-  final state = await repo.syncState('book_default');
-  final pending = await repo.listPending('book_default');
+  final state = await repo.syncState(defaultBookId);
+  final pending = await repo.listPending(defaultBookId);
   return SyncStatusView(
     label: state?.lastError == null ? '就绪' : '出错',
     cursor: state?.cursor ?? 0,
     pendingCount: pending.length,
     lastError: state?.lastError,
+    remoteBookId: state?.remoteBookId,
   );
 });
 
 final conflictsProvider = FutureProvider<List<SyncConflictItem>>((ref) async {
   final repo = ref.watch(ledgerRepositoryProvider);
   await repo.seedIfEmpty();
-  final rows = await repo.listConflicts('book_default');
+  final rows = await repo.listConflicts(defaultBookId);
   return rows
       .map(
         (c) => SyncConflictItem(
@@ -159,7 +163,7 @@ class SyncConflictItem {
 final exportCsvProvider = FutureProvider<String>((ref) async {
   final repo = ref.watch(ledgerRepositoryProvider);
   await repo.seedIfEmpty();
-  final txs = await repo.watchSummariesSync('book_default');
+  final txs = await repo.watchSummariesSync(defaultBookId);
   final buf = StringBuffer('id,occurred_at,description,entry_count\n');
   for (final tx in txs) {
     buf.writeln(

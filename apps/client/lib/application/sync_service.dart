@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../data/ledger_repository.dart';
 import '../data/sync_api.dart';
+import '../domain/ids.dart';
 
 class SyncService {
   SyncService(this._repo, this._api);
@@ -19,41 +20,85 @@ class SyncService {
         password: password,
         displayName: 'Local User',
       );
-    } catch (_) {
-      // already registered is fine
-    }
+    } catch (_) {}
     final login = await _api.login(
       email: email,
       password: password,
       deviceId: LedgerRepository.deviceId,
     );
     await _repo.updateSyncState(
-      bookId: 'book_default',
+      bookId: defaultBookId,
       accessToken: login['accessToken'] as String?,
       refreshToken: login['refreshToken'] as String?,
+      remoteBookId: login['bookId'] as String?,
       lastError: null,
     );
   }
 
-  Future<SyncRunResult> syncNow({String bookId = 'book_default'}) async {
+  String _rewriteAccountId(String id, String fromBook, String toBook) {
+    final prefix = '$fromBook:';
+    if (id.startsWith(prefix)) {
+      return '$toBook:${id.substring(prefix.length)}';
+    }
+    if (!id.contains(':')) {
+      return accountId(toBook, id);
+    }
+    return id;
+  }
+
+  Map<String, dynamic> _rewritePayload(
+    Map<String, dynamic> payload,
+    String fromBook,
+    String toBook,
+  ) {
+    final entries = (payload['entries'] as List?) ?? const [];
+    return {
+      ...payload,
+      'entries': entries.map((raw) {
+        final e = Map<String, dynamic>.from(raw as Map);
+        e['accountId'] = _rewriteAccountId(
+          e['accountId'] as String,
+          fromBook,
+          toBook,
+        );
+        return e;
+      }).toList(),
+    };
+  }
+
+  Future<void> _ensureApiToken(String bookId) async {
+    final state = await _repo.syncState(bookId);
+    if (state?.accessToken != null) {
+      _api.setAccessToken(state!.accessToken);
+    }
+  }
+
+  Future<SyncRunResult> syncNow({String bookId = defaultBookId}) async {
     try {
+      await _ensureApiToken(bookId);
+      final state = await _repo.syncState(bookId);
+      final remoteBookId = state?.remoteBookId ?? bookId;
+
       final pending = await _repo.listPending(bookId);
       if (pending.isNotEmpty) {
-        final mutations = pending
-            .map(
-              (p) => {
-                'mutationId': p.mutationId,
-                'entityType': p.entityType,
-                'entityId': p.entityId,
-                'operation': p.operation,
-                'baseVersion': p.baseVersion,
-                'schemaVersion': 1,
-                'payload': jsonDecode(p.payloadJson),
-              },
-            )
-            .toList();
+        final mutations = pending.map((p) {
+          final payload = Map<String, dynamic>.from(
+            jsonDecode(p.payloadJson) as Map,
+          );
+          return {
+            'mutationId': p.mutationId,
+            'entityType': p.entityType,
+            'entityId': p.entityId,
+            'operation': p.operation,
+            'baseVersion': p.baseVersion,
+            'schemaVersion': 1,
+            'payload': p.operation == 'delete'
+                ? payload
+                : _rewritePayload(payload, bookId, remoteBookId),
+          };
+        }).toList();
         final push = await _api.push(
-          bookId: bookId,
+          bookId: remoteBookId,
           deviceId: LedgerRepository.deviceId,
           mutations: mutations,
         );
@@ -62,12 +107,15 @@ class SyncService {
           final receipt = Map<String, dynamic>.from(raw);
           final mutationId = receipt['mutationId'] as String;
           final status = receipt['status'] as String;
-          final code = receipt['resultCode'] as String;
+          final code = receipt['resultCode'] as String? ?? status;
           final pendingRow =
               pending.firstWhere((p) => p.mutationId == mutationId);
           if (status == 'applied') {
             await _repo.removePending(mutationId);
-          } else if (code == 'LEDGER_VERSION_CONFLICT') {
+          } else if (code == 'LEDGER_VERSION_CONFLICT' ||
+              code == 'LEDGER_UNBALANCED' ||
+              code == 'UNSUPPORTED_MUTATION' ||
+              code == 'INVALID_PAYLOAD') {
             await _repo.addConflict(
               bookId: bookId,
               entityId: pendingRow.entityId,
@@ -76,33 +124,41 @@ class SyncService {
               remoteVersion: receipt['entityVersion'] as int?,
             );
             await _repo.removePending(mutationId);
-          } else if (code == 'LEDGER_UNBALANCED' ||
-              code == 'UNSUPPORTED_MUTATION' ||
-              code == 'INVALID_PAYLOAD') {
-            await _repo.addConflict(
-              bookId: bookId,
-              entityId: pendingRow.entityId,
-              reason: code,
-              localPayloadJson: pendingRow.payloadJson,
-            );
-            await _repo.removePending(mutationId);
+          } else {
+            throw StateError('push rejected $mutationId: $status/$code');
           }
         }
       }
 
-      final state = await _repo.syncState(bookId);
+      final remainingAfterPush = await _repo.listPending(bookId);
+      if (remainingAfterPush.isNotEmpty) {
+        throw StateError(
+          'push incomplete: ${remainingAfterPush.length} pending remain',
+        );
+      }
+
       final cursor = state?.cursor ?? 0;
-      final pull = await _api.pull(bookId: bookId, cursor: cursor);
+      final pull = await _api.pull(bookId: remoteBookId, cursor: cursor);
       final changes = (pull['changes'] as List?) ?? const [];
       for (final raw in changes) {
         final change = Map<String, dynamic>.from(raw as Map);
-        if (change['entityType'] == 'transaction' &&
-            change['operation'] == 'upsert') {
+        if (change['entityType'] != 'transaction') continue;
+        if (change['operation'] == 'upsert') {
+          final payload = _rewritePayload(
+            Map<String, dynamic>.from(change['payload'] as Map),
+            remoteBookId,
+            bookId,
+          );
           await _repo.applyRemoteUpsert(
             entityId: change['entityId'] as String,
             bookId: bookId,
             version: change['version'] as int,
-            payload: Map<String, dynamic>.from(change['payload'] as Map),
+            payload: payload,
+          );
+        } else if (change['operation'] == 'delete') {
+          await _repo.applyRemoteDelete(
+            entityId: change['entityId'] as String,
+            version: change['version'] as int,
           );
         }
       }

@@ -1,35 +1,23 @@
-use axum::{
-    Json, Router,
-    extract::State,
-    http::StatusCode,
-    routing::post,
-};
-use jsonwebtoken::{EncodingKey, Header, encode};
+use argon2::Argon2;
+use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
+use jsonwebtoken::{encode, Algorithm, Header};
 use ledger_contracts::{LoginRequest, RegisterRequest, TokenResponse};
 use password_hash::rand_core::OsRng;
 use password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
-use argon2::Argon2;
 use rand::RngCore;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::error::ApiError;
 use crate::state::{AppState, SessionRecord, UserRecord};
+use crate::transport::http::authz::{user_plan, Claims};
 
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/v1/auth/register", post(register))
         .route("/v1/auth/login", post(login))
         .route("/v1/auth/refresh", post(refresh))
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Claims {
-    sub: String,
-    session_id: String,
-    device_id: String,
-    exp: usize,
 }
 
 #[derive(Debug, Deserialize)]
@@ -46,12 +34,11 @@ async fn register(
     let id = Uuid::now_v7().to_string();
 
     if let Some(pool) = &state.pool {
-        let exists: Option<(String,)> =
-            sqlx::query_as("SELECT id FROM users WHERE email = $1")
-                .bind(&req.email)
-                .fetch_optional(pool)
-                .await
-                .map_err(db_err)?;
+        let exists: Option<(String,)> = sqlx::query_as("SELECT id FROM users WHERE email = $1")
+            .bind(&req.email)
+            .fetch_optional(pool)
+            .await
+            .map_err(db_err)?;
         if exists.is_some() {
             return Err(ApiError::new(
                 StatusCode::CONFLICT,
@@ -129,12 +116,16 @@ async fn login(
     };
 
     verify_password(&req.password, &user.password_hash)?;
-    let book_id = state
-        .ensure_demo_book(&user.id)
-        .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "BOOK_ERROR", e.to_string()))?;
+    let book_id = state.ensure_demo_book(&user.id).await.map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "BOOK_ERROR",
+            e.to_string(),
+        )
+    })?;
     let mut tokens = issue_tokens(&state, &user.id, &req.device_id).await?;
     tokens.book_id = Some(book_id);
+    tokens.plan = Some(user_plan(&state, &user.id).await);
     Ok(Json(tokens))
 }
 
@@ -154,7 +145,11 @@ async fn refresh(
         .await
         .map_err(db_err)?;
         let (session_id, user_id, device_id, revoked_at) = row.ok_or_else(|| {
-            ApiError::new(StatusCode::UNAUTHORIZED, "INVALID_REFRESH", "refresh invalid")
+            ApiError::new(
+                StatusCode::UNAUTHORIZED,
+                "INVALID_REFRESH",
+                "refresh invalid",
+            )
         })?;
         if revoked_at.is_some() {
             return Err(ApiError::new(
@@ -168,24 +163,34 @@ async fn refresh(
             .execute(pool)
             .await
             .map_err(db_err)?;
-        let book_id = state
-            .ensure_demo_book(&user_id)
-            .await
-            .map_err(|e| {
-                ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "BOOK_ERROR", e.to_string())
-            })?;
+        let book_id = state.ensure_demo_book(&user_id).await.map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "BOOK_ERROR",
+                e.to_string(),
+            )
+        })?;
         let mut tokens = issue_tokens(&state, &user_id, &device_id).await?;
         tokens.book_id = Some(book_id);
+        tokens.plan = Some(user_plan(&state, &user_id).await);
         return Ok(Json(tokens));
     }
 
     let (user_id, device_id) = {
         let mut store = state.store.write().await;
         let session_id = store.refresh_to_session.remove(&hash).ok_or_else(|| {
-            ApiError::new(StatusCode::UNAUTHORIZED, "INVALID_REFRESH", "refresh invalid")
+            ApiError::new(
+                StatusCode::UNAUTHORIZED,
+                "INVALID_REFRESH",
+                "refresh invalid",
+            )
         })?;
         let session = store.sessions.get_mut(&session_id).ok_or_else(|| {
-            ApiError::new(StatusCode::UNAUTHORIZED, "INVALID_REFRESH", "refresh invalid")
+            ApiError::new(
+                StatusCode::UNAUTHORIZED,
+                "INVALID_REFRESH",
+                "refresh invalid",
+            )
         })?;
         if session.revoked || session.refresh_hash != hash {
             session.revoked = true;
@@ -198,12 +203,16 @@ async fn refresh(
         session.revoked = true;
         (session.user_id.clone(), session.device_id.clone())
     };
-    let book_id = state
-        .ensure_demo_book(&user_id)
-        .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "BOOK_ERROR", e.to_string()))?;
+    let book_id = state.ensure_demo_book(&user_id).await.map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "BOOK_ERROR",
+            e.to_string(),
+        )
+    })?;
     let mut tokens = issue_tokens(&state, &user_id, &device_id).await?;
     tokens.book_id = Some(book_id);
+    tokens.plan = Some(user_plan(&state, &user_id).await);
     Ok(Json(tokens))
 }
 
@@ -228,6 +237,14 @@ async fn issue_tokens(
         .execute(pool)
         .await
         .map_err(db_err)?;
+        sqlx::query(
+            "INSERT INTO subscriptions (user_id, plan, status)
+             VALUES ($1,'free','active') ON CONFLICT (user_id) DO NOTHING",
+        )
+        .bind(user_id)
+        .execute(pool)
+        .await
+        .map_err(db_err)?;
     } else {
         let mut store = state.store.write().await;
         store.sessions.insert(
@@ -243,6 +260,10 @@ async fn issue_tokens(
         store
             .refresh_to_session
             .insert(refresh_hash, session_id.clone());
+        store
+            .subscriptions
+            .entry(user_id.to_string())
+            .or_insert_with(|| "free".into());
     }
 
     let exp = (time::OffsetDateTime::now_utc().unix_timestamp() + 900) as usize;
@@ -250,14 +271,17 @@ async fn issue_tokens(
         sub: user_id.to_string(),
         session_id,
         device_id: device_id.to_string(),
+        token_version: 1,
         exp,
     };
-    let access = encode(
-        &Header::default(),
-        &claims,
-        &EncodingKey::from_secret(state.config.jwt_secret.as_bytes()),
-    )
-    .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "TOKEN_ERROR", e.to_string()))?;
+    let header = Header::new(Algorithm::EdDSA);
+    let access = encode(&header, &claims, &state.config.jwt_encoding_key).map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "TOKEN_ERROR",
+            e.to_string(),
+        )
+    })?;
 
     Ok(TokenResponse {
         access_token: access,
@@ -265,6 +289,7 @@ async fn issue_tokens(
         token_type: "Bearer".into(),
         expires_in: 900,
         book_id: None,
+        plan: None,
     })
 }
 
@@ -273,7 +298,13 @@ fn hash_password(password: &str) -> Result<String, ApiError> {
     let argon2 = Argon2::default();
     Ok(argon2
         .hash_password(password.as_bytes(), &salt)
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "HASH_ERROR", e.to_string()))?
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "HASH_ERROR",
+                e.to_string(),
+            )
+        })?
         .to_string())
 }
 

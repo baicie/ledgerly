@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../providers.dart';
 
@@ -44,6 +45,7 @@ class FeedPage extends ConsumerWidget {
               return ListTile(
                 title: Text(tx.description ?? '交易'),
                 subtitle: Text(tx.occurredAt.toLocal().toString()),
+                onTap: () => context.go('/feed/revisions/${tx.id}'),
                 trailing: IconButton(
                   icon: const Icon(Icons.delete_outline),
                   onPressed: () async {

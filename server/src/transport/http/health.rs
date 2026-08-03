@@ -1,4 +1,4 @@
-use axum::{Json, extract::State};
+use axum::{extract::State, Json};
 use serde_json::json;
 
 use crate::error::ApiError;

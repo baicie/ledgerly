@@ -20,6 +20,7 @@ class SyncCenterPage extends ConsumerWidget {
               Text('状态：${s.label}'),
               Text('游标：${s.cursor}'),
               Text('待推送：${s.pendingCount}'),
+              if (s.remoteBookId != null) Text('远端账本：${s.remoteBookId}'),
               if (s.lastError != null) Text('错误：${s.lastError}'),
               const SizedBox(height: 16),
               FilledButton(

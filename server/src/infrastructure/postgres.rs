@@ -1,5 +1,5 @@
-use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
+use sqlx::PgPool;
 use std::time::Duration;
 
 use crate::config::Config;
@@ -20,21 +20,23 @@ pub async fn connect(config: &Config) -> anyhow::Result<Option<PgPool>> {
 }
 
 pub async fn migrate(pool: &PgPool) -> anyhow::Result<()> {
-    let sql = include_str!("../../migrations/001_init.sql");
-    sqlx::raw_sql(sql).execute(pool).await?;
+    for file in [
+        include_str!("../../migrations/001_init.sql"),
+        include_str!("../../migrations/002_jobs_commercial.sql"),
+        include_str!("../../migrations/003_phase5plus.sql"),
+    ] {
+        sqlx::raw_sql(file).execute(pool).await?;
+    }
     Ok(())
 }
 
 pub async fn ping(pool: &PgPool) -> Result<(), ApiError> {
-    sqlx::query("SELECT 1")
-        .execute(pool)
-        .await
-        .map_err(|e| {
-            ApiError::new(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "DB_UNAVAILABLE",
-                e.to_string(),
-            )
-        })?;
+    sqlx::query("SELECT 1").execute(pool).await.map_err(|e| {
+        ApiError::new(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "DB_UNAVAILABLE",
+            e.to_string(),
+        )
+    })?;
     Ok(())
 }

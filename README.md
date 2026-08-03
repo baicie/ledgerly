@@ -7,46 +7,26 @@
 从 [docs/README.md](docs/README.md) 开始。关键入口：
 
 - [CONTEXT](docs/CONTEXT.md)
-- [本轮 MVP](docs/roadmap/mvp.md)
-- [ADR 索引](docs/adr/index.md)
-
-## 仓库结构
-
-```text
-apps/client/          # Flutter
-server/               # Rust + Axum (ledger-server)
-packages/
-  ledger_domain/      # 复式记账领域
-  ledger_sync/        # 同步引擎与双设备测试
-docs/
-```
+- [阶段路线图](docs/roadmap/phases.md)
+- [Phase 5+/BE-6 设计](docs/design/phase-5plus-be6.md)
+- [备份恢复 Runbook](docs/runbooks/backup-restore.md)
 
 ## 常用命令
 
 ```bash
-# 领域测试
-cd packages/ledger_domain && dart test
-
-# 同步双设备测试
-cd packages/ledger_sync && dart test
-
-# Flutter 离线 / 同步测试
+# Flutter
 cd apps/client && flutter test
-# 联调 live sync（需本机 server:8080 + DATABASE_URL）
-flutter test test/live_sync_test.dart
 
-# 后端（内存模式）
-cd server && cargo test --workspace && cargo run -- all
-
-# 后端（PostgreSQL）
+# 后端
+cd server
 export DATABASE_URL=postgres://ledgerly:ledgerly@127.0.0.1:5432/ledgerly
+cargo test --workspace
 cargo run -- migrate
 cargo run -- all
-cargo test --test postgres_flow
+
+# 备份 / 压测
+cargo run -- backup --out /tmp/ledgerly.dump
+./scripts/loadtest_sync.sh 20
 ```
 
-开发环境可参考 `.env.example`；Docker Compose 见 `infrastructure/docker/docker-compose.yml`。
-
-## 开发原则
-
-每阶段：**设计 → ADR → 实现 → 验收**。分支见 [docs/roadmap/phases.md](docs/roadmap/phases.md)。
+JWT 为 **Ed25519**（由 `JWT_ED25519_SEED` / `JWT_SECRET` 派生）。附件走本地 HMAC 对象存储（见 `.env.example`）。
