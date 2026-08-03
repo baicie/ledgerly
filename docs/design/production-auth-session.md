@@ -1,0 +1,125 @@
+# Production Auth Session
+
+* Branch: `codex/production-auth-session`
+* ADR: [011 Auth Security Privacy](../adr/011-auth-security-privacy.md)
+* Status: In progress
+
+## Goal
+
+Deliver the complete client authentication boundary for Ledgerly: registration,
+login, startup session recovery, guarded routes, stable per-install device
+identity, automatic access-token refresh, logout revocation, and platform-safe
+refresh-token storage.
+
+This work keeps authentication state separate from the local-first ledger. A
+user who is signed out cannot enter the application shell, but ledger and sync
+data stay in the local database and are not deleted by logout.
+
+## Security Contract
+
+### Native
+
+* Access tokens exist only in `AuthRepository` memory.
+* Refresh tokens and the generated device ID are stored with
+  `flutter_secure_storage`, backed by Keychain/Keystore on supported mobile
+  platforms.
+* Refresh requests send the refresh token in JSON. A successful rotation
+  replaces the stored token before the refreshed session is exposed.
+* Logout calls the authenticated API, revokes the server session, and clears
+  local authentication material even when the network call fails.
+
+### Web
+
+* Login and refresh use `sessionMode: cookie`.
+* The server sets the refresh token as a `Secure`, `HttpOnly`, `SameSite=Strict`
+  cookie scoped to `/v1/auth`; the JSON response omits `refreshToken`.
+* Dio sends credentialed browser requests. JavaScript never reads or stores the
+  refresh token.
+* Only the non-secret device ID is persisted in browser local storage.
+* Logout revokes the active session and expires the refresh cookie.
+
+### Shared
+
+* Access tokens are attached by an authorized Dio instance.
+* A 401 starts one shared refresh operation. Concurrent failed requests await
+  that operation and each original request is retried at most once.
+* Refresh failure clears the in-memory access token and persisted session
+  material and moves routing state to signed out.
+* Passwords and tokens are never logged.
+
+## HTTP Contract
+
+Existing native JSON clients remain compatible.
+
+* `POST /v1/auth/login` accepts optional `sessionMode: "cookie"`.
+* `POST /v1/auth/refresh` accepts either `refreshToken` or cookie mode. Missing,
+  mixed, or unsupported credentials return a stable 400/401 API error.
+* Cookie-mode login and refresh omit `refreshToken` from the response body and
+  rotate the cookie atomically with the server session.
+* `POST /v1/auth/logout` remains access-token authenticated and always expires
+  the cookie in its response.
+* Credentialed CORS uses explicit origins from `CORS_ALLOWED_ORIGINS`; wildcard
+  origins are never combined with credentials. Production requires at least
+  one HTTPS origin when browser sessions are enabled.
+
+## Client Configuration
+
+The API endpoint comes from the `LEDGERLY_API_BASE_URL` Dart define.
+
+* Debug builds may default to `http://127.0.0.1:8080` (or the current Web
+  origin).
+* Release builds require an explicit HTTPS URL with no user info, query,
+  fragment, or non-root path and reject loopback hosts.
+* Invalid configuration renders a dedicated configuration failure screen
+  instead of silently contacting another host.
+
+The server reads:
+
+* `CORS_ALLOWED_ORIGINS`: comma-separated absolute HTTP(S) origins.
+* `AUTH_COOKIE_SECURE`: defaults to true in production and false in local
+  development. Production rejects false.
+
+## Client States and Routing
+
+`AuthController` owns one of these states: restoring, signed out,
+authenticating, authenticated, or failure. Startup obtains the stable device
+ID and attempts refresh without touching Drift tokens.
+
+* `/auth` contains login and registration modes.
+* All application-shell routes redirect to `/auth` unless authenticated.
+* An authenticated user visiting `/auth` redirects to `/feed`.
+* Settings exposes the current API origin and a logout command.
+
+## Data Migration
+
+Drift schema version 4 removes `access_token` and `refresh_token` from
+`sync_states`. The migration recreates the table with only sync metadata and
+does not copy legacy token columns. `LedgerRepository` receives the stable
+device ID rather than defining a process-wide constant.
+
+## Acceptance Tests
+
+* Server tests prove native JSON compatibility, cookie attributes, body token
+  omission, cookie refresh rotation, stale-cookie rejection, logout revocation,
+  cookie expiry, and explicit credentialed CORS configuration.
+* Client unit tests prove endpoint validation, native/web session-store
+  semantics, startup restore, failed restore, logout cleanup, one-flight
+  refresh, one retry per request, and refresh-failure sign-out.
+* Widget tests prove login/register validation, guarded navigation, signed-in
+  routing, visible failure feedback, and logout.
+* Drift migration tests prove legacy token values are discarded.
+* Flutter analyze/test, Rust fmt/clippy/test, Web release build, and a live
+  register/login/refresh/logout flow pass before merge.
+
+## Source Notes
+
+Implementation follows the official package and framework guidance:
+
+* flutter_secure_storage package and platform support:
+  <https://pub.dev/packages/flutter_secure_storage>
+* Dio interceptor and queued-interceptor behavior:
+  <https://github.com/cfug/dio/blob/main/dio/README.md#interceptors>
+* axum-extra `CookieJar` response-part behavior:
+  <https://docs.rs/axum-extra/latest/axum_extra/extract/cookie/struct.CookieJar.html>
+* tower-http credentialed CORS configuration:
+  <https://docs.rs/tower-http/latest/tower_http/cors/struct.CorsLayer.html>

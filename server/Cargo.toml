@@ -29,6 +29,7 @@ path = "src/main.rs"
 ledger-domain = { path = "crates/ledger-domain" }
 ledger-contracts = { path = "crates/ledger-contracts" }
 axum = { version = "0.8", features = ["macros"] }
+axum-extra = { version = "0.12", features = ["cookie"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
 tower = "0.5"
 tower-http = { version = "0.7", features = ["trace", "cors", "timeout", "limit", "catch-panic"] }
@@ -53,6 +54,7 @@ ed25519-dalek = { version = "2", features = ["rand_core", "pkcs8", "pem"] }
 hmac = "0.12"
 subtle = "2"
 futures-util = "0.3"
+url = "2"
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }

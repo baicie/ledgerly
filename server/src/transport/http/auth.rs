@@ -1,7 +1,14 @@
 use argon2::Argon2;
-use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
+use axum::{
+    extract::State,
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    routing::post,
+    Json, Router,
+};
+use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 use jsonwebtoken::{encode, Algorithm, Header};
-use ledger_contracts::{LoginRequest, RegisterRequest, TokenResponse};
+use ledger_contracts::{LoginRequest, RegisterRequest, SessionMode, TokenResponse};
 use password_hash::rand_core::OsRng;
 use password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
 use rand::RngCore;
@@ -24,10 +31,19 @@ pub fn routes() -> Router<AppState> {
 #[derive(Debug, Deserialize)]
 struct RefreshRequest {
     #[serde(rename = "refreshToken")]
-    refresh_token: String,
+    refresh_token: Option<String>,
+    #[serde(rename = "sessionMode")]
+    session_mode: Option<SessionMode>,
 }
 
-async fn logout(State(state): State<AppState>, auth: AuthUser) -> Result<StatusCode, ApiError> {
+const REFRESH_COOKIE_NAME: &str = "ledgerly_refresh";
+const REFRESH_COOKIE_PATH: &str = "/v1/auth";
+
+async fn logout(
+    State(state): State<AppState>,
+    jar: CookieJar,
+    auth: AuthUser,
+) -> Result<(CookieJar, StatusCode), ApiError> {
     if let Some(pool) = &state.pool {
         sqlx::query(
             "UPDATE device_sessions SET revoked_at=now()
@@ -45,7 +61,7 @@ async fn logout(State(state): State<AppState>, auth: AuthUser) -> Result<StatusC
             session.revoked = true;
         }
     }
-    Ok(StatusCode::NO_CONTENT)
+    Ok((clear_refresh_cookie(jar, &state), StatusCode::NO_CONTENT))
 }
 
 async fn register(
@@ -104,8 +120,9 @@ async fn register(
 
 async fn login(
     State(state): State<AppState>,
+    jar: CookieJar,
     Json(req): Json<LoginRequest>,
-) -> Result<Json<TokenResponse>, ApiError> {
+) -> Result<(CookieJar, Json<TokenResponse>), ApiError> {
     let user = if let Some(pool) = &state.pool {
         let row: Option<(String, String, String, String)> = sqlx::query_as(
             "SELECT id, email, password_hash, display_name FROM users WHERE email = $1",
@@ -145,24 +162,77 @@ async fn login(
             e.to_string(),
         )
     })?;
+    let cookie_mode = req.session_mode == Some(SessionMode::Cookie);
     let mut tokens = issue_tokens(&state, &user.id, &req.device_id).await?;
     tokens.book_id = Some(book_id);
     tokens.plan = Some(user_plan(&state, &user.id).await);
-    Ok(Json(tokens))
+    let jar = if cookie_mode {
+        let refresh = tokens.refresh_token.take().expect("issued refresh token");
+        add_refresh_cookie(jar, &state, refresh)
+    } else {
+        jar
+    };
+    Ok((jar, Json(tokens)))
 }
 
 async fn refresh(
     State(state): State<AppState>,
+    jar: CookieJar,
     Json(req): Json<RefreshRequest>,
-) -> Result<Json<TokenResponse>, ApiError> {
-    let hash = hash_token(&req.refresh_token);
+) -> Result<(CookieJar, Json<TokenResponse>), Response> {
+    let cookie_mode = req.session_mode == Some(SessionMode::Cookie);
+    let refresh_token = if cookie_mode {
+        if req.refresh_token.is_some() {
+            return Err(ApiError::new(
+                StatusCode::BAD_REQUEST,
+                "MIXED_REFRESH_CREDENTIALS",
+                "cookie sessions cannot include refreshToken",
+            )
+            .into_response());
+        }
+        match jar.get(REFRESH_COOKIE_NAME) {
+            Some(cookie) => cookie.value().to_owned(),
+            None => {
+                return Err(refresh_error_response(
+                    jar,
+                    &state,
+                    true,
+                    ApiError::new(
+                        StatusCode::UNAUTHORIZED,
+                        "INVALID_REFRESH",
+                        "refresh invalid",
+                    ),
+                ));
+            }
+        }
+    } else {
+        match req.refresh_token {
+            Some(token) => token,
+            None => {
+                return Err(ApiError::new(
+                    StatusCode::BAD_REQUEST,
+                    "MISSING_REFRESH_CREDENTIAL",
+                    "refreshToken or cookie session is required",
+                )
+                .into_response());
+            }
+        }
+    };
+    let hash = hash_token(&refresh_token);
+    let mut tokens = rotate_refresh_token(&state, &hash)
+        .await
+        .map_err(|error| refresh_error_response(jar.clone(), &state, cookie_mode, error))?;
+    let jar = finish_refresh(jar, &state, cookie_mode, &mut tokens);
+    Ok((jar, Json(tokens)))
+}
 
+async fn rotate_refresh_token(state: &AppState, hash: &str) -> Result<TokenResponse, ApiError> {
     if let Some(pool) = &state.pool {
         let row: Option<(String, String, String, Option<time::OffsetDateTime>)> = sqlx::query_as(
             "SELECT id, user_id, device_id, revoked_at FROM device_sessions
              WHERE refresh_token_hash = $1",
         )
-        .bind(&hash)
+        .bind(hash)
         .fetch_optional(pool)
         .await
         .map_err(db_err)?;
@@ -192,15 +262,15 @@ async fn refresh(
                 e.to_string(),
             )
         })?;
-        let mut tokens = issue_tokens(&state, &user_id, &device_id).await?;
+        let mut tokens = issue_tokens(state, &user_id, &device_id).await?;
         tokens.book_id = Some(book_id);
-        tokens.plan = Some(user_plan(&state, &user_id).await);
-        return Ok(Json(tokens));
+        tokens.plan = Some(user_plan(state, &user_id).await);
+        return Ok(tokens);
     }
 
     let (user_id, device_id) = {
         let mut store = state.store.write().await;
-        let session_id = store.refresh_to_session.remove(&hash).ok_or_else(|| {
+        let session_id = store.refresh_to_session.remove(hash).ok_or_else(|| {
             ApiError::new(
                 StatusCode::UNAUTHORIZED,
                 "INVALID_REFRESH",
@@ -232,10 +302,22 @@ async fn refresh(
             e.to_string(),
         )
     })?;
-    let mut tokens = issue_tokens(&state, &user_id, &device_id).await?;
+    let mut tokens = issue_tokens(state, &user_id, &device_id).await?;
     tokens.book_id = Some(book_id);
-    tokens.plan = Some(user_plan(&state, &user_id).await);
-    Ok(Json(tokens))
+    tokens.plan = Some(user_plan(state, &user_id).await);
+    Ok(tokens)
+}
+
+fn refresh_error_response(
+    jar: CookieJar,
+    state: &AppState,
+    cookie_mode: bool,
+    error: ApiError,
+) -> Response {
+    if cookie_mode && error.status == StatusCode::UNAUTHORIZED {
+        return (clear_refresh_cookie(jar, state), error).into_response();
+    }
+    error.into_response()
 }
 
 async fn issue_tokens(
@@ -307,12 +389,50 @@ async fn issue_tokens(
 
     Ok(TokenResponse {
         access_token: access,
-        refresh_token: refresh,
+        refresh_token: Some(refresh),
         token_type: "Bearer".into(),
         expires_in: 900,
         book_id: None,
         plan: None,
     })
+}
+
+fn finish_refresh(
+    jar: CookieJar,
+    state: &AppState,
+    cookie_mode: bool,
+    tokens: &mut TokenResponse,
+) -> CookieJar {
+    if !cookie_mode {
+        return jar;
+    }
+    let refresh = tokens.refresh_token.take().expect("issued refresh token");
+    add_refresh_cookie(jar, state, refresh)
+}
+
+fn add_refresh_cookie(jar: CookieJar, state: &AppState, value: String) -> CookieJar {
+    jar.add(
+        Cookie::build((REFRESH_COOKIE_NAME, value))
+            .path(REFRESH_COOKIE_PATH)
+            .http_only(true)
+            .secure(state.config.auth_cookie_secure)
+            .same_site(SameSite::Strict)
+            .max_age(time::Duration::days(30))
+            .build(),
+    )
+}
+
+fn clear_refresh_cookie(jar: CookieJar, state: &AppState) -> CookieJar {
+    jar.add(
+        Cookie::build((REFRESH_COOKIE_NAME, ""))
+            .path(REFRESH_COOKIE_PATH)
+            .http_only(true)
+            .secure(state.config.auth_cookie_secure)
+            .same_site(SameSite::Strict)
+            .max_age(time::Duration::ZERO)
+            .expires(time::OffsetDateTime::UNIX_EPOCH)
+            .build(),
+    )
 }
 
 fn hash_password(password: &str) -> Result<String, ApiError> {

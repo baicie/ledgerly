@@ -1,9 +1,12 @@
 use std::net::SocketAddr;
 use std::time::Duration;
 
-use axum::Router;
+use axum::{
+    http::{header, HeaderValue, Method},
+    Router,
+};
 use tower_http::catch_panic::CatchPanicLayer;
-use tower_http::cors::CorsLayer;
+use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::limit::RequestBodyLimitLayer;
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
@@ -55,7 +58,7 @@ pub async fn run_api(config: Config, with_worker: bool) -> anyhow::Result<()> {
         .merge(router::app_router(state.clone()))
         .layer(rate)
         .layer(TraceLayer::new_for_http())
-        .layer(CorsLayer::permissive())
+        .layer(cors_layer(&config)?)
         .layer(RequestBodyLimitLayer::new(8 * 1024 * 1024))
         .layer(TimeoutLayer::with_status_code(
             axum::http::StatusCode::REQUEST_TIMEOUT,
@@ -73,6 +76,26 @@ pub async fn run_api(config: Config, with_worker: bool) -> anyhow::Result<()> {
     .with_graceful_shutdown(shutdown_signal())
     .await?;
     Ok(())
+}
+
+fn cors_layer(config: &Config) -> anyhow::Result<CorsLayer> {
+    let origins = config
+        .cors_allowed_origins
+        .iter()
+        .map(|origin| HeaderValue::from_str(origin))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(CorsLayer::new()
+        .allow_origin(AllowOrigin::list(origins))
+        .allow_credentials(true)
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::PATCH,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
+        .allow_headers([header::AUTHORIZATION, header::CONTENT_TYPE]))
 }
 
 pub async fn run_worker_only(config: Config) -> anyhow::Result<()> {
@@ -135,4 +158,63 @@ fn init_otel(config: &Config) {
 async fn shutdown_signal() {
     let _ = tokio::signal::ctrl_c().await;
     tracing::info!("shutdown signal received");
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::{body::Body, http::Request, routing::post, Router};
+    use tower::ServiceExt;
+
+    use super::{cors_layer, Config};
+
+    async fn ok() {}
+
+    #[tokio::test]
+    async fn cors_allows_credentials_only_for_configured_origin() {
+        let mut config = Config::for_test();
+        config.cors_allowed_origins = vec!["https://app.ledgerly.example".into()];
+        let app = Router::new()
+            .route("/v1/auth/login", post(ok))
+            .layer(cors_layer(&config).unwrap());
+
+        let allowed = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("OPTIONS")
+                    .uri("/v1/auth/login")
+                    .header("origin", "https://app.ledgerly.example")
+                    .header("access-control-request-method", "POST")
+                    .header("access-control-request-headers", "content-type")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            allowed.headers()["access-control-allow-origin"],
+            "https://app.ledgerly.example"
+        );
+        assert_eq!(
+            allowed.headers()["access-control-allow-credentials"],
+            "true"
+        );
+
+        let denied = app
+            .oneshot(
+                Request::builder()
+                    .method("OPTIONS")
+                    .uri("/v1/auth/login")
+                    .header("origin", "https://untrusted.example")
+                    .header("access-control-request-method", "POST")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert!(denied
+            .headers()
+            .get("access-control-allow-origin")
+            .is_none());
+    }
 }

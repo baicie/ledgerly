@@ -18,6 +18,8 @@ pub struct Config {
     pub object_store_public_base: String,
     pub rate_limit_rps: u32,
     pub auth_rate_limit_rps: u32,
+    pub cors_allowed_origins: Vec<String>,
+    pub auth_cookie_secure: bool,
     pub otel_endpoint: Option<String>,
     pub is_production: bool,
     pub jwt_encoding_key: EncodingKey,
@@ -63,6 +65,14 @@ impl Config {
                 .ok()
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(20),
+            cors_allowed_origins: parse_origins(
+                &env::var("CORS_ALLOWED_ORIGINS").unwrap_or_default(),
+            )?,
+            auth_cookie_secure: env::var("AUTH_COOKIE_SECURE")
+                .ok()
+                .map(|value| parse_bool("AUTH_COOKIE_SECURE", &value))
+                .transpose()?
+                .unwrap_or(is_production),
             otel_endpoint: env::var("OTEL_EXPORTER_OTLP_ENDPOINT").ok(),
             is_production,
             jwt_encoding_key: encoding,
@@ -96,6 +106,19 @@ impl Config {
         {
             anyhow::bail!("OBJECT_STORE_HMAC_SECRET must be replaced in production");
         }
+        if !self.auth_cookie_secure {
+            anyhow::bail!("AUTH_COOKIE_SECURE must be true in production");
+        }
+        if self.cors_allowed_origins.is_empty() {
+            anyhow::bail!("CORS_ALLOWED_ORIGINS requires at least one HTTPS origin in production");
+        }
+        if self
+            .cors_allowed_origins
+            .iter()
+            .any(|origin| !origin.starts_with("https://"))
+        {
+            anyhow::bail!("CORS_ALLOWED_ORIGINS must contain only HTTPS origins in production");
+        }
         Ok(())
     }
 
@@ -114,12 +137,45 @@ impl Config {
             object_store_public_base: "http://127.0.0.1:0".into(),
             rate_limit_rps: 10_000,
             auth_rate_limit_rps: 10_000,
+            cors_allowed_origins: Vec::new(),
+            auth_cookie_secure: false,
             otel_endpoint: None,
             is_production: false,
             jwt_encoding_key: encoding,
             jwt_decoding_key: decoding,
         }
     }
+}
+
+fn parse_bool(name: &str, value: &str) -> anyhow::Result<bool> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "true" | "1" => Ok(true),
+        "false" | "0" => Ok(false),
+        _ => anyhow::bail!("{name} must be true or false"),
+    }
+}
+
+fn parse_origins(value: &str) -> anyhow::Result<Vec<String>> {
+    value
+        .split(',')
+        .map(str::trim)
+        .filter(|origin| !origin.is_empty())
+        .map(|origin| {
+            let url = url::Url::parse(origin)
+                .map_err(|_| anyhow::anyhow!("invalid CORS origin: {origin}"))?;
+            if !matches!(url.scheme(), "http" | "https")
+                || url.host_str().is_none()
+                || !url.username().is_empty()
+                || url.password().is_some()
+                || url.query().is_some()
+                || url.fragment().is_some()
+                || url.path() != "/"
+            {
+                anyhow::bail!("CORS origin must be an HTTP(S) origin without path: {origin}");
+            }
+            Ok(url.origin().ascii_serialization())
+        })
+        .collect()
 }
 
 fn build_ed25519_keys(jwt_secret: &str, seed_override: Option<&str>) -> (EncodingKey, DecodingKey) {
@@ -145,7 +201,20 @@ fn build_ed25519_keys(jwt_secret: &str, seed_override: Option<&str>) -> (Encodin
 
 #[cfg(test)]
 mod tests {
-    use super::Config;
+    use super::{parse_origins, Config};
+
+    #[test]
+    fn cors_origins_are_normalized_and_reject_paths() {
+        assert_eq!(
+            parse_origins("https://app.example:8443, http://localhost:3000").unwrap(),
+            vec![
+                "https://app.example:8443".to_string(),
+                "http://localhost:3000".to_string()
+            ]
+        );
+        assert!(parse_origins("https://app.example/auth").is_err());
+        assert!(parse_origins("https://user@app.example").is_err());
+    }
 
     #[test]
     fn production_validation_rejects_default_secrets() {
@@ -166,7 +235,23 @@ mod tests {
         config.jwt_secret = "a-long-random-jwt-secret".into();
         config.jwt_ed25519_seed = Some("a-long-random-ed25519-seed".into());
         config.object_store_hmac_secret = "a-long-random-hmac-secret".into();
+        config.cors_allowed_origins = vec!["https://app.ledgerly.example".into()];
+        config.auth_cookie_secure = true;
 
         assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn production_validation_rejects_insecure_cookie_origin() {
+        let mut config = Config::for_test();
+        config.is_production = true;
+        config.database_url = Some("postgres://ledgerly:test@db/ledgerly".into());
+        config.jwt_secret = "a-long-random-jwt-secret".into();
+        config.jwt_ed25519_seed = Some("a-long-random-ed25519-seed".into());
+        config.object_store_hmac_secret = "a-long-random-hmac-secret".into();
+        config.cors_allowed_origins = vec!["http://app.ledgerly.example".into()];
+        config.auth_cookie_secure = false;
+
+        assert!(config.validate().is_err());
     }
 }

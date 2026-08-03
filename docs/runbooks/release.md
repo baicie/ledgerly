@@ -30,6 +30,8 @@ sudo mkdir -p /opt/ledgerly && sudo chown ubuntu:ubuntu /opt/ledgerly
 # 从仓库复制示例并改密
 scp infrastructure/docker/env.prod.example ubuntu@82.156.234.84:/opt/ledgerly/.env.prod
 # 编辑 DATABASE_URL=postgres://ledgerly:...@host.docker.internal:5432/ledgerly
+# 设置 CORS_ALLOWED_ORIGINS=https://实际的-Web-站点域名
+# AUTH_COOKIE_SECURE 必须保持 true，并在 TLS 反向代理后对外服务
 ```
 
 ### 3. GitHub Secrets（仓库 Settings → Secrets）
@@ -94,6 +96,16 @@ git push origin v0.0.1
 | Publish GitHub Release | 附客户端文件 + release notes |
 
 Web 打包依赖 `apps/client/web/{sqlite3.wasm,drift_worker.js}`（与 `pubspec.lock` 中 drift/sqlite3 版本对齐；可用 `./scripts/fetch_drift_web_assets.sh` 更新）。
+Web 和正式客户端构建还必须传入 HTTPS API 地址：
+
+```bash
+flutter build web --release \
+  --dart-define=LEDGERLY_API_BASE_URL=https://api.ledgerly.example.com
+```
+
+服务端 `CORS_ALLOWED_ORIGINS` 填 Web 应用的 origin（协议、域名和端口），
+不要填 API 地址或路径。Web Refresh Token 仅通过 `Secure`、`HttpOnly`
+Cookie 传输，因此 API 和 Web 站点都必须使用 TLS。
 
 Android APK 按 ABI 拆分发布：大多数现代手机使用 `ledgerly-android-arm64-v8a.apk`，旧版 32 位 ARM 设备使用 `ledgerly-android-armeabi-v7a.apk`，x86_64 设备或模拟器使用 `ledgerly-android-x86_64.apk`。
 
