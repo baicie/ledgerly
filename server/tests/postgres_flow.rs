@@ -17,6 +17,9 @@ async fn json_body(res: axum::response::Response) -> serde_json::Value {
 #[tokio::test]
 async fn postgres_push_pull_persists() {
     let Some(url) = pg_url() else {
+        if std::env::var("REQUIRE_POSTGRES_TESTS").ok().as_deref() == Some("true") {
+            panic!("DATABASE_URL is required for PostgreSQL integration tests");
+        }
         eprintln!("skip postgres_push_pull_persists: DATABASE_URL unset");
         return;
     };
