@@ -53,6 +53,8 @@ jobs:
   rust:
     name: Rust
     runs-on: ubuntu-latest
+    env:
+      REQUIRE_POSTGRES_TESTS: "true"
     defaults:
       run:
         working-directory: server
@@ -96,6 +98,8 @@ jobs:
   live-sync:
     name: Live sync (Flutter ↔ Server)
     runs-on: ubuntu-latest
+    env:
+      REQUIRE_LIVE_SYNC: "true"
     services:
       postgres:
         image: postgres:16-alpine

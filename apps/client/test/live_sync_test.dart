@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ledgerly_client/application/ledger_app_service.dart';
@@ -32,6 +34,9 @@ void main() {
         password: 'password123',
       );
     } catch (e) {
+      if (Platform.environment['REQUIRE_LIVE_SYNC'] == 'true') {
+        fail('live sync server unavailable: $e');
+      }
       // ignore: avoid_print
       print('SKIP live sync test: server unavailable ($e)');
       return;
