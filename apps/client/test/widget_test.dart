@@ -9,6 +9,6 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('流水'), findsOneWidget);
+    expect(find.byType(NavigationBar), findsOneWidget);
   });
 }
