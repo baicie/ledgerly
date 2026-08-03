@@ -54,21 +54,37 @@ jobs:
         run: |
           flutter build web --release
           cd build
-          zip -r ../../ledgerly-web.zip web
+          zip -r ../../../ledgerly-web.zip web
 
       - name: Build Android APK
         working-directory: apps/client
         run: |
-          flutter build apk --release
-          cp build/app/outputs/flutter-apk/app-release.apk ../../ledgerly-android.apk
+          flutter build apk --release --split-per-abi
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk ../../ledgerly-android-arm64-v8a.apk
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk ../../ledgerly-android-armeabi-v7a.apk
+          cp build/app/outputs/flutter-apk/app-x86_64-release.apk ../../ledgerly-android-x86_64.apk
+
+      - name: Verify client artifacts
+        run: |
+          for archive in \
+            ledgerly-web.zip \
+            ledgerly-android-arm64-v8a.apk \
+            ledgerly-android-armeabi-v7a.apk \
+            ledgerly-android-x86_64.apk; do
+            test -s "$archive"
+            unzip -tq "$archive"
+          done
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: client-packages
+          if-no-files-found: error
           path: |
             ledgerly-web.zip
-            ledgerly-android.apk
+            ledgerly-android-arm64-v8a.apk
+            ledgerly-android-armeabi-v7a.apk
+            ledgerly-android-x86_64.apk
 
   server-image:
     name: Build & push server image
@@ -132,7 +148,9 @@ jobs:
 
           ### Client (this release)
           - \`ledgerly-web.zip\` — Flutter Web
-          - \`ledgerly-android.apk\` — Android release APK
+          - \`ledgerly-android-arm64-v8a.apk\` — Android release APK for most modern phones
+          - \`ledgerly-android-armeabi-v7a.apk\` — Android release APK for older 32-bit ARM devices
+          - \`ledgerly-android-x86_64.apk\` — Android release APK for x86_64 devices and emulators
 
           ### Server
           Docker image: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}\`
@@ -150,7 +168,9 @@ jobs:
         with:
           files: |
             ledgerly-web.zip
-            ledgerly-android.apk
+            ledgerly-android-arm64-v8a.apk
+            ledgerly-android-armeabi-v7a.apk
+            ledgerly-android-x86_64.apk
           body_path: /tmp/notes.md
           generate_release_notes: true
 
