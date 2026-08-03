@@ -3,13 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'presentation/pages/accounts_page.dart';
+import 'presentation/pages/attachments_page.dart';
+import 'presentation/pages/budgets_page.dart';
 import 'presentation/pages/conflicts_page.dart';
 import 'presentation/pages/export_page.dart';
+import 'presentation/pages/family_invite_page.dart';
 import 'presentation/pages/feed_page.dart';
+import 'presentation/pages/fx_rates_page.dart';
+import 'presentation/pages/recurring_page.dart';
 import 'presentation/pages/reports_page.dart';
 import 'presentation/pages/settings_page.dart';
 import 'presentation/pages/shell_page.dart';
+import 'presentation/pages/subscription_page.dart';
 import 'presentation/pages/sync_center_page.dart';
+import 'presentation/pages/transaction_revisions_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,6 +36,14 @@ final _router = GoRouter(
             GoRoute(
               path: '/feed',
               builder: (context, state) => const FeedPage(),
+              routes: [
+                GoRoute(
+                  path: 'revisions/:txId',
+                  builder: (context, state) => TransactionRevisionsPage(
+                    transactionId: state.pathParameters['txId']!,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -65,6 +80,30 @@ final _router = GoRouter(
                 GoRoute(
                   path: 'export',
                   builder: (context, state) => const ExportPage(),
+                ),
+                GoRoute(
+                  path: 'subscription',
+                  builder: (context, state) => const SubscriptionPage(),
+                ),
+                GoRoute(
+                  path: 'fx',
+                  builder: (context, state) => const FxRatesPage(),
+                ),
+                GoRoute(
+                  path: 'family',
+                  builder: (context, state) => const FamilyInvitePage(),
+                ),
+                GoRoute(
+                  path: 'budgets',
+                  builder: (context, state) => const BudgetsPage(),
+                ),
+                GoRoute(
+                  path: 'recurring',
+                  builder: (context, state) => const RecurringPage(),
+                ),
+                GoRoute(
+                  path: 'attachments',
+                  builder: (context, state) => const AttachmentsPage(),
                 ),
               ],
             ),

@@ -2,13 +2,14 @@ import 'package:ledger_domain/ledger_domain.dart' as domain;
 
 import '../data/database.dart';
 import '../data/ledger_repository.dart';
+import '../domain/ids.dart';
 
 class LedgerAppService {
   LedgerAppService(this._repo);
 
   final LedgerRepository _repo;
   static const factory = domain.TransactionFactory();
-  static const bookId = domain.BookId('book_default');
+  static const bookId = domain.BookId(defaultBookId);
 
   Future<void> createExpense({
     required String expenseAccountId,
@@ -98,7 +99,7 @@ class LedgerAppService {
     required String type,
   }) {
     return _repo.upsertAccount(
-      id: _repo.newId(),
+      id: accountId(bookId.value, _repo.newId()),
       bookId: bookId.value,
       name: name,
       type: type,

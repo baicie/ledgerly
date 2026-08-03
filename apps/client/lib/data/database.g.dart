@@ -1852,6 +1852,12 @@ class $SyncStatesTable extends SyncStates
   late final GeneratedColumn<String> refreshToken = GeneratedColumn<String>(
       'refresh_token', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _remoteBookIdMeta =
+      const VerificationMeta('remoteBookId');
+  @override
+  late final GeneratedColumn<String> remoteBookId = GeneratedColumn<String>(
+      'remote_book_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _lastErrorMeta =
       const VerificationMeta('lastError');
   @override
@@ -1871,6 +1877,7 @@ class $SyncStatesTable extends SyncStates
         cursor,
         accessToken,
         refreshToken,
+        remoteBookId,
         lastError,
         updatedAt
       ];
@@ -1912,6 +1919,12 @@ class $SyncStatesTable extends SyncStates
           refreshToken.isAcceptableOrUnknown(
               data['refresh_token']!, _refreshTokenMeta));
     }
+    if (data.containsKey('remote_book_id')) {
+      context.handle(
+          _remoteBookIdMeta,
+          remoteBookId.isAcceptableOrUnknown(
+              data['remote_book_id']!, _remoteBookIdMeta));
+    }
     if (data.containsKey('last_error')) {
       context.handle(_lastErrorMeta,
           lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta));
@@ -1941,6 +1954,8 @@ class $SyncStatesTable extends SyncStates
           .read(DriftSqlType.string, data['${effectivePrefix}access_token']),
       refreshToken: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}refresh_token']),
+      remoteBookId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}remote_book_id']),
       lastError: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}last_error']),
       updatedAt: attachedDatabase.typeMapping
@@ -1960,6 +1975,7 @@ class SyncState extends DataClass implements Insertable<SyncState> {
   final int cursor;
   final String? accessToken;
   final String? refreshToken;
+  final String? remoteBookId;
   final String? lastError;
   final DateTime updatedAt;
   const SyncState(
@@ -1968,6 +1984,7 @@ class SyncState extends DataClass implements Insertable<SyncState> {
       required this.cursor,
       this.accessToken,
       this.refreshToken,
+      this.remoteBookId,
       this.lastError,
       required this.updatedAt});
   @override
@@ -1981,6 +1998,9 @@ class SyncState extends DataClass implements Insertable<SyncState> {
     }
     if (!nullToAbsent || refreshToken != null) {
       map['refresh_token'] = Variable<String>(refreshToken);
+    }
+    if (!nullToAbsent || remoteBookId != null) {
+      map['remote_book_id'] = Variable<String>(remoteBookId);
     }
     if (!nullToAbsent || lastError != null) {
       map['last_error'] = Variable<String>(lastError);
@@ -2000,6 +2020,9 @@ class SyncState extends DataClass implements Insertable<SyncState> {
       refreshToken: refreshToken == null && nullToAbsent
           ? const Value.absent()
           : Value(refreshToken),
+      remoteBookId: remoteBookId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remoteBookId),
       lastError: lastError == null && nullToAbsent
           ? const Value.absent()
           : Value(lastError),
@@ -2016,6 +2039,7 @@ class SyncState extends DataClass implements Insertable<SyncState> {
       cursor: serializer.fromJson<int>(json['cursor']),
       accessToken: serializer.fromJson<String?>(json['accessToken']),
       refreshToken: serializer.fromJson<String?>(json['refreshToken']),
+      remoteBookId: serializer.fromJson<String?>(json['remoteBookId']),
       lastError: serializer.fromJson<String?>(json['lastError']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -2029,6 +2053,7 @@ class SyncState extends DataClass implements Insertable<SyncState> {
       'cursor': serializer.toJson<int>(cursor),
       'accessToken': serializer.toJson<String?>(accessToken),
       'refreshToken': serializer.toJson<String?>(refreshToken),
+      'remoteBookId': serializer.toJson<String?>(remoteBookId),
       'lastError': serializer.toJson<String?>(lastError),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -2040,6 +2065,7 @@ class SyncState extends DataClass implements Insertable<SyncState> {
           int? cursor,
           Value<String?> accessToken = const Value.absent(),
           Value<String?> refreshToken = const Value.absent(),
+          Value<String?> remoteBookId = const Value.absent(),
           Value<String?> lastError = const Value.absent(),
           DateTime? updatedAt}) =>
       SyncState(
@@ -2049,6 +2075,8 @@ class SyncState extends DataClass implements Insertable<SyncState> {
         accessToken: accessToken.present ? accessToken.value : this.accessToken,
         refreshToken:
             refreshToken.present ? refreshToken.value : this.refreshToken,
+        remoteBookId:
+            remoteBookId.present ? remoteBookId.value : this.remoteBookId,
         lastError: lastError.present ? lastError.value : this.lastError,
         updatedAt: updatedAt ?? this.updatedAt,
       );
@@ -2062,6 +2090,9 @@ class SyncState extends DataClass implements Insertable<SyncState> {
       refreshToken: data.refreshToken.present
           ? data.refreshToken.value
           : this.refreshToken,
+      remoteBookId: data.remoteBookId.present
+          ? data.remoteBookId.value
+          : this.remoteBookId,
       lastError: data.lastError.present ? data.lastError.value : this.lastError,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -2075,6 +2106,7 @@ class SyncState extends DataClass implements Insertable<SyncState> {
           ..write('cursor: $cursor, ')
           ..write('accessToken: $accessToken, ')
           ..write('refreshToken: $refreshToken, ')
+          ..write('remoteBookId: $remoteBookId, ')
           ..write('lastError: $lastError, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -2083,7 +2115,7 @@ class SyncState extends DataClass implements Insertable<SyncState> {
 
   @override
   int get hashCode => Object.hash(bookId, deviceId, cursor, accessToken,
-      refreshToken, lastError, updatedAt);
+      refreshToken, remoteBookId, lastError, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2093,6 +2125,7 @@ class SyncState extends DataClass implements Insertable<SyncState> {
           other.cursor == this.cursor &&
           other.accessToken == this.accessToken &&
           other.refreshToken == this.refreshToken &&
+          other.remoteBookId == this.remoteBookId &&
           other.lastError == this.lastError &&
           other.updatedAt == this.updatedAt);
 }
@@ -2103,6 +2136,7 @@ class SyncStatesCompanion extends UpdateCompanion<SyncState> {
   final Value<int> cursor;
   final Value<String?> accessToken;
   final Value<String?> refreshToken;
+  final Value<String?> remoteBookId;
   final Value<String?> lastError;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -2112,6 +2146,7 @@ class SyncStatesCompanion extends UpdateCompanion<SyncState> {
     this.cursor = const Value.absent(),
     this.accessToken = const Value.absent(),
     this.refreshToken = const Value.absent(),
+    this.remoteBookId = const Value.absent(),
     this.lastError = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2122,6 +2157,7 @@ class SyncStatesCompanion extends UpdateCompanion<SyncState> {
     this.cursor = const Value.absent(),
     this.accessToken = const Value.absent(),
     this.refreshToken = const Value.absent(),
+    this.remoteBookId = const Value.absent(),
     this.lastError = const Value.absent(),
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
@@ -2134,6 +2170,7 @@ class SyncStatesCompanion extends UpdateCompanion<SyncState> {
     Expression<int>? cursor,
     Expression<String>? accessToken,
     Expression<String>? refreshToken,
+    Expression<String>? remoteBookId,
     Expression<String>? lastError,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -2144,6 +2181,7 @@ class SyncStatesCompanion extends UpdateCompanion<SyncState> {
       if (cursor != null) 'cursor': cursor,
       if (accessToken != null) 'access_token': accessToken,
       if (refreshToken != null) 'refresh_token': refreshToken,
+      if (remoteBookId != null) 'remote_book_id': remoteBookId,
       if (lastError != null) 'last_error': lastError,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -2156,6 +2194,7 @@ class SyncStatesCompanion extends UpdateCompanion<SyncState> {
       Value<int>? cursor,
       Value<String?>? accessToken,
       Value<String?>? refreshToken,
+      Value<String?>? remoteBookId,
       Value<String?>? lastError,
       Value<DateTime>? updatedAt,
       Value<int>? rowid}) {
@@ -2165,6 +2204,7 @@ class SyncStatesCompanion extends UpdateCompanion<SyncState> {
       cursor: cursor ?? this.cursor,
       accessToken: accessToken ?? this.accessToken,
       refreshToken: refreshToken ?? this.refreshToken,
+      remoteBookId: remoteBookId ?? this.remoteBookId,
       lastError: lastError ?? this.lastError,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -2189,6 +2229,9 @@ class SyncStatesCompanion extends UpdateCompanion<SyncState> {
     if (refreshToken.present) {
       map['refresh_token'] = Variable<String>(refreshToken.value);
     }
+    if (remoteBookId.present) {
+      map['remote_book_id'] = Variable<String>(remoteBookId.value);
+    }
     if (lastError.present) {
       map['last_error'] = Variable<String>(lastError.value);
     }
@@ -2209,6 +2252,7 @@ class SyncStatesCompanion extends UpdateCompanion<SyncState> {
           ..write('cursor: $cursor, ')
           ..write('accessToken: $accessToken, ')
           ..write('refreshToken: $refreshToken, ')
+          ..write('remoteBookId: $remoteBookId, ')
           ..write('lastError: $lastError, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -3594,6 +3638,7 @@ typedef $$SyncStatesTableCreateCompanionBuilder = SyncStatesCompanion Function({
   Value<int> cursor,
   Value<String?> accessToken,
   Value<String?> refreshToken,
+  Value<String?> remoteBookId,
   Value<String?> lastError,
   required DateTime updatedAt,
   Value<int> rowid,
@@ -3604,6 +3649,7 @@ typedef $$SyncStatesTableUpdateCompanionBuilder = SyncStatesCompanion Function({
   Value<int> cursor,
   Value<String?> accessToken,
   Value<String?> refreshToken,
+  Value<String?> remoteBookId,
   Value<String?> lastError,
   Value<DateTime> updatedAt,
   Value<int> rowid,
@@ -3632,6 +3678,9 @@ class $$SyncStatesTableFilterComposer
 
   ColumnFilters<String> get refreshToken => $composableBuilder(
       column: $table.refreshToken, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get remoteBookId => $composableBuilder(
+      column: $table.remoteBookId, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get lastError => $composableBuilder(
       column: $table.lastError, builder: (column) => ColumnFilters(column));
@@ -3665,6 +3714,10 @@ class $$SyncStatesTableOrderingComposer
       column: $table.refreshToken,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get remoteBookId => $composableBuilder(
+      column: $table.remoteBookId,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get lastError => $composableBuilder(
       column: $table.lastError, builder: (column) => ColumnOrderings(column));
 
@@ -3695,6 +3748,9 @@ class $$SyncStatesTableAnnotationComposer
 
   GeneratedColumn<String> get refreshToken => $composableBuilder(
       column: $table.refreshToken, builder: (column) => column);
+
+  GeneratedColumn<String> get remoteBookId => $composableBuilder(
+      column: $table.remoteBookId, builder: (column) => column);
 
   GeneratedColumn<String> get lastError =>
       $composableBuilder(column: $table.lastError, builder: (column) => column);
@@ -3731,6 +3787,7 @@ class $$SyncStatesTableTableManager extends RootTableManager<
             Value<int> cursor = const Value.absent(),
             Value<String?> accessToken = const Value.absent(),
             Value<String?> refreshToken = const Value.absent(),
+            Value<String?> remoteBookId = const Value.absent(),
             Value<String?> lastError = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<int> rowid = const Value.absent(),
@@ -3741,6 +3798,7 @@ class $$SyncStatesTableTableManager extends RootTableManager<
             cursor: cursor,
             accessToken: accessToken,
             refreshToken: refreshToken,
+            remoteBookId: remoteBookId,
             lastError: lastError,
             updatedAt: updatedAt,
             rowid: rowid,
@@ -3751,6 +3809,7 @@ class $$SyncStatesTableTableManager extends RootTableManager<
             Value<int> cursor = const Value.absent(),
             Value<String?> accessToken = const Value.absent(),
             Value<String?> refreshToken = const Value.absent(),
+            Value<String?> remoteBookId = const Value.absent(),
             Value<String?> lastError = const Value.absent(),
             required DateTime updatedAt,
             Value<int> rowid = const Value.absent(),
@@ -3761,6 +3820,7 @@ class $$SyncStatesTableTableManager extends RootTableManager<
             cursor: cursor,
             accessToken: accessToken,
             refreshToken: refreshToken,
+            remoteBookId: remoteBookId,
             lastError: lastError,
             updatedAt: updatedAt,
             rowid: rowid,

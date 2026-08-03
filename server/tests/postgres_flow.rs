@@ -1,7 +1,7 @@
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use http_body_util::BodyExt;
-use ledger_server::{AppState, Config, app_router, migrate};
+use ledger_server::{app_router, migrate, AppState, Config};
 use serde_json::json;
 use tower::ServiceExt;
 
@@ -21,12 +21,8 @@ async fn postgres_push_pull_persists() {
         return;
     };
 
-    // Isolate test data with schema migrate on shared DB.
-    let config = Config {
-        listen_addr: "127.0.0.1:0".into(),
-        database_url: Some(url),
-        jwt_secret: "test-secret".into(),
-    };
+    let mut config = Config::for_test();
+    config.database_url = Some(url);
     migrate(&config).await.expect("migrate");
     let state = AppState::new_async(config).await.expect("state");
     assert!(state.using_postgres());
@@ -42,7 +38,8 @@ async fn postgres_push_pull_persists() {
                 .uri("/v1/auth/register")
                 .header("content-type", "application/json")
                 .body(Body::from(
-                    json!({"email": email, "password":"password123","displayName":"PG"}).to_string(),
+                    json!({"email": email, "password":"password123","displayName":"PG"})
+                        .to_string(),
                 ))
                 .unwrap(),
         )
@@ -58,7 +55,8 @@ async fn postgres_push_pull_persists() {
                 .uri("/v1/auth/login")
                 .header("content-type", "application/json")
                 .body(Body::from(
-                    json!({"email": email, "password":"password123","deviceId":"dev_pg"}).to_string(),
+                    json!({"email": email, "password":"password123","deviceId":"dev_pg"})
+                        .to_string(),
                 ))
                 .unwrap(),
         )
@@ -66,7 +64,10 @@ async fn postgres_push_pull_persists() {
         .unwrap();
     assert_eq!(res.status(), StatusCode::OK);
     let login = json_body(res).await;
+    let token = login["accessToken"].as_str().unwrap();
     let book_id = login["bookId"].as_str().unwrap().to_string();
+    let food = format!("{book_id}:acc_food");
+    let cash = format!("{book_id}:acc_cash");
 
     let ready = app
         .clone()
@@ -93,8 +94,8 @@ async fn postgres_push_pull_persists() {
             "payload": {
                 "description": "PG lunch",
                 "entries": [
-                    {"accountId": "acc_food", "amountMinor": "1200", "currency": "CNY"},
-                    {"accountId": "acc_cash", "amountMinor": "-1200", "currency": "CNY"}
+                    {"accountId": food, "amountMinor": "1200", "currency": "CNY"},
+                    {"accountId": cash, "amountMinor": "-1200", "currency": "CNY"}
                 ]
             }
         }]
@@ -107,6 +108,7 @@ async fn postgres_push_pull_persists() {
                 .method("POST")
                 .uri(format!("/v1/books/{book_id}/sync/push"))
                 .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {token}"))
                 .body(Body::from(mutation.to_string()))
                 .unwrap(),
         )
@@ -120,6 +122,7 @@ async fn postgres_push_pull_persists() {
         .oneshot(
             Request::builder()
                 .uri(format!("/v1/books/{book_id}/sync/pull?cursor=0"))
+                .header("authorization", format!("Bearer {token}"))
                 .body(Body::empty())
                 .unwrap(),
         )

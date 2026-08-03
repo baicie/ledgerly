@@ -1,0 +1,154 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  DATABASE_URL: postgres://ledgerly:ledgerly@127.0.0.1:5432/ledgerly
+  JWT_SECRET: ci-only-ledgerly-secret
+  LEDGER_LISTEN: 127.0.0.1:8080
+
+jobs:
+  flutter:
+    name: Flutter / Dart
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve workspace
+        run: dart pub get
+
+      - name: Analyze packages
+        run: dart analyze --fatal-infos packages/ledger_domain packages/ledger_sync
+
+      - name: Analyze Flutter client
+        run: flutter analyze
+        working-directory: apps/client
+
+      - name: Test ledger_domain
+        run: dart test
+        working-directory: packages/ledger_domain
+
+      - name: Test ledger_sync
+        run: dart test
+        working-directory: packages/ledger_sync
+
+      - name: Test Flutter client (unit)
+        # live_sync_test 由 live-sync job 覆盖（需本机 server）
+        run: flutter test test/widget_test.dart test/offline_ledger_test.dart
+        working-directory: apps/client
+
+  rust:
+    name: Rust
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ledgerly
+          POSTGRES_PASSWORD: ledgerly
+          POSTGRES_DB: ledgerly
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ledgerly -d ledgerly"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: server -> target
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Test (workspace + Postgres)
+        run: cargo test --workspace
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          JWT_SECRET: ${{ env.JWT_SECRET }}
+
+  live-sync:
+    name: Live sync (Flutter ↔ Server)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ledgerly
+          POSTGRES_PASSWORD: ledgerly
+          POSTGRES_DB: ledgerly
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ledgerly -d ledgerly"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: server -> target
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Build server
+        run: cargo build --manifest-path server/Cargo.toml
+
+      - name: Start server
+        run: |
+          cargo run --manifest-path server/Cargo.toml -- migrate
+          cargo run --manifest-path server/Cargo.toml -- all &
+          echo $! > /tmp/ledger-server.pid
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8080/health/ready >/dev/null; then
+              echo "server ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "server failed to become ready"
+          exit 1
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          JWT_SECRET: ${{ env.JWT_SECRET }}
+          LEDGER_LISTEN: ${{ env.LEDGER_LISTEN }}
+
+      - name: Resolve workspace
+        run: dart pub get
+
+      - name: Live sync test
+        run: flutter test test/live_sync_test.dart
+        working-directory: apps/client

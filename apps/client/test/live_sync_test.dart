@@ -5,6 +5,7 @@ import 'package:ledgerly_client/application/sync_service.dart';
 import 'package:ledgerly_client/data/database.dart';
 import 'package:ledgerly_client/data/ledger_repository.dart';
 import 'package:ledgerly_client/data/sync_api.dart';
+import 'package:ledgerly_client/domain/ids.dart';
 
 /// Requires local server:
 /// DATABASE_URL=postgres://ledgerly:ledgerly@127.0.0.1:5432/ledgerly cargo run --manifest-path ../../server/Cargo.toml -- all
@@ -18,12 +19,12 @@ void main() {
     final sync = SyncService(repo, SyncApi());
 
     await service.createExpense(
-      expenseAccountId: 'acc_food',
-      fundingAccountId: 'acc_cash',
+      expenseAccountId: accountKeyFood(defaultBookId),
+      fundingAccountId: accountKeyCash(defaultBookId),
       amountMinor: BigInt.from(888),
       description: 'Live sync',
     );
-    expect(await repo.listPending('book_default'), hasLength(1));
+    expect(await repo.listPending(defaultBookId), hasLength(1));
 
     try {
       await sync.ensureSession(
@@ -38,7 +39,7 @@ void main() {
 
     final result = await sync.syncNow();
     expect(result.ok, isTrue, reason: result.message);
-    expect(await repo.listPending('book_default'), isEmpty);
+    expect(await repo.listPending(defaultBookId), isEmpty);
     expect(result.cursor, greaterThan(0));
   });
 }

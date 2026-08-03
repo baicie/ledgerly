@@ -67,6 +67,7 @@ class SyncStates extends Table {
   IntColumn get cursor => integer().withDefault(const Constant(0))();
   TextColumn get accessToken => text().nullable()();
   TextColumn get refreshToken => text().nullable()();
+  TextColumn get remoteBookId => text().nullable()();
   TextColumn get lastError => text().nullable()();
   DateTimeColumn get updatedAt => dateTime()();
 

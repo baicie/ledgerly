@@ -1,15 +1,11 @@
-use axum::{
-    Json, Router,
-    extract::State,
-    http::StatusCode,
-    routing::post,
-};
+use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
 use ledger_contracts::{CreateTransactionRequest, CreateTransactionResponse};
-use ledger_domain::{EntryDraft, validate_balanced};
+use ledger_domain::{validate_balanced, EntryDraft};
 use uuid::Uuid;
 
 use crate::error::ApiError;
 use crate::state::{AppState, ChangeRecord, TxRecord};
+use crate::transport::http::authz::{require_book_member, AuthUser};
 
 pub fn routes() -> Router<AppState> {
     Router::new().route("/v1/transactions", post(create_transaction))
@@ -17,8 +13,10 @@ pub fn routes() -> Router<AppState> {
 
 async fn create_transaction(
     State(state): State<AppState>,
+    auth: AuthUser,
     Json(req): Json<CreateTransactionRequest>,
 ) -> Result<Json<CreateTransactionResponse>, ApiError> {
+    require_book_member(&state, &auth.user_id, &req.book_id).await?;
     let drafts: Vec<EntryDraft> = req
         .entries
         .iter()
@@ -40,11 +38,7 @@ async fn create_transaction(
             "LEDGER_UNBALANCED",
             "entries do not sum to zero",
         ),
-        other => ApiError::new(
-            StatusCode::BAD_REQUEST,
-            "LEDGER_INVALID",
-            other.to_string(),
-        ),
+        other => ApiError::new(StatusCode::BAD_REQUEST, "LEDGER_INVALID", other.to_string()),
     })?;
 
     let tx_id = Uuid::now_v7().to_string();
@@ -76,6 +70,7 @@ async fn create_transaction(
                 book_id: req.book_id.clone(),
                 description: req.description.clone(),
                 version: 1,
+                deleted: false,
                 entries: entries.clone(),
             },
         );

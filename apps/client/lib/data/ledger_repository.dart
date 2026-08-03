@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:ledger_domain/ledger_domain.dart' as domain;
 
+import '../domain/ids.dart';
 import 'database.dart';
 
 class LedgerRepository {
@@ -16,7 +17,7 @@ class LedgerRepository {
     final books = await _db.select(_db.books).get();
     if (books.isNotEmpty) return;
 
-    const bookId = 'book_default';
+    final bookId = defaultBookId;
     final now = DateTime.now().toUtc();
     await _db.into(_db.books).insert(
           BooksCompanion.insert(
@@ -39,11 +40,11 @@ class LedgerRepository {
           );
     }
 
-    await account('acc_cash', 'Cash', 'asset');
-    await account('acc_bank', 'Bank', 'asset');
-    await account('acc_food', 'Food', 'expense');
-    await account('acc_transport', 'Transport', 'expense');
-    await account('acc_salary', 'Salary', 'income');
+    await account(accountKeyCash(bookId), 'Cash', 'asset');
+    await account(accountKeyBank(bookId), 'Bank', 'asset');
+    await account(accountKeyFood(bookId), 'Food', 'expense');
+    await account(accountKeyTransport(bookId), 'Transport', 'expense');
+    await account(accountKeySalary(bookId), 'Salary', 'income');
 
     await _db.into(_db.syncStates).insert(
           SyncStatesCompanion.insert(
@@ -238,6 +239,7 @@ class LedgerRepository {
     int? cursor,
     String? accessToken,
     String? refreshToken,
+    String? remoteBookId,
     String? lastError,
   }) async {
     final existing = await syncState(bookId);
@@ -249,6 +251,7 @@ class LedgerRepository {
               cursor: Value(cursor ?? 0),
               accessToken: Value(accessToken),
               refreshToken: Value(refreshToken),
+              remoteBookId: Value(remoteBookId),
               lastError: Value(lastError),
               updatedAt: DateTime.now().toUtc(),
             ),
@@ -263,8 +266,23 @@ class LedgerRepository {
             accessToken != null ? Value(accessToken) : const Value.absent(),
         refreshToken:
             refreshToken != null ? Value(refreshToken) : const Value.absent(),
+        remoteBookId:
+            remoteBookId != null ? Value(remoteBookId) : const Value.absent(),
         lastError: Value(lastError),
         updatedAt: Value(DateTime.now().toUtc()),
+      ),
+    );
+  }
+
+  Future<void> applyRemoteDelete({
+    required String entityId,
+    required int version,
+  }) async {
+    await (_db.update(_db.transactions)..where((t) => t.id.equals(entityId)))
+        .write(
+      TransactionsCompanion(
+        deletedAt: Value(DateTime.now().toUtc()),
+        version: Value(version),
       ),
     );
   }

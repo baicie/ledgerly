@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../domain/ids.dart';
 import 'providers.dart';
 
 class QuickEntrySheet extends ConsumerStatefulWidget {
@@ -65,8 +66,8 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
         : 0;
     final minor = BigInt.from(yuan * 100 + cents);
     await ref.read(ledgerAppServiceProvider).createExpense(
-          expenseAccountId: 'acc_food',
-          fundingAccountId: 'acc_cash',
+          expenseAccountId: accountKeyFood(defaultBookId),
+          fundingAccountId: accountKeyCash(defaultBookId),
           amountMinor: minor,
           description: _note.text,
         );

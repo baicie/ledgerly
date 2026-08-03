@@ -38,6 +38,42 @@ class _SettingsPageState extends State<SettingsPage> {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.go('/settings/export'),
           ),
+          const Divider(),
+          ListTile(
+            title: const Text('订阅权益'),
+            subtitle: const Text('Free / Plus / Family'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.go('/settings/subscription'),
+          ),
+          ListTile(
+            title: const Text('汇率'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.go('/settings/fx'),
+          ),
+          ListTile(
+            title: const Text('家庭共享'),
+            subtitle: const Text('需 Family 方案'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.go('/settings/family'),
+          ),
+          ListTile(
+            title: const Text('预算'),
+            subtitle: const Text('月度预算与进度'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.go('/settings/budgets'),
+          ),
+          ListTile(
+            title: const Text('周期记账'),
+            subtitle: const Text('规则由 Job Worker 入账'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.go('/settings/recurring'),
+          ),
+          ListTile(
+            title: const Text('附件'),
+            subtitle: const Text('需 Plus · HMAC 直传'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.go('/settings/attachments'),
+          ),
         ],
       ),
     );
