@@ -1,11 +1,17 @@
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ledgerly_client/application/ledger_app_service.dart';
+import 'package:ledgerly_client/application/sync_service.dart';
+import 'package:ledgerly_client/auth/auth_repository.dart';
 import 'package:ledgerly_client/data/database.dart';
 import 'package:ledgerly_client/data/ledger_repository.dart';
+import 'package:ledgerly_client/data/sync_api.dart';
 import 'package:ledgerly_client/domain/ids.dart';
+
+import 'support/fake_auth_gateway.dart';
 
 void main() {
   test('offline create expense enqueues pending mutation and updates balance',
@@ -13,7 +19,10 @@ void main() {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
 
-    final repo = LedgerRepository(db);
+    final repo = LedgerRepository(
+      db,
+      deviceIdLoader: () async => 'test-device',
+    );
     await repo.seedIfEmpty();
     final service = LedgerAppService(repo);
 
@@ -38,12 +47,16 @@ void main() {
     final pending = await repo.listPending(defaultBookId);
     expect(pending, hasLength(1));
     expect(pending.first.operation, 'create');
+    expect(pending.first.deviceId, 'test-device');
   });
 
   test('soft delete hides transaction from balance', () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
-    final repo = LedgerRepository(db);
+    final repo = LedgerRepository(
+      db,
+      deviceIdLoader: () async => 'test-device',
+    );
     await repo.seedIfEmpty();
     final service = LedgerAppService(repo);
     await service.createExpense(
@@ -66,7 +79,10 @@ void main() {
       () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
-    final repo = LedgerRepository(db);
+    final repo = LedgerRepository(
+      db,
+      deviceIdLoader: () async => 'test-device',
+    );
     await repo.seedIfEmpty();
     await repo.addConflict(
       bookId: defaultBookId,
@@ -86,11 +102,13 @@ void main() {
     expect(await repo.listPending(defaultBookId), isEmpty);
   });
 
-  test('keeping local requeues an update against the remote version',
-      () async {
+  test('keeping local requeues an update against the remote version', () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
-    final repo = LedgerRepository(db);
+    final repo = LedgerRepository(
+      db,
+      deviceIdLoader: () async => 'test-device',
+    );
     await repo.seedIfEmpty();
     final payload = {
       'description': 'Local edit',
@@ -126,7 +144,10 @@ void main() {
       () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
-    final repo = LedgerRepository(db);
+    final repo = LedgerRepository(
+      db,
+      deviceIdLoader: () async => 'test-device',
+    );
     await repo.seedIfEmpty();
     await repo.addConflict(
       bookId: defaultBookId,
@@ -146,5 +167,35 @@ void main() {
     expect(pending, hasLength(1));
     expect(pending.single.operation, 'delete');
     expect(pending.single.baseVersion, 5);
+  });
+
+  test('sync refuses to rebind a local ledger to another account', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final repo = LedgerRepository(
+      db,
+      deviceIdLoader: () async => 'test-device',
+    );
+    await repo.seedIfEmpty();
+    await repo.updateSyncState(
+      bookId: defaultBookId,
+      remoteBookId: 'remote-book-one',
+      cursor: 42,
+    );
+    final gateway = FakeAuthGateway()
+      ..restoreResult = const AuthSession(
+        bookId: 'remote-book-two',
+        plan: 'free',
+      );
+    await gateway.restore();
+    final sync = SyncService(repo, SyncApi(dio: Dio()), gateway);
+
+    final result = await sync.syncNow();
+
+    expect(result.ok, isFalse);
+    expect(result.message, contains('本地账本已绑定到其他账户'));
+    final state = await repo.syncState(defaultBookId);
+    expect(state?.remoteBookId, 'remote-book-one');
+    expect(state?.cursor, 42);
   });
 }

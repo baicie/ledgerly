@@ -26,10 +26,6 @@ class SyncCenterPage extends ConsumerWidget {
               FilledButton(
                 onPressed: () async {
                   final sync = ref.read(syncServiceProvider);
-                  await sync.ensureSession(
-                    email: 'local@ledgerly.dev',
-                    password: 'password123',
-                  );
                   final result = await sync.syncNow();
                   ref.invalidate(syncStatusProvider);
                   ref.invalidate(transactionListProvider);
@@ -47,11 +43,6 @@ class SyncCenterPage extends ConsumerWidget {
                   }
                 },
                 child: const Text('立即同步'),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                '会先登录/注册开发账号，再 Push pending 并 Pull 变更。',
-                style: TextStyle(color: Colors.black54),
               ),
             ],
           ),

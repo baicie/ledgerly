@@ -1,5 +1,6 @@
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
+use axum::Router;
 use http_body_util::BodyExt;
 use ledger_server::{app_router, migrate, AppState, Config};
 use serde_json::json;
@@ -12,6 +13,20 @@ fn pg_url() -> Option<String> {
 async fn json_body(res: axum::response::Response) -> serde_json::Value {
     let bytes = res.into_body().collect().await.unwrap().to_bytes();
     serde_json::from_slice(&bytes).unwrap()
+}
+
+async fn post_json(app: &Router, uri: &str, body: serde_json::Value) -> axum::response::Response {
+    app.clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(uri)
+                .header("content-type", "application/json")
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap()
 }
 
 #[tokio::test]
@@ -289,4 +304,110 @@ async fn postgres_concurrent_updates_use_cas() {
         conflict["receipts"][0]["resultCode"],
         "LEDGER_VERSION_CONFLICT"
     );
+}
+
+#[tokio::test]
+async fn postgres_refresh_rotation_is_atomic_and_expires_idle_tokens() {
+    let Some(url) = pg_url() else {
+        if std::env::var("REQUIRE_POSTGRES_TESTS").ok().as_deref() == Some("true") {
+            panic!("DATABASE_URL is required for PostgreSQL integration tests");
+        }
+        eprintln!(
+            "skip postgres_refresh_rotation_is_atomic_and_expires_idle_tokens: DATABASE_URL unset"
+        );
+        return;
+    };
+
+    let mut config = Config::for_test();
+    config.database_url = Some(url);
+    migrate(&config).await.expect("migrate");
+    let state = AppState::new_async(config).await.expect("state");
+    let app = app_router(state.clone());
+    let email = format!("refresh_{}@test.com", uuid::Uuid::now_v7());
+    assert_eq!(
+        post_json(
+            &app,
+            "/v1/auth/register",
+            json!({
+                "email": email,
+                "password": "password123",
+                "displayName": "Refresh"
+            }),
+        )
+        .await
+        .status(),
+        StatusCode::OK
+    );
+
+    let login = post_json(
+        &app,
+        "/v1/auth/login",
+        json!({
+            "email": email,
+            "password": "password123",
+            "deviceId": "concurrent-refresh-device"
+        }),
+    )
+    .await;
+    assert_eq!(login.status(), StatusCode::OK);
+    let refresh_token = json_body(login).await["refreshToken"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let refresh_request = || {
+        post_json(
+            &app,
+            "/v1/auth/refresh",
+            json!({"refreshToken": refresh_token}),
+        )
+    };
+
+    let (first, second) = tokio::join!(refresh_request(), refresh_request());
+    let statuses = [first.status(), second.status()];
+    assert_eq!(
+        statuses
+            .iter()
+            .filter(|status| **status == StatusCode::OK)
+            .count(),
+        1
+    );
+    assert_eq!(
+        statuses
+            .iter()
+            .filter(|status| **status == StatusCode::UNAUTHORIZED)
+            .count(),
+        1
+    );
+
+    let expired_login = post_json(
+        &app,
+        "/v1/auth/login",
+        json!({
+            "email": email,
+            "password": "password123",
+            "deviceId": "expired-refresh-device"
+        }),
+    )
+    .await;
+    assert_eq!(expired_login.status(), StatusCode::OK);
+    let expired_refresh = json_body(expired_login).await["refreshToken"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    sqlx::query(
+        "UPDATE device_sessions
+         SET created_at = now() - interval '31 days'
+         WHERE device_id = 'expired-refresh-device'",
+    )
+    .execute(state.pool.as_ref().unwrap())
+    .await
+    .unwrap();
+
+    let expired_response = post_json(
+        &app,
+        "/v1/auth/refresh",
+        json!({"refreshToken": expired_refresh}),
+    )
+    .await;
+    assert_eq!(expired_response.status(), StatusCode::UNAUTHORIZED);
 }

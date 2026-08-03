@@ -31,6 +31,8 @@ jobs:
   client-release:
     name: Package Flutter clients
     runs-on: ubuntu-latest
+    env:
+      LEDGERLY_API_BASE_URL: ${{ vars.LEDGERLY_API_BASE_URL }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,10 +51,21 @@ jobs:
       - name: Resolve workspace
         run: dart pub get
 
+      - name: Require client API endpoint
+        run: |
+          case "$LEDGERLY_API_BASE_URL" in
+            https://*) ;;
+            *)
+              echo "Set the LEDGERLY_API_BASE_URL repository variable to the production HTTPS API origin" >&2
+              exit 1
+              ;;
+          esac
+
       - name: Build web
         working-directory: apps/client
         run: |
-          flutter build web --release
+          flutter build web --release \
+            --dart-define=LEDGERLY_API_BASE_URL="$LEDGERLY_API_BASE_URL"
           cd build
           zip -r ../../../ledgerly-web.zip web
 
@@ -87,7 +100,8 @@ jobs:
       - name: Build Android APK
         working-directory: apps/client
         run: |
-          flutter build apk --release --split-per-abi
+          flutter build apk --release --split-per-abi \
+            --dart-define=LEDGERLY_API_BASE_URL="$LEDGERLY_API_BASE_URL"
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk ../../ledgerly-android-arm64-v8a.apk
           cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk ../../ledgerly-android-armeabi-v7a.apk
           cp build/app/outputs/flutter-apk/app-x86_64-release.apk ../../ledgerly-android-x86_64.apk

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../domain/ids.dart';
 import '../providers.dart';
 
 class ReportsPage extends ConsumerStatefulWidget {
@@ -23,18 +22,8 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
 
   Future<void> _loadRemote() async {
     try {
-      final sync = ref.read(syncServiceProvider);
-      await sync.ensureSession(
-        email: 'local@ledgerly.dev',
-        password: 'password123',
-      );
       final api = ref.read(syncApiProvider);
-      try {
-        await api.devUpgrade(plan: 'plus');
-      } catch (_) {}
-      final state =
-          await ref.read(ledgerRepositoryProvider).syncState(defaultBookId);
-      final bookId = state?.remoteBookId;
+      final bookId = ref.read(authRepositoryProvider).currentSession?.bookId;
       if (bookId == null) return;
       final month = ref.read(selectedMonthProvider);
       final from = DateTime.utc(month.year, month.month).toIso8601String();

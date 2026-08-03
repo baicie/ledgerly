@@ -26,14 +26,24 @@ pub struct LoginRequest {
     pub device_id: String,
     #[serde(rename = "deviceName")]
     pub device_name: Option<String>,
+    #[serde(rename = "sessionMode")]
+    pub session_mode: Option<SessionMode>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SessionMode {
+    Cookie,
+    #[serde(other)]
+    Unsupported,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TokenResponse {
     #[serde(rename = "accessToken")]
     pub access_token: String,
-    #[serde(rename = "refreshToken")]
-    pub refresh_token: String,
+    #[serde(rename = "refreshToken", skip_serializing_if = "Option::is_none")]
+    pub refresh_token: Option<String>,
     #[serde(rename = "tokenType")]
     pub token_type: String,
     #[serde(rename = "expiresIn")]

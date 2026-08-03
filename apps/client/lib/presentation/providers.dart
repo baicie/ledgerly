@@ -1,7 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../application/ledger_app_service.dart';
 import '../application/sync_service.dart';
+import '../auth/auth_repository.dart';
+import '../auth/auth_controller.dart';
+import '../auth/platform_session_store.dart';
+import '../auth/session_store.dart';
+import '../config/api_endpoint.dart';
 import '../data/database.dart';
 import '../data/ledger_repository.dart';
 import '../data/sync_api.dart';
@@ -13,20 +20,52 @@ final databaseProvider = Provider<AppDatabase>((ref) {
   return db;
 });
 
+final apiEndpointProvider = Provider<ApiEndpoint>((ref) {
+  return ApiEndpoint.fromEnvironment();
+});
+
+final sessionStoreProvider = Provider<SessionStore>((ref) {
+  return createPlatformSessionStore();
+});
+
+final authRepositoryProvider = Provider<AuthRepository>((ref) {
+  final repository = AuthRepository(
+    endpoint: ref.watch(apiEndpointProvider),
+    sessionStore: ref.watch(sessionStoreProvider),
+  );
+  ref.onDispose(repository.dispose);
+  return repository;
+});
+
+final authControllerProvider = ChangeNotifierProvider<AuthController>((ref) {
+  final controller = AuthController(ref.watch(authRepositoryProvider));
+  unawaited(controller.restore());
+  return controller;
+});
+
 final ledgerRepositoryProvider = Provider<LedgerRepository>((ref) {
-  return LedgerRepository(ref.watch(databaseProvider));
+  final sessionStore = ref.watch(sessionStoreProvider);
+  return LedgerRepository(
+    ref.watch(databaseProvider),
+    deviceIdLoader: sessionStore.getOrCreateDeviceId,
+  );
 });
 
 final ledgerAppServiceProvider = Provider<LedgerAppService>((ref) {
   return LedgerAppService(ref.watch(ledgerRepositoryProvider));
 });
 
-final syncApiProvider = Provider<SyncApi>((ref) => SyncApi());
+final syncApiProvider = Provider<SyncApi>((ref) {
+  return SyncApi(
+    dio: ref.watch(authRepositoryProvider).authenticatedClient,
+  );
+});
 
 final syncServiceProvider = Provider<SyncService>((ref) {
   return SyncService(
     ref.watch(ledgerRepositoryProvider),
     ref.watch(syncApiProvider),
+    ref.watch(authRepositoryProvider),
   );
 });
 
@@ -96,7 +135,8 @@ class CategoryAmount {
   final BigInt amount;
 }
 
-final categoryReportProvider = FutureProvider<List<CategoryAmount>>((ref) async {
+final categoryReportProvider =
+    FutureProvider<List<CategoryAmount>>((ref) async {
   final balances = await ref.watch(accountBalancesProvider.future);
   return balances
       .where((b) => b.type == 'expense' && b.balance > BigInt.zero)

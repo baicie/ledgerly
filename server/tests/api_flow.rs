@@ -1,5 +1,8 @@
 use axum::body::Body;
-use axum::http::{Request, StatusCode};
+use axum::http::{
+    header::{CACHE_CONTROL, PRAGMA, SET_COOKIE},
+    Request, StatusCode,
+};
 use http_body_util::BodyExt;
 use ledger_server::{app_router, AppState, Config};
 use serde_json::json;
@@ -12,6 +15,50 @@ fn test_state() -> AppState {
 async fn json_body(res: axum::response::Response) -> serde_json::Value {
     let bytes = res.into_body().collect().await.unwrap().to_bytes();
     serde_json::from_slice(&bytes).unwrap()
+}
+
+async fn post_json(
+    app: &axum::Router,
+    uri: &str,
+    body: serde_json::Value,
+) -> axum::response::Response {
+    app.clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(uri)
+                .header("content-type", "application/json")
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+}
+
+async fn register_user(app: &axum::Router, email: &str) -> axum::response::Response {
+    post_json(
+        app,
+        "/v1/auth/register",
+        json!({
+            "email": email,
+            "password": "password123",
+            "displayName": "Session Test"
+        }),
+    )
+    .await
+}
+
+fn response_cookie(res: &axum::response::Response) -> String {
+    res.headers()
+        .get(SET_COOKIE)
+        .expect("set-cookie header")
+        .to_str()
+        .unwrap()
+        .to_string()
+}
+
+fn cookie_pair(set_cookie: &str) -> &str {
+    set_cookie.split(';').next().unwrap()
 }
 
 #[tokio::test]
@@ -89,6 +136,194 @@ async fn sync_requires_auth() {
 }
 
 #[tokio::test]
+async fn registration_normalizes_identity_fields() {
+    let state = test_state();
+    let app = app_router(state.clone());
+
+    let registered = post_json(
+        &app,
+        "/v1/auth/register",
+        json!({
+            "email": " Person@Example.COM ",
+            "password": "password123",
+            "displayName": "  Person  "
+        }),
+    )
+    .await;
+    assert_eq!(registered.status(), StatusCode::OK);
+
+    {
+        let store = state.store.read().await;
+        let user_id = store.users_by_email.get("person@example.com").unwrap();
+        let user = store.users.get(user_id).unwrap();
+        assert_eq!(user.email, "person@example.com");
+        assert_eq!(user.display_name, "Person");
+    }
+
+    let login = post_json(
+        &app,
+        "/v1/auth/login",
+        json!({
+            "email": " PERSON@EXAMPLE.COM ",
+            "password": "password123",
+            "deviceId": "  device-1  "
+        }),
+    )
+    .await;
+    assert_eq!(login.status(), StatusCode::OK);
+
+    let store = state.store.read().await;
+    assert_eq!(
+        store.sessions.values().next().unwrap().device_id,
+        "device-1"
+    );
+}
+
+#[tokio::test]
+async fn registration_rejects_invalid_identity_fields_with_stable_codes() {
+    let app = app_router(test_state());
+    let cases = [
+        (
+            json!({
+                "email": "not-an-email",
+                "password": "password123",
+                "displayName": "Person"
+            }),
+            "INVALID_EMAIL",
+        ),
+        (
+            json!({
+                "email": "person@example.com",
+                "password": "short",
+                "displayName": "Person"
+            }),
+            "WEAK_PASSWORD",
+        ),
+        (
+            json!({
+                "email": "person@example.com",
+                "password": "p".repeat(129),
+                "displayName": "Person"
+            }),
+            "WEAK_PASSWORD",
+        ),
+        (
+            json!({
+                "email": "person@example.com",
+                "password": "password123",
+                "displayName": " "
+            }),
+            "INVALID_DISPLAY_NAME",
+        ),
+        (
+            json!({
+                "email": "person@example.com",
+                "password": "password123",
+                "displayName": "n".repeat(81)
+            }),
+            "INVALID_DISPLAY_NAME",
+        ),
+    ];
+
+    for (request, expected_code) in cases {
+        let response = post_json(&app, "/v1/auth/register", request).await;
+        assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        let body = json_body(response).await;
+        assert_eq!(body["code"], expected_code);
+    }
+}
+
+#[tokio::test]
+async fn login_rejects_invalid_device_ids() {
+    let app = app_router(test_state());
+    assert_eq!(
+        register_user(&app, "device-validation@example.com")
+            .await
+            .status(),
+        StatusCode::OK
+    );
+
+    for device_id in [String::new(), "d".repeat(129)] {
+        let response = post_json(
+            &app,
+            "/v1/auth/login",
+            json!({
+                "email": "device-validation@example.com",
+                "password": "password123",
+                "deviceId": device_id
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        let body = json_body(response).await;
+        assert_eq!(body["code"], "INVALID_DEVICE_ID");
+    }
+}
+
+#[tokio::test]
+async fn login_rejects_oversized_password_before_verification() {
+    let app = app_router(test_state());
+    let response = post_json(
+        &app,
+        "/v1/auth/login",
+        json!({
+            "email": "person@example.com",
+            "password": "p".repeat(129),
+            "deviceId": "device-1"
+        }),
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    let body = json_body(response).await;
+    assert_eq!(body["code"], "INVALID_PASSWORD");
+}
+
+#[tokio::test]
+async fn unsupported_session_modes_return_stable_errors() {
+    let app = app_router(test_state());
+    for (uri, body) in [
+        (
+            "/v1/auth/login",
+            json!({
+                "email": "person@example.com",
+                "password": "password123",
+                "deviceId": "device-1",
+                "sessionMode": "unsupported"
+            }),
+        ),
+        (
+            "/v1/auth/refresh",
+            json!({
+                "sessionMode": "unsupported"
+            }),
+        ),
+    ] {
+        let response = post_json(&app, uri, body).await;
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{uri}");
+        let response_body = json_body(response).await;
+        assert_eq!(response_body["code"], "UNSUPPORTED_SESSION_MODE", "{uri}");
+    }
+}
+
+#[tokio::test]
+async fn auth_payloads_over_16_kib_are_rejected() {
+    let app = app_router(test_state());
+    let response = post_json(
+        &app,
+        "/v1/auth/register",
+        json!({
+            "email": "person@example.com",
+            "password": "password123",
+            "displayName": "x".repeat(17 * 1024)
+        }),
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+}
+
+#[tokio::test]
 async fn register_login_and_sync_push_pull() {
     let state = test_state();
     let app = app_router(state.clone());
@@ -126,6 +361,8 @@ async fn register_login_and_sync_push_pull() {
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::OK);
+    assert_eq!(res.headers().get(CACHE_CONTROL).unwrap(), "no-store");
+    assert_eq!(res.headers().get(PRAGMA).unwrap(), "no-cache");
     let login = json_body(res).await;
     assert!(login.get("accessToken").is_some());
     let token = login["accessToken"].as_str().unwrap();
@@ -442,4 +679,180 @@ async fn logout_revokes_access_token() {
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn native_refresh_token_rotates_and_rejects_reuse() {
+    let app = app_router(test_state());
+    let registered = register_user(&app, "native-session@test.com").await;
+    assert_eq!(registered.status(), StatusCode::OK);
+
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/auth/login")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "email": "native-session@test.com",
+                        "password": "password123",
+                        "deviceId": "native-device"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let login = json_body(res).await;
+    let first_refresh = login["refreshToken"].as_str().unwrap().to_string();
+
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/auth/refresh")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({"refreshToken": first_refresh}).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let refresh = json_body(res).await;
+    assert_ne!(refresh["refreshToken"], first_refresh);
+
+    let res = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/auth/refresh")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({"refreshToken": first_refresh}).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn cookie_session_rotates_without_exposing_refresh_token_and_logout_clears_it() {
+    let mut config = Config::for_test();
+    config.auth_cookie_secure = true;
+    let app = app_router(AppState::new(config));
+    let registered = register_user(&app, "web-session@test.com").await;
+    assert_eq!(registered.status(), StatusCode::OK);
+
+    let login_res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/auth/login")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "email": "web-session@test.com",
+                        "password": "password123",
+                        "deviceId": "web-device",
+                        "sessionMode": "cookie"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(login_res.status(), StatusCode::OK);
+    let login_cookie = response_cookie(&login_res);
+    assert!(login_cookie.starts_with("ledgerly_refresh="));
+    assert!(login_cookie.contains("HttpOnly"));
+    assert!(login_cookie.contains("Secure"));
+    assert!(login_cookie.contains("SameSite=Strict"));
+    assert!(login_cookie.contains("Path=/v1/auth"));
+    let login = json_body(login_res).await;
+    assert!(login.get("refreshToken").is_none());
+
+    let refresh_res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/auth/refresh")
+                .header("content-type", "application/json")
+                .header("cookie", cookie_pair(&login_cookie))
+                .body(Body::from(json!({"sessionMode": "cookie"}).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(refresh_res.status(), StatusCode::OK);
+    assert_eq!(
+        refresh_res.headers().get(CACHE_CONTROL).unwrap(),
+        "no-store"
+    );
+    assert_eq!(refresh_res.headers().get(PRAGMA).unwrap(), "no-cache");
+    let rotated_cookie = response_cookie(&refresh_res);
+    assert_ne!(cookie_pair(&rotated_cookie), cookie_pair(&login_cookie));
+    let refresh = json_body(refresh_res).await;
+    assert!(refresh.get("refreshToken").is_none());
+    let access_token = refresh["accessToken"].as_str().unwrap();
+
+    let stale_res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/auth/refresh")
+                .header("content-type", "application/json")
+                .header("cookie", cookie_pair(&login_cookie))
+                .body(Body::from(json!({"sessionMode": "cookie"}).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(stale_res.status(), StatusCode::UNAUTHORIZED);
+    let stale_cookie = response_cookie(&stale_res);
+    assert!(stale_cookie.contains("Max-Age=0"));
+
+    let logout_res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/auth/logout")
+                .header("authorization", format!("Bearer {access_token}"))
+                .header("cookie", cookie_pair(&rotated_cookie))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(logout_res.status(), StatusCode::NO_CONTENT);
+    let cleared_cookie = response_cookie(&logout_res);
+    assert!(cleared_cookie.starts_with("ledgerly_refresh="));
+    assert!(cleared_cookie.contains("Max-Age=0"));
+
+    let after_logout = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/auth/refresh")
+                .header("content-type", "application/json")
+                .header("cookie", cookie_pair(&rotated_cookie))
+                .body(Body::from(json!({"sessionMode": "cookie"}).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(after_logout.status(), StatusCode::UNAUTHORIZED);
 }

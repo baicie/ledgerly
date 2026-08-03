@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../domain/ids.dart';
 import '../providers.dart';
 
 class AttachmentsPage extends ConsumerStatefulWidget {
@@ -23,17 +22,8 @@ class _AttachmentsPageState extends ConsumerState<AttachmentsPage> {
       _result = null;
     });
     try {
-      final sync = ref.read(syncServiceProvider);
-      await sync.ensureSession(
-        email: 'local@ledgerly.dev',
-        password: 'password123',
-      );
       final api = ref.read(syncApiProvider);
-      // Attachments require plus plan.
-      await api.devUpgrade(plan: 'plus');
-      final state =
-          await ref.read(ledgerRepositoryProvider).syncState(defaultBookId);
-      final bookId = state?.remoteBookId;
+      final bookId = ref.read(authRepositoryProvider).currentSession?.bookId;
       if (bookId == null) {
         setState(() => _result = '尚未登录同步');
         return;

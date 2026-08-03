@@ -22,14 +22,9 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
 
   Future<void> _refresh() async {
     try {
-      final sync = ref.read(syncServiceProvider);
-      await sync.ensureSession(
-        email: 'local@ledgerly.dev',
-        password: 'password123',
-      );
-      // Re-login to read plan from token response stored flow — upgrade returns plan.
+      final plan = ref.read(authRepositoryProvider).currentSession?.plan;
       setState(() {
-        _plan = 'free（登录后可升级）';
+        _plan = plan ?? 'unknown';
         _message = null;
       });
     } catch (e) {
@@ -39,11 +34,6 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
 
   Future<void> _upgrade(String plan) async {
     try {
-      final sync = ref.read(syncServiceProvider);
-      await sync.ensureSession(
-        email: 'local@ledgerly.dev',
-        password: 'password123',
-      );
       final res = await ref.read(syncApiProvider).devUpgrade(plan: plan);
       setState(() {
         _plan = '${res['plan']}';

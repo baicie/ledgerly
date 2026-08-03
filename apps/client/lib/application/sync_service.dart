@@ -1,39 +1,16 @@
 import 'dart:convert';
 
+import '../auth/auth_repository.dart';
 import '../data/ledger_repository.dart';
 import '../data/sync_api.dart';
 import '../domain/ids.dart';
 
 class SyncService {
-  SyncService(this._repo, this._api);
+  SyncService(this._repo, this._api, this._auth);
 
   final LedgerRepository _repo;
   final SyncApi _api;
-
-  Future<void> ensureSession({
-    required String email,
-    required String password,
-  }) async {
-    try {
-      await _api.register(
-        email: email,
-        password: password,
-        displayName: 'Local User',
-      );
-    } catch (_) {}
-    final login = await _api.login(
-      email: email,
-      password: password,
-      deviceId: LedgerRepository.deviceId,
-    );
-    await _repo.updateSyncState(
-      bookId: defaultBookId,
-      accessToken: login['accessToken'] as String?,
-      refreshToken: login['refreshToken'] as String?,
-      remoteBookId: login['bookId'] as String?,
-      lastError: null,
-    );
-  }
+  final AuthGateway _auth;
 
   String _rewriteAccountId(String id, String fromBook, String toBook) {
     final prefix = '$fromBook:';
@@ -66,18 +43,27 @@ class SyncService {
     };
   }
 
-  Future<void> _ensureApiToken(String bookId) async {
-    final state = await _repo.syncState(bookId);
-    if (state?.accessToken != null) {
-      _api.setAccessToken(state!.accessToken);
-    }
-  }
-
   Future<SyncRunResult> syncNow({String bookId = defaultBookId}) async {
     try {
-      await _ensureApiToken(bookId);
+      final session = _auth.currentSession;
+      if (session == null) {
+        throw StateError('Authentication required');
+      }
       final state = await _repo.syncState(bookId);
-      final remoteBookId = state?.remoteBookId ?? bookId;
+      final remoteBookId = session.bookId;
+      final deviceId = await _repo.deviceId;
+      var cursor = state?.cursor ?? 0;
+      if (state?.remoteBookId == null) {
+        await _repo.updateSyncState(
+          bookId: bookId,
+          remoteBookId: remoteBookId,
+          cursor: 0,
+          lastError: null,
+        );
+        cursor = 0;
+      } else if (state!.remoteBookId != remoteBookId) {
+        throw StateError('本地账本已绑定到其他账户，已停止同步。');
+      }
 
       final pending = await _repo.listPending(bookId);
       if (pending.isNotEmpty) {
@@ -99,7 +85,7 @@ class SyncService {
         }).toList();
         final push = await _api.push(
           bookId: remoteBookId,
-          deviceId: LedgerRepository.deviceId,
+          deviceId: deviceId,
           mutations: mutations,
         );
         final receipts = (push['receipts'] as List).cast<Map>();
@@ -137,7 +123,6 @@ class SyncService {
         );
       }
 
-      final cursor = state?.cursor ?? 0;
       final pull = await _api.pull(bookId: remoteBookId, cursor: cursor);
       final changes = (pull['changes'] as List?) ?? const [];
       for (final raw in changes) {

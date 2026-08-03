@@ -1840,18 +1840,6 @@ class $SyncStatesTable extends SyncStates
       type: DriftSqlType.int,
       requiredDuringInsert: false,
       defaultValue: const Constant(0));
-  static const VerificationMeta _accessTokenMeta =
-      const VerificationMeta('accessToken');
-  @override
-  late final GeneratedColumn<String> accessToken = GeneratedColumn<String>(
-      'access_token', aliasedName, true,
-      type: DriftSqlType.string, requiredDuringInsert: false);
-  static const VerificationMeta _refreshTokenMeta =
-      const VerificationMeta('refreshToken');
-  @override
-  late final GeneratedColumn<String> refreshToken = GeneratedColumn<String>(
-      'refresh_token', aliasedName, true,
-      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _remoteBookIdMeta =
       const VerificationMeta('remoteBookId');
   @override
@@ -1871,16 +1859,8 @@ class $SyncStatesTable extends SyncStates
       'updated_at', aliasedName, false,
       type: DriftSqlType.dateTime, requiredDuringInsert: true);
   @override
-  List<GeneratedColumn> get $columns => [
-        bookId,
-        deviceId,
-        cursor,
-        accessToken,
-        refreshToken,
-        remoteBookId,
-        lastError,
-        updatedAt
-      ];
+  List<GeneratedColumn> get $columns =>
+      [bookId, deviceId, cursor, remoteBookId, lastError, updatedAt];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1906,18 +1886,6 @@ class $SyncStatesTable extends SyncStates
     if (data.containsKey('cursor')) {
       context.handle(_cursorMeta,
           cursor.isAcceptableOrUnknown(data['cursor']!, _cursorMeta));
-    }
-    if (data.containsKey('access_token')) {
-      context.handle(
-          _accessTokenMeta,
-          accessToken.isAcceptableOrUnknown(
-              data['access_token']!, _accessTokenMeta));
-    }
-    if (data.containsKey('refresh_token')) {
-      context.handle(
-          _refreshTokenMeta,
-          refreshToken.isAcceptableOrUnknown(
-              data['refresh_token']!, _refreshTokenMeta));
     }
     if (data.containsKey('remote_book_id')) {
       context.handle(
@@ -1950,10 +1918,6 @@ class $SyncStatesTable extends SyncStates
           .read(DriftSqlType.string, data['${effectivePrefix}device_id'])!,
       cursor: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}cursor'])!,
-      accessToken: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}access_token']),
-      refreshToken: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}refresh_token']),
       remoteBookId: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}remote_book_id']),
       lastError: attachedDatabase.typeMapping
@@ -1973,8 +1937,6 @@ class SyncState extends DataClass implements Insertable<SyncState> {
   final String bookId;
   final String deviceId;
   final int cursor;
-  final String? accessToken;
-  final String? refreshToken;
   final String? remoteBookId;
   final String? lastError;
   final DateTime updatedAt;
@@ -1982,8 +1944,6 @@ class SyncState extends DataClass implements Insertable<SyncState> {
       {required this.bookId,
       required this.deviceId,
       required this.cursor,
-      this.accessToken,
-      this.refreshToken,
       this.remoteBookId,
       this.lastError,
       required this.updatedAt});
@@ -1993,12 +1953,6 @@ class SyncState extends DataClass implements Insertable<SyncState> {
     map['book_id'] = Variable<String>(bookId);
     map['device_id'] = Variable<String>(deviceId);
     map['cursor'] = Variable<int>(cursor);
-    if (!nullToAbsent || accessToken != null) {
-      map['access_token'] = Variable<String>(accessToken);
-    }
-    if (!nullToAbsent || refreshToken != null) {
-      map['refresh_token'] = Variable<String>(refreshToken);
-    }
     if (!nullToAbsent || remoteBookId != null) {
       map['remote_book_id'] = Variable<String>(remoteBookId);
     }
@@ -2014,12 +1968,6 @@ class SyncState extends DataClass implements Insertable<SyncState> {
       bookId: Value(bookId),
       deviceId: Value(deviceId),
       cursor: Value(cursor),
-      accessToken: accessToken == null && nullToAbsent
-          ? const Value.absent()
-          : Value(accessToken),
-      refreshToken: refreshToken == null && nullToAbsent
-          ? const Value.absent()
-          : Value(refreshToken),
       remoteBookId: remoteBookId == null && nullToAbsent
           ? const Value.absent()
           : Value(remoteBookId),
@@ -2037,8 +1985,6 @@ class SyncState extends DataClass implements Insertable<SyncState> {
       bookId: serializer.fromJson<String>(json['bookId']),
       deviceId: serializer.fromJson<String>(json['deviceId']),
       cursor: serializer.fromJson<int>(json['cursor']),
-      accessToken: serializer.fromJson<String?>(json['accessToken']),
-      refreshToken: serializer.fromJson<String?>(json['refreshToken']),
       remoteBookId: serializer.fromJson<String?>(json['remoteBookId']),
       lastError: serializer.fromJson<String?>(json['lastError']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
@@ -2051,8 +1997,6 @@ class SyncState extends DataClass implements Insertable<SyncState> {
       'bookId': serializer.toJson<String>(bookId),
       'deviceId': serializer.toJson<String>(deviceId),
       'cursor': serializer.toJson<int>(cursor),
-      'accessToken': serializer.toJson<String?>(accessToken),
-      'refreshToken': serializer.toJson<String?>(refreshToken),
       'remoteBookId': serializer.toJson<String?>(remoteBookId),
       'lastError': serializer.toJson<String?>(lastError),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
@@ -2063,8 +2007,6 @@ class SyncState extends DataClass implements Insertable<SyncState> {
           {String? bookId,
           String? deviceId,
           int? cursor,
-          Value<String?> accessToken = const Value.absent(),
-          Value<String?> refreshToken = const Value.absent(),
           Value<String?> remoteBookId = const Value.absent(),
           Value<String?> lastError = const Value.absent(),
           DateTime? updatedAt}) =>
@@ -2072,9 +2014,6 @@ class SyncState extends DataClass implements Insertable<SyncState> {
         bookId: bookId ?? this.bookId,
         deviceId: deviceId ?? this.deviceId,
         cursor: cursor ?? this.cursor,
-        accessToken: accessToken.present ? accessToken.value : this.accessToken,
-        refreshToken:
-            refreshToken.present ? refreshToken.value : this.refreshToken,
         remoteBookId:
             remoteBookId.present ? remoteBookId.value : this.remoteBookId,
         lastError: lastError.present ? lastError.value : this.lastError,
@@ -2085,11 +2024,6 @@ class SyncState extends DataClass implements Insertable<SyncState> {
       bookId: data.bookId.present ? data.bookId.value : this.bookId,
       deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
       cursor: data.cursor.present ? data.cursor.value : this.cursor,
-      accessToken:
-          data.accessToken.present ? data.accessToken.value : this.accessToken,
-      refreshToken: data.refreshToken.present
-          ? data.refreshToken.value
-          : this.refreshToken,
       remoteBookId: data.remoteBookId.present
           ? data.remoteBookId.value
           : this.remoteBookId,
@@ -2104,8 +2038,6 @@ class SyncState extends DataClass implements Insertable<SyncState> {
           ..write('bookId: $bookId, ')
           ..write('deviceId: $deviceId, ')
           ..write('cursor: $cursor, ')
-          ..write('accessToken: $accessToken, ')
-          ..write('refreshToken: $refreshToken, ')
           ..write('remoteBookId: $remoteBookId, ')
           ..write('lastError: $lastError, ')
           ..write('updatedAt: $updatedAt')
@@ -2114,8 +2046,8 @@ class SyncState extends DataClass implements Insertable<SyncState> {
   }
 
   @override
-  int get hashCode => Object.hash(bookId, deviceId, cursor, accessToken,
-      refreshToken, remoteBookId, lastError, updatedAt);
+  int get hashCode =>
+      Object.hash(bookId, deviceId, cursor, remoteBookId, lastError, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2123,8 +2055,6 @@ class SyncState extends DataClass implements Insertable<SyncState> {
           other.bookId == this.bookId &&
           other.deviceId == this.deviceId &&
           other.cursor == this.cursor &&
-          other.accessToken == this.accessToken &&
-          other.refreshToken == this.refreshToken &&
           other.remoteBookId == this.remoteBookId &&
           other.lastError == this.lastError &&
           other.updatedAt == this.updatedAt);
@@ -2134,8 +2064,6 @@ class SyncStatesCompanion extends UpdateCompanion<SyncState> {
   final Value<String> bookId;
   final Value<String> deviceId;
   final Value<int> cursor;
-  final Value<String?> accessToken;
-  final Value<String?> refreshToken;
   final Value<String?> remoteBookId;
   final Value<String?> lastError;
   final Value<DateTime> updatedAt;
@@ -2144,8 +2072,6 @@ class SyncStatesCompanion extends UpdateCompanion<SyncState> {
     this.bookId = const Value.absent(),
     this.deviceId = const Value.absent(),
     this.cursor = const Value.absent(),
-    this.accessToken = const Value.absent(),
-    this.refreshToken = const Value.absent(),
     this.remoteBookId = const Value.absent(),
     this.lastError = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -2155,8 +2081,6 @@ class SyncStatesCompanion extends UpdateCompanion<SyncState> {
     required String bookId,
     required String deviceId,
     this.cursor = const Value.absent(),
-    this.accessToken = const Value.absent(),
-    this.refreshToken = const Value.absent(),
     this.remoteBookId = const Value.absent(),
     this.lastError = const Value.absent(),
     required DateTime updatedAt,
@@ -2168,8 +2092,6 @@ class SyncStatesCompanion extends UpdateCompanion<SyncState> {
     Expression<String>? bookId,
     Expression<String>? deviceId,
     Expression<int>? cursor,
-    Expression<String>? accessToken,
-    Expression<String>? refreshToken,
     Expression<String>? remoteBookId,
     Expression<String>? lastError,
     Expression<DateTime>? updatedAt,
@@ -2179,8 +2101,6 @@ class SyncStatesCompanion extends UpdateCompanion<SyncState> {
       if (bookId != null) 'book_id': bookId,
       if (deviceId != null) 'device_id': deviceId,
       if (cursor != null) 'cursor': cursor,
-      if (accessToken != null) 'access_token': accessToken,
-      if (refreshToken != null) 'refresh_token': refreshToken,
       if (remoteBookId != null) 'remote_book_id': remoteBookId,
       if (lastError != null) 'last_error': lastError,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -2192,8 +2112,6 @@ class SyncStatesCompanion extends UpdateCompanion<SyncState> {
       {Value<String>? bookId,
       Value<String>? deviceId,
       Value<int>? cursor,
-      Value<String?>? accessToken,
-      Value<String?>? refreshToken,
       Value<String?>? remoteBookId,
       Value<String?>? lastError,
       Value<DateTime>? updatedAt,
@@ -2202,8 +2120,6 @@ class SyncStatesCompanion extends UpdateCompanion<SyncState> {
       bookId: bookId ?? this.bookId,
       deviceId: deviceId ?? this.deviceId,
       cursor: cursor ?? this.cursor,
-      accessToken: accessToken ?? this.accessToken,
-      refreshToken: refreshToken ?? this.refreshToken,
       remoteBookId: remoteBookId ?? this.remoteBookId,
       lastError: lastError ?? this.lastError,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -2222,12 +2138,6 @@ class SyncStatesCompanion extends UpdateCompanion<SyncState> {
     }
     if (cursor.present) {
       map['cursor'] = Variable<int>(cursor.value);
-    }
-    if (accessToken.present) {
-      map['access_token'] = Variable<String>(accessToken.value);
-    }
-    if (refreshToken.present) {
-      map['refresh_token'] = Variable<String>(refreshToken.value);
     }
     if (remoteBookId.present) {
       map['remote_book_id'] = Variable<String>(remoteBookId.value);
@@ -2250,8 +2160,6 @@ class SyncStatesCompanion extends UpdateCompanion<SyncState> {
           ..write('bookId: $bookId, ')
           ..write('deviceId: $deviceId, ')
           ..write('cursor: $cursor, ')
-          ..write('accessToken: $accessToken, ')
-          ..write('refreshToken: $refreshToken, ')
           ..write('remoteBookId: $remoteBookId, ')
           ..write('lastError: $lastError, ')
           ..write('updatedAt: $updatedAt, ')
@@ -3636,8 +3544,6 @@ typedef $$SyncStatesTableCreateCompanionBuilder = SyncStatesCompanion Function({
   required String bookId,
   required String deviceId,
   Value<int> cursor,
-  Value<String?> accessToken,
-  Value<String?> refreshToken,
   Value<String?> remoteBookId,
   Value<String?> lastError,
   required DateTime updatedAt,
@@ -3647,8 +3553,6 @@ typedef $$SyncStatesTableUpdateCompanionBuilder = SyncStatesCompanion Function({
   Value<String> bookId,
   Value<String> deviceId,
   Value<int> cursor,
-  Value<String?> accessToken,
-  Value<String?> refreshToken,
   Value<String?> remoteBookId,
   Value<String?> lastError,
   Value<DateTime> updatedAt,
@@ -3672,12 +3576,6 @@ class $$SyncStatesTableFilterComposer
 
   ColumnFilters<int> get cursor => $composableBuilder(
       column: $table.cursor, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<String> get accessToken => $composableBuilder(
-      column: $table.accessToken, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<String> get refreshToken => $composableBuilder(
-      column: $table.refreshToken, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get remoteBookId => $composableBuilder(
       column: $table.remoteBookId, builder: (column) => ColumnFilters(column));
@@ -3707,13 +3605,6 @@ class $$SyncStatesTableOrderingComposer
   ColumnOrderings<int> get cursor => $composableBuilder(
       column: $table.cursor, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<String> get accessToken => $composableBuilder(
-      column: $table.accessToken, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<String> get refreshToken => $composableBuilder(
-      column: $table.refreshToken,
-      builder: (column) => ColumnOrderings(column));
-
   ColumnOrderings<String> get remoteBookId => $composableBuilder(
       column: $table.remoteBookId,
       builder: (column) => ColumnOrderings(column));
@@ -3742,12 +3633,6 @@ class $$SyncStatesTableAnnotationComposer
 
   GeneratedColumn<int> get cursor =>
       $composableBuilder(column: $table.cursor, builder: (column) => column);
-
-  GeneratedColumn<String> get accessToken => $composableBuilder(
-      column: $table.accessToken, builder: (column) => column);
-
-  GeneratedColumn<String> get refreshToken => $composableBuilder(
-      column: $table.refreshToken, builder: (column) => column);
 
   GeneratedColumn<String> get remoteBookId => $composableBuilder(
       column: $table.remoteBookId, builder: (column) => column);
@@ -3785,8 +3670,6 @@ class $$SyncStatesTableTableManager extends RootTableManager<
             Value<String> bookId = const Value.absent(),
             Value<String> deviceId = const Value.absent(),
             Value<int> cursor = const Value.absent(),
-            Value<String?> accessToken = const Value.absent(),
-            Value<String?> refreshToken = const Value.absent(),
             Value<String?> remoteBookId = const Value.absent(),
             Value<String?> lastError = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
@@ -3796,8 +3679,6 @@ class $$SyncStatesTableTableManager extends RootTableManager<
             bookId: bookId,
             deviceId: deviceId,
             cursor: cursor,
-            accessToken: accessToken,
-            refreshToken: refreshToken,
             remoteBookId: remoteBookId,
             lastError: lastError,
             updatedAt: updatedAt,
@@ -3807,8 +3688,6 @@ class $$SyncStatesTableTableManager extends RootTableManager<
             required String bookId,
             required String deviceId,
             Value<int> cursor = const Value.absent(),
-            Value<String?> accessToken = const Value.absent(),
-            Value<String?> refreshToken = const Value.absent(),
             Value<String?> remoteBookId = const Value.absent(),
             Value<String?> lastError = const Value.absent(),
             required DateTime updatedAt,
@@ -3818,8 +3697,6 @@ class $$SyncStatesTableTableManager extends RootTableManager<
             bookId: bookId,
             deviceId: deviceId,
             cursor: cursor,
-            accessToken: accessToken,
-            refreshToken: refreshToken,
             remoteBookId: remoteBookId,
             lastError: lastError,
             updatedAt: updatedAt,
