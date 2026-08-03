@@ -20,13 +20,29 @@ pub async fn connect(config: &Config) -> anyhow::Result<Option<PgPool>> {
 }
 
 pub async fn migrate(pool: &PgPool) -> anyhow::Result<()> {
-    for file in [
-        include_str!("../../migrations/001_init.sql"),
-        include_str!("../../migrations/002_jobs_commercial.sql"),
-        include_str!("../../migrations/003_phase5plus.sql"),
-    ] {
-        sqlx::raw_sql(file).execute(pool).await?;
+    let mut connection = pool.acquire().await?;
+    const MIGRATION_LOCK: &str = "SELECT pg_advisory_lock(704065788921)";
+    const MIGRATION_UNLOCK: &str = "SELECT pg_advisory_unlock(704065788921)";
+    sqlx::query(MIGRATION_LOCK)
+        .execute(&mut *connection)
+        .await?;
+
+    let migration_result = async {
+        for file in [
+            include_str!("../../migrations/001_init.sql"),
+            include_str!("../../migrations/002_jobs_commercial.sql"),
+            include_str!("../../migrations/003_phase5plus.sql"),
+        ] {
+            sqlx::raw_sql(file).execute(&mut *connection).await?;
+        }
+        Ok::<(), sqlx::Error>(())
     }
+    .await;
+    let unlock_result = sqlx::query(MIGRATION_UNLOCK)
+        .execute(&mut *connection)
+        .await;
+
+    migration_result.and(unlock_result.map(|_| ()))?;
     Ok(())
 }
 

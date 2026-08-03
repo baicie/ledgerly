@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/ledger_repository.dart';
 import '../providers.dart';
 
 class ConflictsPage extends ConsumerWidget {
@@ -22,15 +23,37 @@ class ConflictsPage extends ConsumerWidget {
               final c = items[index];
               return ListTile(
                 title: Text(c.entityId),
-                subtitle: Text(c.reason),
-                trailing: TextButton(
-                  onPressed: () async {
-                    await ref
-                        .read(ledgerRepositoryProvider)
-                        .resolveConflict(c.id);
-                    ref.invalidate(conflictsProvider);
-                  },
-                  child: const Text('确认'),
+                subtitle: Text(
+                  '${c.reason} · 远端版本 ${c.remoteVersion?.toString() ?? '未知'}',
+                ),
+                trailing: Wrap(
+                  spacing: 4,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () async {
+                        await ref.read(ledgerRepositoryProvider).resolveConflict(
+                              c.id,
+                              resolution: ConflictResolution.useRemote,
+                            );
+                        ref.invalidate(conflictsProvider);
+                        ref.invalidate(syncStatusProvider);
+                      },
+                      icon: const Icon(Icons.cloud_done_outlined),
+                      label: const Text('采用远端'),
+                    ),
+                    FilledButton.icon(
+                      onPressed: () async {
+                        await ref.read(ledgerRepositoryProvider).resolveConflict(
+                              c.id,
+                              resolution: ConflictResolution.keepLocal,
+                            );
+                        ref.invalidate(conflictsProvider);
+                        ref.invalidate(syncStatusProvider);
+                      },
+                      icon: const Icon(Icons.replay_outlined),
+                      label: const Text('保留本地'),
+                    ),
+                  ],
                 ),
               );
             },

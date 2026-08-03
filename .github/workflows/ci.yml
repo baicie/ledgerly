@@ -20,7 +20,7 @@ jobs:
     name: Flutter / Dart
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: subosito/flutter-action@v2
         with:
@@ -53,6 +53,8 @@ jobs:
   rust:
     name: Rust
     runs-on: ubuntu-latest
+    env:
+      REQUIRE_POSTGRES_TESTS: "true"
     defaults:
       run:
         working-directory: server
@@ -71,7 +73,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -96,6 +98,8 @@ jobs:
   live-sync:
     name: Live sync (Flutter ↔ Server)
     runs-on: ubuntu-latest
+    env:
+      REQUIRE_LIVE_SYNC: "true"
     services:
       postgres:
         image: postgres:16-alpine
@@ -111,7 +115,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
 

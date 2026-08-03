@@ -6,6 +6,8 @@ import 'package:ledger_domain/ledger_domain.dart' as domain;
 import '../domain/ids.dart';
 import 'database.dart';
 
+enum ConflictResolution { useRemote, keepLocal }
+
 class LedgerRepository {
   LedgerRepository(this._db);
 
@@ -314,8 +316,40 @@ class LedgerRepository {
         .get();
   }
 
-  Future<void> resolveConflict(String id) async {
-    await (_db.delete(_db.syncConflicts)..where((t) => t.id.equals(id))).go();
+  Future<void> resolveConflict(
+    String id, {
+    required ConflictResolution resolution,
+  }) async {
+    await _db.transaction(() async {
+      final conflict = await (_db.select(_db.syncConflicts)
+            ..where((t) => t.id.equals(id)))
+          .getSingleOrNull();
+      if (conflict == null) return;
+
+      if (resolution == ConflictResolution.keepLocal) {
+        final decoded = jsonDecode(conflict.localPayloadJson);
+        if (decoded is! Map) {
+          throw const FormatException('conflict payload must be a JSON object');
+        }
+        final operation = decoded['deleted'] == true ? 'delete' : 'update';
+        await _db.into(_db.pendingMutations).insert(
+              PendingMutationsCompanion.insert(
+                mutationId: newId(),
+                bookId: conflict.bookId,
+                deviceId: deviceId,
+                entityType: 'transaction',
+                entityId: conflict.entityId,
+                operation: operation,
+                baseVersion: conflict.remoteVersion ?? 0,
+                payloadJson: conflict.localPayloadJson,
+                createdAt: DateTime.now().toUtc(),
+              ),
+            );
+      }
+      await (_db.delete(_db.syncConflicts)
+            ..where((t) => t.id.equals(conflict.id)))
+          .go();
+    });
   }
 
   Future<void> applyRemoteUpsert({

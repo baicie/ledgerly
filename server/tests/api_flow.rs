@@ -371,3 +371,75 @@ async fn unbalanced_mutation_rejected() {
     assert_eq!(body["receipts"][0]["status"], "rejected");
     assert_eq!(body["receipts"][0]["resultCode"], "LEDGER_UNBALANCED");
 }
+
+#[tokio::test]
+async fn logout_revokes_access_token() {
+    let app = app_router(test_state());
+    let _ = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/auth/register")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "email":"logout@test.com",
+                        "password":"password123",
+                        "displayName":"Logout"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/auth/login")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "email":"logout@test.com",
+                        "password":"password123",
+                        "deviceId":"logout-device"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let login = json_body(res).await;
+    let token = login["accessToken"].as_str().unwrap();
+    let book_id = login["bookId"].as_str().unwrap();
+
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/auth/logout")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::NO_CONTENT);
+
+    let res = app
+        .oneshot(
+            Request::builder()
+                .uri(format!("/v1/books/{book_id}/sync/pull?cursor=0"))
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+}

@@ -34,7 +34,7 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let cli = Cli::parse();
-    let config = Config::from_env();
+    let config = Config::from_env()?;
 
     match cli.command {
         Commands::Doctor => {

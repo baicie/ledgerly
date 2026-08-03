@@ -143,6 +143,7 @@ final conflictsProvider = FutureProvider<List<SyncConflictItem>>((ref) async {
           id: c.id,
           entityId: c.entityId,
           reason: c.reason,
+          remoteVersion: c.remoteVersion,
         ),
       )
       .toList();
@@ -153,10 +154,12 @@ class SyncConflictItem {
     required this.id,
     required this.entityId,
     required this.reason,
+    required this.remoteVersion,
   });
   final String id;
   final String entityId;
   final String reason;
+  final int? remoteVersion;
 }
 
 final exportCsvProvider = FutureProvider<String>((ref) async {
