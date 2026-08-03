@@ -41,10 +41,22 @@ for apk in "$@"; do
 
   signer_digests="$(
     printf '%s\n' "$verification_output" |
-      sed -n 's/^Signer #[0-9][0-9]* certificate SHA-256 digest: *//p'
+      awk '
+        {
+          lowercase_line = tolower($0)
+          marker = "certificate sha-256 digest:"
+          marker_position = index(lowercase_line, marker)
+          if (marker_position > 0) {
+            print substr($0, marker_position + length(marker))
+          }
+        }
+      '
   )"
   signer_count="$(printf '%s\n' "$signer_digests" | awk 'NF { count++ } END { print count + 0 }')"
-  [[ "$signer_count" -eq 1 ]] || die "$apk must have exactly one signing certificate; found $signer_count"
+  if [[ "$signer_count" -ne 1 ]]; then
+    printf 'apksigner output for %s:\n%s\n' "$apk" "$verification_output" >&2
+    die "$apk must have exactly one signing certificate; found $signer_count"
+  fi
 
   actual_fingerprint="$(printf '%s' "$signer_digests" | tr -d '[:space:]:-' | tr '[:lower:]' '[:upper:]')"
   [[ "$actual_fingerprint" =~ ^[0-9A-F]{64}$ ]] || die "apksigner returned an invalid SHA-256 digest for $apk"

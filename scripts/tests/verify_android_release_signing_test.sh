@@ -20,9 +20,9 @@ if [[ "${FAKE_VERIFY_FAILURE:-false}" == "true" ]]; then
 fi
 
 printf 'Verifies\n'
-printf 'Signer #1 certificate SHA-256 digest: %s\n' "${FAKE_DIGEST:?}"
+printf '  Signer #1 certificate sha-256 digest: %s\n' "${FAKE_DIGEST:?}"
 if [[ "${FAKE_SECOND_SIGNER:-false}" == "true" ]]; then
-  printf 'Signer #2 certificate SHA-256 digest: %s\n' "$FAKE_DIGEST"
+  printf '  Signer #2 certificate SHA-256 digest: %s\n' "$FAKE_DIGEST"
 fi
 FAKE_APKSIGNER
 chmod 700 "$test_dir/apksigner"
