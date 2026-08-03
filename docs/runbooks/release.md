@@ -51,6 +51,12 @@ CSV 里的密码仅本地临时用；生产请改 SSH 密钥登录并轮换密�
 
 GHCR 拉取：公开包可用 `GITHUB_TOKEN`；私有包再加 `GHCR_PULL_TOKEN`。
 
+在仓库 **Settings → Secrets and variables → Actions → Variables** 中设置
+`LEDGERLY_API_BASE_URL`，值为生产 API 的 HTTPS origin（例如
+`https://api.ledgerly.example.com`，不能包含路径、查询或凭据）。Release
+workflow 会把该值注入 Web 和 Android 构建；缺失或不是 HTTPS 时客户端打包
+直接失败。
+
 ### 4. Android 正式签名
 
 Android APK 使用固定的长期证书签名。公开证书 SHA-256 指纹同时保存在

@@ -50,7 +50,18 @@ jobs:
 
       - name: Test Flutter client (unit)
         # live_sync_test 由 live-sync job 覆盖（需本机 server）
-        run: flutter test test/widget_test.dart test/offline_ledger_test.dart
+        run: |
+          flutter test \
+            test/auth \
+            test/widget_test.dart \
+            test/offline_ledger_test.dart \
+            test/database_migration_test.dart
+        working-directory: apps/client
+
+      - name: Build Flutter web release
+        run: >-
+          flutter build web --release
+          --dart-define=LEDGERLY_API_BASE_URL=https://api.ledgerly.example
         working-directory: apps/client
 
   rust:
