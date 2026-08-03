@@ -38,6 +38,10 @@ struct RefreshRequest {
 
 const REFRESH_COOKIE_NAME: &str = "ledgerly_refresh";
 const REFRESH_COOKIE_PATH: &str = "/v1/auth";
+const MAX_EMAIL_LENGTH: usize = 254;
+const MAX_PASSWORD_LENGTH: usize = 128;
+const MAX_DISPLAY_NAME_LENGTH: usize = 80;
+const MAX_DEVICE_ID_LENGTH: usize = 128;
 
 async fn logout(
     State(state): State<AppState>,
@@ -68,24 +72,14 @@ async fn register(
     State(state): State<AppState>,
     Json(req): Json<RegisterRequest>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
+    let req = validate_registration(req)?;
     let hash = hash_password(&req.password)?;
     let id = Uuid::now_v7().to_string();
 
     if let Some(pool) = &state.pool {
-        let exists: Option<(String,)> = sqlx::query_as("SELECT id FROM users WHERE email = $1")
-            .bind(&req.email)
-            .fetch_optional(pool)
-            .await
-            .map_err(db_err)?;
-        if exists.is_some() {
-            return Err(ApiError::new(
-                StatusCode::CONFLICT,
-                "EMAIL_TAKEN",
-                "email already registered",
-            ));
-        }
-        sqlx::query(
-            "INSERT INTO users (id, email, password_hash, display_name) VALUES ($1,$2,$3,$4)",
+        let result = sqlx::query(
+            "INSERT INTO users (id, email, password_hash, display_name)
+             VALUES ($1,$2,$3,$4) ON CONFLICT (email) DO NOTHING",
         )
         .bind(&id)
         .bind(&req.email)
@@ -94,6 +88,13 @@ async fn register(
         .execute(pool)
         .await
         .map_err(db_err)?;
+        if result.rows_affected() == 0 {
+            return Err(ApiError::new(
+                StatusCode::CONFLICT,
+                "EMAIL_TAKEN",
+                "email already registered",
+            ));
+        }
         return Ok(Json(serde_json::json!({ "userId": id })));
     }
 
@@ -123,6 +124,7 @@ async fn login(
     jar: CookieJar,
     Json(req): Json<LoginRequest>,
 ) -> Result<(CookieJar, Json<TokenResponse>), ApiError> {
+    let req = validate_login(req)?;
     let user = if let Some(pool) = &state.pool {
         let row: Option<(String, String, String, String)> = sqlx::query_as(
             "SELECT id, email, password_hash, display_name FROM users WHERE email = $1",
@@ -433,6 +435,120 @@ fn clear_refresh_cookie(jar: CookieJar, state: &AppState) -> CookieJar {
             .expires(time::OffsetDateTime::UNIX_EPOCH)
             .build(),
     )
+}
+
+fn validate_registration(mut req: RegisterRequest) -> Result<RegisterRequest, ApiError> {
+    req.email = normalize_email(&req.email)?;
+
+    let password_length = req.password.chars().count();
+    if !(8..=MAX_PASSWORD_LENGTH).contains(&password_length) {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "WEAK_PASSWORD",
+            "password must contain between 8 and 128 characters",
+        ));
+    }
+
+    req.display_name = req.display_name.trim().to_string();
+    let display_name_length = req.display_name.chars().count();
+    if !(1..=MAX_DISPLAY_NAME_LENGTH).contains(&display_name_length)
+        || req.display_name.chars().any(char::is_control)
+    {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "INVALID_DISPLAY_NAME",
+            "displayName must contain between 1 and 80 characters",
+        ));
+    }
+
+    Ok(req)
+}
+
+fn validate_login(mut req: LoginRequest) -> Result<LoginRequest, ApiError> {
+    req.email = normalize_email(&req.email)?;
+    req.device_id = req.device_id.trim().to_string();
+
+    let device_id_length = req.device_id.chars().count();
+    if !(1..=MAX_DEVICE_ID_LENGTH).contains(&device_id_length)
+        || req.device_id.chars().any(char::is_control)
+    {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "INVALID_DEVICE_ID",
+            "deviceId must contain between 1 and 128 characters",
+        ));
+    }
+
+    Ok(req)
+}
+
+fn normalize_email(value: &str) -> Result<String, ApiError> {
+    let email = value.trim().to_ascii_lowercase();
+    if !valid_email(&email) {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "INVALID_EMAIL",
+            "email format is invalid",
+        ));
+    }
+    Ok(email)
+}
+
+fn valid_email(email: &str) -> bool {
+    if email.is_empty() || email.len() > MAX_EMAIL_LENGTH || !email.is_ascii() {
+        return false;
+    }
+
+    let mut parts = email.split('@');
+    let (Some(local), Some(domain), None) = (parts.next(), parts.next(), parts.next()) else {
+        return false;
+    };
+    if local.is_empty()
+        || local.len() > 64
+        || local.starts_with('.')
+        || local.ends_with('.')
+        || local.contains("..")
+        || !local.bytes().all(valid_email_local_byte)
+        || !domain.contains('.')
+    {
+        return false;
+    }
+
+    domain.split('.').all(|label| {
+        !label.is_empty()
+            && label.len() <= 63
+            && !label.starts_with('-')
+            && !label.ends_with('-')
+            && label
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+    })
+}
+
+fn valid_email_local_byte(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric()
+        || matches!(
+            byte,
+            b'!' | b'#'
+                | b'$'
+                | b'%'
+                | b'&'
+                | b'\''
+                | b'*'
+                | b'+'
+                | b'-'
+                | b'/'
+                | b'='
+                | b'?'
+                | b'^'
+                | b'_'
+                | b'`'
+                | b'{'
+                | b'|'
+                | b'}'
+                | b'~'
+                | b'.'
+        )
 }
 
 fn hash_password(password: &str) -> Result<String, ApiError> {

@@ -147,7 +147,7 @@ class AuthController extends ChangeNotifier {
         'INVALID_CREDENTIALS' => '邮箱或密码错误。',
         'EMAIL_TAKEN' => '该邮箱已注册。',
         'INVALID_EMAIL' => '请输入有效邮箱。',
-        'WEAK_PASSWORD' => '密码至少 8 位。',
+        'WEAK_PASSWORD' => '密码需为 8–128 位。',
         _
             when error.type == DioExceptionType.connectionError ||
                 error.type == DioExceptionType.connectionTimeout =>

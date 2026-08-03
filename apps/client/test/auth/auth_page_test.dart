@@ -83,4 +83,37 @@ void main() {
     );
     expect(password.obscureText, isTrue);
   });
+
+  testWidgets('registration enforces server field length limits',
+      (tester) async {
+    final gateway = FakeAuthGateway();
+    final controller = AuthController(gateway);
+    addTearDown(controller.dispose);
+    await controller.restore();
+
+    await tester.pumpWidget(
+      MaterialApp(home: AuthPage(controller: controller)),
+    );
+    await tester.tap(find.text('注册'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('auth-email')),
+      '${'a'.padRight(244, 'a')}@example.com',
+    );
+    await tester.enterText(
+      find.byKey(const Key('auth-display-name')),
+      'n'.padRight(81, 'n'),
+    );
+    await tester.enterText(
+      find.byKey(const Key('auth-password')),
+      'p'.padRight(129, 'p'),
+    );
+    await tester.tap(find.byKey(const Key('auth-submit')));
+    await tester.pump();
+
+    expect(find.text('邮箱不能超过 254 个字符'), findsOneWidget);
+    expect(find.text('称呼不能超过 80 个字符'), findsOneWidget);
+    expect(find.text('密码不能超过 128 位'), findsOneWidget);
+    expect(gateway.registerEmail, isNull);
+  });
 }

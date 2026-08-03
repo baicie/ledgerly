@@ -14,25 +14,35 @@ async fn json_body(res: axum::response::Response) -> serde_json::Value {
     serde_json::from_slice(&bytes).unwrap()
 }
 
-async fn register_user(app: &axum::Router, email: &str) -> axum::response::Response {
+async fn post_json(
+    app: &axum::Router,
+    uri: &str,
+    body: serde_json::Value,
+) -> axum::response::Response {
     app.clone()
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/v1/auth/register")
+                .uri(uri)
                 .header("content-type", "application/json")
-                .body(Body::from(
-                    json!({
-                        "email": email,
-                        "password": "password123",
-                        "displayName": "Session Test"
-                    })
-                    .to_string(),
-                ))
+                .body(Body::from(body.to_string()))
                 .unwrap(),
         )
         .await
         .unwrap()
+}
+
+async fn register_user(app: &axum::Router, email: &str) -> axum::response::Response {
+    post_json(
+        app,
+        "/v1/auth/register",
+        json!({
+            "email": email,
+            "password": "password123",
+            "displayName": "Session Test"
+        }),
+    )
+    .await
 }
 
 fn response_cookie(res: &axum::response::Response) -> String {
@@ -120,6 +130,131 @@ async fn sync_requires_auth() {
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn registration_normalizes_identity_fields() {
+    let state = test_state();
+    let app = app_router(state.clone());
+
+    let registered = post_json(
+        &app,
+        "/v1/auth/register",
+        json!({
+            "email": " Person@Example.COM ",
+            "password": "password123",
+            "displayName": "  Person  "
+        }),
+    )
+    .await;
+    assert_eq!(registered.status(), StatusCode::OK);
+
+    {
+        let store = state.store.read().await;
+        let user_id = store.users_by_email.get("person@example.com").unwrap();
+        let user = store.users.get(user_id).unwrap();
+        assert_eq!(user.email, "person@example.com");
+        assert_eq!(user.display_name, "Person");
+    }
+
+    let login = post_json(
+        &app,
+        "/v1/auth/login",
+        json!({
+            "email": " PERSON@EXAMPLE.COM ",
+            "password": "password123",
+            "deviceId": "  device-1  "
+        }),
+    )
+    .await;
+    assert_eq!(login.status(), StatusCode::OK);
+
+    let store = state.store.read().await;
+    assert_eq!(
+        store.sessions.values().next().unwrap().device_id,
+        "device-1"
+    );
+}
+
+#[tokio::test]
+async fn registration_rejects_invalid_identity_fields_with_stable_codes() {
+    let app = app_router(test_state());
+    let cases = [
+        (
+            json!({
+                "email": "not-an-email",
+                "password": "password123",
+                "displayName": "Person"
+            }),
+            "INVALID_EMAIL",
+        ),
+        (
+            json!({
+                "email": "person@example.com",
+                "password": "short",
+                "displayName": "Person"
+            }),
+            "WEAK_PASSWORD",
+        ),
+        (
+            json!({
+                "email": "person@example.com",
+                "password": "p".repeat(129),
+                "displayName": "Person"
+            }),
+            "WEAK_PASSWORD",
+        ),
+        (
+            json!({
+                "email": "person@example.com",
+                "password": "password123",
+                "displayName": " "
+            }),
+            "INVALID_DISPLAY_NAME",
+        ),
+        (
+            json!({
+                "email": "person@example.com",
+                "password": "password123",
+                "displayName": "n".repeat(81)
+            }),
+            "INVALID_DISPLAY_NAME",
+        ),
+    ];
+
+    for (request, expected_code) in cases {
+        let response = post_json(&app, "/v1/auth/register", request).await;
+        assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        let body = json_body(response).await;
+        assert_eq!(body["code"], expected_code);
+    }
+}
+
+#[tokio::test]
+async fn login_rejects_invalid_device_ids() {
+    let app = app_router(test_state());
+    assert_eq!(
+        register_user(&app, "device-validation@example.com")
+            .await
+            .status(),
+        StatusCode::OK
+    );
+
+    for device_id in [String::new(), "d".repeat(129)] {
+        let response = post_json(
+            &app,
+            "/v1/auth/login",
+            json!({
+                "email": "device-validation@example.com",
+                "password": "password123",
+                "deviceId": device_id
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        let body = json_body(response).await;
+        assert_eq!(body["code"], "INVALID_DEVICE_ID");
+    }
 }
 
 #[tokio::test]

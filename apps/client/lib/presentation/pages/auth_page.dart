@@ -4,6 +4,10 @@ import '../../auth/auth_controller.dart';
 
 enum AuthMode { login, register }
 
+const _maxEmailLength = 254;
+const _maxDisplayNameLength = 80;
+const _maxPasswordLength = 128;
+
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key, required this.controller});
 
@@ -130,6 +134,9 @@ class _AuthPageState extends State<AuthPage> {
                                   ),
                                   validator: (value) {
                                     final email = value?.trim() ?? '';
+                                    if (email.length > _maxEmailLength) {
+                                      return '邮箱不能超过 254 个字符';
+                                    }
                                     final valid = RegExp(
                                       r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
                                     ).hasMatch(email);
@@ -149,10 +156,15 @@ class _AuthPageState extends State<AuthPage> {
                                       prefixIcon: Icon(Icons.person_outline),
                                       border: OutlineInputBorder(),
                                     ),
-                                    validator: (value) =>
-                                        (value?.trim().length ?? 0) >= 2
-                                            ? null
-                                            : '称呼至少 2 个字符',
+                                    validator: (value) {
+                                      final length = value?.trim().length ?? 0;
+                                      if (length < 2) {
+                                        return '称呼至少 2 个字符';
+                                      }
+                                      return length > _maxDisplayNameLength
+                                          ? '称呼不能超过 80 个字符'
+                                          : null;
+                                    },
                                   ),
                                 ],
                                 const SizedBox(height: 14),
@@ -188,10 +200,15 @@ class _AuthPageState extends State<AuthPage> {
                                       ),
                                     ),
                                   ),
-                                  validator: (value) =>
-                                      (value?.length ?? 0) >= 8
-                                          ? null
-                                          : '密码至少 8 位',
+                                  validator: (value) {
+                                    final length = value?.length ?? 0;
+                                    if (length < 8) {
+                                      return '密码至少 8 位';
+                                    }
+                                    return length > _maxPasswordLength
+                                        ? '密码不能超过 128 位'
+                                        : null;
+                                  },
                                 ),
                                 if (state.message != null) ...[
                                   const SizedBox(height: 14),
