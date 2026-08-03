@@ -10,7 +10,7 @@ class SyncService {
 
   final LedgerRepository _repo;
   final SyncApi _api;
-  final AuthRepository _auth;
+  final AuthGateway _auth;
 
   String _rewriteAccountId(String id, String fromBook, String toBook) {
     final prefix = '$fromBook:';
@@ -52,12 +52,17 @@ class SyncService {
       final state = await _repo.syncState(bookId);
       final remoteBookId = session.bookId;
       final deviceId = await _repo.deviceId;
-      if (state?.remoteBookId != remoteBookId) {
+      var cursor = state?.cursor ?? 0;
+      if (state?.remoteBookId == null) {
         await _repo.updateSyncState(
           bookId: bookId,
           remoteBookId: remoteBookId,
+          cursor: 0,
           lastError: null,
         );
+        cursor = 0;
+      } else if (state!.remoteBookId != remoteBookId) {
+        throw StateError('本地账本已绑定到其他账户，已停止同步。');
       }
 
       final pending = await _repo.listPending(bookId);
@@ -118,7 +123,6 @@ class SyncService {
         );
       }
 
-      final cursor = state?.cursor ?? 0;
       final pull = await _api.pull(bookId: remoteBookId, cursor: cursor);
       final changes = (pull['changes'] as List?) ?? const [];
       for (final raw in changes) {
