@@ -1,5 +1,8 @@
 use axum::body::Body;
-use axum::http::{header::SET_COOKIE, Request, StatusCode};
+use axum::http::{
+    header::{CACHE_CONTROL, PRAGMA, SET_COOKIE},
+    Request, StatusCode,
+};
 use http_body_util::BodyExt;
 use ledger_server::{app_router, AppState, Config};
 use serde_json::json;
@@ -258,6 +261,69 @@ async fn login_rejects_invalid_device_ids() {
 }
 
 #[tokio::test]
+async fn login_rejects_oversized_password_before_verification() {
+    let app = app_router(test_state());
+    let response = post_json(
+        &app,
+        "/v1/auth/login",
+        json!({
+            "email": "person@example.com",
+            "password": "p".repeat(129),
+            "deviceId": "device-1"
+        }),
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    let body = json_body(response).await;
+    assert_eq!(body["code"], "INVALID_PASSWORD");
+}
+
+#[tokio::test]
+async fn unsupported_session_modes_return_stable_errors() {
+    let app = app_router(test_state());
+    for (uri, body) in [
+        (
+            "/v1/auth/login",
+            json!({
+                "email": "person@example.com",
+                "password": "password123",
+                "deviceId": "device-1",
+                "sessionMode": "unsupported"
+            }),
+        ),
+        (
+            "/v1/auth/refresh",
+            json!({
+                "sessionMode": "unsupported"
+            }),
+        ),
+    ] {
+        let response = post_json(&app, uri, body).await;
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{uri}");
+        let response_body = json_body(response).await;
+        assert_eq!(response_body["code"], "UNSUPPORTED_SESSION_MODE", "{uri}");
+    }
+}
+
+#[tokio::test]
+async fn auth_payloads_over_16_kib_are_rejected() {
+    let app = app_router(test_state());
+    let response = post_json(
+        &app,
+        "/v1/auth/register",
+        json!({
+            "email": "person@example.com",
+            "password": "password123",
+            "displayName": "x".repeat(17 * 1024)
+        }),
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+}
+
+#[tokio::test]
 async fn register_login_and_sync_push_pull() {
     let state = test_state();
     let app = app_router(state.clone());
@@ -295,6 +361,8 @@ async fn register_login_and_sync_push_pull() {
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::OK);
+    assert_eq!(res.headers().get(CACHE_CONTROL).unwrap(), "no-store");
+    assert_eq!(res.headers().get(PRAGMA).unwrap(), "no-cache");
     let login = json_body(res).await;
     assert!(login.get("accessToken").is_some());
     let token = login["accessToken"].as_str().unwrap();
@@ -728,6 +796,11 @@ async fn cookie_session_rotates_without_exposing_refresh_token_and_logout_clears
         .await
         .unwrap();
     assert_eq!(refresh_res.status(), StatusCode::OK);
+    assert_eq!(
+        refresh_res.headers().get(CACHE_CONTROL).unwrap(),
+        "no-store"
+    );
+    assert_eq!(refresh_res.headers().get(PRAGMA).unwrap(), "no-cache");
     let rotated_cookie = response_cookie(&refresh_res);
     assert_ne!(cookie_pair(&rotated_cookie), cookie_pair(&login_cookie));
     let refresh = json_body(refresh_res).await;

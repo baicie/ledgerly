@@ -1,7 +1,7 @@
 use argon2::Argon2;
 use axum::{
-    extract::State,
-    http::StatusCode,
+    extract::{DefaultBodyLimit, State},
+    http::{header, HeaderName, StatusCode},
     response::{IntoResponse, Response},
     routing::post,
     Json, Router,
@@ -26,6 +26,7 @@ pub fn routes() -> Router<AppState> {
         .route("/v1/auth/login", post(login))
         .route("/v1/auth/refresh", post(refresh))
         .route("/v1/auth/logout", post(logout))
+        .layer(DefaultBodyLimit::max(16 * 1024))
 }
 
 #[derive(Debug, Deserialize)]
@@ -42,6 +43,7 @@ const MAX_EMAIL_LENGTH: usize = 254;
 const MAX_PASSWORD_LENGTH: usize = 128;
 const MAX_DISPLAY_NAME_LENGTH: usize = 80;
 const MAX_DEVICE_ID_LENGTH: usize = 128;
+type TokenResponseHeaders = [(HeaderName, &'static str); 2];
 
 async fn logout(
     State(state): State<AppState>,
@@ -123,8 +125,9 @@ async fn login(
     State(state): State<AppState>,
     jar: CookieJar,
     Json(req): Json<LoginRequest>,
-) -> Result<(CookieJar, Json<TokenResponse>), ApiError> {
+) -> Result<(CookieJar, TokenResponseHeaders, Json<TokenResponse>), ApiError> {
     let req = validate_login(req)?;
+    let cookie_mode = uses_cookie_session(req.session_mode)?;
     let user = if let Some(pool) = &state.pool {
         let row: Option<(String, String, String, String)> = sqlx::query_as(
             "SELECT id, email, password_hash, display_name FROM users WHERE email = $1",
@@ -158,13 +161,13 @@ async fn login(
 
     verify_password(&req.password, &user.password_hash)?;
     let book_id = state.ensure_demo_book(&user.id).await.map_err(|e| {
+        tracing::error!(error = %e, "failed to resolve book during login");
         ApiError::new(
             StatusCode::INTERNAL_SERVER_ERROR,
             "BOOK_ERROR",
-            e.to_string(),
+            "failed to resolve account book",
         )
     })?;
-    let cookie_mode = req.session_mode == Some(SessionMode::Cookie);
     let mut tokens = issue_tokens(&state, &user.id, &req.device_id).await?;
     tokens.book_id = Some(book_id);
     tokens.plan = Some(user_plan(&state, &user.id).await);
@@ -174,15 +177,15 @@ async fn login(
     } else {
         jar
     };
-    Ok((jar, Json(tokens)))
+    Ok((jar, token_response_headers(), Json(tokens)))
 }
 
 async fn refresh(
     State(state): State<AppState>,
     jar: CookieJar,
     Json(req): Json<RefreshRequest>,
-) -> Result<(CookieJar, Json<TokenResponse>), Response> {
-    let cookie_mode = req.session_mode == Some(SessionMode::Cookie);
+) -> Result<(CookieJar, TokenResponseHeaders, Json<TokenResponse>), Response> {
+    let cookie_mode = uses_cookie_session(req.session_mode).map_err(IntoResponse::into_response)?;
     let refresh_token = if cookie_mode {
         if req.refresh_token.is_some() {
             return Err(ApiError::new(
@@ -220,25 +223,40 @@ async fn refresh(
             }
         }
     };
+    if !valid_refresh_token(&refresh_token) {
+        return Err(refresh_error_response(
+            jar,
+            &state,
+            cookie_mode,
+            ApiError::new(
+                StatusCode::UNAUTHORIZED,
+                "INVALID_REFRESH",
+                "refresh invalid",
+            ),
+        ));
+    }
     let hash = hash_token(&refresh_token);
     let mut tokens = rotate_refresh_token(&state, &hash)
         .await
         .map_err(|error| refresh_error_response(jar.clone(), &state, cookie_mode, error))?;
     let jar = finish_refresh(jar, &state, cookie_mode, &mut tokens);
-    Ok((jar, Json(tokens)))
+    Ok((jar, token_response_headers(), Json(tokens)))
 }
 
 async fn rotate_refresh_token(state: &AppState, hash: &str) -> Result<TokenResponse, ApiError> {
     if let Some(pool) = &state.pool {
-        let row: Option<(String, String, String, Option<time::OffsetDateTime>)> = sqlx::query_as(
-            "SELECT id, user_id, device_id, revoked_at FROM device_sessions
+        let row: Option<(String, String, String, Option<time::OffsetDateTime>, bool)> =
+            sqlx::query_as(
+                "SELECT id, user_id, device_id, revoked_at,
+                        created_at >= now() - interval '30 days' AS fresh
+                 FROM device_sessions
              WHERE refresh_token_hash = $1",
-        )
-        .bind(hash)
-        .fetch_optional(pool)
-        .await
-        .map_err(db_err)?;
-        let (session_id, user_id, device_id, revoked_at) = row.ok_or_else(|| {
+            )
+            .bind(hash)
+            .fetch_optional(pool)
+            .await
+            .map_err(db_err)?;
+        let (old_session_id, user_id, device_id, revoked_at, fresh) = row.ok_or_else(|| {
             ApiError::new(
                 StatusCode::UNAUTHORIZED,
                 "INVALID_REFRESH",
@@ -252,21 +270,76 @@ async fn rotate_refresh_token(state: &AppState, hash: &str) -> Result<TokenRespo
                 "refresh reuse detected",
             ));
         }
-        sqlx::query("UPDATE device_sessions SET revoked_at = now() WHERE id = $1")
-            .bind(&session_id)
+        if !fresh {
+            sqlx::query(
+                "UPDATE device_sessions SET revoked_at = now()
+                 WHERE id = $1 AND revoked_at IS NULL",
+            )
+            .bind(&old_session_id)
             .execute(pool)
             .await
             .map_err(db_err)?;
+            return Err(ApiError::new(
+                StatusCode::UNAUTHORIZED,
+                "INVALID_REFRESH",
+                "refresh invalid",
+            ));
+        }
+
         let book_id = state.ensure_demo_book(&user_id).await.map_err(|e| {
+            tracing::error!(error = %e, "failed to resolve book during token refresh");
             ApiError::new(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "BOOK_ERROR",
-                e.to_string(),
+                "failed to resolve account book",
             )
         })?;
-        let mut tokens = issue_tokens(state, &user_id, &device_id).await?;
+        let plan = user_plan(state, &user_id).await;
+        let new_session_id = Uuid::now_v7().to_string();
+        let refresh = random_token();
+        let refresh_hash = hash_token(&refresh);
+        let mut tokens =
+            build_token_response(state, &user_id, &device_id, &new_session_id, refresh)?;
+        let mut tx = pool.begin().await.map_err(db_err)?;
+        let claimed = sqlx::query(
+            "UPDATE device_sessions SET revoked_at = now()
+             WHERE id = $1 AND revoked_at IS NULL
+               AND created_at >= now() - interval '30 days'",
+        )
+        .bind(&old_session_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(db_err)?;
+        if claimed.rows_affected() != 1 {
+            tx.rollback().await.map_err(db_err)?;
+            return Err(ApiError::new(
+                StatusCode::UNAUTHORIZED,
+                "REFRESH_REUSE",
+                "refresh reuse detected",
+            ));
+        }
+        sqlx::query(
+            "INSERT INTO device_sessions (id, user_id, device_id, refresh_token_hash)
+             VALUES ($1,$2,$3,$4)",
+        )
+        .bind(&new_session_id)
+        .bind(&user_id)
+        .bind(&device_id)
+        .bind(&refresh_hash)
+        .execute(&mut *tx)
+        .await
+        .map_err(db_err)?;
+        sqlx::query(
+            "INSERT INTO subscriptions (user_id, plan, status)
+             VALUES ($1,'free','active') ON CONFLICT (user_id) DO NOTHING",
+        )
+        .bind(&user_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(db_err)?;
+        tx.commit().await.map_err(db_err)?;
         tokens.book_id = Some(book_id);
-        tokens.plan = Some(user_plan(state, &user_id).await);
+        tokens.plan = Some(plan);
         return Ok(tokens);
     }
 
@@ -330,6 +403,7 @@ async fn issue_tokens(
     let session_id = Uuid::now_v7().to_string();
     let refresh = random_token();
     let refresh_hash = hash_token(&refresh);
+    let tokens = build_token_response(state, user_id, device_id, &session_id, refresh)?;
 
     if let Some(pool) = &state.pool {
         sqlx::query(
@@ -372,20 +446,31 @@ async fn issue_tokens(
             .or_insert_with(|| "free".into());
     }
 
+    Ok(tokens)
+}
+
+fn build_token_response(
+    state: &AppState,
+    user_id: &str,
+    device_id: &str,
+    session_id: &str,
+    refresh: String,
+) -> Result<TokenResponse, ApiError> {
     let exp = (time::OffsetDateTime::now_utc().unix_timestamp() + 900) as usize;
     let claims = Claims {
         sub: user_id.to_string(),
-        session_id,
+        session_id: session_id.to_string(),
         device_id: device_id.to_string(),
         token_version: 1,
         exp,
     };
     let header = Header::new(Algorithm::EdDSA);
     let access = encode(&header, &claims, &state.config.jwt_encoding_key).map_err(|e| {
+        tracing::error!(error = %e, "failed to encode access token");
         ApiError::new(
             StatusCode::INTERNAL_SERVER_ERROR,
             "TOKEN_ERROR",
-            e.to_string(),
+            "failed to issue access token",
         )
     })?;
 
@@ -410,6 +495,13 @@ fn finish_refresh(
     }
     let refresh = tokens.refresh_token.take().expect("issued refresh token");
     add_refresh_cookie(jar, state, refresh)
+}
+
+fn token_response_headers() -> TokenResponseHeaders {
+    [
+        (header::CACHE_CONTROL, "no-store"),
+        (header::PRAGMA, "no-cache"),
+    ]
 }
 
 fn add_refresh_cookie(jar: CookieJar, state: &AppState, value: String) -> CookieJar {
@@ -468,6 +560,14 @@ fn validate_login(mut req: LoginRequest) -> Result<LoginRequest, ApiError> {
     req.email = normalize_email(&req.email)?;
     req.device_id = req.device_id.trim().to_string();
 
+    if req.password.chars().count() > MAX_PASSWORD_LENGTH {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "INVALID_PASSWORD",
+            "password must not exceed 128 characters",
+        ));
+    }
+
     let device_id_length = req.device_id.chars().count();
     if !(1..=MAX_DEVICE_ID_LENGTH).contains(&device_id_length)
         || req.device_id.chars().any(char::is_control)
@@ -480,6 +580,18 @@ fn validate_login(mut req: LoginRequest) -> Result<LoginRequest, ApiError> {
     }
 
     Ok(req)
+}
+
+fn uses_cookie_session(mode: Option<SessionMode>) -> Result<bool, ApiError> {
+    match mode {
+        None => Ok(false),
+        Some(SessionMode::Cookie) => Ok(true),
+        Some(SessionMode::Unsupported) => Err(ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "UNSUPPORTED_SESSION_MODE",
+            "sessionMode is unsupported",
+        )),
+    }
 }
 
 fn normalize_email(value: &str) -> Result<String, ApiError> {
@@ -557,10 +669,11 @@ fn hash_password(password: &str) -> Result<String, ApiError> {
     Ok(argon2
         .hash_password(password.as_bytes(), &salt)
         .map_err(|e| {
+            tracing::error!(error = %e, "failed to hash password");
             ApiError::new(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "HASH_ERROR",
-                e.to_string(),
+                "failed to secure password",
             )
         })?
         .to_string())
@@ -586,6 +699,15 @@ fn hash_token(token: &str) -> String {
     hex::encode(hasher.finalize())
 }
 
+fn valid_refresh_token(token: &str) -> bool {
+    token.len() == 64 && token.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
 fn db_err(e: sqlx::Error) -> ApiError {
-    ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "DB_ERROR", e.to_string())
+    tracing::error!(error = %e, "database operation failed");
+    ApiError::new(
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "DB_ERROR",
+        "database operation failed",
+    )
 }

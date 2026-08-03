@@ -34,6 +34,8 @@ pub struct LoginRequest {
 #[serde(rename_all = "lowercase")]
 pub enum SessionMode {
     Cookie,
+    #[serde(other)]
+    Unsupported,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
