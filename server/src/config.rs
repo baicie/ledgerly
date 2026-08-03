@@ -37,12 +37,13 @@ impl std::fmt::Debug for Config {
 }
 
 impl Config {
-    pub fn from_env() -> Self {
+    pub fn from_env() -> anyhow::Result<Self> {
+        let is_production = env::var("LEDGER_ENV").ok().as_deref() == Some("production");
         let jwt_secret =
             env::var("JWT_SECRET").unwrap_or_else(|_| "dev-only-change-me-ledgerly-secret".into());
         let jwt_ed25519_seed = env::var("JWT_ED25519_SEED").ok();
         let (encoding, decoding) = build_ed25519_keys(&jwt_secret, jwt_ed25519_seed.as_deref());
-        Self {
+        let config = Self {
             listen_addr: env::var("LEDGER_LISTEN").unwrap_or_else(|_| "0.0.0.0:8080".into()),
             database_url: env::var("DATABASE_URL").ok(),
             jwt_secret,
@@ -63,10 +64,39 @@ impl Config {
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(20),
             otel_endpoint: env::var("OTEL_EXPORTER_OTLP_ENDPOINT").ok(),
-            is_production: env::var("LEDGER_ENV").ok().as_deref() == Some("production"),
+            is_production,
             jwt_encoding_key: encoding,
             jwt_decoding_key: decoding,
+        };
+        config.validate()?;
+        Ok(config)
+    }
+
+    pub fn validate(&self) -> anyhow::Result<()> {
+        if !self.is_production {
+            return Ok(());
         }
+        if self.database_url.is_none() {
+            anyhow::bail!("DATABASE_URL is required in production");
+        }
+        if self.jwt_secret == "dev-only-change-me-ledgerly-secret"
+            || self.jwt_secret.contains("CHANGE_ME")
+        {
+            anyhow::bail!("JWT_SECRET must be replaced in production");
+        }
+        let Some(seed) = self.jwt_ed25519_seed.as_deref() else {
+            anyhow::bail!("JWT_ED25519_SEED is required in production");
+        };
+        if seed.is_empty() || seed.contains("CHANGE_ME") {
+            anyhow::bail!("JWT_ED25519_SEED must be replaced in production");
+        }
+        if self.object_store_hmac_secret.is_empty()
+            || self.object_store_hmac_secret.contains("CHANGE_ME")
+            || self.object_store_hmac_secret == "dev-object-hmac-secret"
+        {
+            anyhow::bail!("OBJECT_STORE_HMAC_SECRET must be replaced in production");
+        }
+        Ok(())
     }
 
     /// Test helper with fixed keys/dirs.
@@ -111,4 +141,32 @@ fn build_ed25519_keys(jwt_secret: &str, seed_override: Option<&str>) -> (Encodin
     let encoding = EncodingKey::from_ed_pem(private_pem.as_bytes()).expect("encoding key");
     let decoding = DecodingKey::from_ed_pem(public_pem.as_bytes()).expect("decoding key");
     (encoding, decoding)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Config;
+
+    #[test]
+    fn production_validation_rejects_default_secrets() {
+        let mut config = Config::for_test();
+        config.is_production = true;
+        config.database_url = Some("postgres://ledgerly:test@db/ledgerly".into());
+        config.jwt_secret = "dev-only-change-me-ledgerly-secret".into();
+        config.object_store_hmac_secret = "dev-object-hmac-secret".into();
+
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn production_validation_accepts_explicit_secrets() {
+        let mut config = Config::for_test();
+        config.is_production = true;
+        config.database_url = Some("postgres://ledgerly:test@db/ledgerly".into());
+        config.jwt_secret = "a-long-random-jwt-secret".into();
+        config.jwt_ed25519_seed = Some("a-long-random-ed25519-seed".into());
+        config.object_store_hmac_secret = "a-long-random-hmac-secret".into();
+
+        assert!(config.validate().is_ok());
+    }
 }

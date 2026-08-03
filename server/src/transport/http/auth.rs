@@ -11,19 +11,41 @@ use uuid::Uuid;
 
 use crate::error::ApiError;
 use crate::state::{AppState, SessionRecord, UserRecord};
-use crate::transport::http::authz::{user_plan, Claims};
+use crate::transport::http::authz::{user_plan, AuthUser, Claims};
 
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/v1/auth/register", post(register))
         .route("/v1/auth/login", post(login))
         .route("/v1/auth/refresh", post(refresh))
+        .route("/v1/auth/logout", post(logout))
 }
 
 #[derive(Debug, Deserialize)]
 struct RefreshRequest {
     #[serde(rename = "refreshToken")]
     refresh_token: String,
+}
+
+async fn logout(State(state): State<AppState>, auth: AuthUser) -> Result<StatusCode, ApiError> {
+    if let Some(pool) = &state.pool {
+        sqlx::query(
+            "UPDATE device_sessions SET revoked_at=now()
+             WHERE id=$1 AND user_id=$2 AND device_id=$3",
+        )
+        .bind(&auth.session_id)
+        .bind(&auth.user_id)
+        .bind(&auth.device_id)
+        .execute(pool)
+        .await
+        .map_err(db_err)?;
+    } else {
+        let mut store = state.store.write().await;
+        if let Some(session) = store.sessions.get_mut(&auth.session_id) {
+            session.revoked = true;
+        }
+    }
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn register(

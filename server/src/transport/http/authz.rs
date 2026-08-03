@@ -53,12 +53,49 @@ impl FromRequestParts<AppState> for AuthUser {
                 )
             })?;
         let claims = decode_access_token(state, token)?;
+        ensure_session_active(state, &claims).await?;
         Ok(AuthUser {
             user_id: claims.sub,
             session_id: claims.session_id,
             device_id: claims.device_id,
         })
     }
+}
+
+async fn ensure_session_active(state: &AppState, claims: &Claims) -> Result<(), ApiError> {
+    if let Some(pool) = &state.pool {
+        let active: Option<(String,)> = sqlx::query_as(
+            "SELECT id FROM device_sessions
+             WHERE id=$1 AND user_id=$2 AND device_id=$3 AND revoked_at IS NULL",
+        )
+        .bind(&claims.session_id)
+        .bind(&claims.sub)
+        .bind(&claims.device_id)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "DB_ERROR", e.to_string()))?;
+        if active.is_some() {
+            return Ok(());
+        }
+    } else {
+        let store = state.store.read().await;
+        if store
+            .sessions
+            .get(&claims.session_id)
+            .is_some_and(|session| {
+                !session.revoked
+                    && session.user_id == claims.sub
+                    && session.device_id == claims.device_id
+            })
+        {
+            return Ok(());
+        }
+    }
+    Err(ApiError::new(
+        StatusCode::UNAUTHORIZED,
+        "SESSION_REVOKED",
+        "device session is revoked or missing",
+    ))
 }
 
 pub fn decode_access_token(state: &AppState, token: &str) -> Result<Claims, ApiError> {
