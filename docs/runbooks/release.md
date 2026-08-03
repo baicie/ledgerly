@@ -66,11 +66,13 @@ git push origin v0.0.1
 
 | Job | 产物 |
 |-----|------|
-| Package Flutter clients | `ledgerly-web.zip`、`ledgerly-android.apk` → GitHub Release |
+| Package Flutter clients | `ledgerly-web.zip`、三个 ABI 拆分 APK → GitHub Release |
 | Build & push server image | `ghcr.io/<owner>/ledgerly-server:v0.0.1` + `latest` |
 | Publish GitHub Release | 附客户端文件 + release notes |
 
 Web 打包依赖 `apps/client/web/{sqlite3.wasm,drift_worker.js}`（与 `pubspec.lock` 中 drift/sqlite3 版本对齐；可用 `./scripts/fetch_drift_web_assets.sh` 更新）。
+
+Android APK 按 ABI 拆分发布：大多数现代手机使用 `ledgerly-android-arm64-v8a.apk`，旧版 32 位 ARM 设备使用 `ledgerly-android-armeabi-v7a.apk`，x86_64 设备或模拟器使用 `ledgerly-android-x86_64.apk`。
 
 手动部署：
 
