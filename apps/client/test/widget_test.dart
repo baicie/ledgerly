@@ -19,5 +19,8 @@ void main() {
     await tester.pump();
 
     expect(find.byType(NavigationBar), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
   });
 }
