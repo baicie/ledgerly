@@ -30,3 +30,11 @@ cargo run -- backup --out /tmp/ledgerly.dump
 ```
 
 JWT 为 **Ed25519**（由 `JWT_ED25519_SEED` / `JWT_SECRET` 派生）。附件走本地 HMAC 对象存储（见 `.env.example`）。
+
+## 发布 / 部署
+
+见 [docs/runbooks/release.md](docs/runbooks/release.md)：
+
+- 打 `v*` tag → 客户端进 GitHub Release，服务端镜像进 GHCR
+- 生产 compose **不启 PG**，`DATABASE_URL` 指向宿主机已有 Postgres
+- 部署：`./scripts/deploy_remote.sh` 或 Actions 勾选 deploy
