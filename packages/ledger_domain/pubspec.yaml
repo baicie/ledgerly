@@ -1,0 +1,11 @@
+name: ledger_domain
+description: Pure double-entry ledger domain for Ledgerly.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.5.0
+
+dev_dependencies:
+  test: ^1.25.0
