@@ -10,16 +10,36 @@
 - [本轮 MVP](docs/roadmap/mvp.md)
 - [ADR 索引](docs/adr/index.md)
 
-## 仓库结构（目标）
+## 仓库结构
 
 ```text
-apps/client/     # Flutter
-server/          # Rust + Axum
-packages/        # Dart packages（ledger_domain 等）
+apps/client/          # Flutter
+server/               # Rust + Axum (ledger-server)
+packages/
+  ledger_domain/      # 复式记账领域
+  ledger_sync/        # 同步引擎与双设备测试
 docs/
-infrastructure/
+```
+
+## 常用命令
+
+```bash
+# 领域测试
+cd packages/ledger_domain && dart test
+
+# 同步双设备测试
+cd packages/ledger_sync && dart test
+
+# Flutter 离线仓储测试
+cd apps/client && flutter test
+
+# 后端
+cd server
+cargo test --workspace
+cargo run -- doctor
+cargo run -- all   # http://0.0.0.0:8080
 ```
 
 ## 开发原则
 
-每阶段：**设计 → ADR → 实现 → 验收**。详见 [docs/roadmap/mvp.md](docs/roadmap/mvp.md)。
+每阶段：**设计 → ADR → 实现 → 验收**。分支见 [docs/roadmap/phases.md](docs/roadmap/phases.md)。
