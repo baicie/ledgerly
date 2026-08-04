@@ -53,7 +53,8 @@ GHCR 拉取：公开包可用 `GITHUB_TOKEN`；私有包再加 `GHCR_PULL_TOKEN`
 
 仓库变量 `LEDGERLY_API_BASE_URL` 是可选的客户端初始值。设置时必须是生产
 API 的 HTTPS origin，不能包含路径、查询或凭据。已保存的用户配置优先于该
-变量；变量为空时 Release 仍会正常打包，客户端首次启动进入 API 设置页。
+变量；用户保存的空值会覆盖该变量并选择纯本地模式。变量为空时 Release 仍
+会正常打包，客户端首次启动直接进入本地账本，不发起认证或同步请求。
 
 ### 4. Android 正式签名
 
@@ -79,16 +80,16 @@ Flutter 与 Android 的官方说明分别见 [Build and release an Android app](
 在干净的 `main` 上：
 
 ```bash
-./scripts/release.sh 0.0.3
+./scripts/release.sh 0.0.4
 # 等价于：校验分支干净且与 origin/main 同步 → 打 annotated tag → push
-# 预览：./scripts/release.sh 0.0.3 --dry-run
+# 预览：./scripts/release.sh 0.0.4 --dry-run
 ```
 
 手动等价：
 
 ```bash
-git tag -a v0.0.3 -m "Release v0.0.3"
-git push origin v0.0.3
+git tag -a v0.0.4 -m "Release v0.0.4"
+git push origin v0.0.4
 ```
 
 触发 [`.github/workflows/release.yml`](../../.github/workflows/release.yml)：
@@ -96,7 +97,7 @@ git push origin v0.0.3
 | Job | 产物 |
 |-----|------|
 | Package Flutter clients | `ledgerly-web.zip`、三个 ABI 拆分 APK → GitHub Release |
-| Build & push server image | `ghcr.io/<owner>/ledgerly-server:v0.0.3` + `0.0.3` + `latest` |
+| Build & push server image | `ghcr.io/<owner>/ledgerly-server:v0.0.4` + `0.0.4` + `latest` |
 | Publish GitHub Release | 附客户端文件 + release notes |
 
 Web 打包依赖 `apps/client/web/{sqlite3.wasm,drift_worker.js}`（与 `pubspec.lock` 中 drift/sqlite3 版本对齐；可用 `./scripts/fetch_drift_web_assets.sh` 更新）。
@@ -107,8 +108,9 @@ flutter build web --release
 ```
 
 需要预置初始地址时，可额外传入
-`--dart-define=LEDGERLY_API_BASE_URL="$PRODUCTION_API_ORIGIN"`。客户端首次启动、
-登录页和设置页均可保存新地址；Release 仅接受非本机 HTTPS origin，Web
+`--dart-define=LEDGERLY_API_BASE_URL="$PRODUCTION_API_ORIGIN"`。API 地址选填；
+留空时客户端仅使用 Drift 本地数据库，不恢复远端会话或同步。登录页、启动
+恢复页和设置页均可保存或清空地址；Release 仅接受非本机 HTTPS origin，Web
 Release 还要求使用默认 HTTPS 端口（443），Native 可使用自定义 HTTPS 端口。
 
 服务端 `CORS_ALLOWED_ORIGINS` 填 Web 应用的 origin（协议、域名和端口），
@@ -149,7 +151,7 @@ docker compose -f infrastructure/docker/docker-compose.prod.yml --env-file .env.
 
 ```bash
 curl -sf http://82.156.234.84:8080/health/ready
-# 客户端：Release 页下载 web/apk；首次启动设置实际 API HTTPS origin
+# 客户端：Release 页下载 web/apk；验证空地址本地模式及可选 HTTPS API 模式
 ```
 
 ## 五、回滚
