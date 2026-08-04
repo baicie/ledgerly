@@ -49,7 +49,7 @@ class _ApiEndpointEditorDialogState extends State<_ApiEndpointEditorDialog> {
   void _submit() {
     try {
       final endpoint = widget.controller.validate(_inputController.text);
-      Navigator.pop(context, endpoint.baseUrl);
+      Navigator.pop(context, endpoint?.baseUrl ?? '');
     } catch (error) {
       setState(() => _errorText = apiEndpointErrorText(error));
     }

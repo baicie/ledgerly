@@ -26,12 +26,16 @@ class ApiEndpointState {
           message: message,
         );
 
+  const ApiEndpointState.local() : this._(status: ApiEndpointStatus.ready);
+
   const ApiEndpointState.ready(ApiEndpoint endpoint)
       : this._(status: ApiEndpointStatus.ready, endpoint: endpoint);
 
   final ApiEndpointStatus status;
   final ApiEndpoint? endpoint;
   final String? message;
+
+  bool get isLocal => status == ApiEndpointStatus.ready && endpoint == null;
 }
 
 class ApiEndpointController extends ChangeNotifier {
@@ -69,16 +73,17 @@ class ApiEndpointController extends ChangeNotifier {
       return;
     }
 
-    final savedValue = persisted?.trim() ?? '';
+    final savedValue = persisted?.trim();
     final buildValue = _buildDefault.trim();
-    if (savedValue.isEmpty && buildValue.isEmpty && _isRelease) {
-      _setState(const ApiEndpointState.needsConfiguration());
+    final configured = persisted == null ? buildValue : savedValue!;
+    if (configured.isEmpty) {
+      _setState(const ApiEndpointState.local());
       return;
     }
 
     try {
       final endpoint = ApiEndpoint.resolve(
-        configured: savedValue.isNotEmpty ? savedValue : buildValue,
+        configured: configured,
         isRelease: _isRelease,
         isWeb: _isWeb,
         webOrigin: _webOrigin,
@@ -91,7 +96,8 @@ class ApiEndpointController extends ChangeNotifier {
     }
   }
 
-  ApiEndpoint validate(String value) {
+  ApiEndpoint? validate(String value) {
+    if (value.trim().isEmpty) return null;
     return ApiEndpoint.resolve(
       configured: value,
       isRelease: _isRelease,
@@ -100,10 +106,14 @@ class ApiEndpointController extends ChangeNotifier {
     );
   }
 
-  Future<ApiEndpoint> save(String value) async {
+  Future<ApiEndpoint?> save(String value) async {
     final endpoint = validate(value);
-    await _store.write(endpoint.baseUrl);
-    _setState(ApiEndpointState.ready(endpoint));
+    await _store.write(endpoint?.baseUrl ?? '');
+    _setState(
+      endpoint == null
+          ? const ApiEndpointState.local()
+          : ApiEndpointState.ready(endpoint),
+    );
     return endpoint;
   }
 

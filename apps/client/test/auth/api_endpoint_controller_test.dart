@@ -3,14 +3,15 @@ import 'package:ledgerly_client/config/api_endpoint_controller.dart';
 
 void main() {
   group('ApiEndpointController', () {
-    test('release without a saved or embedded endpoint needs configuration',
+    test('release without a saved or embedded endpoint uses local mode',
         () async {
       final controller = releaseController(MemoryApiEndpointStore());
 
       await controller.load();
 
-      expect(controller.state.status, ApiEndpointStatus.needsConfiguration);
+      expect(controller.state.status, ApiEndpointStatus.ready);
       expect(controller.state.endpoint, isNull);
+      expect(controller.state.isLocal, isTrue);
     });
 
     test('saved endpoint takes precedence over the embedded default', () async {
@@ -39,6 +40,42 @@ void main() {
       final restarted = releaseController(store);
       await restarted.load();
       expect(restarted.state.endpoint?.baseUrl, 'https://api.example');
+    });
+
+    test('saved blank endpoint overrides the embedded default with local mode',
+        () async {
+      final controller = releaseController(
+        MemoryApiEndpointStore(initialValue: ''),
+        buildDefault: 'https://default.example',
+      );
+
+      await controller.load();
+
+      expect(controller.state.status, ApiEndpointStatus.ready);
+      expect(controller.state.endpoint, isNull);
+      expect(controller.state.isLocal, isTrue);
+    });
+
+    test('clearing an endpoint persists and restores local mode', () async {
+      final store = MemoryApiEndpointStore(
+        initialValue: 'https://api.example',
+      );
+      final controller = releaseController(store);
+      await controller.load();
+
+      final endpoint = await controller.save('   ');
+
+      expect(endpoint, isNull);
+      expect(store.value, '');
+      expect(controller.state.isLocal, isTrue);
+
+      final restarted = releaseController(
+        store,
+        buildDefault: 'https://default.example',
+      );
+      await restarted.load();
+      expect(restarted.state.isLocal, isTrue);
+      expect(restarted.state.endpoint, isNull);
     });
 
     test('invalid saved endpoint does not fall back to embedded default',
@@ -71,8 +108,7 @@ void main() {
       expect(store.value, 'https://old.example');
     });
 
-    test('debug keeps the local fallback when no endpoint is configured',
-        () async {
+    test('debug also uses local mode when no endpoint is configured', () async {
       final controller = ApiEndpointController(
         store: MemoryApiEndpointStore(),
         buildDefault: '',
@@ -82,7 +118,9 @@ void main() {
 
       await controller.load();
 
-      expect(controller.state.endpoint?.baseUrl, 'http://127.0.0.1:8080');
+      expect(controller.state.status, ApiEndpointStatus.ready);
+      expect(controller.state.endpoint, isNull);
+      expect(controller.state.isLocal, isTrue);
     });
   });
 }
