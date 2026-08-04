@@ -21,21 +21,26 @@ final databaseProvider = Provider<AppDatabase>((ref) {
   return db;
 });
 
-final apiEndpointProvider = Provider<ApiEndpoint>((ref) {
-  return ApiEndpoint.fromEnvironment();
-});
+const _localSessionScope = 'ledgerly-local';
+
+final apiEndpointProvider = Provider<ApiEndpoint?>((ref) => null);
 
 final apiEndpointControllerProvider = Provider<ApiEndpointController>((ref) {
   throw StateError('ApiEndpointController has not been configured.');
 });
 
 final sessionStoreProvider = Provider<SessionStore>((ref) {
-  return createPlatformSessionStore(ref.watch(apiEndpointProvider).baseUrl);
+  final endpoint = ref.watch(apiEndpointProvider);
+  return createPlatformSessionStore(endpoint?.baseUrl ?? _localSessionScope);
 });
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
+  final endpoint = ref.watch(apiEndpointProvider);
+  if (endpoint == null) {
+    throw StateError('Remote authentication is unavailable in local mode.');
+  }
   final repository = AuthRepository(
-    endpoint: ref.watch(apiEndpointProvider),
+    endpoint: endpoint,
     sessionStore: ref.watch(sessionStoreProvider),
   );
   ref.onDispose(repository.dispose);
@@ -43,6 +48,9 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 });
 
 final authControllerProvider = ChangeNotifierProvider<AuthController>((ref) {
+  if (ref.watch(apiEndpointProvider) == null) {
+    return AuthController.local();
+  }
   final controller = AuthController(ref.watch(authRepositoryProvider));
   unawaited(controller.restore());
   return controller;

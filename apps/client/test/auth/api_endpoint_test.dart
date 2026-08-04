@@ -13,15 +13,17 @@ void main() {
       expect(endpoint.baseUrl, 'https://api.ledgerly.example');
     });
 
-    test('release requires an explicit endpoint', () {
-      expect(
-        () => ApiEndpoint.resolve(
-          configured: '',
-          isRelease: true,
-          isWeb: false,
-        ),
-        throwsFormatException,
-      );
+    test('remote endpoint validation rejects empty input in every build', () {
+      for (final isRelease in [false, true]) {
+        expect(
+          () => ApiEndpoint.resolve(
+            configured: '',
+            isRelease: isRelease,
+            isWeb: false,
+          ),
+          throwsFormatException,
+        );
+      }
     });
 
     test('release rejects HTTP and loopback endpoints', () {
@@ -104,20 +106,9 @@ void main() {
       }
     });
 
-    test('debug web defaults to the current HTTP origin', () {
+    test('debug accepts an explicitly configured HTTP loopback origin', () {
       final endpoint = ApiEndpoint.resolve(
-        configured: '',
-        isRelease: false,
-        isWeb: true,
-        webOrigin: Uri.parse('http://localhost:5173'),
-      );
-
-      expect(endpoint.baseUrl, 'http://localhost:5173');
-    });
-
-    test('debug native defaults to the local API', () {
-      final endpoint = ApiEndpoint.resolve(
-        configured: '',
+        configured: 'http://127.0.0.1:8080',
         isRelease: false,
         isWeb: false,
       );

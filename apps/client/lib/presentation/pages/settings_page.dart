@@ -18,7 +18,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool _changingEndpoint = false;
 
   Future<void> _changeEndpoint() async {
-    final current = ref.read(apiEndpointProvider).baseUrl;
+    final activeEndpoint = ref.read(apiEndpointProvider);
+    final current = activeEndpoint?.baseUrl ?? '';
     final endpointController = ref.read(apiEndpointControllerProvider);
     final selected = await showApiEndpointEditorDialog(
       context: context,
@@ -27,11 +28,22 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
     if (selected == null || selected == current || !mounted) return;
 
+    final switchesToLocal = selected.isEmpty;
+    final switchesFromLocal = activeEndpoint == null;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('切换 API 服务？'),
-        content: const Text('切换后需要在新服务重新登录，本机账本数据会保留。'),
+        title: Text(
+          switchesToLocal
+              ? '改为仅本地存储？'
+              : switchesFromLocal
+                  ? '连接 API 服务？'
+                  : '切换 API 服务？',
+        ),
+        content: Text(
+          switchesToLocal ? '远端登录会退出，本机账本数据会保留。' : '连接后需要登录服务，本机账本数据会保留。',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -40,8 +52,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           FilledButton.icon(
             key: const Key('settings-api-confirm'),
             onPressed: () => Navigator.pop(context, true),
-            icon: const Icon(Icons.swap_horiz),
-            label: const Text('切换并退出登录'),
+            icon: Icon(
+              switchesToLocal ? Icons.cloud_off_outlined : Icons.swap_horiz,
+            ),
+            label: Text(switchesToLocal ? '仅本地存储' : '确认连接'),
           ),
         ],
       ),
@@ -49,13 +63,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     if (confirmed != true || !mounted) return;
 
     setState(() => _changingEndpoint = true);
-    await ref.read(authControllerProvider).logout();
+    if (!switchesFromLocal) {
+      await ref.read(authControllerProvider).logout();
+    }
     try {
       await endpointController.save(selected);
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('API 地址保存失败，仍连接原服务。')),
+          const SnackBar(content: Text('API 设置保存失败，仍保持原存储模式。')),
         );
       }
     } finally {
@@ -97,20 +113,27 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Widget build(BuildContext context) {
     final session = ref.watch(authControllerProvider).state.session;
     final endpoint = ref.watch(apiEndpointProvider);
+    final isLocal = endpoint == null;
     return Scaffold(
       appBar: AppBar(title: const Text('我的')),
       body: ListView(
         children: [
           ListTile(
-            leading: const Icon(Icons.workspace_premium_outlined),
-            title: const Text('当前方案'),
-            subtitle: Text(_planLabel(session?.plan)),
+            leading: Icon(
+              isLocal
+                  ? Icons.storage_outlined
+                  : Icons.workspace_premium_outlined,
+            ),
+            title: Text(isLocal ? '存储模式' : '当前方案'),
+            subtitle: Text(
+              isLocal ? '仅本地存储' : _planLabel(session?.plan),
+            ),
           ),
           ListTile(
             key: const Key('settings-api-edit'),
             leading: const Icon(Icons.dns_outlined),
             title: const Text('API 服务'),
-            subtitle: Text(endpoint.baseUrl),
+            subtitle: Text(endpoint?.baseUrl ?? '未设置（仅本地存储）'),
             trailing: _changingEndpoint
                 ? const SizedBox.square(
                     dimension: 22,
@@ -130,12 +153,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ListTile(
             title: const Text('同步中心'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.go('/settings/sync'),
+            enabled: !isLocal,
+            onTap: isLocal ? null : () => context.go('/settings/sync'),
           ),
           ListTile(
             title: const Text('冲突处理'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.go('/settings/conflicts'),
+            enabled: !isLocal,
+            onTap: isLocal ? null : () => context.go('/settings/conflicts'),
           ),
           ListTile(
             title: const Text('导出 CSV'),
@@ -147,56 +172,64 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             title: const Text('订阅权益'),
             subtitle: const Text('Free / Plus / Family'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.go('/settings/subscription'),
+            enabled: !isLocal,
+            onTap: isLocal ? null : () => context.go('/settings/subscription'),
           ),
           ListTile(
             title: const Text('汇率'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.go('/settings/fx'),
+            enabled: !isLocal,
+            onTap: isLocal ? null : () => context.go('/settings/fx'),
           ),
           ListTile(
             title: const Text('家庭共享'),
             subtitle: const Text('需 Family 方案'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.go('/settings/family'),
+            enabled: !isLocal,
+            onTap: isLocal ? null : () => context.go('/settings/family'),
           ),
           ListTile(
             title: const Text('预算'),
             subtitle: const Text('月度预算与进度'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.go('/settings/budgets'),
+            enabled: !isLocal,
+            onTap: isLocal ? null : () => context.go('/settings/budgets'),
           ),
           ListTile(
             title: const Text('周期记账'),
             subtitle: const Text('规则由 Job Worker 入账'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.go('/settings/recurring'),
+            enabled: !isLocal,
+            onTap: isLocal ? null : () => context.go('/settings/recurring'),
           ),
           ListTile(
             title: const Text('附件'),
             subtitle: const Text('需 Plus · HMAC 直传'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.go('/settings/attachments'),
+            enabled: !isLocal,
+            onTap: isLocal ? null : () => context.go('/settings/attachments'),
           ),
-          const Divider(),
-          ListTile(
-            key: const Key('settings-logout'),
-            leading: _loggingOut
-                ? const SizedBox.square(
-                    dimension: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(
-                    Icons.logout,
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-            title: Text(
-              '退出登录',
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
+          if (!isLocal) ...[
+            const Divider(),
+            ListTile(
+              key: const Key('settings-logout'),
+              leading: _loggingOut
+                  ? const SizedBox.square(
+                      dimension: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(
+                      Icons.logout,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+              title: Text(
+                '退出登录',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              enabled: !_loggingOut && !_changingEndpoint,
+              onTap: _loggingOut || _changingEndpoint ? null : _confirmLogout,
             ),
-            enabled: !_loggingOut && !_changingEndpoint,
-            onTap: _loggingOut || _changingEndpoint ? null : _confirmLogout,
-          ),
+          ],
         ],
       ),
     );

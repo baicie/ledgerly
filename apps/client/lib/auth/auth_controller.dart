@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'auth_repository.dart';
 
 enum AuthStatus {
+  local,
   restoring,
   signedOut,
   authenticating,
@@ -20,6 +21,8 @@ class AuthState {
   });
 
   const AuthState.restoring() : this._(status: AuthStatus.restoring);
+
+  const AuthState.local() : this._(status: AuthStatus.local);
 
   const AuthState.signedOut({String? message})
       : this._(status: AuthStatus.signedOut, message: message);
@@ -41,19 +44,30 @@ class AuthState {
 }
 
 class AuthController extends ChangeNotifier {
-  AuthController(this._gateway) {
-    _gateway.addListener(_onGatewayChanged);
+  AuthController(AuthGateway gateway)
+      : _gateway = gateway,
+        _state = const AuthState.restoring() {
+    gateway.addListener(_onGatewayChanged);
   }
 
-  final AuthGateway _gateway;
-  AuthState _state = const AuthState.restoring();
+  AuthController.local()
+      : _gateway = null,
+        _state = const AuthState.local();
+
+  final AuthGateway? _gateway;
+  AuthState _state;
 
   AuthState get state => _state;
 
   Future<void> restore() async {
+    final gateway = _gateway;
+    if (gateway == null) {
+      _setState(const AuthState.local());
+      return;
+    }
     _setState(const AuthState.restoring());
     try {
-      final session = await _gateway.restore();
+      final session = await gateway.restore();
       _setState(
         session == null
             ? const AuthState.signedOut()
@@ -68,9 +82,10 @@ class AuthController extends ChangeNotifier {
     required String email,
     required String password,
   }) async {
+    final gateway = _requireRemoteGateway();
     _setState(const AuthState.authenticating());
     try {
-      final session = await _gateway.login(
+      final session = await gateway.login(
         email: email.trim().toLowerCase(),
         password: password,
       );
@@ -87,9 +102,10 @@ class AuthController extends ChangeNotifier {
     required String password,
     required String displayName,
   }) async {
+    final gateway = _requireRemoteGateway();
     _setState(const AuthState.authenticating());
     try {
-      final session = await _gateway.registerAndLogin(
+      final session = await gateway.registerAndLogin(
         email: email.trim().toLowerCase(),
         password: password,
         displayName: displayName.trim(),
@@ -103,8 +119,13 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    final gateway = _gateway;
+    if (gateway == null) {
+      _setState(const AuthState.local());
+      return;
+    }
     try {
-      await _gateway.logout();
+      await gateway.logout();
       _setState(const AuthState.signedOut());
     } catch (_) {
       _setState(
@@ -122,7 +143,7 @@ class AuthController extends ChangeNotifier {
   }
 
   void _onGatewayChanged() {
-    final session = _gateway.currentSession;
+    final session = _gateway?.currentSession;
     if (session != null) {
       _setState(AuthState.authenticated(session));
     } else if (_state.status == AuthStatus.authenticated) {
@@ -137,6 +158,14 @@ class AuthController extends ChangeNotifier {
   void _setState(AuthState value) {
     _state = value;
     notifyListeners();
+  }
+
+  AuthGateway _requireRemoteGateway() {
+    final gateway = _gateway;
+    if (gateway == null) {
+      throw StateError('Remote authentication is unavailable in local mode.');
+    }
+    return gateway;
   }
 
   String _errorMessage(Object error, {required String operation}) {
@@ -160,7 +189,7 @@ class AuthController extends ChangeNotifier {
 
   @override
   void dispose() {
-    _gateway.removeListener(_onGatewayChanged);
+    _gateway?.removeListener(_onGatewayChanged);
     super.dispose();
   }
 }

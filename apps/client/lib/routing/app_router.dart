@@ -25,6 +25,14 @@ String? authRedirect(AuthState auth, String location) {
   final path = uri.path;
   final returnLocation = _safeReturnLocation(uri.queryParameters['from']);
 
+  if (auth.status == AuthStatus.local) {
+    final localRedirect = _localModeRedirect(path);
+    if (localRedirect != null) return localRedirect;
+    if (path == '/auth' || path == '/startup') {
+      return returnLocation ?? '/feed';
+    }
+    return null;
+  }
   if (auth.status == AuthStatus.restoring ||
       auth.status == AuthStatus.failure) {
     return path == '/startup'
@@ -40,6 +48,23 @@ String? authRedirect(AuthState auth, String location) {
   }
   if (path == '/auth' || path == '/startup') {
     return returnLocation ?? '/feed';
+  }
+  return null;
+}
+
+String? _localModeRedirect(String path) {
+  if (path.startsWith('/feed/revisions/')) return '/feed';
+  if (const {
+    '/settings/sync',
+    '/settings/conflicts',
+    '/settings/subscription',
+    '/settings/fx',
+    '/settings/family',
+    '/settings/budgets',
+    '/settings/recurring',
+    '/settings/attachments',
+  }.contains(path)) {
+    return '/settings';
   }
   return null;
 }

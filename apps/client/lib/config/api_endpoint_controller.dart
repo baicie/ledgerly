@@ -26,12 +26,16 @@ class ApiEndpointState {
           message: message,
         );
 
+  const ApiEndpointState.local() : this._(status: ApiEndpointStatus.ready);
+
   const ApiEndpointState.ready(ApiEndpoint endpoint)
       : this._(status: ApiEndpointStatus.ready, endpoint: endpoint);
 
   final ApiEndpointStatus status;
   final ApiEndpoint? endpoint;
   final String? message;
+
+  bool get isLocal => status == ApiEndpointStatus.ready && endpoint == null;
 }
 
 class ApiEndpointController extends ChangeNotifier {
@@ -40,18 +44,15 @@ class ApiEndpointController extends ChangeNotifier {
     required String buildDefault,
     required bool isRelease,
     required bool isWeb,
-    Uri? webOrigin,
   })  : _store = store,
         _buildDefault = buildDefault,
         _isRelease = isRelease,
-        _isWeb = isWeb,
-        _webOrigin = webOrigin;
+        _isWeb = isWeb;
 
   final ApiEndpointStore _store;
   final String _buildDefault;
   final bool _isRelease;
   final bool _isWeb;
-  final Uri? _webOrigin;
   ApiEndpointState _state = const ApiEndpointState.loading();
 
   ApiEndpointState get state => _state;
@@ -69,19 +70,19 @@ class ApiEndpointController extends ChangeNotifier {
       return;
     }
 
-    final savedValue = persisted?.trim() ?? '';
+    final savedValue = persisted?.trim();
     final buildValue = _buildDefault.trim();
-    if (savedValue.isEmpty && buildValue.isEmpty && _isRelease) {
-      _setState(const ApiEndpointState.needsConfiguration());
+    final configured = persisted == null ? buildValue : savedValue!;
+    if (configured.isEmpty) {
+      _setState(const ApiEndpointState.local());
       return;
     }
 
     try {
       final endpoint = ApiEndpoint.resolve(
-        configured: savedValue.isNotEmpty ? savedValue : buildValue,
+        configured: configured,
         isRelease: _isRelease,
         isWeb: _isWeb,
-        webOrigin: _webOrigin,
       );
       _setState(ApiEndpointState.ready(endpoint));
     } on FormatException catch (error) {
@@ -91,19 +92,23 @@ class ApiEndpointController extends ChangeNotifier {
     }
   }
 
-  ApiEndpoint validate(String value) {
+  ApiEndpoint? validate(String value) {
+    if (value.trim().isEmpty) return null;
     return ApiEndpoint.resolve(
       configured: value,
       isRelease: _isRelease,
       isWeb: _isWeb,
-      webOrigin: _webOrigin,
     );
   }
 
-  Future<ApiEndpoint> save(String value) async {
+  Future<ApiEndpoint?> save(String value) async {
     final endpoint = validate(value);
-    await _store.write(endpoint.baseUrl);
-    _setState(ApiEndpointState.ready(endpoint));
+    await _store.write(endpoint?.baseUrl ?? '');
+    _setState(
+      endpoint == null
+          ? const ApiEndpointState.local()
+          : ApiEndpointState.ready(endpoint),
+    );
     return endpoint;
   }
 

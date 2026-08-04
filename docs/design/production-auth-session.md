@@ -78,9 +78,10 @@ The user-selected API origin is persisted on the installation. An optional
 `LEDGERLY_API_BASE_URL` Dart define supplies only the initial default and never
 overrides a saved value.
 
-* Debug builds may default to `http://127.0.0.1:8080` (or the current Web
-  origin).
-* Release builds with no saved or embedded origin open the API setup screen.
+* When no saved or embedded origin exists, Debug and Release builds enter
+  local-only mode without attempting authentication or synchronization.
+* A persisted blank value explicitly selects local-only mode and overrides an
+  embedded default.
 * Release builds accept only HTTPS origins with no user info, query, fragment,
   or non-root path and reject loopback hosts.
 * Release Web requires the default HTTPS port because cookies are host-scoped
@@ -88,6 +89,8 @@ overrides a saved value.
 * Signed-out users can change the origin from the authentication screen.
   Signed-in users can change it from Settings, which logs out from the old
   origin before persisting the replacement.
+* Clearing the origin switches to local-only mode. The Drift ledger remains
+  available and remote-only actions stay inactive.
 * Native refresh tokens, Web signed-out markers, and device IDs are namespaced
   by origin. Web refresh cookies are host-only. A successful switch rebuilds
   the endpoint-keyed dependency scope.
@@ -102,16 +105,19 @@ The server reads:
 
 ## Client States and Routing
 
-`AuthController` owns one of these states: restoring, signed out,
-authenticating, authenticated, or failure. Startup obtains the stable device
-ID and attempts refresh without touching Drift tokens.
+`AuthController` owns one of these states: local, restoring, signed out,
+authenticating, authenticated, or failure. Local state has no authentication
+gateway. Remote startup obtains the stable per-origin device ID and attempts
+refresh without touching Drift tokens.
 
 * `/auth` contains login and registration modes.
-* All application-shell routes redirect to `/auth` unless authenticated.
+* Local mode enters the application shell directly. Remote mode redirects all
+  application-shell routes to `/auth` unless authenticated.
 * An authenticated user visiting `/auth` redirects to `/feed`.
 * Guarded deep links retain a validated same-origin return location through
   startup restore and login.
-* Settings exposes the current API origin and a logout command.
+* Settings exposes the current storage mode and optional API origin. Logout is
+  available only in remote mode.
 
 ## Data Migration
 

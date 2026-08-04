@@ -1,6 +1,6 @@
 # Ledgerly
 
-个人及家庭多端记账应用：Flutter Local-first 客户端 + Rust/Axum 模块化单体 + 复式记账 + Push/Pull 同步。
+个人及家庭多端记账应用：Flutter Local-first 客户端 + Rust/Axum 模块化单体 + 复式记账 + Push/Pull 同步。API 服务为选填；未设置时客户端以纯本地模式运行。
 
 ## 文档
 

@@ -11,6 +11,7 @@ class FeedPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final month = ref.watch(selectedMonthProvider);
     final txs = ref.watch(monthTransactionsProvider);
+    final hasRemote = ref.watch(apiEndpointProvider) != null;
     return Scaffold(
       appBar: AppBar(
         title: const Text('流水'),
@@ -22,7 +23,9 @@ class FeedPage extends ConsumerWidget {
                   DateTime(month.year, month.month - 1);
             },
           ),
-          Center(child: Text('${month.year}-${month.month.toString().padLeft(2, '0')}')),
+          Center(
+              child: Text(
+                  '${month.year}-${month.month.toString().padLeft(2, '0')}')),
           IconButton(
             icon: const Icon(Icons.chevron_right),
             onPressed: () {
@@ -45,7 +48,9 @@ class FeedPage extends ConsumerWidget {
               return ListTile(
                 title: Text(tx.description ?? '交易'),
                 subtitle: Text(tx.occurredAt.toLocal().toString()),
-                onTap: () => context.go('/feed/revisions/${tx.id}'),
+                onTap: hasRemote
+                    ? () => context.go('/feed/revisions/${tx.id}')
+                    : null,
                 trailing: IconButton(
                   icon: const Icon(Icons.delete_outline),
                   onPressed: () async {

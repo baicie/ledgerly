@@ -92,13 +92,13 @@ class _ApiEndpointSetupPageState extends State<ApiEndpointSetupPage> {
                         ),
                         const SizedBox(height: 28),
                         Text(
-                          '连接 API 服务',
+                          'API 服务配置',
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.headlineSmall,
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '输入你的 Ledgerly 服务器地址',
+                          '地址选填，留空时仅在本机存储',
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
@@ -113,7 +113,7 @@ class _ApiEndpointSetupPageState extends State<ApiEndpointSetupPage> {
                           textInputAction: TextInputAction.done,
                           onSubmitted: (_) => _save(),
                           decoration: InputDecoration(
-                            labelText: 'API 地址',
+                            labelText: 'API 地址（选填）',
                             hintText: 'https://your-server.example',
                             prefixIcon: const Icon(Icons.dns_outlined),
                             border: const OutlineInputBorder(),
@@ -132,7 +132,7 @@ class _ApiEndpointSetupPageState extends State<ApiEndpointSetupPage> {
                                   ),
                                 )
                               : const Icon(Icons.arrow_forward),
-                          label: const Text('继续'),
+                          label: const Text('保存设置'),
                         ),
                       ],
                     ),

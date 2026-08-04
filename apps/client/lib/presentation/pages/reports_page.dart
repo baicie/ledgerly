@@ -21,6 +21,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
   }
 
   Future<void> _loadRemote() async {
+    if (ref.read(apiEndpointProvider) == null) return;
     try {
       final api = ref.read(syncApiProvider);
       final bookId = ref.read(authRepositoryProvider).currentSession?.bookId;
@@ -48,15 +49,19 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
   Widget build(BuildContext context) {
     final report = ref.watch(categoryReportProvider);
     final month = ref.watch(selectedMonthProvider);
+    final isLocal = ref.watch(apiEndpointProvider) == null;
     return Scaffold(
       appBar: AppBar(
         title: const Text('分类报表'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadRemote,
-          ),
-        ],
+        actions: isLocal
+            ? null
+            : [
+                IconButton(
+                  tooltip: '刷新服务端汇总',
+                  icon: const Icon(Icons.refresh),
+                  onPressed: _loadRemote,
+                ),
+              ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -84,35 +89,42 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
             loading: () => const LinearProgressIndicator(),
             error: (e, _) => Text('$e'),
           ),
-          const Divider(),
-          Text('服务端汇总（plus）', style: Theme.of(context).textTheme.titleMedium),
-          if (_remoteError != null)
-            Text(_remoteError!, style: const TextStyle(color: Colors.red)),
-          if (_remote != null) ...[
-            ListTile(
-              title: const Text('收入'),
-              trailing: Text(
-                formatMinor(
-                  BigInt.tryParse('${_remote!['incomeMinor']}') ?? BigInt.zero,
+          if (!isLocal) ...[
+            const Divider(),
+            Text(
+              '服务端汇总（plus）',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            if (_remoteError != null)
+              Text(_remoteError!, style: const TextStyle(color: Colors.red)),
+            if (_remote != null) ...[
+              ListTile(
+                title: const Text('收入'),
+                trailing: Text(
+                  formatMinor(
+                    BigInt.tryParse('${_remote!['incomeMinor']}') ??
+                        BigInt.zero,
+                  ),
                 ),
               ),
-            ),
-            ListTile(
-              title: const Text('支出'),
-              trailing: Text(
-                formatMinor(
-                  BigInt.tryParse('${_remote!['expenseMinor']}') ?? BigInt.zero,
+              ListTile(
+                title: const Text('支出'),
+                trailing: Text(
+                  formatMinor(
+                    BigInt.tryParse('${_remote!['expenseMinor']}') ??
+                        BigInt.zero,
+                  ),
                 ),
               ),
-            ),
-            ListTile(
-              title: Text('净额（${_remote!['baseCurrency']}）'),
-              trailing: Text(
-                formatMinor(
-                  BigInt.tryParse('${_remote!['netMinor']}') ?? BigInt.zero,
+              ListTile(
+                title: Text('净额（${_remote!['baseCurrency']}）'),
+                trailing: Text(
+                  formatMinor(
+                    BigInt.tryParse('${_remote!['netMinor']}') ?? BigInt.zero,
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
         ],
       ),
