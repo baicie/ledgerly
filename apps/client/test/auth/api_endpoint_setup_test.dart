@@ -50,14 +50,14 @@ void main() {
     expect(find.text('连接 API 服务'), findsOneWidget);
   });
 
-  testWidgets('first-run setup rejects insecure release URL and saves HTTPS',
+  testWidgets('first-run setup rejects unsafe Web release URLs and saves HTTPS',
       (tester) async {
     final store = MemoryApiEndpointStore();
     final controller = ApiEndpointController(
       store: store,
       buildDefault: '',
       isRelease: true,
-      isWeb: false,
+      isWeb: true,
     );
     await controller.load();
 
@@ -74,6 +74,16 @@ void main() {
     await tester.pump();
 
     expect(find.text('正式版本仅支持非本机 HTTPS 地址'), findsOneWidget);
+    expect(store.value, isNull);
+
+    await tester.enterText(
+      find.byKey(const Key('api-endpoint-input')),
+      'https://api.example:8443',
+    );
+    await tester.tap(find.byKey(const Key('api-endpoint-save')));
+    await tester.pump();
+
+    expect(find.text('Web 正式版本仅支持 HTTPS 默认端口（443）'), findsOneWidget);
     expect(store.value, isNull);
 
     await tester.enterText(

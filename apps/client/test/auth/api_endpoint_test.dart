@@ -54,6 +54,37 @@ void main() {
       }
     });
 
+    test('release web rejects custom HTTPS ports for cookie isolation', () {
+      expect(
+        () => ApiEndpoint.resolve(
+          configured: 'https://api.example:8443',
+          isRelease: true,
+          isWeb: true,
+        ),
+        throwsFormatException,
+      );
+    });
+
+    test('release web accepts and normalizes an explicit port 443', () {
+      final endpoint = ApiEndpoint.resolve(
+        configured: 'https://api.example:443',
+        isRelease: true,
+        isWeb: true,
+      );
+
+      expect(endpoint.baseUrl, 'https://api.example');
+    });
+
+    test('release native accepts a custom HTTPS port', () {
+      final endpoint = ApiEndpoint.resolve(
+        configured: 'https://api.example:8443',
+        isRelease: true,
+        isWeb: false,
+      );
+
+      expect(endpoint.baseUrl, 'https://api.example:8443');
+    });
+
     test('rejects credentials, query, fragment, and non-root path', () {
       for (final value in [
         'https://user:pass@api.example',

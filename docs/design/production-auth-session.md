@@ -83,11 +83,14 @@ overrides a saved value.
 * Release builds with no saved or embedded origin open the API setup screen.
 * Release builds accept only HTTPS origins with no user info, query, fragment,
   or non-root path and reject loopback hosts.
+* Release Web requires the default HTTPS port because cookies are host-scoped
+  but not port-scoped. Native clients may use custom HTTPS ports.
 * Signed-out users can change the origin from the authentication screen.
   Signed-in users can change it from Settings, which logs out from the old
   origin before persisting the replacement.
 * Native refresh tokens, Web signed-out markers, and device IDs are namespaced
-  by origin. A successful switch rebuilds the endpoint-keyed dependency scope.
+  by origin. Web refresh cookies are host-only. A successful switch rebuilds
+  the endpoint-keyed dependency scope.
 * Invalid saved configuration returns to setup instead of silently contacting
   another host.
 

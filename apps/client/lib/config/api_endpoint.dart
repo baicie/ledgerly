@@ -61,6 +61,11 @@ class ApiEndpoint {
         'Release builds require a non-loopback HTTPS API endpoint.',
       );
     }
+    if (isRelease && isWeb && candidate.hasPort && candidate.port != 443) {
+      throw const FormatException(
+        'Release Web builds require the default HTTPS port for cookie isolation.',
+      );
+    }
 
     return ApiEndpoint._(Uri.parse(candidate.origin));
   }

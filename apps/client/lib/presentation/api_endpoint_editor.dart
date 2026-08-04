@@ -100,6 +100,9 @@ String apiEndpointErrorText(Object error) {
     if (message.contains('Release builds require')) {
       return '正式版本仅支持非本机 HTTPS 地址';
     }
+    if (message.contains('default HTTPS port')) {
+      return 'Web 正式版本仅支持 HTTPS 默认端口（443）';
+    }
     if (message.contains('origin without')) {
       return '请输入不含路径、查询或凭据的 API 根地址';
     }

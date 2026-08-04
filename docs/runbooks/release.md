@@ -108,7 +108,8 @@ flutter build web --release
 
 需要预置初始地址时，可额外传入
 `--dart-define=LEDGERLY_API_BASE_URL="$PRODUCTION_API_ORIGIN"`。客户端首次启动、
-登录页和设置页均可保存新地址；Release 仅接受非本机 HTTPS origin。
+登录页和设置页均可保存新地址；Release 仅接受非本机 HTTPS origin，Web
+Release 还要求使用默认 HTTPS 端口（443），Native 可使用自定义 HTTPS 端口。
 
 服务端 `CORS_ALLOWED_ORIGINS` 填 Web 应用的 origin（协议、域名和端口），
 不要填 API 地址或路径。Web Refresh Token 仅通过 `Secure`、`HttpOnly`

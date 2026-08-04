@@ -779,6 +779,7 @@ async fn cookie_session_rotates_without_exposing_refresh_token_and_logout_clears
     assert!(login_cookie.contains("Secure"));
     assert!(login_cookie.contains("SameSite=Strict"));
     assert!(login_cookie.contains("Path=/v1/auth"));
+    assert!(!login_cookie.contains("Domain="));
     let login = json_body(login_res).await;
     assert!(login.get("refreshToken").is_none());
 
