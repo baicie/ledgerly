@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -37,6 +39,65 @@ void main() {
       ),
     );
     expect(transactionTile.onTap, isNull);
+  });
+
+  testWidgets(
+      'local feed keeps its header and previous data while changing month',
+      (tester) async {
+    final nextTransactions = Completer<List<TransactionSummary>>();
+    final nextSummary = Completer<MonthlyLedgerSummary>();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          apiEndpointProvider.overrideWithValue(null),
+          selectedMonthProvider.overrideWith((ref) => DateTime(2026, 8)),
+          monthTransactionsProvider.overrideWith((ref) async {
+            final month = ref.watch(selectedMonthProvider);
+            if (month.month == 9) return nextTransactions.future;
+            return [
+              TransactionSummary(
+                id: 'tx-1',
+                occurredAt: DateTime.utc(2026, 8, 4),
+                description: '午餐',
+                entryCount: 2,
+              ),
+            ];
+          }),
+          monthlyLedgerSummaryProvider.overrideWith((ref) async {
+            final month = ref.watch(selectedMonthProvider);
+            if (month.month == 9) return nextSummary.future;
+            return MonthlyLedgerSummary(
+              incomeMinor: BigInt.zero,
+              expenseMinor: BigInt.from(3500),
+              transactionCount: 1,
+            );
+          }),
+        ],
+        child: const MaterialApp(home: FeedPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('全部流水'), findsOneWidget);
+    expect(find.text('午餐'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('下个月'));
+    await tester.pump();
+
+    expect(find.text('全部流水'), findsOneWidget);
+    expect(find.text('2026年 9月'), findsOneWidget);
+    expect(find.text('午餐'), findsOneWidget);
+
+    nextTransactions.complete([]);
+    nextSummary.complete(
+      MonthlyLedgerSummary(
+        incomeMinor: BigInt.zero,
+        expenseMinor: BigInt.zero,
+        transactionCount: 0,
+      ),
+    );
+    await tester.pumpAndSettle();
   });
 
   testWidgets('local reports never read the remote API provider',

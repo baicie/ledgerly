@@ -19,50 +19,52 @@ class FeedPage extends ConsumerWidget {
 
     return Scaffold(
       body: SafeArea(
-        child: transactions.when(
-          data: (items) => summary.when(
-            data: (totals) => LedgerlyContent(
-              slivers: [
-                const SliverToBoxAdapter(
-                  child: LedgerlyPageHeader(
-                    title: '全部流水',
-                    subtitle: '标准账本',
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: LedgerlyMonthPicker(
-                    month: month,
-                    onPrevious: () => _changeMonth(ref, month, -1),
-                    onNext: () => _changeMonth(ref, month, 1),
-                  ),
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-                  sliver: SliverToBoxAdapter(
-                    child: LedgerlySummaryCard(
-                      title: '本月流水统计',
-                      balanceMinor: totals.balanceMinor,
-                      incomeMinor: totals.incomeMinor,
-                      expenseMinor: totals.expenseMinor,
-                    ),
-                  ),
-                ),
-                FeedTransactionList(
-                  transactions: items,
-                  hasRemote: hasRemote,
-                  onOpen: (transaction) => context.go(
-                    '/feed/revisions/${transaction.id}',
-                  ),
-                  onDelete: (transaction) =>
-                      _deleteTransaction(ref, transaction.id),
-                ),
-              ],
+        child: LedgerlyContent(
+          slivers: [
+            const SliverToBoxAdapter(
+              child: LedgerlyPageHeader(
+                title: '全部流水',
+                subtitle: '标准账本',
+              ),
             ),
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) => _FeedError(error: error),
-          ),
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => _FeedError(error: error),
+            SliverToBoxAdapter(
+              child: LedgerlyMonthPicker(
+                month: month,
+                onPrevious: () => _changeMonth(ref, month, -1),
+                onNext: () => _changeMonth(ref, month, 1),
+              ),
+            ),
+            summary.when(
+              skipLoadingOnReload: true,
+              data: (totals) => SliverPadding(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                sliver: SliverToBoxAdapter(
+                  child: LedgerlySummaryCard(
+                    title: '本月流水统计',
+                    balanceMinor: totals.balanceMinor,
+                    incomeMinor: totals.incomeMinor,
+                    expenseMinor: totals.expenseMinor,
+                  ),
+                ),
+              ),
+              loading: () => const _FeedLoading(),
+              error: (error, _) => _FeedError(error: error),
+            ),
+            transactions.when(
+              skipLoadingOnReload: true,
+              data: (items) => FeedTransactionList(
+                transactions: items,
+                hasRemote: hasRemote,
+                onOpen: (transaction) => context.go(
+                  '/feed/revisions/${transaction.id}',
+                ),
+                onDelete: (transaction) =>
+                    _deleteTransaction(ref, transaction.id),
+              ),
+              loading: () => const _FeedLoading(),
+              error: (error, _) => _FeedError(error: error),
+            ),
+          ],
         ),
       ),
     );
@@ -88,6 +90,25 @@ class _FeedError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(child: Text('流水加载失败：$error'));
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Center(child: Text('流水加载失败：$error')),
+      ),
+    );
+  }
+}
+
+class _FeedLoading extends StatelessWidget {
+  const _FeedLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SliverToBoxAdapter(
+      child: SizedBox(
+        height: 220,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+    );
   }
 }

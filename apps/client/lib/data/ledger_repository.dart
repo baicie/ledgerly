@@ -79,6 +79,15 @@ class LedgerRepository {
         .get();
   }
 
+  Future<List<Account>> listCategories(String bookId, String type) {
+    return (_db.select(_db.accounts)
+          ..where(
+            (table) => table.bookId.equals(bookId) & table.type.equals(type),
+          )
+          ..orderBy([(table) => OrderingTerm.asc(table.name)]))
+        .get();
+  }
+
   Future<void> upsertAccount({
     required String id,
     required String bookId,
@@ -92,6 +101,112 @@ class LedgerRepository {
             name: name,
             type: type,
             currencyCode: 'CNY',
+          ),
+        );
+  }
+
+  Future<void> createLocalAccount({
+    required String id,
+    required String bookId,
+    required String name,
+    required String type,
+    String currencyCode = 'CNY',
+  }) async {
+    final currentDeviceId = await deviceId;
+    final createdAt = DateTime.now().toUtc();
+    await _db.transaction(() async {
+      await _db.into(_db.accounts).insert(
+            AccountsCompanion.insert(
+              id: id,
+              bookId: bookId,
+              name: name,
+              type: type,
+              currencyCode: currencyCode,
+            ),
+          );
+      await _queueAccountMutation(
+        mutationId: newId(),
+        bookId: bookId,
+        deviceId: currentDeviceId,
+        entityId: id,
+        operation: 'create',
+        name: name,
+        type: type,
+        currencyCode: currencyCode,
+        createdAt: createdAt,
+      );
+    });
+  }
+
+  Future<void> renameLocalAccount({
+    required String id,
+    required String name,
+  }) async {
+    final currentDeviceId = await deviceId;
+    await _db.transaction(() async {
+      final account = await (_db.select(_db.accounts)
+            ..where((table) => table.id.equals(id)))
+          .getSingleOrNull();
+      if (account == null) throw StateError('account not found');
+
+      await (_db.update(_db.accounts)..where((table) => table.id.equals(id)))
+          .write(AccountsCompanion(name: Value(name)));
+      await _queueAccountMutation(
+        mutationId: newId(),
+        bookId: account.bookId,
+        deviceId: currentDeviceId,
+        entityId: account.id,
+        operation: 'update',
+        name: name,
+        type: account.type,
+        currencyCode: account.currencyCode,
+        createdAt: DateTime.now().toUtc(),
+      );
+    });
+  }
+
+  Future<void> _queueAccountMutation({
+    required String mutationId,
+    required String bookId,
+    required String deviceId,
+    required String entityId,
+    required String operation,
+    required String name,
+    required String type,
+    required String currencyCode,
+    required DateTime createdAt,
+  }) {
+    return _db.into(_db.pendingMutations).insert(
+          PendingMutationsCompanion.insert(
+            mutationId: mutationId,
+            bookId: bookId,
+            deviceId: deviceId,
+            entityType: 'account',
+            entityId: entityId,
+            operation: operation,
+            baseVersion: 0,
+            payloadJson: jsonEncode({
+              'name': name,
+              'accountType': type,
+              'currency': currencyCode,
+            }),
+            createdAt: createdAt,
+          ),
+        );
+  }
+
+  Future<void> applyRemoteAccountUpsert({
+    required String entityId,
+    required String bookId,
+    required Map<String, dynamic> payload,
+  }) {
+    return _db.into(_db.accounts).insertOnConflictUpdate(
+          AccountsCompanion.insert(
+            id: entityId,
+            bookId: bookId,
+            name: payload['name'] as String,
+            type: payload['accountType'] as String,
+            currencyCode: payload['currency'] as String? ?? 'CNY',
           ),
         );
   }

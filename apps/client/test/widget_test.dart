@@ -102,8 +102,10 @@ void main() {
 
     await tester.scrollUntilVisible(
       find.byKey(const Key('settings-logout')),
-      200,
+      400,
     );
+    await tester.drag(find.byType(Scrollable), const Offset(0, -80));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('settings-logout')));
     await tester.pumpAndSettle();
     expect(find.text('确认退出登录？'), findsOneWidget);

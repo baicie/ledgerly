@@ -129,6 +129,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           onSync: isLocal ? null : () => context.go('/settings/sync'),
           onConflicts: isLocal ? null : () => context.go('/settings/conflicts'),
           onExport: () => context.go('/settings/export'),
+          onCategories: () => context.go('/settings/categories'),
           onSubscription:
               isLocal ? null : () => context.go('/settings/subscription'),
           onFx: isLocal ? null : () => context.go('/settings/fx'),

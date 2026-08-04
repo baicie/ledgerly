@@ -85,6 +85,53 @@ void main() {
     expect(summary.kind, TransactionSummaryKind.income);
     expect(summary.amountMinor, BigInt.from(1230));
   });
+
+  testWidgets('quick entry creates and immediately uses a new category',
+      (tester) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final repository = LedgerRepository(
+      db,
+      deviceIdLoader: () async => 'quick-category-device',
+    );
+    await repository.seedIfEmpty();
+    final service = LedgerAppService(repository);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ledgerRepositoryProvider.overrideWithValue(repository),
+          ledgerAppServiceProvider.overrideWithValue(service),
+        ],
+        child: const MaterialApp(home: _QuickEntryHost()),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('open-quick-entry')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('quick-category-field')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('category-add-picker')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('category-name-input')),
+      '咖啡',
+    );
+    await tester.tap(find.byKey(const Key('category-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('咖啡'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('quick-key-2')));
+    await tester.tap(find.byKey(const Key('quick-entry-save')));
+    await tester.pumpAndSettle();
+
+    final summary = (await repository.watchSummariesSync(defaultBookId)).single;
+    expect(summary.categoryName, '咖啡');
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
 }
 
 final _accounts = [

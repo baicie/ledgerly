@@ -17,6 +17,7 @@ class SettingsContent extends StatelessWidget {
     required this.onSync,
     required this.onConflicts,
     required this.onExport,
+    required this.onCategories,
     required this.onSubscription,
     required this.onFx,
     required this.onFamily,
@@ -37,6 +38,7 @@ class SettingsContent extends StatelessWidget {
   final VoidCallback? onSync;
   final VoidCallback? onConflicts;
   final VoidCallback onExport;
+  final VoidCallback onCategories;
   final VoidCallback? onSubscription;
   final VoidCallback? onFx;
   final VoidCallback? onFamily;
@@ -121,6 +123,12 @@ class SettingsContent extends StatelessWidget {
             child: _SettingsGroup(
               title: '账本工具',
               children: [
+                _routeTile(
+                  Icons.category_outlined,
+                  '分类管理',
+                  '维护支出与收入分类',
+                  onCategories,
+                ),
                 _routeTile(Icons.workspace_premium_outlined, '订阅权益',
                     'Free / Plus / Family', onSubscription),
                 _routeTile(Icons.currency_exchange, '汇率', null, onFx),

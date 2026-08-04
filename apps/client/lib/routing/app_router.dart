@@ -6,6 +6,7 @@ import '../presentation/pages/accounts_page.dart';
 import '../presentation/pages/attachments_page.dart';
 import '../presentation/pages/auth_page.dart';
 import '../presentation/pages/budgets_page.dart';
+import '../presentation/pages/categories_page.dart';
 import '../presentation/pages/conflicts_page.dart';
 import '../presentation/pages/export_page.dart';
 import '../presentation/pages/family_invite_page.dart';
@@ -170,6 +171,10 @@ GoRouter createAppRouter(
                   GoRoute(
                     path: 'export',
                     builder: (context, state) => const ExportPage(),
+                  ),
+                  GoRoute(
+                    path: 'categories',
+                    builder: (context, state) => const CategoriesPage(),
                   ),
                   GoRoute(
                     path: 'subscription',

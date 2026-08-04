@@ -63,6 +63,7 @@ void main() {
             onSync: null,
             onConflicts: null,
             onExport: () {},
+            onCategories: () {},
             onSubscription: null,
             onFx: null,
             onFamily: null,
@@ -77,6 +78,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(_cardInset(tester, '数据与同步'), 20);
+    expect(find.text('分类管理'), findsOneWidget);
   });
 
   testWidgets('reports page presents monthly income and expense sections',

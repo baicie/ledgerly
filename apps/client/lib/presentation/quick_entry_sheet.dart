@@ -149,6 +149,7 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
                 children: [
                   if (_mode != QuickEntryMode.transfer)
                     QuickEntrySelectionField(
+                      key: const Key('quick-category-field'),
                       label: '分类',
                       value: localizedLedgerName(category?.name),
                       icon: ledgerIconFor(category?.name),
@@ -158,9 +159,7 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
                             ? TransactionSummaryKind.income
                             : TransactionSummaryKind.expense,
                       ),
-                      onTap: categories.isEmpty
-                          ? null
-                          : () => _pickCategory(categories, category?.id),
+                      onTap: () => _pickCategory(categories, category?.id),
                     ),
                   QuickEntrySelectionField(
                     label: _mode == QuickEntryMode.transfer ? '转出账户' : '账户',
@@ -304,6 +303,7 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
       title: _mode == QuickEntryMode.income ? '选择收入分类' : '选择支出分类',
       rows: rows,
       selectedId: selectedId,
+      categoryType: _mode == QuickEntryMode.income ? 'income' : 'expense',
     );
     if (id != null && mounted) setState(() => _categoryId = id);
   }

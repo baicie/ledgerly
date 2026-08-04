@@ -117,8 +117,8 @@ async fn postgres_push_pull_persists() {
     let login = json_body(res).await;
     let token = login["accessToken"].as_str().unwrap();
     let book_id = login["bookId"].as_str().unwrap().to_string();
-    let food = format!("{book_id}:acc_food");
     let cash = format!("{book_id}:acc_cash");
+    let custom_category = format!("{book_id}:category_pg_lunch");
 
     let ready = app
         .clone()
@@ -135,21 +135,36 @@ async fn postgres_push_pull_persists() {
 
     let mutation = json!({
         "deviceId": "dev_pg",
-        "mutations": [{
-            "mutationId": format!("mut_{}", uuid::Uuid::now_v7()),
-            "entityType": "transaction",
-            "entityId": format!("tx_{}", uuid::Uuid::now_v7()),
-            "operation": "create",
-            "baseVersion": 0,
-            "schemaVersion": 1,
-            "payload": {
-                "description": "PG lunch",
-                "entries": [
-                    {"accountId": food, "amountMinor": "1200", "currency": "CNY"},
-                    {"accountId": cash, "amountMinor": "-1200", "currency": "CNY"}
-                ]
+        "mutations": [
+            {
+                "mutationId": format!("mut_account_{}", uuid::Uuid::now_v7()),
+                "entityType": "account",
+                "entityId": custom_category,
+                "operation": "create",
+                "baseVersion": 0,
+                "schemaVersion": 1,
+                "payload": {
+                    "name": "PG Lunch",
+                    "accountType": "expense",
+                    "currency": "CNY"
+                }
+            },
+            {
+                "mutationId": format!("mut_tx_{}", uuid::Uuid::now_v7()),
+                "entityType": "transaction",
+                "entityId": format!("tx_{}", uuid::Uuid::now_v7()),
+                "operation": "create",
+                "baseVersion": 0,
+                "schemaVersion": 1,
+                "payload": {
+                    "description": "PG lunch",
+                    "entries": [
+                        {"accountId": custom_category, "amountMinor": "1200", "currency": "CNY"},
+                        {"accountId": cash, "amountMinor": "-1200", "currency": "CNY"}
+                    ]
+                }
             }
-        }]
+        ]
     });
 
     let res = app
@@ -168,8 +183,111 @@ async fn postgres_push_pull_persists() {
     assert_eq!(res.status(), StatusCode::OK);
     let push = json_body(res).await;
     assert_eq!(push["receipts"][0]["status"], "applied");
+    assert_eq!(push["receipts"][1]["status"], "applied");
+
+    let rename = json!({
+        "deviceId": "dev_pg",
+        "mutations": [{
+            "mutationId": format!("mut_rename_{}", uuid::Uuid::now_v7()),
+            "entityType": "account",
+            "entityId": custom_category,
+            "operation": "update",
+            "baseVersion": 999,
+            "schemaVersion": 1,
+            "payload": {
+                "name": "  PG Meals  ",
+                "accountType": "income",
+                "currency": "USD"
+            }
+        }]
+    });
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/v1/books/{book_id}/sync/push"))
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::from(rename.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let rename = json_body(res).await;
+    assert_eq!(rename["receipts"][0]["status"], "applied");
+    assert_eq!(rename["receipts"][0]["entityVersion"], 2);
+
+    let idempotent_rename = json!({
+        "deviceId": "dev_pg",
+        "mutations": [{
+            "mutationId": format!("mut_idempotent_{}", uuid::Uuid::now_v7()),
+            "entityType": "account",
+            "entityId": custom_category,
+            "operation": "update",
+            "baseVersion": 1,
+            "schemaVersion": 1,
+            "payload": {
+                "name": "PG Meals Final",
+                "accountType": "expense",
+                "currency": "CNY"
+            }
+        }]
+    });
+    let request = || {
+        app.clone().oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/v1/books/{book_id}/sync/push"))
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::from(idempotent_rename.to_string()))
+                .unwrap(),
+        )
+    };
+    let (first, retry) = tokio::join!(request(), request());
+    for response in [first.unwrap(), retry.unwrap()] {
+        let receipt = json_body(response).await;
+        assert_eq!(receipt["receipts"][0]["status"], "applied");
+        assert_eq!(receipt["receipts"][0]["entityVersion"], 3);
+    }
+
+    let missing_account = json!({
+        "deviceId": "dev_pg",
+        "mutations": [{
+            "mutationId": format!("mut_missing_{}", uuid::Uuid::now_v7()),
+            "entityType": "transaction",
+            "entityId": format!("tx_missing_{}", uuid::Uuid::now_v7()),
+            "operation": "create",
+            "baseVersion": 0,
+            "schemaVersion": 1,
+            "payload": {
+                "entries": [
+                    {"accountId": format!("{book_id}:missing"), "amountMinor": "100", "currency": "CNY"},
+                    {"accountId": cash, "amountMinor": "-100", "currency": "CNY"}
+                ]
+            }
+        }]
+    });
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/v1/books/{book_id}/sync/push"))
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::from(missing_account.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let missing = json_body(res).await;
+    assert_eq!(missing["receipts"][0]["status"], "rejected");
+    assert_eq!(missing["receipts"][0]["resultCode"], "ACCOUNT_NOT_FOUND");
 
     let res = app
+        .clone()
         .oneshot(
             Request::builder()
                 .uri(format!("/v1/books/{book_id}/sync/pull?cursor=0"))
@@ -181,6 +299,38 @@ async fn postgres_push_pull_persists() {
         .unwrap();
     let pull = json_body(res).await;
     assert!(!pull["changes"].as_array().unwrap().is_empty());
+    assert!(pull["changes"].as_array().unwrap().iter().any(|change| {
+        change["entityType"] == "account"
+            && change["entityId"] == custom_category
+            && change["version"] == 3
+            && change["payload"]["name"] == "PG Meals Final"
+            && change["payload"]["accountType"] == "expense"
+            && change["payload"]["currency"] == "CNY"
+    }));
+
+    let res = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/v1/books/{book_id}/sync/bootstrap"))
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let bootstrap = json_body(res).await;
+    assert!(bootstrap["accounts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|account| {
+            account["id"] == custom_category
+                && account["version"] == 3
+                && account["name"] == "PG Meals Final"
+                && account["accountType"] == "expense"
+                && account["currency"] == "CNY"
+        }));
 }
 
 #[tokio::test]
