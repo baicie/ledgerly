@@ -185,19 +185,82 @@ jobs:
           cp infrastructure/docker/docker-compose.vm.yml deploy/
 
       - name: Sync runtime files to VM
-        uses: appleboy/scp-action@v1
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
-          fingerprint: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
-          source: deploy/*
-          target: /opt/ledgerly
-          strip_components: 1
-          overwrite: true
-          timeout: 60s
-          command_timeout: 20m
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_FINGERPRINT: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
+        run: |
+          set -euo pipefail
+
+          SSH_DIR="$RUNNER_TEMP/ledgerly-deploy-ssh"
+          KEY_FILE="$SSH_DIR/id_ed25519"
+          KNOWN_HOSTS="$SSH_DIR/known_hosts"
+          REMOTE_TMP=/opt/ledgerly/.deploy-runtime
+          install -d -m 700 "$SSH_DIR"
+          trap 'rm -rf "$SSH_DIR"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$KEY_FILE"
+          chmod 600 "$KEY_FILE"
+
+          SSH_OPTS=(
+            -i "$KEY_FILE"
+            -p "$DEPLOY_PORT"
+            -o BatchMode=yes
+            -o ConnectionAttempts=1
+            -o ConnectTimeout=30
+            -o ServerAliveInterval=15
+            -o ServerAliveCountMax=3
+            -o StrictHostKeyChecking=yes
+            -o UserKnownHostsFile="$KNOWN_HOSTS"
+          )
+          SCP_OPTS=(
+            -i "$KEY_FILE"
+            -P "$DEPLOY_PORT"
+            -o BatchMode=yes
+            -o ConnectionAttempts=1
+            -o ConnectTimeout=30
+            -o ServerAliveInterval=15
+            -o ServerAliveCountMax=3
+            -o StrictHostKeyChecking=yes
+            -o UserKnownHostsFile="$KNOWN_HOSTS"
+          )
+
+          HOST_KEYS=""
+          for attempt in 1 2 3 4 5; do
+            HOST_KEYS=$(ssh-keyscan -T 15 -p "$DEPLOY_PORT" "$DEPLOY_HOST" 2>/dev/null || true)
+            if [[ -n "$HOST_KEYS" ]] && printf '%s\n' "$HOST_KEYS" | \
+              ssh-keygen -lf - -E sha256 | grep -Fq "$DEPLOY_FINGERPRINT"; then
+              printf '%s\n' "$HOST_KEYS" > "$KNOWN_HOSTS"
+              break
+            fi
+            test "$attempt" -lt 5
+            sleep $((attempt * 3))
+          done
+          test -s "$KNOWN_HOSTS"
+
+          for attempt in 1 2 3 4 5; do
+            if ssh "${SSH_OPTS[@]}" "$DEPLOY_USER@$DEPLOY_HOST" \
+              "install -d -m 700 '$REMOTE_TMP'"; then
+              break
+            fi
+            test "$attempt" -lt 5
+            sleep $((attempt * 5))
+          done
+
+          for attempt in 1 2 3 4 5; do
+            if scp "${SCP_OPTS[@]}" \
+              deploy/docker-compose.prod.yml deploy/docker-compose.vm.yml \
+              "$DEPLOY_USER@$DEPLOY_HOST:$REMOTE_TMP/" && \
+              ssh "${SSH_OPTS[@]}" "$DEPLOY_USER@$DEPLOY_HOST" \
+                "install -m 0644 '$REMOTE_TMP/docker-compose.prod.yml' /opt/ledgerly/docker-compose.prod.yml && \
+                 install -m 0644 '$REMOTE_TMP/docker-compose.vm.yml' /opt/ledgerly/docker-compose.vm.yml && \
+                 rm -rf '$REMOTE_TMP'"; then
+              break
+            fi
+            test "$attempt" -lt 5
+            sleep $((attempt * 5))
+          done
 
       - name: Deploy and verify on VM
         uses: appleboy/ssh-action@v1.2.0
