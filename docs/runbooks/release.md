@@ -3,33 +3,36 @@
 目标流程：
 
 1. **客户端打包** → 上传到 **GitHub Release**
-2. **服务端镜像** → 推 **GHCR** → SSH 部署到宿主机
-3. **PostgreSQL** → **复用服务器已有 PG**（不启 compose 内的 PG）
+2. **服务端镜像** → 推 **GHCR** → GitHub Actions 自动部署到宿主机
+3. **PostgreSQL** → 默认使用 VM 专用容器；有现成 PG 时可改用基础 compose
 
 目标机参考（勿把密码写入仓库）：`82.156.234.84`，用户 `ubuntu`，Docker via SSH。
 
 ## 一、一次性准备
 
-### 1. 宿主机 Postgres
+### 1. PostgreSQL
 
-在已有 PG 上建库（或本机 `psql` 连过去）：
+目标机没有可从 Docker 网桥访问的宿主 PostgreSQL 时，使用仓库提供的 VM
+override，它会创建私有的 `ledgerly-postgres` 容器和独立卷：
 
 ```bash
-export LEDGER_DB_PASSWORD='your-strong-password'
-./scripts/provision_host_pg.sh
+cp infrastructure/docker/env.vm.example /opt/ledgerly/.env.prod
+# 修改 POSTGRES_PASSWORD、DATABASE_URL、JWT_*、OBJECT_STORE_HMAC_SECRET、
+# CORS_ALLOWED_ORIGINS 和 OBJECT_STORE_PUBLIC_BASE
 ```
 
-确认 PG 允许 Docker 网桥访问（`pg_hba.conf` / `listen_addresses`）。  
-容器内用 `host.docker.internal:5432`（compose 已加 `host-gateway`）。
+如果复用已有 PG，则执行 `scripts/provision_host_pg.sh` 建库，并将
+`DATABASE_URL` 改成 `host.docker.internal:5432`；此时只使用
+`docker-compose.prod.yml`，不要同时启用 VM override。
 
 ### 2. 服务器目录
 
 ```bash
 ssh ubuntu@82.156.234.84
 sudo mkdir -p /opt/ledgerly && sudo chown ubuntu:ubuntu /opt/ledgerly
-# 从仓库复制示例并改密
-scp infrastructure/docker/env.prod.example ubuntu@82.156.234.84:/opt/ledgerly/.env.prod
-# 编辑 DATABASE_URL=postgres://ledgerly:...@host.docker.internal:5432/ledgerly
+# VM 模式复制示例并改密
+scp infrastructure/docker/env.vm.example ubuntu@82.156.234.84:/opt/ledgerly/.env.prod
+# 编辑 POSTGRES_PASSWORD、DATABASE_URL=postgres://ledgerly:...@postgres:5432/ledgerly
 # 设置 CORS_ALLOWED_ORIGINS=https://实际的-Web-站点域名
 # AUTH_COOKIE_SECURE 必须保持 true，并在 TLS 反向代理后对外服务
 ```
@@ -42,6 +45,7 @@ scp infrastructure/docker/env.prod.example ubuntu@82.156.234.84:/opt/ledgerly/.e
 | `DEPLOY_USER` | `ubuntu` |
 | `DEPLOY_SSH_KEY` | 私钥全文（**推荐**；不要用 CSV 密码进 CI） |
 | `DEPLOY_SSH_PORT` | 可选，默认 22 |
+| `DEPLOY_HOST_FINGERPRINT` | SSH 主机指纹（`SHA256:...`） |
 | `ANDROID_KEYSTORE_BASE64` | Android 正式签名 JKS 的 Base64 内容 |
 | `ANDROID_KEYSTORE_PASSWORD` | JKS 存储密码 |
 | `ANDROID_KEY_ALIAS` | 正式密钥别名，当前为 `ledgerly-release` |
@@ -126,10 +130,20 @@ Release workflow 会在上传前调用 `apksigner verify --print-certs`，并要
 
 正式签名启用前发布的 APK 使用 Android debug 证书，不能直接覆盖升级到正式签名版本；用户需要先卸载旧 APK，再安装首个正式签名版本。此后所有版本必须继续使用同一 JKS。
 
-手动部署：
+服务端自动部署：
 
-- Actions → **Release** → **Run workflow** →勾选 `deploy`
-- 或本机：
+- 合并到 `main` 且变更命中 `server/**`、`infrastructure/docker/**` 或部署 workflow
+  后，`.github/workflows/deploy-server.yml` 会自动运行验证、构建、镜像 smoke test、
+  文件同步和远端健康检查。
+- Actions → **Deploy Ledgerly Server** → **Run workflow** 可手动部署当前 ref。
+- 手动填写 `image_tag`（例如 `v0.0.5` 或 `sha-...`）会跳过构建并部署该 GHCR
+  镜像，用于回滚。
+
+首次启用前，在目标机执行一次目录初始化并生成 `.env.prod`；然后把 SSH 公钥加入
+`ubuntu` 的 `authorized_keys`，将私钥和指纹写入上表 Secrets。workflow 会将服务绑定
+到 `127.0.0.1:8081`，外部访问应通过 TLS 反向代理。
+
+本机手工部署仅用于故障排查：
 
 ```bash
 export DEPLOY_HOST=82.156.234.84 DEPLOY_USER=ubuntu
@@ -150,15 +164,12 @@ docker compose -f infrastructure/docker/docker-compose.prod.yml --env-file .env.
 ## 四、验收
 
 ```bash
-curl -sf http://82.156.234.84:8080/health/ready
+# 目标机默认只监听回环地址，先通过 SSH 登录后验收
+ssh ubuntu@82.156.234.84 'curl -sf http://127.0.0.1:8081/health/ready'
 # 客户端：Release 页下载 web/apk；验证空地址本地模式及可选 HTTPS API 模式
 ```
 
 ## 五、回滚
 
-```bash
-# 在服务器
-cd /opt/ledgerly
-LEDGER_IMAGE=ghcr.io/baicie/ledgerly-server:v0.0.9 \
-  docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
-```
+在 Actions 手动运行 **Deploy Ledgerly Server**，将 `image_tag` 填入上一个已验证的
+GHCR tag。远端 workflow 在新版本健康检查失败时也会自动恢复容器之前使用的镜像。
