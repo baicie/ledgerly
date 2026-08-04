@@ -3,8 +3,9 @@ import 'package:uuid/uuid.dart';
 
 import 'session_store.dart';
 
-SessionStore createSessionStore() {
+SessionStore createSessionStore(String apiOrigin) {
   return NativeSessionStore(
+    apiOrigin: apiOrigin,
     keyValueStore: FlutterSecureSessionKeyValueStore(),
     idFactory: const Uuid().v4,
   );

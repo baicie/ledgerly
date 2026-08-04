@@ -21,6 +21,7 @@ dependencies:
   go_router: ^17.3.0
   dio: ^5.8.0+1
   flutter_secure_storage: ^10.3.1
+  shared_preferences: ^2.5.3
   web: ^1.1.1
   ledger_domain:
     path: ../../packages/ledger_domain

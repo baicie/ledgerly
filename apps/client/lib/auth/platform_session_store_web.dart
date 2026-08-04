@@ -3,8 +3,9 @@ import 'package:web/web.dart' as web;
 
 import 'session_store.dart';
 
-SessionStore createSessionStore() {
+SessionStore createSessionStore(String apiOrigin) {
   return CookieSessionStore(
+    apiOrigin: apiOrigin,
     keyValueStore: WebLocalSessionKeyValueStore(),
     idFactory: const Uuid().v4,
   );

@@ -25,7 +25,7 @@ final apiEndpointProvider = Provider<ApiEndpoint>((ref) {
 });
 
 final sessionStoreProvider = Provider<SessionStore>((ref) {
-  return createPlatformSessionStore();
+  return createPlatformSessionStore(ref.watch(apiEndpointProvider).baseUrl);
 });
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {

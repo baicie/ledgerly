@@ -7,6 +7,8 @@ class ApiEndpoint {
     'LEDGERLY_API_BASE_URL',
   );
 
+  static String get environmentDefault => _configured;
+
   final Uri uri;
 
   String get baseUrl => uri.origin;

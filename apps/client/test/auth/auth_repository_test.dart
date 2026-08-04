@@ -19,6 +19,7 @@ void main() {
   setUp(() {
     values = MemorySessionKeyValueStore();
     store = NativeSessionStore(
+      apiOrigin: 'http://127.0.0.1:8080',
       keyValueStore: values,
       idFactory: () => 'stable-device',
     );
@@ -93,6 +94,7 @@ void main() {
 
   test('web restore relies on cookie mode without reading a token', () async {
     final cookieStore = CookieSessionStore(
+      apiOrigin: 'http://127.0.0.1:8080',
       keyValueStore: values,
       idFactory: () => 'web-device',
     );
@@ -108,6 +110,7 @@ void main() {
 
   test('web rejects a response that exposes a refresh token', () async {
     final cookieStore = CookieSessionStore(
+      apiOrigin: 'http://127.0.0.1:8080',
       keyValueStore: values,
       idFactory: () => 'web-device',
     );
@@ -275,6 +278,7 @@ void main() {
       () async {
     final failingStore = FailingClearSessionStore(
       NativeSessionStore(
+        apiOrigin: 'http://127.0.0.1:8080',
         keyValueStore: values,
         idFactory: () => 'stable-device',
       ),
@@ -327,6 +331,7 @@ void main() {
 
   test('web signed-out marker suppresses cookie restore', () async {
     final cookieStore = CookieSessionStore(
+      apiOrigin: 'http://127.0.0.1:8080',
       keyValueStore: values,
       idFactory: () => 'web-device',
     );

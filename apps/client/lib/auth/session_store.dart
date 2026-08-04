@@ -26,19 +26,24 @@ abstract interface class SessionStore {
 
 abstract base class BaseSessionStore implements SessionStore {
   BaseSessionStore({
+    required String apiOrigin,
     required SessionKeyValueStore keyValueStore,
     required DeviceIdFactory idFactory,
   })  : _keyValueStore = keyValueStore,
-        _idFactory = idFactory;
-
-  static const deviceIdKey = 'ledgerly.device_id.v1';
-  static const refreshTokenKey = 'ledgerly.refresh_token.v1';
-  static const webSignedOutKey = 'ledgerly.web_signed_out.v1';
+        _idFactory = idFactory,
+        _keySuffix = Uri.encodeComponent(apiOrigin);
 
   final SessionKeyValueStore _keyValueStore;
   final DeviceIdFactory _idFactory;
+  final String _keySuffix;
 
   SessionKeyValueStore get keyValueStore => _keyValueStore;
+
+  String get deviceIdKey => 'ledgerly.device_id.v2.$_keySuffix';
+
+  String get refreshTokenKey => 'ledgerly.refresh_token.v2.$_keySuffix';
+
+  String get webSignedOutKey => 'ledgerly.web_signed_out.v2.$_keySuffix';
 
   @override
   Future<String> getOrCreateDeviceId() async {
@@ -57,6 +62,7 @@ abstract base class BaseSessionStore implements SessionStore {
 
 final class NativeSessionStore extends BaseSessionStore {
   NativeSessionStore({
+    required super.apiOrigin,
     required super.keyValueStore,
     required super.idFactory,
   });
@@ -74,24 +80,23 @@ final class NativeSessionStore extends BaseSessionStore {
   Future<void> markAuthenticated() async {}
 
   @override
-  Future<String?> readRefreshToken() =>
-      keyValueStore.read(BaseSessionStore.refreshTokenKey);
+  Future<String?> readRefreshToken() => keyValueStore.read(refreshTokenKey);
 
   @override
   Future<void> writeRefreshToken(String token) {
     if (token.isEmpty) {
       throw ArgumentError.value(token, 'token', 'must not be empty');
     }
-    return keyValueStore.write(BaseSessionStore.refreshTokenKey, token);
+    return keyValueStore.write(refreshTokenKey, token);
   }
 
   @override
-  Future<void> clearAuthentication() =>
-      keyValueStore.delete(BaseSessionStore.refreshTokenKey);
+  Future<void> clearAuthentication() => keyValueStore.delete(refreshTokenKey);
 }
 
 final class CookieSessionStore extends BaseSessionStore {
   CookieSessionStore({
+    required super.apiOrigin,
     required super.keyValueStore,
     required super.idFactory,
   });
@@ -101,12 +106,12 @@ final class CookieSessionStore extends BaseSessionStore {
 
   @override
   Future<bool> shouldAttemptRestore() async {
-    return await keyValueStore.read(BaseSessionStore.webSignedOutKey) != 'true';
+    return await keyValueStore.read(webSignedOutKey) != 'true';
   }
 
   @override
   Future<void> markAuthenticated() {
-    return keyValueStore.delete(BaseSessionStore.webSignedOutKey);
+    return keyValueStore.delete(webSignedOutKey);
   }
 
   @override
@@ -119,7 +124,7 @@ final class CookieSessionStore extends BaseSessionStore {
 
   @override
   Future<void> clearAuthentication() {
-    return keyValueStore.write(BaseSessionStore.webSignedOutKey, 'true');
+    return keyValueStore.write(webSignedOutKey, 'true');
   }
 }
 
