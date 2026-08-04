@@ -19,6 +19,7 @@ void main() {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
     final sessionStore = NativeSessionStore(
+      apiOrigin: 'http://127.0.0.1:8080',
       keyValueStore: MemorySessionKeyValueStore(),
       idFactory: () => 'flutter-live-device',
     );

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../auth/auth_controller.dart';
+import '../../config/api_endpoint_controller.dart';
+import '../api_endpoint_editor.dart';
 
 enum AuthMode { login, register }
 
@@ -9,9 +11,14 @@ const _maxDisplayNameLength = 80;
 const _maxPasswordLength = 128;
 
 class AuthPage extends StatefulWidget {
-  const AuthPage({super.key, required this.controller});
+  const AuthPage({
+    super.key,
+    required this.controller,
+    required this.endpointController,
+  });
 
   final AuthController controller;
+  final ApiEndpointController endpointController;
 
   @override
   State<AuthPage> createState() => _AuthPageState();
@@ -24,6 +31,7 @@ class _AuthPageState extends State<AuthPage> {
   final _displayNameController = TextEditingController();
   var _mode = AuthMode.login;
   var _obscurePassword = true;
+  var _editingEndpoint = false;
 
   @override
   void dispose() {
@@ -50,13 +58,44 @@ class _AuthPageState extends State<AuthPage> {
     }
   }
 
+  Future<void> _editEndpoint() async {
+    final current = widget.endpointController.state.endpoint?.baseUrl;
+    if (current == null) return;
+    final selected = await showApiEndpointEditorDialog(
+      context: context,
+      controller: widget.endpointController,
+      currentValue: current,
+    );
+    if (selected == null || selected == current || !mounted) return;
+
+    setState(() => _editingEndpoint = true);
+    try {
+      await widget.endpointController.save(selected);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('API 地址保存失败，请稍后重试。')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _editingEndpoint = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: widget.controller,
+      animation: Listenable.merge([
+        widget.controller,
+        widget.endpointController,
+      ]),
       builder: (context, _) {
         final state = widget.controller.state;
-        final busy = state.status == AuthStatus.authenticating;
+        final busy =
+            state.status == AuthStatus.authenticating || _editingEndpoint;
+        final endpoint = widget.endpointController.state.endpoint;
         return Scaffold(
           body: SafeArea(
             child: LayoutBuilder(
@@ -93,6 +132,38 @@ class _AuthPageState extends State<AuthPage> {
                                       .textTheme
                                       .headlineMedium
                                       ?.copyWith(fontWeight: FontWeight.w700),
+                                ),
+                                const SizedBox(height: 18),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.dns_outlined, size: 20),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'API 服务',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .labelMedium,
+                                          ),
+                                          Text(
+                                            endpoint?.baseUrl ?? '',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    IconButton(
+                                      key: const Key('auth-api-edit'),
+                                      tooltip: '更换 API 服务',
+                                      onPressed: busy ? null : _editEndpoint,
+                                      icon: const Icon(Icons.edit_outlined),
+                                    ),
+                                  ],
                                 ),
                                 const SizedBox(height: 28),
                                 SegmentedButton<AuthMode>(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ledgerly_client/auth/auth_controller.dart';
+import 'package:ledgerly_client/config/api_endpoint_controller.dart';
 import 'package:ledgerly_client/presentation/pages/auth_page.dart';
 
 import '../support/fake_auth_gateway.dart';
@@ -12,7 +13,12 @@ void main() {
     await controller.restore();
 
     await tester.pumpWidget(
-      MaterialApp(home: AuthPage(controller: controller)),
+      MaterialApp(
+        home: AuthPage(
+          controller: controller,
+          endpointController: await configuredEndpointController(),
+        ),
+      ),
     );
     await tester.tap(find.byKey(const Key('auth-submit')));
     await tester.pump();
@@ -29,7 +35,12 @@ void main() {
     await controller.restore();
 
     await tester.pumpWidget(
-      MaterialApp(home: AuthPage(controller: controller)),
+      MaterialApp(
+        home: AuthPage(
+          controller: controller,
+          endpointController: await configuredEndpointController(),
+        ),
+      ),
     );
     await tester.tap(find.text('注册'));
     await tester.pumpAndSettle();
@@ -61,7 +72,12 @@ void main() {
     await controller.restore();
 
     await tester.pumpWidget(
-      MaterialApp(home: AuthPage(controller: controller)),
+      MaterialApp(
+        home: AuthPage(
+          controller: controller,
+          endpointController: await configuredEndpointController(),
+        ),
+      ),
     );
     await tester.tap(find.text('注册'));
     await tester.pumpAndSettle();
@@ -92,7 +108,12 @@ void main() {
     await controller.restore();
 
     await tester.pumpWidget(
-      MaterialApp(home: AuthPage(controller: controller)),
+      MaterialApp(
+        home: AuthPage(
+          controller: controller,
+          endpointController: await configuredEndpointController(),
+        ),
+      ),
     );
     await tester.enterText(
       find.byKey(const Key('auth-email')),
@@ -123,7 +144,12 @@ void main() {
     await controller.restore();
 
     await tester.pumpWidget(
-      MaterialApp(home: AuthPage(controller: controller)),
+      MaterialApp(
+        home: AuthPage(
+          controller: controller,
+          endpointController: await configuredEndpointController(),
+        ),
+      ),
     );
     await tester.tap(find.text('注册'));
     await tester.pumpAndSettle();
@@ -147,4 +173,42 @@ void main() {
     expect(find.text('密码不能超过 128 位'), findsOneWidget);
     expect(gateway.registerEmail, isNull);
   });
+
+  testWidgets('signed-out user can change the API endpoint', (tester) async {
+    final auth = AuthController(FakeAuthGateway());
+    addTearDown(auth.dispose);
+    await auth.restore();
+    final endpoint = await configuredEndpointController();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AuthPage(
+          controller: auth,
+          endpointController: endpoint,
+        ),
+      ),
+    );
+    await tester.tap(find.byKey(const Key('auth-api-edit')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('api-endpoint-input')),
+      'https://two.example',
+    );
+    await tester.tap(find.byKey(const Key('api-endpoint-save')));
+    await tester.pumpAndSettle();
+
+    expect(endpoint.state.endpoint?.baseUrl, 'https://two.example');
+    expect(find.text('https://two.example'), findsOneWidget);
+  });
+}
+
+Future<ApiEndpointController> configuredEndpointController() async {
+  final controller = ApiEndpointController(
+    store: MemoryApiEndpointStore(initialValue: 'https://one.example'),
+    buildDefault: '',
+    isRelease: true,
+    isWeb: false,
+  );
+  await controller.load();
+  return controller;
 }

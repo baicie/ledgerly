@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ledgerly_client/auth/auth_controller.dart';
 import 'package:ledgerly_client/auth/auth_repository.dart';
 import 'package:ledgerly_client/config/api_endpoint.dart';
+import 'package:ledgerly_client/config/api_endpoint_controller.dart';
 import 'package:ledgerly_client/presentation/pages/settings_page.dart';
 import 'package:ledgerly_client/presentation/providers.dart';
 
@@ -15,6 +16,7 @@ void main() {
       ..restoreResult = const AuthSession(bookId: 'book-1', plan: 'plus');
     final controller = AuthController(gateway);
     await controller.restore();
+    final endpointController = await _endpointController();
 
     await tester.pumpWidget(
       ProviderScope(
@@ -27,6 +29,7 @@ void main() {
               isWeb: false,
             ),
           ),
+          apiEndpointControllerProvider.overrideWithValue(endpointController),
         ],
         child: const MaterialApp(home: SettingsPage()),
       ),
@@ -43,6 +46,7 @@ void main() {
       ..restoreResult = const AuthSession(bookId: 'book-1', plan: 'free');
     final controller = AuthController(gateway);
     await controller.restore();
+    final endpointController = await _endpointController();
 
     await tester.pumpWidget(
       ProviderScope(
@@ -55,6 +59,7 @@ void main() {
               isWeb: false,
             ),
           ),
+          apiEndpointControllerProvider.overrideWithValue(endpointController),
         ],
         child: const MaterialApp(home: SettingsPage()),
       ),
@@ -80,4 +85,91 @@ void main() {
     expect(gateway.logoutCalled, isTrue);
     expect(controller.state.status, AuthStatus.signedOut);
   });
+
+  testWidgets('changing API logs out before persisting the new origin',
+      (tester) async {
+    final events = <String>[];
+    final gateway = _LoggingAuthGateway(events)
+      ..restoreResult = const AuthSession(bookId: 'book-1', plan: 'free');
+    final auth = AuthController(gateway);
+    await auth.restore();
+    final store = _LoggingEndpointStore(events);
+    final endpointController = ApiEndpointController(
+      store: store,
+      buildDefault: '',
+      isRelease: true,
+      isWeb: false,
+    );
+    await endpointController.load();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => auth),
+          apiEndpointProvider.overrideWithValue(
+            ApiEndpoint.resolve(
+              configured: 'https://one.example',
+              isRelease: true,
+              isWeb: false,
+            ),
+          ),
+          apiEndpointControllerProvider.overrideWithValue(endpointController),
+        ],
+        child: const MaterialApp(home: SettingsPage()),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('settings-api-edit')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('api-endpoint-input')),
+      'https://two.example',
+    );
+    await tester.tap(find.byKey(const Key('api-endpoint-save')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('settings-api-confirm')));
+    await tester.pumpAndSettle();
+
+    expect(events, ['logout', 'persist:https://two.example']);
+    expect(auth.state.status, AuthStatus.signedOut);
+    expect(endpointController.state.endpoint?.baseUrl, 'https://two.example');
+  });
+}
+
+Future<ApiEndpointController> _endpointController() async {
+  final controller = ApiEndpointController(
+    store: MemoryApiEndpointStore(
+      initialValue: 'https://api.ledgerly.example',
+    ),
+    buildDefault: '',
+    isRelease: true,
+    isWeb: false,
+  );
+  await controller.load();
+  return controller;
+}
+
+final class _LoggingAuthGateway extends FakeAuthGateway {
+  _LoggingAuthGateway(this.events);
+
+  final List<String> events;
+
+  @override
+  Future<void> logout() async {
+    events.add('logout');
+    await super.logout();
+  }
+}
+
+final class _LoggingEndpointStore extends MemoryApiEndpointStore {
+  _LoggingEndpointStore(this.events)
+      : super(initialValue: 'https://one.example');
+
+  final List<String> events;
+
+  @override
+  Future<void> write(String value) async {
+    events.add('persist:$value');
+    await super.write(value);
+  }
 }

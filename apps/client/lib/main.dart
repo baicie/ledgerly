@@ -1,23 +1,75 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'config/api_endpoint.dart';
+import 'config/api_endpoint_controller.dart';
+import 'config/platform_api_endpoint_store.dart';
+import 'presentation/pages/api_endpoint_setup_page.dart';
 import 'presentation/providers.dart';
 import 'routing/app_router.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  try {
-    final endpoint = ApiEndpoint.fromEnvironment();
-    runApp(
-      ProviderScope(
-        overrides: [apiEndpointProvider.overrideWithValue(endpoint)],
-        child: const LedgerlyApp(),
+  runApp(
+    LedgerlyBootstrap(
+      controller: ApiEndpointController(
+        store: createPlatformApiEndpointStore(),
+        buildDefault: ApiEndpoint.environmentDefault,
+        isRelease: kReleaseMode,
+        isWeb: kIsWeb,
+        webOrigin: kIsWeb ? Uri.base : null,
       ),
+    ),
+  );
+}
+
+class LedgerlyBootstrap extends StatefulWidget {
+  const LedgerlyBootstrap({super.key, required this.controller});
+
+  final ApiEndpointController controller;
+
+  @override
+  State<LedgerlyBootstrap> createState() => _LedgerlyBootstrapState();
+}
+
+class _LedgerlyBootstrapState extends State<LedgerlyBootstrap> {
+  @override
+  void initState() {
+    super.initState();
+    unawaited(widget.controller.load());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: widget.controller,
+      builder: (context, _) {
+        final state = widget.controller.state;
+        final endpoint = state.endpoint;
+        if (state.status == ApiEndpointStatus.loading) {
+          return const _EndpointLoadingApp();
+        }
+        if (endpoint == null) {
+          return MaterialApp(
+            title: 'Ledgerly',
+            theme: ledgerlyTheme(),
+            home: ApiEndpointSetupPage(controller: widget.controller),
+          );
+        }
+        return ProviderScope(
+          key: ValueKey(endpoint.baseUrl),
+          overrides: [
+            apiEndpointProvider.overrideWithValue(endpoint),
+            apiEndpointControllerProvider.overrideWithValue(widget.controller),
+          ],
+          child: const LedgerlyApp(),
+        );
+      },
     );
-  } on FormatException catch (error) {
-    runApp(ConfigurationErrorApp(message: error.message));
   }
 }
 
@@ -34,7 +86,10 @@ class _LedgerlyAppState extends ConsumerState<LedgerlyApp> {
   @override
   void initState() {
     super.initState();
-    _router = createAppRouter(ref.read(authControllerProvider));
+    _router = createAppRouter(
+      ref.read(authControllerProvider),
+      ref.read(apiEndpointControllerProvider),
+    );
   }
 
   @override
@@ -53,38 +108,18 @@ class _LedgerlyAppState extends ConsumerState<LedgerlyApp> {
   }
 }
 
-class ConfigurationErrorApp extends StatelessWidget {
-  const ConfigurationErrorApp({super.key, required this.message});
-
-  final String message;
+class _EndpointLoadingApp extends StatelessWidget {
+  const _EndpointLoadingApp();
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Ledgerly',
       theme: ledgerlyTheme(),
-      home: Scaffold(
-        body: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: SizedBox(
-                width: 420,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.settings_ethernet, size: 46),
-                    const SizedBox(height: 16),
-                    Text(
-                      'API 配置无效',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 12),
-                    SelectableText(message, textAlign: TextAlign.center),
-                  ],
-                ),
-              ),
-            ),
+      home: const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(
+            key: Key('api-endpoint-loading'),
           ),
         ),
       ),
