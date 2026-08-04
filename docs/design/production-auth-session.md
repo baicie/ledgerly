@@ -74,14 +74,22 @@ Existing native JSON clients remain compatible.
 
 ## Client Configuration
 
-The API endpoint comes from the `LEDGERLY_API_BASE_URL` Dart define.
+The user-selected API origin is persisted on the installation. An optional
+`LEDGERLY_API_BASE_URL` Dart define supplies only the initial default and never
+overrides a saved value.
 
 * Debug builds may default to `http://127.0.0.1:8080` (or the current Web
   origin).
-* Release builds require an explicit HTTPS URL with no user info, query,
-  fragment, or non-root path and reject loopback hosts.
-* Invalid configuration renders a dedicated configuration failure screen
-  instead of silently contacting another host.
+* Release builds with no saved or embedded origin open the API setup screen.
+* Release builds accept only HTTPS origins with no user info, query, fragment,
+  or non-root path and reject loopback hosts.
+* Signed-out users can change the origin from the authentication screen.
+  Signed-in users can change it from Settings, which logs out from the old
+  origin before persisting the replacement.
+* Native refresh tokens, Web signed-out markers, and device IDs are namespaced
+  by origin. A successful switch rebuilds the endpoint-keyed dependency scope.
+* Invalid saved configuration returns to setup instead of silently contacting
+  another host.
 
 The server reads:
 

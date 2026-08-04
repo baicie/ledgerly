@@ -1,6 +1,6 @@
 name: Release
 
-# Tag push: v0.1.0 → GitHub Release (clients) + GHCR image + optional SSH deploy
+# Tag push: v0.0.3 → GitHub Release (clients) + GHCR image + optional SSH deploy
 on:
   push:
     tags:
@@ -51,21 +51,21 @@ jobs:
       - name: Resolve workspace
         run: dart pub get
 
-      - name: Require client API endpoint
+      - name: Validate optional client API endpoint
         run: |
-          case "$LEDGERLY_API_BASE_URL" in
-            https://*) ;;
-            *)
-              echo "Set the LEDGERLY_API_BASE_URL repository variable to the production HTTPS API origin" >&2
-              exit 1
-              ;;
-          esac
+          if [[ -n "${LEDGERLY_API_BASE_URL:-}" && "$LEDGERLY_API_BASE_URL" != https://* ]]; then
+            echo "LEDGERLY_API_BASE_URL must be an HTTPS origin when set" >&2
+            exit 1
+          fi
 
       - name: Build web
         working-directory: apps/client
         run: |
-          flutter build web --release \
-            --dart-define=LEDGERLY_API_BASE_URL="$LEDGERLY_API_BASE_URL"
+          defines=()
+          if [[ -n "${LEDGERLY_API_BASE_URL:-}" ]]; then
+            defines+=("--dart-define=LEDGERLY_API_BASE_URL=$LEDGERLY_API_BASE_URL")
+          fi
+          flutter build web --release "${defines[@]}"
           cd build
           zip -r ../../../ledgerly-web.zip web
 
@@ -100,8 +100,11 @@ jobs:
       - name: Build Android APK
         working-directory: apps/client
         run: |
-          flutter build apk --release --split-per-abi \
-            --dart-define=LEDGERLY_API_BASE_URL="$LEDGERLY_API_BASE_URL"
+          defines=()
+          if [[ -n "${LEDGERLY_API_BASE_URL:-}" ]]; then
+            defines+=("--dart-define=LEDGERLY_API_BASE_URL=$LEDGERLY_API_BASE_URL")
+          fi
+          flutter build apk --release --split-per-abi "${defines[@]}"
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk ../../ledgerly-android-arm64-v8a.apk
           cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk ../../ledgerly-android-armeabi-v7a.apk
           cp build/app/outputs/flutter-apk/app-x86_64-release.apk ../../ledgerly-android-x86_64.apk
@@ -162,6 +165,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+            type=ref,event=tag
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
             type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
             type=sha,prefix=sha-
@@ -204,6 +208,7 @@ jobs:
           ## Ledgerly ${{ github.ref_name }}
 
           ### Client (this release)
+          - API service can be configured on first launch and changed from login or Settings.
           - \`ledgerly-web.zip\` — Flutter Web
           - \`ledgerly-android-arm64-v8a.apk\` — Android release APK for most modern phones
           - \`ledgerly-android-armeabi-v7a.apk\` — Android release APK for older 32-bit ARM devices

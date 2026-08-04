@@ -11,5 +11,7 @@
 | [phase-be-2-ledger.md](./phase-be-2-ledger.md) | 服务端 Ledger |
 | [phase-2-sync-loop.md](./phase-2-sync-loop.md) | 同步闭环 |
 | [phase-3-mobile-product.md](./phase-3-mobile-product.md) | 移动端产品 |
+| [production-auth-session.md](./production-auth-session.md) | 生产认证会话 |
+| [0.0.3-user-configurable-api.md](./0.0.3-user-configurable-api.md) | 0.0.3 用户配置 API 地址 |
 
 状态：文档在对应阶段分支创建并完善；基线阶段仅保留本索引。

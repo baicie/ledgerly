@@ -59,9 +59,7 @@ jobs:
         working-directory: apps/client
 
       - name: Build Flutter web release
-        run: >-
-          flutter build web --release
-          --dart-define=LEDGERLY_API_BASE_URL=https://api.ledgerly.example
+        run: flutter build web --release
         working-directory: apps/client
 
   rust:

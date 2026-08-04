@@ -51,11 +51,9 @@ CSV 里的密码仅本地临时用；生产请改 SSH 密钥登录并轮换密�
 
 GHCR 拉取：公开包可用 `GITHUB_TOKEN`；私有包再加 `GHCR_PULL_TOKEN`。
 
-在仓库 **Settings → Secrets and variables → Actions → Variables** 中设置
-`LEDGERLY_API_BASE_URL`，值为生产 API 的 HTTPS origin（例如
-`https://api.ledgerly.example.com`，不能包含路径、查询或凭据）。Release
-workflow 会把该值注入 Web 和 Android 构建；缺失或不是 HTTPS 时客户端打包
-直接失败。
+仓库变量 `LEDGERLY_API_BASE_URL` 是可选的客户端初始值。设置时必须是生产
+API 的 HTTPS origin，不能包含路径、查询或凭据。已保存的用户配置优先于该
+变量；变量为空时 Release 仍会正常打包，客户端首次启动进入 API 设置页。
 
 ### 4. Android 正式签名
 
@@ -81,16 +79,16 @@ Flutter 与 Android 的官方说明分别见 [Build and release an Android app](
 在干净的 `main` 上：
 
 ```bash
-./scripts/release.sh 0.0.1
+./scripts/release.sh 0.0.3
 # 等价于：校验分支干净且与 origin/main 同步 → 打 annotated tag → push
-# 预览：./scripts/release.sh 0.0.1 --dry-run
+# 预览：./scripts/release.sh 0.0.3 --dry-run
 ```
 
 手动等价：
 
 ```bash
-git tag -a v0.0.1 -m "Release v0.0.1"
-git push origin v0.0.1
+git tag -a v0.0.3 -m "Release v0.0.3"
+git push origin v0.0.3
 ```
 
 触发 [`.github/workflows/release.yml`](../../.github/workflows/release.yml)：
@@ -98,16 +96,19 @@ git push origin v0.0.1
 | Job | 产物 |
 |-----|------|
 | Package Flutter clients | `ledgerly-web.zip`、三个 ABI 拆分 APK → GitHub Release |
-| Build & push server image | `ghcr.io/<owner>/ledgerly-server:v0.0.1` + `latest` |
+| Build & push server image | `ghcr.io/<owner>/ledgerly-server:v0.0.3` + `0.0.3` + `latest` |
 | Publish GitHub Release | 附客户端文件 + release notes |
 
 Web 打包依赖 `apps/client/web/{sqlite3.wasm,drift_worker.js}`（与 `pubspec.lock` 中 drift/sqlite3 版本对齐；可用 `./scripts/fetch_drift_web_assets.sh` 更新）。
-Web 和正式客户端构建还必须传入 HTTPS API 地址：
+Web 和正式客户端可在没有预置地址时构建：
 
 ```bash
-flutter build web --release \
-  --dart-define=LEDGERLY_API_BASE_URL=https://api.ledgerly.example.com
+flutter build web --release
 ```
+
+需要预置初始地址时，可额外传入
+`--dart-define=LEDGERLY_API_BASE_URL="$PRODUCTION_API_ORIGIN"`。客户端首次启动、
+登录页和设置页均可保存新地址；Release 仅接受非本机 HTTPS origin。
 
 服务端 `CORS_ALLOWED_ORIGINS` 填 Web 应用的 origin（协议、域名和端口），
 不要填 API 地址或路径。Web Refresh Token 仅通过 `Secure`、`HttpOnly`
@@ -147,7 +148,7 @@ docker compose -f infrastructure/docker/docker-compose.prod.yml --env-file .env.
 
 ```bash
 curl -sf http://82.156.234.84:8080/health/ready
-# 客户端：Release 页下载 web/apk；API 指向服务器 OBJECT_STORE_PUBLIC_BASE / API 地址
+# 客户端：Release 页下载 web/apk；首次启动设置实际 API HTTPS origin
 ```
 
 ## 五、回滚
