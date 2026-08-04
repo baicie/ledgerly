@@ -8,7 +8,8 @@ FROM debian:bookworm-slim AS runtime
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl libssl3 \
   && rm -rf /var/lib/apt/lists/* \
-  && useradd --system --create-home --uid 10001 ledgerly
+  && useradd --system --create-home --uid 10001 ledgerly \
+  && install -d -o ledgerly -g ledgerly /var/lib/ledgerly/objects
 WORKDIR /app
 COPY --from=builder /app/target/release/ledger-server /usr/local/bin/ledger-server
 USER ledgerly
