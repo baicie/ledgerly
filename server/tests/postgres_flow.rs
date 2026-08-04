@@ -30,6 +30,39 @@ async fn post_json(app: &Router, uri: &str, body: serde_json::Value) -> axum::re
 }
 
 #[tokio::test]
+async fn postgres_migrate_applies_auth_session_indexes() {
+    let Some(url) = pg_url() else {
+        if std::env::var("REQUIRE_POSTGRES_TESTS").ok().as_deref() == Some("true") {
+            panic!("DATABASE_URL is required for PostgreSQL integration tests");
+        }
+        eprintln!("skip postgres_migrate_applies_auth_session_indexes: DATABASE_URL unset");
+        return;
+    };
+
+    let mut config = Config::for_test();
+    config.database_url = Some(url.clone());
+    migrate(&config).await.expect("migrate");
+
+    let pool = sqlx::PgPool::connect(&url).await.expect("connect");
+    let indexes = sqlx::query_scalar::<_, String>(
+        "SELECT indexname
+         FROM pg_indexes
+         WHERE schemaname = 'public'
+           AND tablename = 'device_sessions'",
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("list device_sessions indexes");
+
+    assert!(indexes
+        .iter()
+        .any(|name| name == "idx_device_sessions_refresh_token_hash"));
+    assert!(indexes
+        .iter()
+        .any(|name| name == "idx_device_sessions_active_created_at"));
+}
+
+#[tokio::test]
 async fn postgres_push_pull_persists() {
     let Some(url) = pg_url() else {
         if std::env::var("REQUIRE_POSTGRES_TESTS").ok().as_deref() == Some("true") {
