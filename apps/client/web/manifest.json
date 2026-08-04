@@ -1,11 +1,11 @@
 {
-    "name": "ledgerly_client",
-    "short_name": "ledgerly_client",
+    "name": "Ledgerly",
+    "short_name": "Ledgerly",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0D4F5C",
+    "theme_color": "#0D4F5C",
+    "description": "本地优先的个人账本",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
