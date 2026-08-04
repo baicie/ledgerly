@@ -9,6 +9,7 @@ class SyncCenterPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final status = ref.watch(syncStatusProvider);
+    final isLocal = ref.watch(apiEndpointProvider) == null;
     return Scaffold(
       appBar: AppBar(title: const Text('同步中心')),
       body: status.when(
@@ -17,33 +18,42 @@ class SyncCenterPage extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (isLocal) ...[
+                Text(
+                  '仅本地存储',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+              ],
               Text('状态：${s.label}'),
               Text('游标：${s.cursor}'),
               Text('待推送：${s.pendingCount}'),
               if (s.remoteBookId != null) Text('远端账本：${s.remoteBookId}'),
               if (s.lastError != null) Text('错误：${s.lastError}'),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () async {
-                  final sync = ref.read(syncServiceProvider);
-                  final result = await sync.syncNow();
-                  ref.invalidate(syncStatusProvider);
-                  ref.invalidate(transactionListProvider);
-                  ref.invalidate(conflictsProvider);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          result.ok
-                              ? '同步成功 cursor=${result.cursor}'
-                              : '同步失败：${result.message}',
+              if (!isLocal) ...[
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () async {
+                    final sync = ref.read(syncServiceProvider);
+                    final result = await sync.syncNow();
+                    ref.invalidate(syncStatusProvider);
+                    ref.invalidate(transactionListProvider);
+                    ref.invalidate(conflictsProvider);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            result.ok
+                                ? '同步成功 cursor=${result.cursor}'
+                                : '同步失败：${result.message}',
+                          ),
                         ),
-                      ),
-                    );
-                  }
-                },
-                child: const Text('立即同步'),
-              ),
+                      );
+                    }
+                  },
+                  child: const Text('立即同步'),
+                ),
+              ],
             ],
           ),
         ),

@@ -70,8 +70,9 @@ class _ApiEndpointEditorDialogState extends State<_ApiEndpointEditorDialog> {
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _submit(),
           decoration: InputDecoration(
-            labelText: 'API 地址',
+            labelText: 'API 地址（选填）',
             hintText: 'https://your-server.example',
+            helperText: '留空后仅使用本地存储',
             prefixIcon: const Icon(Icons.dns_outlined),
             border: const OutlineInputBorder(),
             errorText: _errorText,

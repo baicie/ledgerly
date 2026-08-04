@@ -5,6 +5,19 @@ import 'package:ledgerly_client/auth/auth_repository.dart';
 import '../support/fake_auth_gateway.dart';
 
 void main() {
+  test('local mode is ready without a remote session restore', () async {
+    final controller = AuthController.local();
+    addTearDown(controller.dispose);
+
+    expect(controller.state.status, AuthStatus.local);
+    expect(controller.state.session, isNull);
+
+    await controller.restore();
+
+    expect(controller.state.status, AuthStatus.local);
+    expect(controller.state.session, isNull);
+  });
+
   test('startup restore moves to signed out when no session exists', () async {
     final gateway = FakeAuthGateway();
     final controller = AuthController(gateway);

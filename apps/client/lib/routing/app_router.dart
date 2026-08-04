@@ -25,6 +25,12 @@ String? authRedirect(AuthState auth, String location) {
   final path = uri.path;
   final returnLocation = _safeReturnLocation(uri.queryParameters['from']);
 
+  if (auth.status == AuthStatus.local) {
+    if (path == '/auth' || path == '/startup') {
+      return returnLocation ?? '/feed';
+    }
+    return null;
+  }
   if (auth.status == AuthStatus.restoring ||
       auth.status == AuthStatus.failure) {
     return path == '/startup'

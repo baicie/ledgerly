@@ -11,6 +11,41 @@ import 'package:ledgerly_client/presentation/providers.dart';
 import 'support/fake_auth_gateway.dart';
 
 void main() {
+  testWidgets('local mode keeps remote settings inactive', (tester) async {
+    final auth = AuthController.local();
+    final endpointController = ApiEndpointController(
+      store: MemoryApiEndpointStore(),
+      buildDefault: '',
+      isRelease: true,
+      isWeb: false,
+    );
+    await endpointController.load();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => auth),
+          apiEndpointProvider.overrideWithValue(null),
+          apiEndpointControllerProvider.overrideWithValue(endpointController),
+        ],
+        child: const MaterialApp(home: SettingsPage()),
+      ),
+    );
+
+    expect(find.text('仅本地存储'), findsOneWidget);
+    expect(find.text('未设置（仅本地存储）'), findsOneWidget);
+    expect(find.byKey(const Key('settings-logout')), findsNothing);
+
+    final syncTile = tester.widget<ListTile>(
+      find.ancestor(
+        of: find.text('同步中心'),
+        matching: find.byType(ListTile),
+      ),
+    );
+    expect(syncTile.enabled, isFalse);
+    expect(syncTile.onTap, isNull);
+  });
+
   testWidgets('renders settings navigation', (tester) async {
     final gateway = FakeAuthGateway()
       ..restoreResult = const AuthSession(bookId: 'book-1', plan: 'plus');
@@ -133,6 +168,55 @@ void main() {
     expect(events, ['logout', 'persist:https://two.example']);
     expect(auth.state.status, AuthStatus.signedOut);
     expect(endpointController.state.endpoint?.baseUrl, 'https://two.example');
+  });
+
+  testWidgets('clearing API logs out before persisting local mode',
+      (tester) async {
+    final events = <String>[];
+    final gateway = _LoggingAuthGateway(events)
+      ..restoreResult = const AuthSession(bookId: 'book-1', plan: 'free');
+    final auth = AuthController(gateway);
+    await auth.restore();
+    final store = _LoggingEndpointStore(events);
+    final endpointController = ApiEndpointController(
+      store: store,
+      buildDefault: '',
+      isRelease: true,
+      isWeb: false,
+    );
+    await endpointController.load();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => auth),
+          apiEndpointProvider.overrideWithValue(
+            ApiEndpoint.resolve(
+              configured: 'https://one.example',
+              isRelease: true,
+              isWeb: false,
+            ),
+          ),
+          apiEndpointControllerProvider.overrideWithValue(endpointController),
+        ],
+        child: const MaterialApp(home: SettingsPage()),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('settings-api-edit')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('api-endpoint-input')),
+      '',
+    );
+    await tester.tap(find.byKey(const Key('api-endpoint-save')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('settings-api-confirm')));
+    await tester.pumpAndSettle();
+
+    expect(events, ['logout', 'persist:']);
+    expect(auth.state.status, AuthStatus.signedOut);
+    expect(endpointController.state.isLocal, isTrue);
   });
 }
 

@@ -28,9 +28,16 @@ void main() {
 }
 
 class LedgerlyBootstrap extends StatefulWidget {
-  const LedgerlyBootstrap({super.key, required this.controller});
+  const LedgerlyBootstrap({
+    super.key,
+    required this.controller,
+    this.application = const LedgerlyApp(),
+  });
 
   final ApiEndpointController controller;
+
+  @visibleForTesting
+  final Widget application;
 
   @override
   State<LedgerlyBootstrap> createState() => _LedgerlyBootstrapState();
@@ -53,7 +60,7 @@ class _LedgerlyBootstrapState extends State<LedgerlyBootstrap> {
         if (state.status == ApiEndpointStatus.loading) {
           return const _EndpointLoadingApp();
         }
-        if (endpoint == null) {
+        if (state.status == ApiEndpointStatus.needsConfiguration) {
           return MaterialApp(
             title: 'Ledgerly',
             theme: ledgerlyTheme(),
@@ -61,12 +68,12 @@ class _LedgerlyBootstrapState extends State<LedgerlyBootstrap> {
           );
         }
         return ProviderScope(
-          key: ValueKey(endpoint.baseUrl),
+          key: ValueKey(endpoint?.baseUrl ?? 'local'),
           overrides: [
             apiEndpointProvider.overrideWithValue(endpoint),
             apiEndpointControllerProvider.overrideWithValue(widget.controller),
           ],
-          child: const LedgerlyApp(),
+          child: widget.application,
         );
       },
     );

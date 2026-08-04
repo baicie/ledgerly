@@ -4,6 +4,19 @@ import 'package:ledgerly_client/auth/auth_repository.dart';
 import 'package:ledgerly_client/routing/app_router.dart';
 
 void main() {
+  test('local mode bypasses authentication and preserves safe deep links', () {
+    expect(authRedirect(const AuthState.local(), '/startup'), '/feed');
+    expect(
+      authRedirect(
+        const AuthState.local(),
+        '/startup?from=%2Freports',
+      ),
+      '/reports',
+    );
+    expect(authRedirect(const AuthState.local(), '/settings'), isNull);
+    expect(authRedirect(const AuthState.local(), '/auth'), '/feed');
+  });
+
   test('route guard covers restore, signed-out, and authenticated states', () {
     final restoring = authRedirect(const AuthState.restoring(), '/feed');
     expect(Uri.parse(restoring!).path, '/startup');

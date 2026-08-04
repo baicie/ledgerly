@@ -10,13 +10,16 @@ import 'package:ledgerly_client/presentation/pages/startup_page.dart';
 import '../support/fake_auth_gateway.dart';
 
 void main() {
-  testWidgets('first-run setup fits a phone viewport', (tester) async {
+  testWidgets('invalid endpoint recovery fits a phone viewport',
+      (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     final controller = ApiEndpointController(
-      store: MemoryApiEndpointStore(),
+      store: MemoryApiEndpointStore(
+        initialValue: 'http://insecure.example',
+      ),
       buildDefault: '',
       isRelease: true,
       isWeb: false,
@@ -28,13 +31,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('连接 API 服务'), findsOneWidget);
+    expect(find.text('API 服务配置'), findsOneWidget);
+    expect(find.text('地址选填，留空时仅在本机存储'), findsOneWidget);
     expect(find.byKey(const Key('api-endpoint-input')), findsOneWidget);
     expect(find.byKey(const Key('api-endpoint-save')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('release bootstrap opens setup when no endpoint exists',
+  testWidgets('release bootstrap mounts the local app when no endpoint exists',
       (tester) async {
     final controller = ApiEndpointController(
       store: MemoryApiEndpointStore(),
@@ -43,11 +47,43 @@ void main() {
       isWeb: false,
     );
 
-    await tester.pumpWidget(LedgerlyBootstrap(controller: controller));
+    await tester.pumpWidget(
+      LedgerlyBootstrap(
+        controller: controller,
+        application: const MaterialApp(
+          home: SizedBox(key: Key('local-application')),
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
 
-    expect(controller.state.status, ApiEndpointStatus.needsConfiguration);
-    expect(find.text('连接 API 服务'), findsOneWidget);
+    expect(controller.state.status, ApiEndpointStatus.ready);
+    expect(controller.state.isLocal, isTrue);
+    expect(find.byType(ApiEndpointSetupPage), findsNothing);
+    expect(find.byKey(const Key('local-application')), findsOneWidget);
+  });
+
+  testWidgets('recovery accepts a blank endpoint and enters local mode',
+      (tester) async {
+    final store = MemoryApiEndpointStore(
+      initialValue: 'http://insecure.example',
+    );
+    final controller = ApiEndpointController(
+      store: store,
+      buildDefault: '',
+      isRelease: true,
+      isWeb: false,
+    );
+    await controller.load();
+
+    await tester.pumpWidget(
+      MaterialApp(home: ApiEndpointSetupPage(controller: controller)),
+    );
+    await tester.tap(find.byKey(const Key('api-endpoint-save')));
+    await tester.pumpAndSettle();
+
+    expect(store.value, '');
+    expect(controller.state.isLocal, isTrue);
   });
 
   testWidgets('first-run setup rejects unsafe Web release URLs and saves HTTPS',
@@ -65,7 +101,7 @@ void main() {
       MaterialApp(home: ApiEndpointSetupPage(controller: controller)),
     );
 
-    expect(find.text('连接 API 服务'), findsOneWidget);
+    expect(find.text('API 服务配置'), findsOneWidget);
     await tester.enterText(
       find.byKey(const Key('api-endpoint-input')),
       'http://api.example',
