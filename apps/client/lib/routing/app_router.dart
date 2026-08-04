@@ -79,7 +79,10 @@ GoRouter createAppRouter(
     routes: [
       GoRoute(
         path: '/startup',
-        builder: (context, state) => StartupPage(controller: controller),
+        builder: (context, state) => StartupPage(
+          controller: controller,
+          endpointController: endpointController,
+        ),
       ),
       GoRoute(
         path: '/auth',

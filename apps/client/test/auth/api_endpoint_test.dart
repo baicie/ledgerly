@@ -27,8 +27,20 @@ void main() {
     test('release rejects HTTP and loopback endpoints', () {
       for (final value in [
         'http://api.ledgerly.example',
+        'https://0.0.0.0',
         'https://127.0.0.1:8080',
+        'https://127.1',
+        'https://0x7f000001',
         'https://localhost:8080',
+        'https://localhost.',
+        'https://app.localhost',
+        'https://2130706433',
+        'https://0177.0.0.1',
+        'https://[::]',
+        'https://[::1]',
+        'https://[0:0:0:0:0:0:0:1]',
+        'https://[::ffff:127.0.0.1]',
+        'https://[::ffff:7f00:1]',
       ]) {
         expect(
           () => ApiEndpoint.resolve(
