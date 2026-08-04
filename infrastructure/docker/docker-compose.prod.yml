@@ -12,7 +12,7 @@ services:
     container_name: ledgerly-server
     restart: unless-stopped
     ports:
-      - "${LEDGER_PORT:-8080}:8080"
+      - "${LEDGER_BIND_ADDRESS:-0.0.0.0}:${LEDGER_PORT:-8080}:8080"
     environment:
       LEDGER_LISTEN: 0.0.0.0:8080
       DATABASE_URL: ${DATABASE_URL}

@@ -1,0 +1,287 @@
+name: Deploy Ledgerly Server
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server/**"
+      - "infrastructure/docker/docker-compose.prod.yml"
+      - "infrastructure/docker/docker-compose.vm.yml"
+      - "infrastructure/docker/env.prod.example"
+      - "infrastructure/docker/env.vm.example"
+      - "scripts/tests/server_image_smoke_test.sh"
+      - ".github/workflows/deploy-server.yml"
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Existing GHCR tag to deploy; leave empty to build this ref"
+        required: false
+        type: string
+
+concurrency:
+  group: ledgerly-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  CARGO_TERM_COLOR: always
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/ledgerly-server
+
+jobs:
+  verify:
+    name: Verify server
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    env:
+      DATABASE_URL: postgres://ledgerly:ledgerly@127.0.0.1:5432/ledgerly
+      JWT_SECRET: ci-only-ledgerly-secret
+      REQUIRE_POSTGRES_TESTS: "true"
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ledgerly
+          POSTGRES_PASSWORD: ledgerly
+          POSTGRES_DB: ledgerly
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ledgerly -d ledgerly"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: server -> target
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Test with PostgreSQL
+        run: cargo test --workspace
+
+  build:
+    name: Build and push image
+    needs: verify
+    if: inputs.image_tag == ''
+    runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: server/Dockerfile
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy production
+    needs: [verify, build]
+    if: >-
+      always() &&
+      needs.verify.result == 'success' &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Require deployment secrets
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          FINGERPRINT: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
+        run: |
+          test -n "$HOST" && test -n "$USER" && test -n "$KEY" && test -n "$FINGERPRINT" || {
+            echo "Set DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY, and DEPLOY_HOST_FINGERPRINT"
+            exit 1
+          }
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve and verify deployment image
+        id: image
+        env:
+          BUILD_DIGEST: ${{ needs.build.outputs.digest }}
+          REQUESTED_IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          if [[ -n "$REQUESTED_IMAGE_TAG" ]]; then
+            [[ "$REQUESTED_IMAGE_TAG" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]] || {
+              echo "Invalid image tag: $REQUESTED_IMAGE_TAG" >&2
+              exit 1
+            }
+            SOURCE_IMAGE="${REGISTRY}/${IMAGE_NAME}:${REQUESTED_IMAGE_TAG}"
+          else
+            test -n "$BUILD_DIGEST"
+            SOURCE_IMAGE="${REGISTRY}/${IMAGE_NAME}@${BUILD_DIGEST}"
+          fi
+
+          LOCAL_IMAGE="ledgerly-server:deploy-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          docker pull --platform linux/amd64 "$SOURCE_IMAGE"
+          docker tag "$SOURCE_IMAGE" "$LOCAL_IMAGE"
+          scripts/tests/server_image_smoke_test.sh "$LOCAL_IMAGE"
+          echo "local=$LOCAL_IMAGE" >> "$GITHUB_OUTPUT"
+          echo "source=$SOURCE_IMAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Package image and runtime files
+        env:
+          LOCAL_IMAGE: ${{ steps.image.outputs.local }}
+        run: |
+          mkdir -p deploy
+          docker save "$LOCAL_IMAGE" | gzip -1 > deploy/ledgerly-server-image.tar.gz
+          cp infrastructure/docker/docker-compose.prod.yml deploy/
+          cp infrastructure/docker/docker-compose.vm.yml deploy/
+          printf '%s\n' "$LOCAL_IMAGE" > deploy/ledgerly-server-image.ref
+          cd deploy
+          sha256sum ledgerly-server-image.tar.gz > ledgerly-server-image.tar.gz.sha256
+
+      - name: Sync runtime files to VM
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
+          fingerprint: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
+          source: deploy/*
+          target: /opt/ledgerly
+          strip_components: 1
+          overwrite: true
+          timeout: 60s
+          command_timeout: 20m
+
+      - name: Deploy and verify on VM
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
+          fingerprint: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
+          timeout: 60s
+          command_timeout: 20m
+          script: |
+            set -euo pipefail
+
+            APP_DIR=/opt/ledgerly
+            cd "$APP_DIR"
+            test -f .env.prod
+            sha256sum --check ledgerly-server-image.tar.gz.sha256
+            gzip -dc ledgerly-server-image.tar.gz | docker load
+
+            DEPLOY_IMAGE=$(tr -d '\r\n' < ledgerly-server-image.ref)
+            case "$DEPLOY_IMAGE" in
+              ledgerly-server:deploy-*) ;;
+              *) echo "invalid deployment image: $DEPLOY_IMAGE" >&2; exit 1 ;;
+            esac
+            docker image inspect "$DEPLOY_IMAGE" >/dev/null
+
+            if ! docker image inspect postgres:16-alpine >/dev/null 2>&1; then
+              for attempt in 1 2 3 4 5; do
+                docker pull postgres:16-alpine && break
+                test "$attempt" -lt 5
+                sleep $((attempt * 15))
+              done
+            fi
+
+            export COMPOSE_PROJECT_NAME=ledgerly
+            export LEDGER_IMAGE="$DEPLOY_IMAGE"
+            compose() {
+              docker compose \
+                -f docker-compose.prod.yml \
+                -f docker-compose.vm.yml \
+                --env-file .env.prod \
+                "$@"
+            }
+
+            compose config --quiet
+            PREVIOUS_IMAGE=$(docker inspect --format '{{.Config.Image}}' ledgerly-server 2>/dev/null || true)
+
+            deploy_and_verify() {
+              compose up -d --pull never --wait --wait-timeout 180
+
+              PUBLISHED=$(compose port ledger-server 8080)
+              PORT=${PUBLISHED##*:}
+              READY_URL="http://127.0.0.1:${PORT}/health/ready"
+              READY_BODY=$(curl -fsS --retry 5 --retry-delay 2 --retry-connrefused "$READY_URL")
+              printf '%s' "$READY_BODY" | python3 -c \
+                'import json,sys; data=json.load(sys.stdin); assert data == {"status":"ready","store":"postgres"}'
+
+              compose exec -T ledger-server sh -c \
+                'touch /var/lib/ledgerly/objects/.deploy-write-test && rm /var/lib/ledgerly/objects/.deploy-write-test'
+
+              INDEX_COUNT=$(compose exec -T postgres sh -c \
+                'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT count(*) FROM pg_indexes WHERE schemaname = '\''public'\'' AND indexname IN ('\''idx_device_sessions_refresh_token_hash'\'', '\''idx_device_sessions_active_created_at'\'');"')
+              test "$INDEX_COUNT" = "2"
+            }
+
+            if ! deploy_and_verify; then
+              compose logs --tail=150 ledger-server postgres || true
+              if [ -n "$PREVIOUS_IMAGE" ] && docker image inspect "$PREVIOUS_IMAGE" >/dev/null 2>&1; then
+                echo "Deployment failed; restoring $PREVIOUS_IMAGE"
+                export LEDGER_IMAGE="$PREVIOUS_IMAGE"
+                compose up -d --pull never --wait --wait-timeout 180 || true
+              fi
+              exit 1
+            fi
+
+            printf '%s\n' "$PREVIOUS_IMAGE" > .previous-image
+            printf '%s\n' "$DEPLOY_IMAGE" > .last-successful-image
+            compose ps
+            compose logs --tail=50 ledger-server
+            echo "::notice::Deployed $DEPLOY_IMAGE to $(hostname)"

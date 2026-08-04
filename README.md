@@ -37,4 +37,5 @@ JWT 为 **Ed25519**（由 `JWT_ED25519_SEED` / `JWT_SECRET` 派生）。附件�
 
 - 打 `v*` tag → 客户端进 GitHub Release，服务端镜像进 GHCR
 - 生产 compose **不启 PG**，`DATABASE_URL` 指向宿主机已有 Postgres
-- 部署：`./scripts/deploy_remote.sh` 或 Actions 勾选 deploy
+- 部署：合并服务端变更到 `main` 后由 Actions 自动部署；也可在
+  `Deploy Ledgerly Server` workflow 手动指定 `image_tag` 回滚

@@ -1,0 +1,32 @@
+# VM override for hosts without an existing PostgreSQL service.
+# Keep PostgreSQL private to the Compose network and persist it separately.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ledgerly-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ledgerly}
+      POSTGRES_USER: ${POSTGRES_USER:-ledgerly}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - ledgerly_pg:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  ledger-server:
+    pull_policy: never
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  ledgerly_pg:

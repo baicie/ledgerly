@@ -1,6 +1,6 @@
 name: Release
 
-# Tag push: v* → GitHub Release (clients) + GHCR image + optional SSH deploy
+# Tag push: v* → GitHub Release (clients) + GHCR image
 on:
   push:
     tags:
@@ -10,10 +10,6 @@ on:
       tag:
         description: "Release tag to build (e.g. v0.1.0); empty = current SHA"
         required: false
-      deploy:
-        description: "Deploy server image to production host"
-        type: boolean
-        default: false
 
 permissions:
   contents: write
@@ -240,50 +236,3 @@ jobs:
             ledgerly-android-x86_64.apk
           body_path: /tmp/notes.md
           generate_release_notes: true
-
-  deploy:
-    name: Deploy server to host
-    needs: [server-image]
-    runs-on: ubuntu-latest
-    if: >
-      github.event_name == 'workflow_dispatch' &&
-      github.event.inputs.deploy == 'true'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Require deploy secrets
-        env:
-          HOST: ${{ secrets.DEPLOY_HOST }}
-          USER: ${{ secrets.DEPLOY_USER }}
-          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-        run: |
-          test -n "$HOST" && test -n "$USER" && test -n "$KEY" || {
-            echo "Set DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY repository secrets"
-            exit 1
-          }
-
-      - name: SSH deploy
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_SSH_PORT }}
-          script: |
-            set -euo pipefail
-            DIR=${DEPLOY_DIR:-/opt/ledgerly}
-            mkdir -p "$DIR"
-            cd "$DIR"
-            test -f .env.prod || { echo "missing $DIR/.env.prod"; exit 1; }
-            # pull compose file from image is awkward; keep a copy on host or curl raw from repo
-            if [ ! -f docker-compose.prod.yml ]; then
-              curl -fsSL "https://raw.githubusercontent.com/${{ github.repository }}/main/infrastructure/docker/docker-compose.prod.yml" \
-                -o docker-compose.prod.yml
-            fi
-            echo "${{ secrets.GHCR_PULL_TOKEN || secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin || true
-            IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.tag || format('sha-{0}', github.sha) }}"
-            export LEDGER_IMAGE="$IMAGE"
-            docker compose -f docker-compose.prod.yml --env-file .env.prod pull
-            docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
-            docker compose -f docker-compose.prod.yml --env-file .env.prod ps
-            curl -sf "http://127.0.0.1:${LEDGER_PORT:-8080}/health/ready" || curl -sf http://127.0.0.1:8080/health/ready
