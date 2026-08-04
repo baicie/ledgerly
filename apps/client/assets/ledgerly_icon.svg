@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title">
   <title id="title">Ledgerly ledger mark</title>
-  <rect width="1024" height="1024" rx="224" fill="#0d4f5c"/>
+  <rect width="1024" height="1024" fill="#0d4f5c"/>
   <path d="M196 252c0-42 34-76 76-76h246v622H272c-42 0-76-34-76-76V252Z" fill="#f7f4e9"/>
   <path d="M518 176h234c42 0 76 34 76 76v470c0 42-34 76-76 76H518V176Z" fill="#fffdf5"/>
   <path d="M518 176v622" fill="none" stroke="#0d4f5c" stroke-width="24"/>
