@@ -9,6 +9,8 @@ on:
       - "infrastructure/docker/docker-compose.vm.yml"
       - "infrastructure/docker/env.prod.example"
       - "infrastructure/docker/env.vm.example"
+      - "scripts/deploy_vm_release.sh"
+      - "scripts/tests/deploy_vm_release_test.sh"
       - "scripts/tests/server_image_smoke_test.sh"
       - ".github/workflows/deploy-server.yml"
   workflow_dispatch:
@@ -66,6 +68,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: server -> target
+
+      - name: Test deployment runtime
+        run: ../scripts/tests/deploy_vm_release_test.sh
 
       - name: Format
         run: cargo fmt --all -- --check
@@ -178,30 +183,38 @@ jobs:
           echo "local=$LOCAL_IMAGE" >> "$GITHUB_OUTPUT"
           echo "source=$SOURCE_IMAGE" >> "$GITHUB_OUTPUT"
 
-      - name: Package image and runtime files
+      - name: Package runtime files
         run: |
+          bash -n scripts/deploy_vm_release.sh
+          scripts/tests/deploy_vm_release_test.sh
           mkdir -p deploy
           cp infrastructure/docker/docker-compose.prod.yml deploy/
           cp infrastructure/docker/docker-compose.vm.yml deploy/
+          cp scripts/deploy_vm_release.sh deploy/
 
-      - name: Sync runtime files to VM
+      - name: Sync, deploy, and verify on VM
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_FINGERPRINT: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
+          GHCR_TOKEN: ${{ github.token }}
+          GHCR_USERNAME: ${{ github.actor }}
+          SOURCE_IMAGE: ${{ steps.image.outputs.source }}
+          EXPECTED_IMAGE_PREFIX: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         run: |
           set -euo pipefail
 
           SSH_DIR="$RUNNER_TEMP/ledgerly-deploy-ssh"
           KEY_FILE="$SSH_DIR/id_ed25519"
           KNOWN_HOSTS="$SSH_DIR/known_hosts"
-          REMOTE_TMP=/opt/ledgerly/.deploy-runtime
+          REMOTE_RELEASE="/opt/ledgerly/runtime-releases/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           install -d -m 700 "$SSH_DIR"
           trap 'rm -rf "$SSH_DIR"' EXIT
           printf '%s\n' "$DEPLOY_KEY" > "$KEY_FILE"
           chmod 600 "$KEY_FILE"
+          [[ "$DEPLOY_FINGERPRINT" =~ ^SHA256:[A-Za-z0-9+/]{43}$ ]]
 
           SSH_OPTS=(
             -i "$KEY_FILE"
@@ -229,9 +242,16 @@ jobs:
           HOST_KEYS=""
           for attempt in 1 2 3 4 5; do
             HOST_KEYS=$(ssh-keyscan -T 15 -p "$DEPLOY_PORT" "$DEPLOY_HOST" 2>/dev/null || true)
-            if [[ -n "$HOST_KEYS" ]] && printf '%s\n' "$HOST_KEYS" | \
-              ssh-keygen -lf - -E sha256 | grep -Fq "$DEPLOY_FINGERPRINT"; then
-              printf '%s\n' "$HOST_KEYS" > "$KNOWN_HOSTS"
+            MATCHED_KEYS=""
+            while IFS= read -r host_key; do
+              key_fingerprint=$(printf '%s\n' "$host_key" | \
+                ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}')
+              if [[ "$key_fingerprint" == "$DEPLOY_FINGERPRINT" ]]; then
+                MATCHED_KEYS+="$host_key"$'\n'
+              fi
+            done <<< "$HOST_KEYS"
+            if [[ -n "$MATCHED_KEYS" ]]; then
+              printf '%s' "$MATCHED_KEYS" > "$KNOWN_HOSTS"
               break
             fi
             test "$attempt" -lt 5
@@ -241,7 +261,7 @@ jobs:
 
           for attempt in 1 2 3 4 5; do
             if ssh "${SSH_OPTS[@]}" "$DEPLOY_USER@$DEPLOY_HOST" \
-              "install -d -m 700 '$REMOTE_TMP'"; then
+              "install -d -m 700 '$REMOTE_RELEASE'"; then
               break
             fi
             test "$attempt" -lt 5
@@ -250,108 +270,38 @@ jobs:
 
           for attempt in 1 2 3 4 5; do
             if scp "${SCP_OPTS[@]}" \
-              deploy/docker-compose.prod.yml deploy/docker-compose.vm.yml \
-              "$DEPLOY_USER@$DEPLOY_HOST:$REMOTE_TMP/" && \
+              deploy/docker-compose.prod.yml deploy/docker-compose.vm.yml deploy/deploy_vm_release.sh \
+              "$DEPLOY_USER@$DEPLOY_HOST:$REMOTE_RELEASE/"; then
+              set +e
               ssh "${SSH_OPTS[@]}" "$DEPLOY_USER@$DEPLOY_HOST" \
-                "install -m 0644 '$REMOTE_TMP/docker-compose.prod.yml' /opt/ledgerly/docker-compose.prod.yml && \
-                 install -m 0644 '$REMOTE_TMP/docker-compose.vm.yml' /opt/ledgerly/docker-compose.vm.yml && \
-                 rm -rf '$REMOTE_TMP'"; then
-              break
+                "exec bash '$REMOTE_RELEASE/deploy_vm_release.sh' activate '$REMOTE_RELEASE' /opt/ledgerly"
+              activate_status=$?
+              set -e
+              if [[ "$activate_status" -eq 0 ]]; then
+                break
+              fi
+              if [[ "$activate_status" -ne 255 ]]; then
+                exit "$activate_status"
+              fi
             fi
             test "$attempt" -lt 5
             sleep $((attempt * 5))
           done
 
-      - name: Deploy and verify on VM
-        uses: appleboy/ssh-action@v1.2.0
-        env:
-          GHCR_TOKEN: ${{ github.token }}
-          GHCR_USERNAME: ${{ github.actor }}
-          SOURCE_IMAGE: ${{ steps.image.outputs.source }}
-          EXPECTED_IMAGE_PREFIX: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
-          fingerprint: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
-          envs: GHCR_TOKEN,GHCR_USERNAME,SOURCE_IMAGE,EXPECTED_IMAGE_PREFIX
-          timeout: 60s
-          command_timeout: 50m
-          script: |
-            set -euo pipefail
-
-            APP_DIR=/opt/ledgerly
-            cd "$APP_DIR"
-            test -f .env.prod
-            test -n "$GHCR_TOKEN" && test -n "$GHCR_USERNAME" && test -n "$SOURCE_IMAGE"
-            case "$SOURCE_IMAGE" in
-              "$EXPECTED_IMAGE_PREFIX":*|"$EXPECTED_IMAGE_PREFIX"@sha256:*) ;;
-              *) echo "invalid deployment image: $SOURCE_IMAGE" >&2; exit 1 ;;
-            esac
-
-            printf '%s' "$GHCR_TOKEN" | docker login ghcr.io \
-              --username "$GHCR_USERNAME" --password-stdin >/dev/null
-            trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
-            docker pull --platform linux/amd64 "$SOURCE_IMAGE"
-            DEPLOY_IMAGE="$SOURCE_IMAGE"
-            case "$DEPLOY_IMAGE" in
-              "$EXPECTED_IMAGE_PREFIX":*|"$EXPECTED_IMAGE_PREFIX"@sha256:*) ;;
-              *) echo "invalid deployment image: $DEPLOY_IMAGE" >&2; exit 1 ;;
-            esac
-            docker image inspect "$DEPLOY_IMAGE" >/dev/null
-
-            if ! docker image inspect postgres:16-alpine >/dev/null 2>&1; then
-              for attempt in 1 2 3 4 5; do
-                docker pull postgres:16-alpine && break
-                test "$attempt" -lt 5
-                sleep $((attempt * 15))
-              done
+          for attempt in 1 2 3 4 5; do
+            set +e
+            printf '%s\n' \
+              "$GHCR_TOKEN" "$GHCR_USERNAME" "$SOURCE_IMAGE" "$EXPECTED_IMAGE_PREFIX" | \
+              ssh "${SSH_OPTS[@]}" "$DEPLOY_USER@$DEPLOY_HOST" \
+                "exec bash '$REMOTE_RELEASE/deploy_vm_release.sh' deploy /opt/ledgerly"
+            deploy_status=${PIPESTATUS[1]}
+            set -e
+            if [[ "$deploy_status" -eq 0 ]]; then
+              break
             fi
-
-            export COMPOSE_PROJECT_NAME=ledgerly
-            export LEDGER_IMAGE="$DEPLOY_IMAGE"
-            compose() {
-              docker compose \
-                -f docker-compose.prod.yml \
-                -f docker-compose.vm.yml \
-                --env-file .env.prod \
-                "$@"
-            }
-
-            compose config --quiet
-            PREVIOUS_IMAGE=$(docker inspect --format '{{.Config.Image}}' ledgerly-server 2>/dev/null || true)
-
-            deploy_and_verify() {
-              compose up -d --pull never --wait --wait-timeout 180
-
-              PUBLISHED=$(compose port ledger-server 8080)
-              PORT=${PUBLISHED##*:}
-              READY_URL="http://127.0.0.1:${PORT}/health/ready"
-              READY_BODY=$(curl -fsS --retry 5 --retry-delay 2 --retry-connrefused "$READY_URL")
-              printf '%s' "$READY_BODY" | python3 -c \
-                'import json,sys; data=json.load(sys.stdin); assert data == {"status":"ready","store":"postgres"}'
-
-              compose exec -T ledger-server sh -c \
-                'touch /var/lib/ledgerly/objects/.deploy-write-test && rm /var/lib/ledgerly/objects/.deploy-write-test'
-
-              INDEX_COUNT=$(compose exec -T postgres sh -c \
-                'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT count(*) FROM pg_indexes WHERE schemaname = '\''public'\'' AND indexname IN ('\''idx_device_sessions_refresh_token_hash'\'', '\''idx_device_sessions_active_created_at'\'');"')
-              test "$INDEX_COUNT" = "2"
-            }
-
-            if ! deploy_and_verify; then
-              compose logs --tail=150 ledger-server postgres || true
-              if [ -n "$PREVIOUS_IMAGE" ] && docker image inspect "$PREVIOUS_IMAGE" >/dev/null 2>&1; then
-                echo "Deployment failed; restoring $PREVIOUS_IMAGE"
-                export LEDGER_IMAGE="$PREVIOUS_IMAGE"
-                compose up -d --pull never --wait --wait-timeout 180 || true
-              fi
-              exit 1
+            if [[ "$deploy_status" -ne 255 ]]; then
+              exit "$deploy_status"
             fi
-
-            printf '%s\n' "$PREVIOUS_IMAGE" > .previous-image
-            printf '%s\n' "$DEPLOY_IMAGE" > .last-successful-image
-            compose ps
-            compose logs --tail=50 ledger-server
-            echo "::notice::Deployed $DEPLOY_IMAGE to $(hostname)"
+            test "$attempt" -lt 5
+            sleep $((attempt * 10))
+          done
