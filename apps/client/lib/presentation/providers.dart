@@ -9,6 +9,7 @@ import '../auth/auth_controller.dart';
 import '../auth/platform_session_store.dart';
 import '../auth/session_store.dart';
 import '../config/api_endpoint.dart';
+import '../config/api_endpoint_controller.dart';
 import '../data/database.dart';
 import '../data/ledger_repository.dart';
 import '../data/sync_api.dart';
@@ -22,6 +23,10 @@ final databaseProvider = Provider<AppDatabase>((ref) {
 
 final apiEndpointProvider = Provider<ApiEndpoint>((ref) {
   return ApiEndpoint.fromEnvironment();
+});
+
+final apiEndpointControllerProvider = Provider<ApiEndpointController>((ref) {
+  throw StateError('ApiEndpointController has not been configured.');
 });
 
 final sessionStoreProvider = Provider<SessionStore>((ref) {

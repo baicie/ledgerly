@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import '../auth/auth_controller.dart';
+import '../config/api_endpoint_controller.dart';
 import '../presentation/pages/accounts_page.dart';
 import '../presentation/pages/attachments_page.dart';
 import '../presentation/pages/auth_page.dart';
@@ -65,7 +66,10 @@ String? _safeReturnLocation(String? value) {
   return uri.toString();
 }
 
-GoRouter createAppRouter(AuthController controller) {
+GoRouter createAppRouter(
+  AuthController controller,
+  ApiEndpointController endpointController,
+) {
   return GoRouter(
     initialLocation: '/startup',
     refreshListenable: controller,
@@ -79,7 +83,10 @@ GoRouter createAppRouter(AuthController controller) {
       ),
       GoRoute(
         path: '/auth',
-        builder: (context, state) => AuthPage(controller: controller),
+        builder: (context, state) => AuthPage(
+          controller: controller,
+          endpointController: endpointController,
+        ),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
