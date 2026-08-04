@@ -134,13 +134,14 @@ Release workflow 会在上传前调用 `apksigner verify --print-certs`，并要
 
 - 合并到 `main` 且变更命中 `server/**`、`infrastructure/docker/**` 或部署 workflow
   后，`.github/workflows/deploy-server.yml` 会自动运行验证、构建、镜像 smoke test、
-  文件同步和远端健康检查。
+  文件同步、远端 GHCR 拉取和健康检查。
 - Actions → **Deploy Ledgerly Server** → **Run workflow** 可手动部署当前 ref。
 - 手动填写 `image_tag`（例如 `v0.0.5` 或 `sha-...`）会跳过构建并部署该 GHCR
   镜像，用于回滚。
 
 首次启用前，在目标机执行一次目录初始化并生成 `.env.prod`；然后把 SSH 公钥加入
-`ubuntu` 的 `authorized_keys`，将私钥和指纹写入上表 Secrets。workflow 会将服务绑定
+`ubuntu` 的 `authorized_keys`，将私钥和指纹写入上表 Secrets。workflow 使用 Actions
+的只读 `GITHUB_TOKEN` 从 GHCR 拉取指定镜像，部署失败会恢复之前运行的镜像。服务绑定
 到 `127.0.0.1:8081`，外部访问应通过 TLS 反向代理。
 
 本机手工部署仅用于故障排查：
