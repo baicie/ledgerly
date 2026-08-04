@@ -17,6 +17,33 @@ void main() {
     expect(authRedirect(const AuthState.local(), '/auth'), '/feed');
   });
 
+  test('local mode rejects routes that construct remote services', () {
+    expect(
+      authRedirect(const AuthState.local(), '/feed/revisions/tx-1'),
+      '/feed',
+    );
+    for (final path in [
+      '/settings/sync',
+      '/settings/conflicts',
+      '/settings/subscription',
+      '/settings/fx',
+      '/settings/family',
+      '/settings/budgets',
+      '/settings/recurring',
+      '/settings/attachments',
+    ]) {
+      expect(
+        authRedirect(const AuthState.local(), path),
+        '/settings',
+        reason: path,
+      );
+    }
+    expect(
+      authRedirect(const AuthState.local(), '/settings/export'),
+      isNull,
+    );
+  });
+
   test('route guard covers restore, signed-out, and authenticated states', () {
     final restoring = authRedirect(const AuthState.restoring(), '/feed');
     expect(Uri.parse(restoring!).path, '/startup');
