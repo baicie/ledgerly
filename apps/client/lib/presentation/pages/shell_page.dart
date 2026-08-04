@@ -2,22 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import '../design/ledgerly_theme.dart';
 import '../quick_entry.dart';
+import '../widgets/ledgerly_navigation.dart';
 
 class ShellPage extends StatelessWidget {
   const ShellPage({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
-
-  static const _destinations = [
-    NavigationDestination(icon: Icon(Icons.receipt_long), label: '流水'),
-    NavigationDestination(
-      icon: Icon(Icons.account_balance_wallet),
-      label: '资产',
-    ),
-    NavigationDestination(icon: Icon(Icons.pie_chart), label: '报表'),
-    NavigationDestination(icon: Icon(Icons.settings), label: '我的'),
-  ];
 
   static const _railDestinations = [
     NavigationRailDestination(
@@ -62,6 +54,15 @@ class ShellPage extends StatelessWidget {
                       selectedIndex: navigationShell.currentIndex,
                       onDestinationSelected: navigationShell.goBranch,
                       labelType: NavigationRailLabelType.all,
+                      backgroundColor: LedgerlyColors.surface,
+                      leading: Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: FloatingActionButton(
+                          tooltip: '记一笔',
+                          onPressed: () => openQuickEntry(context),
+                          child: const Icon(Icons.add_rounded),
+                        ),
+                      ),
                       destinations: _railDestinations,
                     ),
                     const VerticalDivider(width: 1),
@@ -69,18 +70,12 @@ class ShellPage extends StatelessWidget {
                   ],
                 )
               : navigationShell,
-          floatingActionButton: navigationShell.currentIndex == 0
-              ? FloatingActionButton(
-                  onPressed: () => openQuickEntry(context),
-                  child: const Icon(Icons.add),
-                )
-              : null,
           bottomNavigationBar: wide
               ? null
-              : NavigationBar(
+              : LedgerlyBottomNavigation(
                   selectedIndex: navigationShell.currentIndex,
                   onDestinationSelected: navigationShell.goBranch,
-                  destinations: _destinations,
+                  onQuickEntry: () => openQuickEntry(context),
                 ),
         ),
       ),

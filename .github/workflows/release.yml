@@ -210,6 +210,8 @@ jobs:
           ### Client (this release)
           - API service is optional; without one Ledgerly stays local-only and makes no authentication or sync requests.
           - Configure or clear the API service from login, recovery, or Settings.
+          - Refreshed the main Ledgerly experience with responsive feed, accounts, reports, and settings pages.
+          - Added expense, income, and transfer quick entry with category/account pickers and a numeric keypad.
           - \`ledgerly-web.zip\` — Flutter Web
           - \`ledgerly-android-arm64-v8a.apk\` — Android release APK for most modern phones
           - \`ledgerly-android-armeabi-v7a.apk\` — Android release APK for older 32-bit ARM devices

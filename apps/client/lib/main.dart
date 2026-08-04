@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'config/api_endpoint.dart';
 import 'config/api_endpoint_controller.dart';
 import 'config/platform_api_endpoint_store.dart';
+import 'presentation/design/ledgerly_theme.dart';
 import 'presentation/pages/api_endpoint_setup_page.dart';
 import 'presentation/providers.dart';
 import 'routing/app_router.dart';
@@ -62,6 +63,7 @@ class _LedgerlyBootstrapState extends State<LedgerlyBootstrap> {
         if (state.status == ApiEndpointStatus.needsConfiguration) {
           return MaterialApp(
             title: 'Ledgerly',
+            debugShowCheckedModeBanner: false,
             theme: ledgerlyTheme(),
             home: ApiEndpointSetupPage(controller: widget.controller),
           );
@@ -108,6 +110,7 @@ class _LedgerlyAppState extends ConsumerState<LedgerlyApp> {
   Widget build(BuildContext context) {
     return MaterialApp.router(
       title: 'Ledgerly',
+      debugShowCheckedModeBanner: false,
       theme: ledgerlyTheme(),
       routerConfig: _router,
     );
@@ -121,6 +124,7 @@ class _EndpointLoadingApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Ledgerly',
+      debugShowCheckedModeBanner: false,
       theme: ledgerlyTheme(),
       home: const Scaffold(
         body: Center(
@@ -131,18 +135,4 @@ class _EndpointLoadingApp extends StatelessWidget {
       ),
     );
   }
-}
-
-ThemeData ledgerlyTheme() {
-  return ThemeData(
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: const Color(0xFF1F6F5B),
-      brightness: Brightness.light,
-    ),
-    inputDecorationTheme: const InputDecorationTheme(
-      filled: true,
-      fillColor: Color(0xFFF7F8F7),
-    ),
-    useMaterial3: true,
-  );
 }

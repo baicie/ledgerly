@@ -101,6 +101,8 @@ class LedgerRepository {
     DateTime? monthStart,
     DateTime? monthEnd,
   }) async {
+    final accounts = await listAccounts(bookId);
+    final accountsById = {for (final account in accounts) account.id: account};
     final query = _db.select(_db.transactions)
       ..where((t) => t.bookId.equals(bookId) & t.deletedAt.isNull());
     if (monthStart != null) {
@@ -116,6 +118,7 @@ class LedgerRepository {
       final entries = await (_db.select(_db.transactionEntries)
             ..where((e) => e.transactionId.equals(tx.id)))
           .get();
+      final details = _summarizeTransaction(entries, accountsById);
       result.add(
         TransactionSummary(
           id: tx.id,
@@ -123,10 +126,99 @@ class LedgerRepository {
           description: tx.description,
           entryCount: entries.length,
           version: tx.version,
+          kind: details.kind,
+          amountMinor: details.amountMinor,
+          categoryName: details.categoryName,
+          accountName: details.accountName,
         ),
       );
     }
     return result;
+  }
+
+  _TransactionDetails _summarizeTransaction(
+    List<TransactionEntry> entries,
+    Map<String, Account> accountsById,
+  ) {
+    final expenseEntries = entries
+        .where((entry) => accountsById[entry.accountId]?.type == 'expense')
+        .toList();
+    final incomeEntries = entries
+        .where((entry) => accountsById[entry.accountId]?.type == 'income')
+        .toList();
+    final balanceEntries = entries.where((entry) {
+      final type = accountsById[entry.accountId]?.type;
+      return type == 'asset' || type == 'liability';
+    }).toList();
+
+    if (expenseEntries.isNotEmpty) {
+      return _TransactionDetails(
+        kind: TransactionSummaryKind.expense,
+        amountMinor: _absoluteTotal(expenseEntries),
+        categoryName: _joinedAccountNames(expenseEntries, accountsById),
+        accountName: _firstAccountName(balanceEntries, accountsById),
+      );
+    }
+    if (incomeEntries.isNotEmpty) {
+      return _TransactionDetails(
+        kind: TransactionSummaryKind.income,
+        amountMinor: _absoluteTotal(incomeEntries),
+        categoryName: _joinedAccountNames(incomeEntries, accountsById),
+        accountName: _firstAccountName(balanceEntries, accountsById),
+      );
+    }
+    if (balanceEntries.length >= 2) {
+      final ordered = [...balanceEntries]
+        ..sort((a, b) => BigInt.parse(a.amountMinor).compareTo(
+              BigInt.parse(b.amountMinor),
+            ));
+      return _TransactionDetails(
+        kind: TransactionSummaryKind.transfer,
+        amountMinor: BigInt.parse(ordered.first.amountMinor).abs(),
+        categoryName: 'Transfer',
+        accountName: ordered
+            .map((entry) => accountsById[entry.accountId]?.name)
+            .whereType<String>()
+            .join(' -> '),
+      );
+    }
+    return _TransactionDetails(
+      kind: TransactionSummaryKind.adjustment,
+      amountMinor: _absoluteTotal(entries),
+      categoryName: null,
+      accountName: _firstAccountName(entries, accountsById),
+    );
+  }
+
+  BigInt _absoluteTotal(List<TransactionEntry> entries) {
+    return entries
+        .fold<BigInt>(
+          BigInt.zero,
+          (total, entry) => total + BigInt.parse(entry.amountMinor),
+        )
+        .abs();
+  }
+
+  String? _joinedAccountNames(
+    List<TransactionEntry> entries,
+    Map<String, Account> accountsById,
+  ) {
+    final names = entries
+        .map((entry) => accountsById[entry.accountId]?.name)
+        .whereType<String>()
+        .toSet();
+    return names.isEmpty ? null : names.join(' + ');
+  }
+
+  String? _firstAccountName(
+    List<TransactionEntry> entries,
+    Map<String, Account> accountsById,
+  ) {
+    for (final entry in entries) {
+      final name = accountsById[entry.accountId]?.name;
+      if (name != null) return name;
+    }
+    return null;
   }
 
   Stream<List<TransactionSummary>> watchSummaries(String bookId) {
@@ -332,9 +424,8 @@ class LedgerRepository {
     String id, {
     required ConflictResolution resolution,
   }) async {
-    final currentDeviceId = resolution == ConflictResolution.keepLocal
-        ? await deviceId
-        : null;
+    final currentDeviceId =
+        resolution == ConflictResolution.keepLocal ? await deviceId : null;
     await _db.transaction(() async {
       final conflict = await (_db.select(_db.syncConflicts)
             ..where((t) => t.id.equals(id)))
@@ -413,6 +504,8 @@ class LedgerRepository {
   }
 }
 
+enum TransactionSummaryKind { expense, income, transfer, adjustment }
+
 class TransactionSummary {
   TransactionSummary({
     required this.id,
@@ -420,13 +513,35 @@ class TransactionSummary {
     required this.description,
     required this.entryCount,
     this.version = 1,
-  });
+    this.kind = TransactionSummaryKind.adjustment,
+    BigInt? amountMinor,
+    this.categoryName,
+    this.accountName,
+  }) : amountMinor = amountMinor ?? BigInt.zero;
 
   final String id;
   final DateTime occurredAt;
   final String? description;
   final int entryCount;
   final int version;
+  final TransactionSummaryKind kind;
+  final BigInt amountMinor;
+  final String? categoryName;
+  final String? accountName;
+}
+
+class _TransactionDetails {
+  const _TransactionDetails({
+    required this.kind,
+    required this.amountMinor,
+    required this.categoryName,
+    required this.accountName,
+  });
+
+  final TransactionSummaryKind kind;
+  final BigInt amountMinor;
+  final String? categoryName;
+  final String? accountName;
 }
 
 typedef PendingMutationRow = PendingMutation;

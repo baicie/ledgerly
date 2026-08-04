@@ -50,6 +50,32 @@ void main() {
     expect(pending.first.deviceId, 'test-device');
   });
 
+  test('transaction summaries expose the amount, category, and account',
+      () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    final repo = LedgerRepository(
+      db,
+      deviceIdLoader: () async => 'test-device',
+    );
+    await repo.seedIfEmpty();
+    final service = LedgerAppService(repo);
+
+    await service.createExpense(
+      expenseAccountId: accountKeyFood(defaultBookId),
+      fundingAccountId: accountKeyCash(defaultBookId),
+      amountMinor: BigInt.from(4280),
+      description: 'Dinner',
+    );
+
+    final summary = (await repo.watchSummariesSync(defaultBookId)).single;
+    expect(summary.kind, TransactionSummaryKind.expense);
+    expect(summary.amountMinor, BigInt.from(4280));
+    expect(summary.categoryName, 'Food');
+    expect(summary.accountName, 'Cash');
+  });
+
   test('soft delete hides transaction from balance', () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);

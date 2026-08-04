@@ -6,6 +6,13 @@ Future<void> openQuickEntry(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    builder: (context) => const QuickEntrySheet(),
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    constraints: const BoxConstraints(maxWidth: 560),
+    clipBehavior: Clip.antiAlias,
+    builder: (context) => const FractionallySizedBox(
+      heightFactor: 0.94,
+      child: QuickEntrySheet(),
+    ),
   );
 }

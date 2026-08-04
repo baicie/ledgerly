@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/ledger_repository.dart';
+import '../design/ledgerly_theme.dart';
 import '../providers.dart';
+import '../widgets/ledgerly_finance.dart';
+import '../widgets/ledgerly_layout.dart';
+import '../widgets/ledgerly_summary_card.dart';
+import '../widgets/ledgerly_trend_chart.dart';
 
 class ReportsPage extends ConsumerStatefulWidget {
   const ReportsPage({super.key});
@@ -27,12 +33,10 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       final bookId = ref.read(authRepositoryProvider).currentSession?.bookId;
       if (bookId == null) return;
       final month = ref.read(selectedMonthProvider);
-      final from = DateTime.utc(month.year, month.month).toIso8601String();
-      final to = DateTime.utc(month.year, month.month + 1).toIso8601String();
       final summary = await api.reportSummary(
         bookId: bookId,
-        from: from,
-        to: to,
+        from: DateTime.utc(month.year, month.month).toIso8601String(),
+        to: DateTime.utc(month.year, month.month + 1).toIso8601String(),
       );
       if (mounted) {
         setState(() {
@@ -40,93 +44,297 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
           _remoteError = null;
         });
       }
-    } catch (e) {
-      if (mounted) setState(() => _remoteError = e.toString());
+    } catch (error) {
+      if (mounted) setState(() => _remoteError = error.toString());
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final report = ref.watch(categoryReportProvider);
+    final totals = ref.watch(monthlyLedgerSummaryProvider);
+    final transactions = ref.watch(monthTransactionsProvider);
     final month = ref.watch(selectedMonthProvider);
     final isLocal = ref.watch(apiEndpointProvider) == null;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('分类报表'),
-        actions: isLocal
-            ? null
-            : [
-                IconButton(
-                  tooltip: '刷新服务端汇总',
-                  icon: const Icon(Icons.refresh),
-                  onPressed: _loadRemote,
-                ),
-              ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text(
-            '本地 · ${month.year}-${month.month.toString().padLeft(2, '0')}',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          report.when(
-            data: (rows) {
-              if (rows.isEmpty) {
-                return const ListTile(title: Text('暂无本地支出数据'));
-              }
-              return Column(
-                children: rows
-                    .map(
-                      (row) => ListTile(
-                        title: Text(row.name),
-                        trailing: Text(formatMinor(row.amount)),
-                      ),
-                    )
-                    .toList(),
-              );
-            },
-            loading: () => const LinearProgressIndicator(),
-            error: (e, _) => Text('$e'),
-          ),
-          if (!isLocal) ...[
-            const Divider(),
-            Text(
-              '服务端汇总（plus）',
-              style: Theme.of(context).textTheme.titleMedium,
+      body: SafeArea(
+        child: LedgerlyContent(
+          slivers: [
+            SliverToBoxAdapter(
+              child: LedgerlyPageHeader(
+                title: '报表',
+                subtitle:
+                    '${isLocal ? '本地' : '已同步'} · ${month.year}-${month.month.toString().padLeft(2, '0')}',
+                actions: [
+                  if (!isLocal)
+                    IconButton(
+                      tooltip: '刷新服务端汇总',
+                      icon: const Icon(Icons.sync_rounded),
+                      onPressed: _loadRemote,
+                    ),
+                ],
+              ),
             ),
-            if (_remoteError != null)
-              Text(_remoteError!, style: const TextStyle(color: Colors.red)),
-            if (_remote != null) ...[
-              ListTile(
-                title: const Text('收入'),
-                trailing: Text(
-                  formatMinor(
-                    BigInt.tryParse('${_remote!['incomeMinor']}') ??
-                        BigInt.zero,
+            SliverToBoxAdapter(
+              child: LedgerlyMonthPicker(
+                month: month,
+                onPrevious: () => _changeMonth(month, -1),
+                onNext: () => _changeMonth(month, 1),
+              ),
+            ),
+            totals.when(
+              data: (summary) => SliverPadding(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                sliver: SliverToBoxAdapter(
+                  child: LedgerlySummaryCard(
+                    title: '本月收支统计',
+                    balanceMinor: summary.balanceMinor,
+                    incomeMinor: summary.incomeMinor,
+                    expenseMinor: summary.expenseMinor,
                   ),
                 ),
               ),
-              ListTile(
-                title: const Text('支出'),
-                trailing: Text(
-                  formatMinor(
-                    BigInt.tryParse('${_remote!['expenseMinor']}') ??
-                        BigInt.zero,
+              loading: () => const _ReportPlaceholder(height: 220),
+              error: (error, _) => _ReportError(error: error),
+            ),
+            transactions.when(
+              data: (items) {
+                final rows = _aggregateIncome(items);
+                final total = rows.fold<BigInt>(
+                  BigInt.zero,
+                  (value, row) => value + row.amount,
+                );
+                return _RankingSection(
+                  title: '收入来源',
+                  rows: rows,
+                  total: total,
+                  emptyMessage: '本月暂无收入',
+                  income: true,
+                );
+              },
+              loading: () => const _ReportPlaceholder(height: 136),
+              error: (error, _) => _ReportError(error: error),
+            ),
+            report.when(
+              data: (rows) {
+                final total = rows.fold<BigInt>(
+                  BigInt.zero,
+                  (value, row) => value + row.amount,
+                );
+                return _RankingSection(
+                  title: '支出分布',
+                  rows: rows,
+                  total: total,
+                  emptyMessage: '本月暂无支出',
+                );
+              },
+              loading: () => const _ReportPlaceholder(height: 136),
+              error: (error, _) => _ReportError(error: error),
+            ),
+            transactions.when(
+              data: (items) => SliverPadding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                sliver: SliverToBoxAdapter(
+                  child: LedgerlySection(
+                    title: '月度趋势',
+                    child: LedgerlyTrendChart(
+                      month: month,
+                      transactions: items,
+                    ),
                   ),
                 ),
               ),
-              ListTile(
-                title: Text('净额（${_remote!['baseCurrency']}）'),
-                trailing: Text(
-                  formatMinor(
-                    BigInt.tryParse('${_remote!['netMinor']}') ?? BigInt.zero,
-                  ),
+              loading: () => const _ReportPlaceholder(height: 240),
+              error: (error, _) => _ReportError(error: error),
+            ),
+            if (!isLocal && (_remote != null || _remoteError != null))
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                sliver: SliverToBoxAdapter(
+                  child: _RemoteSummary(data: _remote, error: _remoteError),
                 ),
               ),
-            ],
           ],
-        ],
+        ),
+      ),
+    );
+  }
+
+  void _changeMonth(DateTime month, int offset) {
+    ref.read(selectedMonthProvider.notifier).state =
+        DateTime(month.year, month.month + offset);
+    _loadRemote();
+  }
+
+  List<CategoryAmount> _aggregateIncome(
+    List<TransactionSummary> transactions,
+  ) {
+    final amounts = <String, BigInt>{};
+    final counts = <String, int>{};
+    for (final transaction in transactions) {
+      if (transaction.kind != TransactionSummaryKind.income) continue;
+      final category = transaction.categoryName ?? 'Other';
+      amounts.update(
+        category,
+        (amount) => amount + transaction.amountMinor,
+        ifAbsent: () => transaction.amountMinor,
+      );
+      counts.update(category, (count) => count + 1, ifAbsent: () => 1);
+    }
+    final rows = amounts.entries
+        .map(
+          (entry) => CategoryAmount(
+            name: entry.key,
+            amount: entry.value,
+            transactionCount: counts[entry.key] ?? 0,
+          ),
+        )
+        .toList();
+    rows.sort((a, b) => b.amount.compareTo(a.amount));
+    return rows;
+  }
+}
+
+class _RankingList extends StatelessWidget {
+  const _RankingList({
+    required this.rows,
+    required this.total,
+    required this.emptyMessage,
+    this.income = false,
+  });
+
+  final List<CategoryAmount> rows;
+  final BigInt total;
+  final String emptyMessage;
+  final bool income;
+
+  @override
+  Widget build(BuildContext context) {
+    if (rows.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Text(
+          emptyMessage,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+      );
+    }
+    return Column(
+      children: [
+        for (var index = 0; index < rows.length; index++)
+          LedgerlyProgressRow(
+            rank: index + 1,
+            name: localizedLedgerName(rows[index].name),
+            subtitle: '${rows[index].transactionCount} 笔',
+            amount: rows[index].amount,
+            fraction: total == BigInt.zero
+                ? 0
+                : rows[index].amount.toDouble() / total.toDouble(),
+            icon: ledgerIconFor(rows[index].name),
+            color: income
+                ? LedgerlyColors.income
+                : ledgerColorFor(rows[index].name),
+          ),
+      ],
+    );
+  }
+}
+
+class _RankingSection extends StatelessWidget {
+  const _RankingSection({
+    required this.title,
+    required this.rows,
+    required this.total,
+    required this.emptyMessage,
+    this.income = false,
+  });
+
+  final String title;
+  final List<CategoryAmount> rows;
+  final BigInt total;
+  final String emptyMessage;
+  final bool income;
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      sliver: SliverToBoxAdapter(
+        child: LedgerlySection(
+          title: title,
+          trailing: Text(
+            '${rows.fold<int>(0, (count, row) => count + row.transactionCount)} 笔 · ${formatDisplayMinor(total)}',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          child: _RankingList(
+            rows: rows,
+            total: total,
+            emptyMessage: emptyMessage,
+            income: income,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RemoteSummary extends StatelessWidget {
+  const _RemoteSummary({required this.data, required this.error});
+
+  final Map<String, dynamic>? data;
+  final String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    return LedgerlySection(
+      title: '云端校验',
+      child: error != null
+          ? Text(error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error))
+          : Text(
+              '服务端净额 ${data?['netMinor'] ?? '--'} · ${data?['baseCurrency'] ?? 'CNY'}',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+    );
+  }
+}
+
+class _ReportPlaceholder extends StatelessWidget {
+  const _ReportPlaceholder({required this.height});
+
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      sliver: SliverToBoxAdapter(
+        child: Container(
+          height: height,
+          decoration: BoxDecoration(
+            color: LedgerlyColors.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: LedgerlyColors.divider),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReportError extends StatelessWidget {
+  const _ReportError({required this.error});
+
+  final Object error;
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text('报表加载失败：$error'),
       ),
     );
   }

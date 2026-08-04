@@ -143,18 +143,79 @@ final accountBalancesProvider =
 });
 
 class CategoryAmount {
-  CategoryAmount({required this.name, required this.amount});
+  CategoryAmount({
+    required this.name,
+    required this.amount,
+    required this.transactionCount,
+  });
+
   final String name;
   final BigInt amount;
+  final int transactionCount;
 }
 
 final categoryReportProvider =
     FutureProvider<List<CategoryAmount>>((ref) async {
-  final balances = await ref.watch(accountBalancesProvider.future);
-  return balances
-      .where((b) => b.type == 'expense' && b.balance > BigInt.zero)
-      .map((b) => CategoryAmount(name: b.name, amount: b.balance))
+  final transactions = await ref.watch(monthTransactionsProvider.future);
+  final amounts = <String, BigInt>{};
+  final counts = <String, int>{};
+  for (final transaction in transactions) {
+    if (transaction.kind != TransactionSummaryKind.expense) continue;
+    final category = transaction.categoryName ?? 'Other';
+    amounts.update(
+      category,
+      (amount) => amount + transaction.amountMinor,
+      ifAbsent: () => transaction.amountMinor,
+    );
+    counts.update(category, (count) => count + 1, ifAbsent: () => 1);
+  }
+  final rows = amounts.entries
+      .map(
+        (entry) => CategoryAmount(
+          name: entry.key,
+          amount: entry.value,
+          transactionCount: counts[entry.key] ?? 0,
+        ),
+      )
       .toList();
+  rows.sort((a, b) => b.amount.compareTo(a.amount));
+  return rows;
+});
+
+class MonthlyLedgerSummary {
+  MonthlyLedgerSummary({
+    required this.incomeMinor,
+    required this.expenseMinor,
+    required this.transactionCount,
+  });
+
+  final BigInt incomeMinor;
+  final BigInt expenseMinor;
+  final int transactionCount;
+  BigInt get balanceMinor => incomeMinor - expenseMinor;
+}
+
+final monthlyLedgerSummaryProvider =
+    FutureProvider<MonthlyLedgerSummary>((ref) async {
+  final transactions = await ref.watch(monthTransactionsProvider.future);
+  var income = BigInt.zero;
+  var expense = BigInt.zero;
+  for (final transaction in transactions) {
+    switch (transaction.kind) {
+      case TransactionSummaryKind.income:
+        income += transaction.amountMinor;
+      case TransactionSummaryKind.expense:
+        expense += transaction.amountMinor;
+      case TransactionSummaryKind.transfer:
+      case TransactionSummaryKind.adjustment:
+        break;
+    }
+  }
+  return MonthlyLedgerSummary(
+    incomeMinor: income,
+    expenseMinor: expense,
+    transactionCount: transactions.length,
+  );
 });
 
 class SyncStatusView {
