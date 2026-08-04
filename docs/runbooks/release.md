@@ -141,8 +141,10 @@ Release workflow 会在上传前调用 `apksigner verify --print-certs`，并要
 
 首次启用前，在目标机执行一次目录初始化并生成 `.env.prod`；然后把 SSH 公钥加入
 `ubuntu` 的 `authorized_keys`，将私钥和指纹写入上表 Secrets。workflow 使用 Actions
-的只读 `GITHUB_TOKEN` 从 GHCR 拉取指定镜像，部署失败会恢复之前运行的镜像。服务绑定
-到 `127.0.0.1:8081`，外部访问应通过 TLS 反向代理。
+的只读 `GITHUB_TOKEN` 从 GHCR 拉取指定镜像。每次部署的 compose 文件保存在独立的
+`/opt/ledgerly/runtime-releases/<run>-<attempt>` 目录，通过 `runtime-current` 符号链接
+原子切换；部署失败会同时恢复之前的运行时配置和镜像。服务绑定到
+`127.0.0.1:8081`，外部访问应通过 TLS 反向代理。
 
 本机手工部署仅用于故障排查：
 
