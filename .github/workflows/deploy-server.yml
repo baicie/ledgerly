@@ -126,7 +126,7 @@ jobs:
       needs.verify.result == 'success' &&
       (needs.build.result == 'success' || needs.build.result == 'skipped')
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     environment:
       name: production
     permissions:
@@ -179,16 +179,10 @@ jobs:
           echo "source=$SOURCE_IMAGE" >> "$GITHUB_OUTPUT"
 
       - name: Package image and runtime files
-        env:
-          LOCAL_IMAGE: ${{ steps.image.outputs.local }}
         run: |
           mkdir -p deploy
-          docker save "$LOCAL_IMAGE" | gzip -1 > deploy/ledgerly-server-image.tar.gz
           cp infrastructure/docker/docker-compose.prod.yml deploy/
           cp infrastructure/docker/docker-compose.vm.yml deploy/
-          printf '%s\n' "$LOCAL_IMAGE" > deploy/ledgerly-server-image.ref
-          cd deploy
-          sha256sum ledgerly-server-image.tar.gz > ledgerly-server-image.tar.gz.sha256
 
       - name: Sync runtime files to VM
         uses: appleboy/scp-action@v1
@@ -207,26 +201,39 @@ jobs:
 
       - name: Deploy and verify on VM
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+          GHCR_USERNAME: ${{ github.actor }}
+          SOURCE_IMAGE: ${{ steps.image.outputs.source }}
+          EXPECTED_IMAGE_PREFIX: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
           fingerprint: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
+          envs: GHCR_TOKEN,GHCR_USERNAME,SOURCE_IMAGE,EXPECTED_IMAGE_PREFIX
           timeout: 60s
-          command_timeout: 20m
+          command_timeout: 50m
           script: |
             set -euo pipefail
 
             APP_DIR=/opt/ledgerly
             cd "$APP_DIR"
             test -f .env.prod
-            sha256sum --check ledgerly-server-image.tar.gz.sha256
-            gzip -dc ledgerly-server-image.tar.gz | docker load
+            test -n "$GHCR_TOKEN" && test -n "$GHCR_USERNAME" && test -n "$SOURCE_IMAGE"
+            case "$SOURCE_IMAGE" in
+              "$EXPECTED_IMAGE_PREFIX":*|"$EXPECTED_IMAGE_PREFIX"@sha256:*) ;;
+              *) echo "invalid deployment image: $SOURCE_IMAGE" >&2; exit 1 ;;
+            esac
 
-            DEPLOY_IMAGE=$(tr -d '\r\n' < ledgerly-server-image.ref)
+            printf '%s' "$GHCR_TOKEN" | docker login ghcr.io \
+              --username "$GHCR_USERNAME" --password-stdin >/dev/null
+            trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+            docker pull --platform linux/amd64 "$SOURCE_IMAGE"
+            DEPLOY_IMAGE="$SOURCE_IMAGE"
             case "$DEPLOY_IMAGE" in
-              ledgerly-server:deploy-*) ;;
+              "$EXPECTED_IMAGE_PREFIX":*|"$EXPECTED_IMAGE_PREFIX"@sha256:*) ;;
               *) echo "invalid deployment image: $DEPLOY_IMAGE" >&2; exit 1 ;;
             esac
             docker image inspect "$DEPLOY_IMAGE" >/dev/null
