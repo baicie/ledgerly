@@ -7,6 +7,7 @@ on:
       - "server/**"
       - "infrastructure/docker/docker-compose.prod.yml"
       - "infrastructure/docker/docker-compose.vm.yml"
+      - "infrastructure/docker/env.prod.example"
       - "infrastructure/docker/env.vm.example"
       - "scripts/tests/server_image_smoke_test.sh"
       - ".github/workflows/deploy-server.yml"
