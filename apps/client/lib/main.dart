@@ -21,7 +21,6 @@ void main() {
         buildDefault: ApiEndpoint.environmentDefault,
         isRelease: kReleaseMode,
         isWeb: kIsWeb,
-        webOrigin: kIsWeb ? Uri.base : null,
       ),
     ),
   );

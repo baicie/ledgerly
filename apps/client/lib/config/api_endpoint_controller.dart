@@ -44,18 +44,15 @@ class ApiEndpointController extends ChangeNotifier {
     required String buildDefault,
     required bool isRelease,
     required bool isWeb,
-    Uri? webOrigin,
   })  : _store = store,
         _buildDefault = buildDefault,
         _isRelease = isRelease,
-        _isWeb = isWeb,
-        _webOrigin = webOrigin;
+        _isWeb = isWeb;
 
   final ApiEndpointStore _store;
   final String _buildDefault;
   final bool _isRelease;
   final bool _isWeb;
-  final Uri? _webOrigin;
   ApiEndpointState _state = const ApiEndpointState.loading();
 
   ApiEndpointState get state => _state;
@@ -86,7 +83,6 @@ class ApiEndpointController extends ChangeNotifier {
         configured: configured,
         isRelease: _isRelease,
         isWeb: _isWeb,
-        webOrigin: _webOrigin,
       );
       _setState(ApiEndpointState.ready(endpoint));
     } on FormatException catch (error) {
@@ -102,7 +98,6 @@ class ApiEndpointController extends ChangeNotifier {
       configured: value,
       isRelease: _isRelease,
       isWeb: _isWeb,
-      webOrigin: _webOrigin,
     );
   }
 
