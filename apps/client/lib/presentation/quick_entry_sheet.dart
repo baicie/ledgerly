@@ -19,6 +19,7 @@ class QuickEntrySheet extends ConsumerStatefulWidget {
 
 class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
   final _note = TextEditingController();
+  final _noteFocus = FocusNode();
   var _mode = QuickEntryMode.expense;
   var _amount = '0';
   String? _categoryId;
@@ -27,20 +28,38 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
   var _busy = false;
 
   @override
+  void initState() {
+    super.initState();
+    _noteFocus.addListener(_handleNoteFocus);
+  }
+
+  @override
   void dispose() {
+    _noteFocus
+      ..removeListener(_handleNoteFocus)
+      ..dispose();
     _note.dispose();
     super.dispose();
+  }
+
+  void _handleNoteFocus() {
+    if (mounted) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     final balances = ref.watch(accountBalancesProvider);
+    final shortViewport = MediaQuery.sizeOf(context).height < 600;
     return Material(
       color: LedgerlyColors.surface,
+      clipBehavior: Clip.antiAlias,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       child: SafeArea(
         top: false,
         child: balances.when(
-          data: _buildForm,
+          data: (rows) => _buildForm(rows, shortViewport: shortViewport),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => Center(child: Text('账户加载失败：$error')),
         ),
@@ -48,7 +67,10 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
     );
   }
 
-  Widget _buildForm(List<AccountBalanceRow> rows) {
+  Widget _buildForm(
+    List<AccountBalanceRow> rows, {
+    required bool shortViewport,
+  }) {
     final categories = rows
         .where((row) =>
             row.type == (_mode == QuickEntryMode.income ? 'income' : 'expense'))
@@ -67,17 +89,27 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 12, 4),
+          padding: shortViewport
+              ? const EdgeInsets.fromLTRB(12, 0, 4, 0)
+              : const EdgeInsets.fromLTRB(16, 6, 8, 0),
           child: Row(
             children: [
               Expanded(
                 child: Text(
                   '记一笔',
-                  style: Theme.of(context).textTheme.headlineSmall,
+                  style: shortViewport
+                      ? Theme.of(context).textTheme.titleMedium
+                      : Theme.of(context).textTheme.titleLarge,
                 ),
               ),
               IconButton(
                 tooltip: '关闭',
+                visualDensity: shortViewport
+                    ? VisualDensity.compact
+                    : VisualDensity.standard,
+                constraints: shortViewport
+                    ? const BoxConstraints.tightFor(width: 40, height: 40)
+                    : null,
                 onPressed: () => Navigator.maybePop(context),
                 icon: const Icon(Icons.close),
               ),
@@ -85,7 +117,8 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: EdgeInsets.fromLTRB(
+              12, shortViewport ? 0 : 4, 12, shortViewport ? 0 : 4),
           child: SizedBox(
             width: double.infinity,
             child: SegmentedButton<QuickEntryMode>(
@@ -98,6 +131,7 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
               selected: {_mode},
               showSelectedIcon: false,
               onSelectionChanged: (selection) {
+                _noteFocus.unfocus();
                 setState(() {
                   _mode = selection.single;
                   _categoryId = null;
@@ -107,37 +141,44 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 6),
+          padding: shortViewport
+              ? const EdgeInsets.fromLTRB(16, 1, 16, 1)
+              : const EdgeInsets.fromLTRB(16, 4, 16, 4),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                _modeLabel,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 2),
+              if (!shortViewport) ...[
+                Text(
+                  _modeLabel,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 1),
+              ],
               FittedBox(
                 fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
+                alignment: Alignment.center,
                 child: Text(
                   _displayAmount,
                   style: TextStyle(
                     color: _modeColor,
-                    fontSize: 48,
+                    fontSize: shortViewport ? 32 : 40,
                     height: 1.05,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
-              Divider(color: _modeColor, thickness: 2),
+              SizedBox(height: shortViewport ? 1 : 4),
+              SizedBox(
+                width: 44,
+                child: Divider(color: _modeColor, thickness: 2),
+              ),
             ],
           ),
         ),
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+            padding: const EdgeInsets.fromLTRB(12, 2, 12, 6),
             child: Material(
               color: LedgerlyColors.surface,
               clipBehavior: Clip.antiAlias,
@@ -182,14 +223,19 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
                     ),
                   const Divider(indent: 16, endIndent: 16),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
                     child: TextField(
+                      key: const Key('quick-entry-note'),
                       controller: _note,
+                      focusNode: _noteFocus,
                       maxLength: 120,
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => _noteFocus.unfocus(),
                       decoration: const InputDecoration(
-                        labelText: '备注（可选）',
-                        prefixIcon: Icon(Icons.bookmark_border),
+                        hintText: '添加备注（可选）',
+                        prefixIcon: Icon(Icons.edit_note_outlined, size: 20),
                         counterText: '',
+                        isDense: true,
                       ),
                     ),
                   ),
@@ -198,9 +244,16 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
             ),
           ),
         ),
-        QuickEntryKeypad(onDigit: _enter, onBackspace: _backspace),
+        if (!_noteFocus.hasFocus)
+          QuickEntryKeypad(
+            compact: shortViewport,
+            onDigit: _enter,
+            onBackspace: _backspace,
+          ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+          padding: shortViewport
+              ? const EdgeInsets.fromLTRB(12, 4, 12, 4)
+              : const EdgeInsets.fromLTRB(12, 8, 12, 10),
           child: SizedBox(
             width: double.infinity,
             child: FilledButton.icon(

@@ -1,9 +1,23 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+
+import '../config/api_endpoint.dart';
 
 class SyncApi {
-  SyncApi({required Dio dio}) : _dio = dio;
+  SyncApi({
+    required Dio dio,
+    Dio? uploadDio,
+    bool isRelease = kReleaseMode,
+    bool isWeb = kIsWeb,
+  })  : _dio = dio,
+        _uploadDio = uploadDio ?? Dio(),
+        _isRelease = isRelease,
+        _isWeb = isWeb;
 
   final Dio _dio;
+  final Dio _uploadDio;
+  final bool _isRelease;
+  final bool _isWeb;
 
   Future<Map<String, dynamic>> push({
     required String bookId,
@@ -124,8 +138,13 @@ class SyncApi {
     required String uploadUrl,
     required List<int> bytes,
   }) async {
-    await Dio().put(
+    final uri = ApiEndpoint.validateResourceUrl(
       uploadUrl,
+      isRelease: _isRelease,
+      isWeb: _isWeb,
+    );
+    await _uploadDio.put(
+      uri.toString(),
       data: bytes,
       options: Options(
         headers: {

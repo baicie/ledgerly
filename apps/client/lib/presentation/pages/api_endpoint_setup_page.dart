@@ -114,7 +114,9 @@ class _ApiEndpointSetupPageState extends State<ApiEndpointSetupPage> {
                           onSubmitted: (_) => _save(),
                           decoration: InputDecoration(
                             labelText: 'API 地址（选填）',
-                            hintText: 'https://your-server.example',
+                            hintText: '192.168.1.10:8080',
+                            helperText: '原生端支持局域网 IP；留空则仅本地存储',
+                            helperMaxLines: 2,
                             prefixIcon: const Icon(Icons.dns_outlined),
                             border: const OutlineInputBorder(),
                             errorText: _errorText,

@@ -5,10 +5,12 @@ import '../design/ledgerly_theme.dart';
 class QuickEntryKeypad extends StatelessWidget {
   const QuickEntryKeypad({
     super.key,
+    this.compact = false,
     required this.onDigit,
     required this.onBackspace,
   });
 
+  final bool compact;
   final ValueChanged<String> onDigit;
   final VoidCallback onBackspace;
 
@@ -21,9 +23,9 @@ class QuickEntryKeypad extends StatelessWidget {
       ['.', '0', 'backspace'],
     ];
     return Container(
-      height: 196,
+      height: compact ? 128 : 168,
       decoration: const BoxDecoration(
-        color: LedgerlyColors.canvas,
+        color: LedgerlyColors.surface,
         border: Border(top: BorderSide(color: LedgerlyColors.divider)),
       ),
       child: Column(

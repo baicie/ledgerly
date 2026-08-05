@@ -87,6 +87,111 @@ void main() {
       expect(endpoint.baseUrl, 'https://api.example:8443');
     });
 
+    test('release native accepts a private network HTTP address', () {
+      final endpoint = ApiEndpoint.resolve(
+        configured: 'http://192.168.1.24:8080',
+        isRelease: true,
+        isWeb: false,
+      );
+
+      expect(endpoint.baseUrl, 'http://192.168.1.24:8080');
+    });
+
+    test('release native accepts private and link-local address ranges', () {
+      for (final value in [
+        'http://10.0.0.1:8080',
+        'http://172.16.0.1:8080',
+        'http://172.31.255.254:8080',
+        'http://192.168.255.254:8080',
+        'http://169.254.1.1:8080',
+        'http://[fd00::1]:8080',
+        'http://[fe80::1]:8080',
+      ]) {
+        expect(
+          ApiEndpoint.resolve(
+            configured: value,
+            isRelease: true,
+            isWeb: false,
+          ).uri.scheme,
+          'http',
+          reason: value,
+        );
+      }
+    });
+
+    test('release rejects HTTP just outside private address ranges', () {
+      for (final value in [
+        'http://9.255.255.255:8080',
+        'http://11.0.0.0:8080',
+        'http://172.15.255.255:8080',
+        'http://172.32.0.0:8080',
+        'http://192.167.255.255:8080',
+        'http://192.169.0.0:8080',
+        'http://169.253.255.255:8080',
+        'http://169.255.0.0:8080',
+        'http://[fbff::1]:8080',
+        'http://[fec0::1]:8080',
+      ]) {
+        expect(
+          () => ApiEndpoint.resolve(
+            configured: value,
+            isRelease: true,
+            isWeb: false,
+          ),
+          throwsFormatException,
+          reason: value,
+        );
+      }
+    });
+
+    test('release web rejects private network HTTP addresses', () {
+      expect(
+        () => ApiEndpoint.resolve(
+          configured: 'http://192.168.1.24:8080',
+          isRelease: true,
+          isWeb: true,
+        ),
+        throwsFormatException,
+      );
+    });
+
+    test('resource URLs use the same release transport policy', () {
+      expect(
+        ApiEndpoint.validateResourceUrl(
+          'https://storage.example/upload?id=one',
+          isRelease: true,
+          isWeb: false,
+        ).path,
+        '/upload',
+      );
+      expect(
+        ApiEndpoint.validateResourceUrl(
+          'http://192.168.1.24:8080/upload?id=one',
+          isRelease: true,
+          isWeb: false,
+        ).host,
+        '192.168.1.24',
+      );
+      expect(
+        () => ApiEndpoint.validateResourceUrl(
+          'http://storage.example/upload?id=one',
+          isRelease: true,
+          isWeb: false,
+        ),
+        throwsFormatException,
+      );
+    });
+
+    test('release native adds HTTP to a private IPv4 address', () {
+      final endpoint = ApiEndpoint.resolve(
+        configured: '192.168.1.24:8080',
+        isRelease: true,
+        isWeb: false,
+      );
+
+      expect(endpoint.baseUrl, 'http://192.168.1.24:8080');
+    });
+
     test('rejects credentials, query, fragment, and non-root path', () {
       for (final value in [
         'https://user:pass@api.example',

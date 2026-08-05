@@ -25,8 +25,10 @@ class QuickEntrySelectionField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-      leading: LedgerlyIconBadge(icon: icon, color: color, size: 38),
+      dense: true,
+      minTileHeight: 58,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14),
+      leading: LedgerlyIconBadge(icon: icon, color: color, size: 34),
       title: Text(label, style: Theme.of(context).textTheme.bodyMedium),
       subtitle: Text(
         value,
@@ -34,7 +36,7 @@ class QuickEntrySelectionField extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      trailing: const Icon(Icons.chevron_right),
+      trailing: const Icon(Icons.chevron_right, size: 20),
       enabled: onTap != null,
       onTap: onTap,
     );

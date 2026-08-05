@@ -14,7 +14,6 @@ class SettingsPage extends ConsumerStatefulWidget {
 }
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
-  bool appLock = false;
   bool _loggingOut = false;
   bool _changingEndpoint = false;
 
@@ -112,45 +111,24 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final session = ref.watch(authControllerProvider).state.session;
     final endpoint = ref.watch(apiEndpointProvider);
     final isLocal = endpoint == null;
     return Scaffold(
       body: SafeArea(
         child: SettingsContent(
           isLocal: isLocal,
-          planLabel: _planLabel(session?.plan),
           endpointLabel: endpoint?.baseUrl ?? '未设置（仅本地存储）',
-          appLock: appLock,
           loggingOut: _loggingOut,
           changingEndpoint: _changingEndpoint,
           onChangeEndpoint: _changingEndpoint ? null : _changeEndpoint,
-          onAppLockChanged: (value) => setState(() => appLock = value),
           onSync: isLocal ? null : () => context.go('/settings/sync'),
           onConflicts: isLocal ? null : () => context.go('/settings/conflicts'),
           onExport: () => context.go('/settings/export'),
           onCategories: () => context.go('/settings/categories'),
-          onSubscription:
-              isLocal ? null : () => context.go('/settings/subscription'),
-          onFx: isLocal ? null : () => context.go('/settings/fx'),
-          onFamily: isLocal ? null : () => context.go('/settings/family'),
           onBudgets: isLocal ? null : () => context.go('/settings/budgets'),
-          onRecurring: isLocal ? null : () => context.go('/settings/recurring'),
-          onAttachments:
-              isLocal ? null : () => context.go('/settings/attachments'),
           onLogout: _loggingOut || _changingEndpoint ? null : _confirmLogout,
         ),
       ),
     );
-  }
-
-  String _planLabel(String? plan) {
-    return switch (plan) {
-      'free' => 'Free',
-      'plus' => 'Plus',
-      'family' => 'Family',
-      final value? when value.isNotEmpty => value,
-      _ => '未知',
-    };
   }
 }
