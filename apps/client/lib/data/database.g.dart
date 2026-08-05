@@ -307,8 +307,15 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
   late final GeneratedColumn<String> currencyCode = GeneratedColumn<String>(
       'currency_code', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _parentAccountIdMeta =
+      const VerificationMeta('parentAccountId');
   @override
-  List<GeneratedColumn> get $columns => [id, bookId, name, type, currencyCode];
+  late final GeneratedColumn<String> parentAccountId = GeneratedColumn<String>(
+      'parent_account_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, bookId, name, type, currencyCode, parentAccountId];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -350,6 +357,12 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
     } else if (isInserting) {
       context.missing(_currencyCodeMeta);
     }
+    if (data.containsKey('parent_account_id')) {
+      context.handle(
+          _parentAccountIdMeta,
+          parentAccountId.isAcceptableOrUnknown(
+              data['parent_account_id']!, _parentAccountIdMeta));
+    }
     return context;
   }
 
@@ -369,6 +382,8 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
           .read(DriftSqlType.string, data['${effectivePrefix}type'])!,
       currencyCode: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}currency_code'])!,
+      parentAccountId: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}parent_account_id']),
     );
   }
 
@@ -384,12 +399,14 @@ class Account extends DataClass implements Insertable<Account> {
   final String name;
   final String type;
   final String currencyCode;
+  final String? parentAccountId;
   const Account(
       {required this.id,
       required this.bookId,
       required this.name,
       required this.type,
-      required this.currencyCode});
+      required this.currencyCode,
+      this.parentAccountId});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -398,6 +415,9 @@ class Account extends DataClass implements Insertable<Account> {
     map['name'] = Variable<String>(name);
     map['type'] = Variable<String>(type);
     map['currency_code'] = Variable<String>(currencyCode);
+    if (!nullToAbsent || parentAccountId != null) {
+      map['parent_account_id'] = Variable<String>(parentAccountId);
+    }
     return map;
   }
 
@@ -408,6 +428,9 @@ class Account extends DataClass implements Insertable<Account> {
       name: Value(name),
       type: Value(type),
       currencyCode: Value(currencyCode),
+      parentAccountId: parentAccountId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parentAccountId),
     );
   }
 
@@ -420,6 +443,7 @@ class Account extends DataClass implements Insertable<Account> {
       name: serializer.fromJson<String>(json['name']),
       type: serializer.fromJson<String>(json['type']),
       currencyCode: serializer.fromJson<String>(json['currencyCode']),
+      parentAccountId: serializer.fromJson<String?>(json['parentAccountId']),
     );
   }
   @override
@@ -431,6 +455,7 @@ class Account extends DataClass implements Insertable<Account> {
       'name': serializer.toJson<String>(name),
       'type': serializer.toJson<String>(type),
       'currencyCode': serializer.toJson<String>(currencyCode),
+      'parentAccountId': serializer.toJson<String?>(parentAccountId),
     };
   }
 
@@ -439,13 +464,17 @@ class Account extends DataClass implements Insertable<Account> {
           String? bookId,
           String? name,
           String? type,
-          String? currencyCode}) =>
+          String? currencyCode,
+          Value<String?> parentAccountId = const Value.absent()}) =>
       Account(
         id: id ?? this.id,
         bookId: bookId ?? this.bookId,
         name: name ?? this.name,
         type: type ?? this.type,
         currencyCode: currencyCode ?? this.currencyCode,
+        parentAccountId: parentAccountId.present
+            ? parentAccountId.value
+            : this.parentAccountId,
       );
   Account copyWithCompanion(AccountsCompanion data) {
     return Account(
@@ -456,6 +485,9 @@ class Account extends DataClass implements Insertable<Account> {
       currencyCode: data.currencyCode.present
           ? data.currencyCode.value
           : this.currencyCode,
+      parentAccountId: data.parentAccountId.present
+          ? data.parentAccountId.value
+          : this.parentAccountId,
     );
   }
 
@@ -466,13 +498,15 @@ class Account extends DataClass implements Insertable<Account> {
           ..write('bookId: $bookId, ')
           ..write('name: $name, ')
           ..write('type: $type, ')
-          ..write('currencyCode: $currencyCode')
+          ..write('currencyCode: $currencyCode, ')
+          ..write('parentAccountId: $parentAccountId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, bookId, name, type, currencyCode);
+  int get hashCode =>
+      Object.hash(id, bookId, name, type, currencyCode, parentAccountId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -481,7 +515,8 @@ class Account extends DataClass implements Insertable<Account> {
           other.bookId == this.bookId &&
           other.name == this.name &&
           other.type == this.type &&
-          other.currencyCode == this.currencyCode);
+          other.currencyCode == this.currencyCode &&
+          other.parentAccountId == this.parentAccountId);
 }
 
 class AccountsCompanion extends UpdateCompanion<Account> {
@@ -490,6 +525,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
   final Value<String> name;
   final Value<String> type;
   final Value<String> currencyCode;
+  final Value<String?> parentAccountId;
   final Value<int> rowid;
   const AccountsCompanion({
     this.id = const Value.absent(),
@@ -497,6 +533,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     this.name = const Value.absent(),
     this.type = const Value.absent(),
     this.currencyCode = const Value.absent(),
+    this.parentAccountId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AccountsCompanion.insert({
@@ -505,6 +542,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     required String name,
     required String type,
     required String currencyCode,
+    this.parentAccountId = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         bookId = Value(bookId),
@@ -517,6 +555,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     Expression<String>? name,
     Expression<String>? type,
     Expression<String>? currencyCode,
+    Expression<String>? parentAccountId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -525,6 +564,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
       if (name != null) 'name': name,
       if (type != null) 'type': type,
       if (currencyCode != null) 'currency_code': currencyCode,
+      if (parentAccountId != null) 'parent_account_id': parentAccountId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -535,6 +575,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
       Value<String>? name,
       Value<String>? type,
       Value<String>? currencyCode,
+      Value<String?>? parentAccountId,
       Value<int>? rowid}) {
     return AccountsCompanion(
       id: id ?? this.id,
@@ -542,6 +583,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
       name: name ?? this.name,
       type: type ?? this.type,
       currencyCode: currencyCode ?? this.currencyCode,
+      parentAccountId: parentAccountId ?? this.parentAccountId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -564,6 +606,9 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     if (currencyCode.present) {
       map['currency_code'] = Variable<String>(currencyCode.value);
     }
+    if (parentAccountId.present) {
+      map['parent_account_id'] = Variable<String>(parentAccountId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -578,6 +623,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
           ..write('name: $name, ')
           ..write('type: $type, ')
           ..write('currencyCode: $currencyCode, ')
+          ..write('parentAccountId: $parentAccountId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2751,6 +2797,7 @@ typedef $$AccountsTableCreateCompanionBuilder = AccountsCompanion Function({
   required String name,
   required String type,
   required String currencyCode,
+  Value<String?> parentAccountId,
   Value<int> rowid,
 });
 typedef $$AccountsTableUpdateCompanionBuilder = AccountsCompanion Function({
@@ -2759,6 +2806,7 @@ typedef $$AccountsTableUpdateCompanionBuilder = AccountsCompanion Function({
   Value<String> name,
   Value<String> type,
   Value<String> currencyCode,
+  Value<String?> parentAccountId,
   Value<int> rowid,
 });
 
@@ -2785,6 +2833,10 @@ class $$AccountsTableFilterComposer
 
   ColumnFilters<String> get currencyCode => $composableBuilder(
       column: $table.currencyCode, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get parentAccountId => $composableBuilder(
+      column: $table.parentAccountId,
+      builder: (column) => ColumnFilters(column));
 }
 
 class $$AccountsTableOrderingComposer
@@ -2811,6 +2863,10 @@ class $$AccountsTableOrderingComposer
   ColumnOrderings<String> get currencyCode => $composableBuilder(
       column: $table.currencyCode,
       builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get parentAccountId => $composableBuilder(
+      column: $table.parentAccountId,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$AccountsTableAnnotationComposer
@@ -2836,6 +2892,9 @@ class $$AccountsTableAnnotationComposer
 
   GeneratedColumn<String> get currencyCode => $composableBuilder(
       column: $table.currencyCode, builder: (column) => column);
+
+  GeneratedColumn<String> get parentAccountId => $composableBuilder(
+      column: $table.parentAccountId, builder: (column) => column);
 }
 
 class $$AccountsTableTableManager extends RootTableManager<
@@ -2866,6 +2925,7 @@ class $$AccountsTableTableManager extends RootTableManager<
             Value<String> name = const Value.absent(),
             Value<String> type = const Value.absent(),
             Value<String> currencyCode = const Value.absent(),
+            Value<String?> parentAccountId = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               AccountsCompanion(
@@ -2874,6 +2934,7 @@ class $$AccountsTableTableManager extends RootTableManager<
             name: name,
             type: type,
             currencyCode: currencyCode,
+            parentAccountId: parentAccountId,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -2882,6 +2943,7 @@ class $$AccountsTableTableManager extends RootTableManager<
             required String name,
             required String type,
             required String currencyCode,
+            Value<String?> parentAccountId = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               AccountsCompanion.insert(
@@ -2890,6 +2952,7 @@ class $$AccountsTableTableManager extends RootTableManager<
             name: name,
             type: type,
             currencyCode: currencyCode,
+            parentAccountId: parentAccountId,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0

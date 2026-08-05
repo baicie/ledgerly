@@ -384,7 +384,8 @@ async fn register_login_and_sync_push_pull() {
                 "payload": {
                     "name": "Coffee",
                     "accountType": "expense",
-                    "currency": "CNY"
+                    "currency": "CNY",
+                    "parentAccountId": food
                 }
             },
             {
@@ -655,11 +656,17 @@ async fn register_login_and_sync_push_pull() {
     assert!(pull["changes"].as_array().unwrap().len() >= 2);
     assert!(pull["changes"].as_array().unwrap().iter().any(|change| {
         change["entityType"] == "account"
+            && change["entityId"] == format!("{book_id}:acc_food_meals")
+            && change["payload"]["parentAccountId"] == food
+    }));
+    assert!(pull["changes"].as_array().unwrap().iter().any(|change| {
+        change["entityType"] == "account"
             && change["entityId"] == format!("{book_id}:category_coffee")
             && change["version"] == 3
             && change["payload"]["name"] == "Coffee Final"
             && change["payload"]["accountType"] == "expense"
             && change["payload"]["currency"] == "CNY"
+            && change["payload"]["parentAccountId"] == food
     }));
 
     let res = app
@@ -684,6 +691,7 @@ async fn register_login_and_sync_push_pull() {
                 && account["name"] == "Coffee Final"
                 && account["accountType"] == "expense"
                 && account["currency"] == "CNY"
+                && account["parentAccountId"] == food
         }));
 }
 

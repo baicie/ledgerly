@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/ledger_repository.dart';
-import '../category_editor_dialog.dart';
 import '../design/ledgerly_theme.dart';
 import '../providers.dart';
 import '../widgets/ledgerly_finance.dart';
 import '../widgets/ledgerly_layout.dart';
+import 'category_editor_page.dart';
 
 class CategoriesPage extends ConsumerStatefulWidget {
   const CategoriesPage({super.key});
@@ -20,18 +20,23 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
 
   String get _typeLabel => _type == 'income' ? '收入' : '支出';
 
-  Future<void> _addCategory() async {
-    await showCategoryEditorDialog(context: context, type: _type);
-  }
-
-  Future<void> _editCategory(CategoryAccountRow category) async {
-    await showCategoryEditorDialog(
+  Future<void> _openEditor({
+    CategoryAccountRow? category,
+    String? initialParentId,
+  }) async {
+    final type = category?.type ?? _type;
+    final categories = await ref.read(categoryAccountsProvider(type).future);
+    if (!mounted) return;
+    await showCategoryEditorPage(
       context: context,
-      type: category.type,
-      categoryId: category.id,
-      initialName: localizedLedgerName(category.name),
+      type: type,
+      categories: categories,
+      category: category,
+      initialParentId: initialParentId,
     );
   }
+
+  Future<void> _addCategory() => _openEditor();
 
   @override
   Widget build(BuildContext context) {
@@ -87,45 +92,71 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
               ),
             ),
             categories.when(
-              data: (rows) => SliverPadding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                sliver: SliverToBoxAdapter(
-                  child: LedgerlySection(
-                    title: '$_typeLabel分类',
-                    trailing: Text(
-                      '${rows.length} 项',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    padding: const EdgeInsets.fromLTRB(0, 16, 0, 4),
-                    headerPadding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: rows.isEmpty
-                        ? LedgerlyEmptyState(
-                            icon: Icons.category_outlined,
-                            title: '还没有$_typeLabel分类',
-                            message: '新建一个分类后即可开始记账。',
-                            action: FilledButton.icon(
-                              onPressed: _addCategory,
-                              icon: const Icon(Icons.add_rounded),
-                              label: const Text('新建分类'),
-                            ),
-                          )
-                        : Column(
-                            children: [
-                              for (var index = 0;
-                                  index < rows.length;
-                                  index++) ...[
-                                if (index > 0)
-                                  const Divider(indent: 70, endIndent: 16),
-                                _CategoryTile(
-                                  category: rows[index],
-                                  onEdit: () => _editCategory(rows[index]),
-                                ),
+              data: (rows) {
+                final byId = {for (final row in rows) row.id: row};
+                final roots = rows
+                    .where(
+                      (row) =>
+                          row.parentAccountId == null ||
+                          !byId.containsKey(row.parentAccountId),
+                    )
+                    .toList();
+                final secondLevelCount =
+                    rows.where((row) => row.parentAccountId != null).length;
+                return SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  sliver: SliverToBoxAdapter(
+                    child: LedgerlySection(
+                      title: '$_typeLabel分类',
+                      trailing: Text(
+                        '${roots.length} 个一级 · $secondLevelCount 个二级',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      padding: const EdgeInsets.fromLTRB(0, 16, 0, 4),
+                      headerPadding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: rows.isEmpty
+                          ? LedgerlyEmptyState(
+                              icon: Icons.category_outlined,
+                              title: '还没有$_typeLabel分类',
+                              message: '新建一级分类后即可继续添加二级分类。',
+                              action: FilledButton.icon(
+                                onPressed: _addCategory,
+                                icon: const Icon(Icons.add_rounded),
+                                label: const Text('新建分类'),
+                              ),
+                            )
+                          : Column(
+                              children: [
+                                for (var index = 0;
+                                    index < roots.length;
+                                    index++) ...[
+                                  if (index > 0) const Divider(height: 1),
+                                  _CategoryGroup(
+                                    category: roots[index],
+                                    children: rows
+                                        .where(
+                                          (row) =>
+                                              row.parentAccountId ==
+                                              roots[index].id,
+                                        )
+                                        .toList(),
+                                    onAddChild: () => _openEditor(
+                                      initialParentId: roots[index].id,
+                                    ),
+                                    onEdit: () => _openEditor(
+                                      category: roots[index],
+                                    ),
+                                    onEditChild: (category) => _openEditor(
+                                      category: category,
+                                    ),
+                                  ),
+                                ],
                               ],
-                            ],
-                          ),
+                            ),
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
               loading: () => const SliverFillRemaining(
                 hasScrollBody: false,
                 child: Center(child: CircularProgressIndicator()),
@@ -164,8 +195,83 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
   }
 }
 
-class _CategoryTile extends StatelessWidget {
-  const _CategoryTile({required this.category, required this.onEdit});
+class _CategoryGroup extends StatelessWidget {
+  const _CategoryGroup({
+    required this.category,
+    required this.children,
+    required this.onAddChild,
+    required this.onEdit,
+    required this.onEditChild,
+  });
+
+  final CategoryAccountRow category;
+  final List<CategoryAccountRow> children;
+  final VoidCallback onAddChild;
+  final VoidCallback onEdit;
+  final ValueChanged<CategoryAccountRow> onEditChild;
+
+  @override
+  Widget build(BuildContext context) {
+    final kind = category.type == 'income'
+        ? TransactionSummaryKind.income
+        : TransactionSummaryKind.expense;
+    final color = ledgerColorFor(category.name, kind: kind);
+    return Column(
+      children: [
+        ColoredBox(
+          color: color.withValues(alpha: 0.06),
+          child: ListTile(
+            key: Key('category-root-${category.id}'),
+            minTileHeight: 72,
+            contentPadding: const EdgeInsets.fromLTRB(16, 4, 4, 4),
+            leading: LedgerlyIconBadge(
+              icon: ledgerIconFor(category.name, kind: kind),
+              color: color,
+            ),
+            title: Text(
+              localizedLedgerName(category.name),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Text(
+              children.isEmpty ? '暂无二级分类' : '${children.length} 个二级分类',
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  key: Key('category-add-child-${category.id}'),
+                  tooltip: '在${localizedLedgerName(category.name)}下新增二级分类',
+                  onPressed: onAddChild,
+                  icon: const Icon(Icons.add_rounded),
+                ),
+                IconButton(
+                  key: Key('edit-category-${category.id}'),
+                  tooltip: '编辑${localizedLedgerName(category.name)}',
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit_outlined),
+                ),
+              ],
+            ),
+          ),
+        ),
+        for (var index = 0; index < children.length; index++) ...[
+          if (index > 0) const Divider(indent: 82, endIndent: 16),
+          _SecondLevelCategoryTile(
+            category: children[index],
+            onEdit: () => onEditChild(children[index]),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _SecondLevelCategoryTile extends StatelessWidget {
+  const _SecondLevelCategoryTile({
+    required this.category,
+    required this.onEdit,
+  });
 
   final CategoryAccountRow category;
   final VoidCallback onEdit;
@@ -177,17 +283,19 @@ class _CategoryTile extends StatelessWidget {
         : TransactionSummaryKind.expense;
     final color = ledgerColorFor(category.name, kind: kind);
     return ListTile(
-      minTileHeight: 68,
-      contentPadding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+      minTileHeight: 58,
+      contentPadding: const EdgeInsets.fromLTRB(36, 2, 8, 2),
       leading: LedgerlyIconBadge(
         icon: ledgerIconFor(category.name, kind: kind),
         color: color,
+        size: 34,
       ),
       title: Text(
         localizedLedgerName(category.name),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
+      subtitle: const Text('二级分类'),
       trailing: IconButton(
         key: Key('edit-category-${category.id}'),
         tooltip: '编辑${localizedLedgerName(category.name)}',

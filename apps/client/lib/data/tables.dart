@@ -16,6 +16,7 @@ class Accounts extends Table {
   TextColumn get name => text()();
   TextColumn get type => text()();
   TextColumn get currencyCode => text()();
+  TextColumn get parentAccountId => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

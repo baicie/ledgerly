@@ -15,6 +15,11 @@ use crate::error::ApiError;
 use crate::state::{AccountRecord, AppState, ChangeRecord, MutationReceipt, TxRecord};
 use crate::transport::http::authz::{require_book_member, AuthUser};
 
+// Separate advisory-lock roles so hash collisions can only add contention, not invert lock order.
+const ACCOUNT_MUTATION_LOCK_NAMESPACE: i32 = 0x4C41_0001;
+const ACCOUNT_HIERARCHY_LOCK_NAMESPACE: i32 = 0x4C41_0002;
+const ACCOUNT_ENTITY_LOCK_NAMESPACE: i32 = 0x4C41_0003;
+
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/v1/books/{book_id}/sync/push", post(push))
@@ -33,6 +38,8 @@ struct AccountPayload {
     name: String,
     account_type: String,
     currency: String,
+    // Missing preserves the existing parent; explicit null moves to the root.
+    parent_account_id: Option<Option<String>>,
 }
 
 fn parse_account_payload(
@@ -87,11 +94,82 @@ fn parse_account_payload(
         return Err(rejected_receipt(mutation, "INVALID_PAYLOAD", None));
     }
 
+    let parent_account_id = match mutation.payload.get("parentAccountId") {
+        None => None,
+        Some(serde_json::Value::Null) => Some(None),
+        Some(serde_json::Value::String(parent_id))
+            if parent_id.starts_with(&scoped_prefix) && parent_id.len() > scoped_prefix.len() =>
+        {
+            Some(Some(parent_id.clone()))
+        }
+        Some(_) => return Err(rejected_receipt(mutation, "INVALID_PAYLOAD", None)),
+    };
+
     Ok(AccountPayload {
         name: name.to_string(),
         account_type: account_type.to_string(),
         currency: currency.to_string(),
+        parent_account_id,
     })
+}
+
+async fn valid_account_parent_pg(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    book_id: &str,
+    account_id: &str,
+    account_type: &str,
+    parent_account_id: Option<&str>,
+) -> Result<bool, sqlx::Error> {
+    let Some(parent_id) = parent_account_id else {
+        return Ok(true);
+    };
+    if !matches!(account_type, "expense" | "income") || parent_id == account_id {
+        return Ok(false);
+    }
+    let parent: Option<(String, String, Option<String>)> = sqlx::query_as(
+        "SELECT book_id, account_type, parent_account_id
+         FROM accounts WHERE id=$1",
+    )
+    .bind(parent_id)
+    .fetch_optional(&mut **tx)
+    .await?;
+    let Some((parent_book_id, parent_type, grandparent_id)) = parent else {
+        return Ok(false);
+    };
+    if parent_book_id != book_id || parent_type != account_type || grandparent_id.is_some() {
+        return Ok(false);
+    }
+    let child_count: (i64,) =
+        sqlx::query_as("SELECT COUNT(*)::bigint FROM accounts WHERE parent_account_id=$1")
+            .bind(account_id)
+            .fetch_one(&mut **tx)
+            .await?;
+    Ok(child_count.0 == 0)
+}
+
+fn valid_account_parent_mem(
+    store: &crate::state::MemoryStore,
+    book_id: &str,
+    account_id: &str,
+    account_type: &str,
+    parent_account_id: Option<&str>,
+) -> bool {
+    let Some(parent_id) = parent_account_id else {
+        return true;
+    };
+    if !matches!(account_type, "expense" | "income") || parent_id == account_id {
+        return false;
+    }
+    let Some(parent) = store.accounts.get(parent_id) else {
+        return false;
+    };
+    parent.book_id == book_id
+        && parent.account_type == account_type
+        && parent.parent_account_id.is_none()
+        && !store
+            .accounts
+            .values()
+            .any(|account| account.parent_account_id.as_deref() == Some(account_id))
 }
 
 async fn push(
@@ -499,7 +577,8 @@ async fn process_account_mutation_pg(
 
     let result: Result<MutationReceiptDto, sqlx::Error> = async {
         let mutation_lock_key = format!("{book_id}:mutation:{device_id}:{}", mutation.mutation_id);
-        sqlx::query("SELECT pg_advisory_xact_lock(hashtext($1))")
+        sqlx::query("SELECT pg_advisory_xact_lock($1, hashtext($2))")
+            .bind(ACCOUNT_MUTATION_LOCK_NAMESPACE)
             .bind(mutation_lock_key)
             .execute(&mut *tx)
             .await?;
@@ -534,42 +613,80 @@ async fn process_account_mutation_pg(
             }
         };
 
+        let hierarchy_lock_key = format!("{book_id}:account-hierarchy");
+        sqlx::query("SELECT pg_advisory_xact_lock($1, hashtext($2))")
+            .bind(ACCOUNT_HIERARCHY_LOCK_NAMESPACE)
+            .bind(hierarchy_lock_key)
+            .execute(&mut *tx)
+            .await?;
+
         let account_lock_key = format!("{book_id}:account:{}", mutation.entity_id);
-        sqlx::query("SELECT pg_advisory_xact_lock(hashtext($1))")
+        sqlx::query("SELECT pg_advisory_xact_lock($1, hashtext($2))")
+            .bind(ACCOUNT_ENTITY_LOCK_NAMESPACE)
             .bind(account_lock_key)
             .execute(&mut *tx)
             .await?;
 
-        let existing: Option<(String, i64, String, String)> = sqlx::query_as(
-            "SELECT book_id, version, account_type, currency_code
+        let existing: Option<(String, i64, String, String, Option<String>)> = sqlx::query_as(
+            "SELECT book_id, version, account_type, currency_code, parent_account_id
              FROM accounts WHERE id=$1 FOR UPDATE",
         )
         .bind(&mutation.entity_id)
         .fetch_optional(&mut *tx)
         .await?;
 
-        let (version, account_type, currency) = if mutation.operation == "create" {
-            if let Some((_, version, _, _)) = existing {
+        let (version, account_type, currency, parent_account_id) = if mutation.operation == "create"
+        {
+            if let Some((_, version, _, _, _)) = existing {
                 let receipt = rejected_receipt(mutation, "LEDGER_VERSION_CONFLICT", Some(version));
+                insert_pg_receipt(&mut tx, book_id, device_id, &receipt).await?;
+                tx.commit().await?;
+                return Ok(receipt);
+            }
+            let parent_account_id = payload.parent_account_id.clone().flatten();
+            if !valid_account_parent_pg(
+                &mut tx,
+                book_id,
+                &mutation.entity_id,
+                &payload.account_type,
+                parent_account_id.as_deref(),
+            )
+            .await?
+            {
+                let receipt = rejected_receipt(mutation, "INVALID_CATEGORY_PARENT", None);
                 insert_pg_receipt(&mut tx, book_id, device_id, &receipt).await?;
                 tx.commit().await?;
                 return Ok(receipt);
             }
             sqlx::query(
                 "INSERT INTO accounts
-                 (id, book_id, name, account_type, currency_code, version)
-                 VALUES ($1,$2,$3,$4,$5,1)",
+                 (id, book_id, name, account_type, currency_code,
+                  parent_account_id, version)
+                 VALUES ($1,$2,$3,$4,$5,$6,1)",
             )
             .bind(&mutation.entity_id)
             .bind(book_id)
             .bind(&payload.name)
             .bind(&payload.account_type)
             .bind(&payload.currency)
+            .bind(&parent_account_id)
             .execute(&mut *tx)
             .await?;
-            (1, payload.account_type.clone(), payload.currency.clone())
+            (
+                1,
+                payload.account_type.clone(),
+                payload.currency.clone(),
+                parent_account_id,
+            )
         } else {
-            let Some((existing_book_id, current_version, account_type, currency)) = existing else {
+            let Some((
+                existing_book_id,
+                current_version,
+                account_type,
+                currency,
+                current_parent_account_id,
+            )) = existing
+            else {
                 let receipt = rejected_receipt(mutation, "ACCOUNT_NOT_FOUND", None);
                 insert_pg_receipt(&mut tx, book_id, device_id, &receipt).await?;
                 tx.commit().await?;
@@ -581,21 +698,45 @@ async fn process_account_mutation_pg(
                 tx.commit().await?;
                 return Ok(receipt);
             }
+            let parent_account_id = payload
+                .parent_account_id
+                .clone()
+                .unwrap_or(current_parent_account_id);
+            if !valid_account_parent_pg(
+                &mut tx,
+                book_id,
+                &mutation.entity_id,
+                &account_type,
+                parent_account_id.as_deref(),
+            )
+            .await?
+            {
+                let receipt = rejected_receipt(mutation, "INVALID_CATEGORY_PARENT", None);
+                insert_pg_receipt(&mut tx, book_id, device_id, &receipt).await?;
+                tx.commit().await?;
+                return Ok(receipt);
+            }
             let version = current_version + 1;
-            sqlx::query("UPDATE accounts SET name=$1, version=$2 WHERE id=$3 AND book_id=$4")
-                .bind(&payload.name)
-                .bind(version)
-                .bind(&mutation.entity_id)
-                .bind(book_id)
-                .execute(&mut *tx)
-                .await?;
-            (version, account_type, currency)
+            sqlx::query(
+                "UPDATE accounts
+                 SET name=$1, parent_account_id=$2, version=$3
+                 WHERE id=$4 AND book_id=$5",
+            )
+            .bind(&payload.name)
+            .bind(&parent_account_id)
+            .bind(version)
+            .bind(&mutation.entity_id)
+            .bind(book_id)
+            .execute(&mut *tx)
+            .await?;
+            (version, account_type, currency, parent_account_id)
         };
 
         let canonical_payload = serde_json::json!({
             "name": payload.name,
             "accountType": account_type,
             "currency": currency,
+            "parentAccountId": parent_account_id,
         });
         sqlx::query(
             "INSERT INTO sync_changes
@@ -804,9 +945,20 @@ async fn process_account_mutation_mem(
     };
 
     let mut store = state.store.write().await;
-    let (version, account_type, currency) = if mutation.operation == "create" {
-        if let Some(existing) = store.accounts.get(&mutation.entity_id) {
+    let existing = store.accounts.get(&mutation.entity_id).cloned();
+    let (version, account_type, currency, parent_account_id) = if mutation.operation == "create" {
+        if let Some(existing) = existing {
             return rejected_receipt(mutation, "LEDGER_VERSION_CONFLICT", Some(existing.version));
+        }
+        let parent_account_id = payload.parent_account_id.clone().flatten();
+        if !valid_account_parent_mem(
+            &store,
+            book_id,
+            &mutation.entity_id,
+            &payload.account_type,
+            parent_account_id.as_deref(),
+        ) {
+            return rejected_receipt(mutation, "INVALID_CATEGORY_PARENT", None);
         }
         store.accounts.insert(
             mutation.entity_id.clone(),
@@ -816,23 +968,40 @@ async fn process_account_mutation_mem(
                 name: payload.name.clone(),
                 account_type: payload.account_type.clone(),
                 currency: payload.currency.clone(),
+                parent_account_id: parent_account_id.clone(),
                 version: 1,
             },
         );
-        (1, payload.account_type, payload.currency)
+        (1, payload.account_type, payload.currency, parent_account_id)
     } else {
-        let Some(account) = store.accounts.get_mut(&mutation.entity_id) else {
+        let Some(existing) = existing else {
             return rejected_receipt(mutation, "ACCOUNT_NOT_FOUND", None);
         };
-        if account.book_id != book_id {
+        if existing.book_id != book_id {
             return rejected_receipt(mutation, "ACCOUNT_NOT_FOUND", None);
         }
+        let parent_account_id = payload
+            .parent_account_id
+            .clone()
+            .unwrap_or(existing.parent_account_id);
+        if !valid_account_parent_mem(
+            &store,
+            book_id,
+            &mutation.entity_id,
+            &existing.account_type,
+            parent_account_id.as_deref(),
+        ) {
+            return rejected_receipt(mutation, "INVALID_CATEGORY_PARENT", None);
+        }
+        let account = store.accounts.get_mut(&mutation.entity_id).unwrap();
         account.name = payload.name.clone();
+        account.parent_account_id = parent_account_id.clone();
         account.version += 1;
         (
             account.version,
             account.account_type.clone(),
             account.currency.clone(),
+            parent_account_id,
         )
     };
 
@@ -840,6 +1009,7 @@ async fn process_account_mutation_mem(
         "name": payload.name,
         "accountType": account_type,
         "currency": currency,
+        "parentAccountId": parent_account_id,
     });
     let sequence = (store.changes.len() as i64) + 1;
     store.changes.push(ChangeRecord {
@@ -1011,8 +1181,8 @@ async fn bootstrap(
         .fetch_all(pool)
         .await
         .map_err(db_err)?;
-        let accounts: Vec<(String, i64, String, String, String)> = sqlx::query_as(
-            "SELECT id, version, name, account_type, currency_code
+        let accounts: Vec<(String, i64, String, String, String, Option<String>)> = sqlx::query_as(
+            "SELECT id, version, name, account_type, currency_code, parent_account_id
              FROM accounts WHERE book_id=$1 ORDER BY id",
         )
         .bind(&book_id)
@@ -1041,12 +1211,13 @@ async fn bootstrap(
         return Ok(Json(serde_json::json!({
             "bootstrapId": Uuid::now_v7().to_string(),
             "highWaterCursor": high.0.to_string(),
-            "accounts": accounts.iter().map(|(id, version, name, account_type, currency)| serde_json::json!({
+            "accounts": accounts.iter().map(|(id, version, name, account_type, currency, parent_account_id)| serde_json::json!({
                 "id": id,
                 "version": version,
                 "name": name,
                 "accountType": account_type,
                 "currency": currency,
+                "parentAccountId": parent_account_id,
             })).collect::<Vec<_>>(),
             "transactions": out,
         })));
@@ -1084,6 +1255,7 @@ async fn bootstrap(
                 "name": account.name,
                 "accountType": account.account_type,
                 "currency": account.currency,
+                "parentAccountId": account.parent_account_id,
             })
         })
         .collect::<Vec<_>>();
@@ -1265,6 +1437,192 @@ mod tests {
         }
     }
 
+    #[test]
+    fn account_payload_distinguishes_missing_null_and_present_parent() {
+        let missing = account_mutation(
+            "missing-parent",
+            "book-1:child",
+            "update",
+            1,
+            "Child",
+            "expense",
+            "CNY",
+        );
+        assert_eq!(
+            parse_account_payload("book-1", &missing)
+                .unwrap()
+                .parent_account_id,
+            None,
+        );
+
+        let mut null_parent = account_mutation(
+            "null-parent",
+            "book-1:child",
+            "update",
+            1,
+            "Child",
+            "expense",
+            "CNY",
+        );
+        null_parent.payload["parentAccountId"] = serde_json::Value::Null;
+        assert_eq!(
+            parse_account_payload("book-1", &null_parent)
+                .unwrap()
+                .parent_account_id,
+            Some(None),
+        );
+
+        let mut present_parent = account_mutation(
+            "present-parent",
+            "book-1:child",
+            "update",
+            1,
+            "Child",
+            "expense",
+            "CNY",
+        );
+        present_parent.payload["parentAccountId"] = json!("book-1:root");
+        assert_eq!(
+            parse_account_payload("book-1", &present_parent)
+                .unwrap()
+                .parent_account_id,
+            Some(Some("book-1:root".into())),
+        );
+    }
+
+    #[tokio::test]
+    async fn memory_categories_enforce_two_levels_and_compatible_updates() {
+        let state = AppState::new(Config::for_test());
+        {
+            let mut store = state.store.write().await;
+            store.accounts.insert(
+                "book-1:root".into(),
+                AccountRecord {
+                    id: "book-1:root".into(),
+                    book_id: "book-1".into(),
+                    name: "Root".into(),
+                    account_type: "expense".into(),
+                    currency: "CNY".into(),
+                    parent_account_id: None,
+                    version: 1,
+                },
+            );
+        }
+
+        let mut child = account_mutation(
+            "create-child",
+            "book-1:child",
+            "create",
+            0,
+            "Child",
+            "expense",
+            "CNY",
+        );
+        child.payload["parentAccountId"] = json!("book-1:root");
+        let receipt = process_account_mutation_mem(&state, "book-1", &child).await;
+        assert_eq!(receipt.status, "applied");
+        assert_eq!(
+            state
+                .store
+                .read()
+                .await
+                .accounts
+                .get("book-1:child")
+                .unwrap()
+                .parent_account_id
+                .as_deref(),
+            Some("book-1:root"),
+        );
+
+        let mut grandchild = account_mutation(
+            "create-grandchild",
+            "book-1:grandchild",
+            "create",
+            0,
+            "Grandchild",
+            "expense",
+            "CNY",
+        );
+        grandchild.payload["parentAccountId"] = json!("book-1:child");
+        assert_eq!(
+            process_account_mutation_mem(&state, "book-1", &grandchild)
+                .await
+                .result_code,
+            "INVALID_CATEGORY_PARENT",
+        );
+
+        let mut cross_type = account_mutation(
+            "cross-type",
+            "book-1:cross-type",
+            "create",
+            0,
+            "Cross Type",
+            "income",
+            "CNY",
+        );
+        cross_type.payload["parentAccountId"] = json!("book-1:root");
+        assert_eq!(
+            process_account_mutation_mem(&state, "book-1", &cross_type)
+                .await
+                .result_code,
+            "INVALID_CATEGORY_PARENT",
+        );
+
+        let old_client_update = account_mutation(
+            "old-client-update",
+            "book-1:child",
+            "update",
+            1,
+            "Renamed Child",
+            "expense",
+            "CNY",
+        );
+        assert_eq!(
+            process_account_mutation_mem(&state, "book-1", &old_client_update)
+                .await
+                .status,
+            "applied",
+        );
+        assert_eq!(
+            state
+                .store
+                .read()
+                .await
+                .accounts
+                .get("book-1:child")
+                .unwrap()
+                .parent_account_id
+                .as_deref(),
+            Some("book-1:root"),
+        );
+
+        let mut move_to_root = account_mutation(
+            "move-to-root",
+            "book-1:child",
+            "update",
+            2,
+            "Renamed Child",
+            "expense",
+            "CNY",
+        );
+        move_to_root.payload["parentAccountId"] = serde_json::Value::Null;
+        assert_eq!(
+            process_account_mutation_mem(&state, "book-1", &move_to_root)
+                .await
+                .status,
+            "applied",
+        );
+        assert!(state
+            .store
+            .read()
+            .await
+            .accounts
+            .get("book-1:child")
+            .unwrap()
+            .parent_account_id
+            .is_none());
+    }
+
     #[tokio::test]
     async fn memory_account_updates_are_last_writer_wins_and_preserve_classification() {
         let state = AppState::new(Config::for_test());
@@ -1362,6 +1720,7 @@ mod tests {
                         name: "Account".into(),
                         account_type: "expense".into(),
                         currency: "CNY".into(),
+                        parent_account_id: None,
                         version: 1,
                     },
                 );

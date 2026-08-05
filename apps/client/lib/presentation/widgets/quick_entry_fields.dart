@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../category_editor_dialog.dart';
 import '../design/ledgerly_theme.dart';
+import '../pages/category_editor_page.dart';
 import '../providers.dart';
 import 'ledgerly_finance.dart';
 
@@ -88,6 +88,17 @@ class _QuickEntryPickerState extends ConsumerState<_QuickEntryPicker> {
 
   bool get _isCategoryPicker => widget.categoryType != null;
 
+  List<CategoryAccountRow> get _categoryRows => _rows
+      .map(
+        (row) => CategoryAccountRow(
+          id: row.id,
+          name: row.name,
+          type: row.type,
+          parentAccountId: row.parentAccountId,
+        ),
+      )
+      .toList();
+
   @override
   void initState() {
     super.initState();
@@ -95,9 +106,10 @@ class _QuickEntryPickerState extends ConsumerState<_QuickEntryPicker> {
   }
 
   Future<void> _addCategory() async {
-    final categoryId = await showCategoryEditorDialog(
+    final categoryId = await showCategoryEditorPage(
       context: context,
       type: widget.categoryType!,
+      categories: _categoryRows,
     );
     if (categoryId != null && mounted) {
       Navigator.pop(context, categoryId);
@@ -105,11 +117,12 @@ class _QuickEntryPickerState extends ConsumerState<_QuickEntryPicker> {
   }
 
   Future<void> _editCategory(AccountBalanceRow row) async {
-    final categoryId = await showCategoryEditorDialog(
+    final categories = _categoryRows;
+    final categoryId = await showCategoryEditorPage(
       context: context,
       type: widget.categoryType!,
-      categoryId: row.id,
-      initialName: localizedLedgerName(row.name),
+      categories: categories,
+      category: categories.firstWhere((category) => category.id == row.id),
     );
     if (categoryId == null || !mounted) return;
 
@@ -125,6 +138,7 @@ class _QuickEntryPickerState extends ConsumerState<_QuickEntryPicker> {
               name: category.name,
               type: category.type,
               balance: BigInt.zero,
+              parentAccountId: category.parentAccountId,
             ),
           )
           .toList();
@@ -135,11 +149,10 @@ class _QuickEntryPickerState extends ConsumerState<_QuickEntryPicker> {
   Widget build(BuildContext context) {
     final maxHeight = MediaQuery.sizeOf(context).height * 0.72;
     final gridRows = (_rows.length + 2) ~/ 3;
-    final desiredHeight =
-        100.0 + (gridRows * 112.0) + (_isCategoryPicker ? 72.0 : 0.0);
-    final height = desiredHeight
-        .clamp(_isCategoryPicker ? 320.0 : 220.0, maxHeight)
-        .toDouble();
+    final desiredHeight = _isCategoryPicker
+        ? 540.0
+        : (100.0 + (gridRows * 112.0)).clamp(220.0, 540.0).toDouble();
+    final height = desiredHeight > maxHeight ? maxHeight : desiredHeight;
     return SizedBox(
       height: height,
       child: Column(
@@ -192,23 +205,26 @@ class _QuickEntryPickerState extends ConsumerState<_QuickEntryPicker> {
                       ],
                     ),
                   )
-                : LayoutBuilder(
-                    builder: (context, constraints) {
-                      final columns = constraints.maxWidth >= 480 ? 4 : 3;
-                      return GridView.builder(
-                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-                        itemCount: _rows.length,
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: columns,
-                          mainAxisExtent: 104,
-                          mainAxisSpacing: 8,
-                          crossAxisSpacing: 8,
-                        ),
-                        itemBuilder: (context, index) =>
-                            _buildCategoryTile(_rows[index]),
-                      );
-                    },
-                  ),
+                : _isCategoryPicker
+                    ? _buildCategoryList()
+                    : LayoutBuilder(
+                        builder: (context, constraints) {
+                          final columns = constraints.maxWidth >= 480 ? 4 : 3;
+                          return GridView.builder(
+                            padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                            itemCount: _rows.length,
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: columns,
+                              mainAxisExtent: 104,
+                              mainAxisSpacing: 8,
+                              crossAxisSpacing: 8,
+                            ),
+                            itemBuilder: (context, index) =>
+                                _buildGridTile(_rows[index]),
+                          );
+                        },
+                      ),
           ),
           if (_isCategoryPicker)
             Padding(
@@ -225,7 +241,80 @@ class _QuickEntryPickerState extends ConsumerState<_QuickEntryPicker> {
     );
   }
 
-  Widget _buildCategoryTile(AccountBalanceRow row) {
+  Widget _buildCategoryList() {
+    final rows = _orderedCategoryRows();
+    final byId = {for (final row in rows) row.id: row};
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      itemCount: rows.length,
+      separatorBuilder: (context, index) => const Divider(
+        indent: 74,
+        endIndent: 20,
+        height: 1,
+      ),
+      itemBuilder: (context, index) {
+        final row = rows[index];
+        final parent = byId[row.parentAccountId];
+        final selected = row.id == widget.selectedId;
+        final color = ledgerColorFor(row.name);
+        final name = localizedLedgerName(row.name);
+        return ListTile(
+          key: Key('quick-category-${row.id}'),
+          minTileHeight: 58,
+          contentPadding: EdgeInsets.fromLTRB(
+            parent == null ? 20 : 40,
+            2,
+            20,
+            2,
+          ),
+          leading: LedgerlyIconBadge(
+            icon: ledgerIconFor(row.name),
+            color: color,
+            size: parent == null ? 38 : 34,
+          ),
+          title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: Text(
+            parent == null
+                ? '一级分类'
+                : '${localizedLedgerName(parent.name)} · 二级分类',
+          ),
+          selected: selected,
+          selectedTileColor: LedgerlyColors.actionSurface,
+          onTap: () =>
+              _editing ? _editCategory(row) : Navigator.pop(context, row.id),
+          trailing: Icon(
+            _editing
+                ? Icons.edit_outlined
+                : selected
+                    ? Icons.check_circle_rounded
+                    : Icons.chevron_right_rounded,
+            color: selected ? LedgerlyColors.actionStrong : null,
+          ),
+        );
+      },
+    );
+  }
+
+  List<AccountBalanceRow> _orderedCategoryRows() {
+    final byId = {for (final row in _rows) row.id: row};
+    final roots = _rows
+        .where(
+          (row) =>
+              row.parentAccountId == null ||
+              !byId.containsKey(row.parentAccountId),
+        )
+        .toList();
+    final result = <AccountBalanceRow>[];
+    for (final root in roots) {
+      result.add(root);
+      result.addAll(
+        _rows.where((row) => row.parentAccountId == root.id),
+      );
+    }
+    return result;
+  }
+
+  Widget _buildGridTile(AccountBalanceRow row) {
     final selected = row.id == widget.selectedId;
     final color = ledgerColorFor(row.name);
     final name = localizedLedgerName(row.name);

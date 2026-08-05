@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:ledger_domain/ledger_domain.dart' as domain;
 
+import '../domain/default_categories.dart';
 import '../domain/ids.dart';
 import 'database.dart';
 
@@ -24,7 +25,7 @@ class LedgerRepository {
   Future<String> get deviceId => _deviceId ??= _deviceIdLoader();
 
   Future<void> seedIfEmpty() async {
-    final books = await _db.select(_db.books).get();
+    var books = await _db.select(_db.books).get();
     final currentDeviceId = await deviceId;
     if (books.isNotEmpty) {
       await _db.update(_db.syncStates).write(
@@ -33,44 +34,75 @@ class LedgerRepository {
       await _db.update(_db.pendingMutations).write(
             PendingMutationsCompanion(deviceId: Value(currentDeviceId)),
           );
-      return;
-    }
-
-    final bookId = defaultBookId;
-    final now = DateTime.now().toUtc();
-    await _db.into(_db.books).insert(
-          BooksCompanion.insert(
-            id: bookId,
-            name: 'Personal',
-            currencyCode: 'CNY',
-            createdAt: now,
-          ),
-        );
-
-    Future<void> account(String id, String name, String type) {
-      return _db.into(_db.accounts).insert(
-            AccountsCompanion.insert(
-              id: id,
-              bookId: bookId,
-              name: name,
-              type: type,
+    } else {
+      final bookId = defaultBookId;
+      final now = DateTime.now().toUtc();
+      await _db.into(_db.books).insert(
+            BooksCompanion.insert(
+              id: bookId,
+              name: 'Personal',
               currencyCode: 'CNY',
+              createdAt: now,
             ),
           );
+      await _insertAccountIfMissing(
+        id: accountKeyCash(bookId),
+        bookId: bookId,
+        name: 'Cash',
+        type: 'asset',
+      );
+      await _insertAccountIfMissing(
+        id: accountKeyBank(bookId),
+        bookId: bookId,
+        name: 'Bank',
+        type: 'asset',
+      );
+      await _db.into(_db.syncStates).insert(
+            SyncStatesCompanion.insert(
+              bookId: bookId,
+              deviceId: currentDeviceId,
+              updatedAt: now,
+            ),
+          );
+      books = await _db.select(_db.books).get();
     }
 
-    await account(accountKeyCash(bookId), 'Cash', 'asset');
-    await account(accountKeyBank(bookId), 'Bank', 'asset');
-    await account(accountKeyFood(bookId), 'Food', 'expense');
-    await account(accountKeyTransport(bookId), 'Transport', 'expense');
-    await account(accountKeySalary(bookId), 'Salary', 'income');
+    for (final book in books) {
+      await _ensureDefaultCategories(book.id);
+    }
+  }
 
-    await _db.into(_db.syncStates).insert(
-          SyncStatesCompanion.insert(
+  Future<void> _ensureDefaultCategories(String bookId) async {
+    for (final category in defaultCategoryDefinitions) {
+      final parentKey = category.parentKey;
+      await _insertAccountIfMissing(
+        id: accountId(bookId, category.key),
+        bookId: bookId,
+        name: category.name,
+        type: category.type,
+        parentAccountId:
+            parentKey == null ? null : accountId(bookId, parentKey),
+      );
+    }
+  }
+
+  Future<void> _insertAccountIfMissing({
+    required String id,
+    required String bookId,
+    required String name,
+    required String type,
+    String? parentAccountId,
+  }) {
+    return _db.into(_db.accounts).insert(
+          AccountsCompanion.insert(
+            id: id,
             bookId: bookId,
-            deviceId: currentDeviceId,
-            updatedAt: now,
+            name: name,
+            type: type,
+            currencyCode: 'CNY',
+            parentAccountId: Value(parentAccountId),
           ),
+          mode: InsertMode.insertOrIgnore,
         );
   }
 
@@ -93,6 +125,7 @@ class LedgerRepository {
     required String bookId,
     required String name,
     required String type,
+    String? parentAccountId,
   }) {
     return _db.into(_db.accounts).insertOnConflictUpdate(
           AccountsCompanion.insert(
@@ -101,6 +134,7 @@ class LedgerRepository {
             name: name,
             type: type,
             currencyCode: 'CNY',
+            parentAccountId: Value(parentAccountId),
           ),
         );
   }
@@ -111,6 +145,7 @@ class LedgerRepository {
     required String name,
     required String type,
     String currencyCode = 'CNY',
+    String? parentAccountId,
   }) async {
     final currentDeviceId = await deviceId;
     final createdAt = DateTime.now().toUtc();
@@ -122,6 +157,7 @@ class LedgerRepository {
               name: name,
               type: type,
               currencyCode: currencyCode,
+              parentAccountId: Value(parentAccountId),
             ),
           );
       await _queueAccountMutation(
@@ -133,6 +169,7 @@ class LedgerRepository {
         name: name,
         type: type,
         currencyCode: currencyCode,
+        parentAccountId: parentAccountId,
         createdAt: createdAt,
       );
     });
@@ -160,6 +197,41 @@ class LedgerRepository {
         name: name,
         type: account.type,
         currencyCode: account.currencyCode,
+        parentAccountId: account.parentAccountId,
+        createdAt: DateTime.now().toUtc(),
+      );
+    });
+  }
+
+  Future<void> updateLocalCategory({
+    required String id,
+    required String name,
+    required String? parentAccountId,
+  }) async {
+    final currentDeviceId = await deviceId;
+    await _db.transaction(() async {
+      final account = await (_db.select(_db.accounts)
+            ..where((table) => table.id.equals(id)))
+          .getSingleOrNull();
+      if (account == null) throw StateError('account not found');
+
+      await (_db.update(_db.accounts)..where((table) => table.id.equals(id)))
+          .write(
+        AccountsCompanion(
+          name: Value(name),
+          parentAccountId: Value(parentAccountId),
+        ),
+      );
+      await _queueAccountMutation(
+        mutationId: newId(),
+        bookId: account.bookId,
+        deviceId: currentDeviceId,
+        entityId: account.id,
+        operation: 'update',
+        name: name,
+        type: account.type,
+        currencyCode: account.currencyCode,
+        parentAccountId: parentAccountId,
         createdAt: DateTime.now().toUtc(),
       );
     });
@@ -174,6 +246,7 @@ class LedgerRepository {
     required String name,
     required String type,
     required String currencyCode,
+    required String? parentAccountId,
     required DateTime createdAt,
   }) {
     return _db.into(_db.pendingMutations).insert(
@@ -189,6 +262,7 @@ class LedgerRepository {
               'name': name,
               'accountType': type,
               'currency': currencyCode,
+              'parentAccountId': parentAccountId,
             }),
             createdAt: createdAt,
           ),
@@ -200,6 +274,9 @@ class LedgerRepository {
     required String bookId,
     required Map<String, dynamic> payload,
   }) {
+    final parentAccountId = payload.containsKey('parentAccountId')
+        ? Value(payload['parentAccountId'] as String?)
+        : const Value<String?>.absent();
     return _db.into(_db.accounts).insertOnConflictUpdate(
           AccountsCompanion.insert(
             id: entityId,
@@ -207,6 +284,7 @@ class LedgerRepository {
             name: payload['name'] as String,
             type: payload['accountType'] as String,
             currencyCode: payload['currency'] as String? ?? 'CNY',
+            parentAccountId: parentAccountId,
           ),
         );
   }
@@ -277,7 +355,8 @@ class LedgerRepository {
         accountName: _firstAccountName(balanceEntries, accountsById),
         categoryAccountId:
             expenseEntries.isEmpty ? null : expenseEntries.first.accountId,
-        accountId: balanceEntries.isEmpty ? null : balanceEntries.first.accountId,
+        accountId:
+            balanceEntries.isEmpty ? null : balanceEntries.first.accountId,
       );
     }
     if (incomeEntries.isNotEmpty) {
@@ -288,7 +367,8 @@ class LedgerRepository {
         accountName: _firstAccountName(balanceEntries, accountsById),
         categoryAccountId:
             incomeEntries.isEmpty ? null : incomeEntries.first.accountId,
-        accountId: balanceEntries.isEmpty ? null : balanceEntries.first.accountId,
+        accountId:
+            balanceEntries.isEmpty ? null : balanceEntries.first.accountId,
       );
     }
     if (balanceEntries.length >= 2) {
@@ -481,7 +561,8 @@ class LedgerRepository {
       });
       final pendingCreate = await (_db.select(_db.pendingMutations)
             ..where(
-              (mutation) => mutation.entityType.equals('transaction') &
+              (mutation) =>
+                  mutation.entityType.equals('transaction') &
                   mutation.entityId.equals(tx.id.value) &
                   mutation.operation.equals('create'),
             ))
@@ -550,6 +631,73 @@ class LedgerRepository {
     await (_db.delete(_db.pendingMutations)
           ..where((t) => t.mutationId.equals(mutationId)))
         .go();
+  }
+
+  Future<void> retryCategoryMutationAsRoot(String mutationId) async {
+    await _db.transaction(() async {
+      final pending = await (_db.select(_db.pendingMutations)
+            ..where((table) => table.mutationId.equals(mutationId)))
+          .getSingleOrNull();
+      if (pending == null) return;
+      if (pending.entityType != 'account') {
+        throw StateError('category repair requires an account mutation');
+      }
+
+      final decoded = jsonDecode(pending.payloadJson);
+      if (decoded is! Map) {
+        throw const FormatException('account payload must be a JSON object');
+      }
+      final payload = Map<String, dynamic>.from(decoded)
+        ..['parentAccountId'] = null;
+
+      final updated = await (_db.update(_db.accounts)
+            ..where((table) => table.id.equals(pending.entityId)))
+          .write(const AccountsCompanion(parentAccountId: Value(null)));
+      if (updated != 1) throw StateError('category not found');
+
+      await (_db.delete(_db.pendingMutations)
+            ..where((table) => table.mutationId.equals(mutationId)))
+          .go();
+      await _db.into(_db.pendingMutations).insert(
+            PendingMutationsCompanion.insert(
+              mutationId: newId(),
+              bookId: pending.bookId,
+              deviceId: pending.deviceId,
+              entityType: pending.entityType,
+              entityId: pending.entityId,
+              operation: pending.operation,
+              baseVersion: pending.baseVersion,
+              payloadJson: jsonEncode(payload),
+              createdAt: pending.createdAt,
+            ),
+          );
+    });
+  }
+
+  Future<void> renewPendingMutation(String mutationId) async {
+    await _db.transaction(() async {
+      final pending = await (_db.select(_db.pendingMutations)
+            ..where((table) => table.mutationId.equals(mutationId)))
+          .getSingleOrNull();
+      if (pending == null) return;
+
+      await (_db.delete(_db.pendingMutations)
+            ..where((table) => table.mutationId.equals(mutationId)))
+          .go();
+      await _db.into(_db.pendingMutations).insert(
+            PendingMutationsCompanion.insert(
+              mutationId: newId(),
+              bookId: pending.bookId,
+              deviceId: pending.deviceId,
+              entityType: pending.entityType,
+              entityId: pending.entityId,
+              operation: pending.operation,
+              baseVersion: pending.baseVersion,
+              payloadJson: pending.payloadJson,
+              createdAt: pending.createdAt,
+            ),
+          );
+    });
   }
 
   Future<SyncState?> syncState(String bookId) {

@@ -43,6 +43,27 @@ class SyncService {
     };
   }
 
+  Map<String, dynamic> _rewriteAccountPayload(
+    Map<String, dynamic> payload,
+    String fromBook,
+    String toBook,
+  ) {
+    if (!payload.containsKey('parentAccountId')) return payload;
+    final parentAccountId = payload['parentAccountId'];
+    if (parentAccountId != null && parentAccountId is! String) {
+      throw const FormatException(
+        'account parentAccountId must be a string or null',
+      );
+    }
+    final rewrittenParent = parentAccountId == null
+        ? null
+        : _rewriteAccountId(parentAccountId, fromBook, toBook);
+    return {
+      ...payload,
+      'parentAccountId': rewrittenParent,
+    };
+  }
+
   Future<SyncRunResult> syncNow({String bookId = defaultBookId}) async {
     try {
       final session = _auth.currentSession;
@@ -65,8 +86,9 @@ class SyncService {
         throw StateError('本地账本已绑定到其他账户，已停止同步。');
       }
 
-      final pending = await _repo.listPending(bookId);
-      if (pending.isNotEmpty) {
+      for (var pushAttempt = 0; pushAttempt < 2; pushAttempt++) {
+        final pending = await _repo.listPending(bookId);
+        if (pending.isEmpty) break;
         final mutations = pending.map((p) {
           final payload = Map<String, dynamic>.from(
             jsonDecode(p.payloadJson) as Map,
@@ -80,9 +102,11 @@ class SyncService {
             'operation': p.operation,
             'baseVersion': p.baseVersion,
             'schemaVersion': 1,
-            'payload': p.operation == 'delete' || p.entityType != 'transaction'
-                ? payload
-                : _rewriteTransactionPayload(payload, bookId, remoteBookId),
+            'payload': p.entityType == 'account'
+                ? _rewriteAccountPayload(payload, bookId, remoteBookId)
+                : p.operation == 'delete'
+                    ? payload
+                    : _rewriteTransactionPayload(payload, bookId, remoteBookId),
           };
         }).toList();
         final push = await _api.push(
@@ -91,6 +115,18 @@ class SyncService {
           mutations: mutations,
         );
         final receipts = (push['receipts'] as List).cast<Map>();
+        final rejectedCategoryEntityIds = <String>{};
+        for (final raw in receipts) {
+          final receipt = Map<String, dynamic>.from(raw);
+          if (receipt['resultCode'] != 'INVALID_CATEGORY_PARENT') continue;
+          final mutationId = receipt['mutationId'] as String?;
+          for (final row in pending) {
+            if (row.mutationId == mutationId && row.entityType == 'account') {
+              rejectedCategoryEntityIds.add(row.entityId);
+              break;
+            }
+          }
+        }
         for (final raw in receipts) {
           final receipt = Map<String, dynamic>.from(raw);
           final mutationId = receipt['mutationId'] as String;
@@ -100,6 +136,17 @@ class SyncService {
               pending.firstWhere((p) => p.mutationId == mutationId);
           if (status == 'applied') {
             await _repo.removePending(mutationId);
+          } else if (code == 'INVALID_CATEGORY_PARENT' &&
+              pendingRow.entityType == 'account') {
+            await _repo.retryCategoryMutationAsRoot(mutationId);
+          } else if (code == 'ACCOUNT_NOT_FOUND' &&
+              pendingRow.entityType == 'account' &&
+              rejectedCategoryEntityIds.contains(pendingRow.entityId)) {
+            await _repo.retryCategoryMutationAsRoot(mutationId);
+          } else if (code == 'ACCOUNT_NOT_FOUND' &&
+              rejectedCategoryEntityIds.isNotEmpty &&
+              pendingRow.entityType == 'transaction') {
+            await _repo.renewPendingMutation(mutationId);
           } else if (code == 'LEDGER_VERSION_CONFLICT' ||
               code == 'LEDGER_UNBALANCED' ||
               code == 'UNSUPPORTED_MUTATION' ||
@@ -116,13 +163,13 @@ class SyncService {
             throw StateError('push rejected $mutationId: $status/$code');
           }
         }
-      }
-
-      final remainingAfterPush = await _repo.listPending(bookId);
-      if (remainingAfterPush.isNotEmpty) {
-        throw StateError(
-          'push incomplete: ${remainingAfterPush.length} pending remain',
-        );
+        final remainingAfterPush = await _repo.listPending(bookId);
+        if (remainingAfterPush.isEmpty) break;
+        if (pushAttempt == 1) {
+          throw StateError(
+            'push incomplete: ${remainingAfterPush.length} pending remain',
+          );
+        }
       }
 
       final pull = await _api.pull(bookId: remoteBookId, cursor: cursor);
@@ -136,10 +183,15 @@ class SyncService {
             remoteBookId,
             bookId,
           );
+          final payload = _rewriteAccountPayload(
+            Map<String, dynamic>.from(change['payload'] as Map),
+            remoteBookId,
+            bookId,
+          );
           await _repo.applyRemoteAccountUpsert(
             entityId: localAccountId,
             bookId: bookId,
-            payload: Map<String, dynamic>.from(change['payload'] as Map),
+            payload: payload,
           );
           continue;
         }

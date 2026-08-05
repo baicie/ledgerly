@@ -14,6 +14,7 @@ import '../data/database.dart';
 import '../data/ledger_repository.dart';
 import '../data/sync_api.dart';
 import '../domain/ids.dart';
+import '../domain/default_categories.dart';
 
 final databaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
@@ -115,11 +116,13 @@ class AccountBalanceRow {
     required this.name,
     required this.type,
     required this.balance,
+    this.parentAccountId,
   });
   final String id;
   final String name;
   final String type;
   final BigInt balance;
+  final String? parentAccountId;
 }
 
 class CategoryAccountRow {
@@ -127,11 +130,13 @@ class CategoryAccountRow {
     required this.id,
     required this.name,
     required this.type,
+    this.parentAccountId,
   });
 
   final String id;
   final String name;
   final String type;
+  final String? parentAccountId;
 }
 
 final categoryAccountsProvider =
@@ -139,15 +144,33 @@ final categoryAccountsProvider =
   final repo = ref.watch(ledgerRepositoryProvider);
   await repo.seedIfEmpty();
   final accounts = await repo.listCategories(defaultBookId, type);
-  return accounts
+  final rows = accounts
       .map(
         (account) => CategoryAccountRow(
           id: account.id,
           name: account.name,
           type: account.type,
+          parentAccountId: account.parentAccountId,
         ),
       )
       .toList();
+  final byId = {for (final row in rows) row.id: row};
+  rows.sort((left, right) {
+    final leftRoot = byId[left.parentAccountId] ?? left;
+    final rightRoot = byId[right.parentAccountId] ?? right;
+    final rootOrder = defaultCategorySortOrder(leftRoot.name)
+        .compareTo(defaultCategorySortOrder(rightRoot.name));
+    if (rootOrder != 0) return rootOrder;
+    if (left.parentAccountId == null && right.parentAccountId != null) {
+      return -1;
+    }
+    if (left.parentAccountId != null && right.parentAccountId == null) return 1;
+    final categoryOrder = defaultCategorySortOrder(left.name)
+        .compareTo(defaultCategorySortOrder(right.name));
+    if (categoryOrder != 0) return categoryOrder;
+    return left.name.compareTo(right.name);
+  });
+  return rows;
 });
 
 final accountBalancesProvider =
@@ -164,6 +187,7 @@ final accountBalancesProvider =
         name: a.name,
         type: a.type,
         balance: await repo.accountBalance(a.id),
+        parentAccountId: a.parentAccountId,
       ),
     );
   }

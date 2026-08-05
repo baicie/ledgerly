@@ -1,7 +1,7 @@
 name: ledgerly_client
 description: Ledgerly Flutter client (local-first).
 publish_to: none
-version: 0.0.8+8
+version: 0.0.9+9
 resolution: workspace
 
 environment:

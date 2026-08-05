@@ -1,6 +1,7 @@
+import 'dart:convert';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'dart:convert';
 import 'package:ledgerly_client/application/ledger_app_service.dart';
 import 'package:ledgerly_client/data/database.dart';
 import 'package:ledgerly_client/data/ledger_repository.dart';
@@ -23,6 +24,77 @@ void main() {
 
   tearDown(() => database.close());
 
+  test('seeds a stable two-level default category taxonomy', () async {
+    final categories = (await repository.listAccounts(defaultBookId))
+        .where(
+          (account) => account.type == 'expense' || account.type == 'income',
+        )
+        .toList();
+    final byId = {for (final category in categories) category.id: category};
+    final foodId = accountId(defaultBookId, 'acc_food');
+    final mealsId = accountId(defaultBookId, 'acc_food_meals');
+    final investmentId = accountId(defaultBookId, 'acc_investment_income');
+    final interestId = accountId(
+      defaultBookId,
+      'acc_investment_income_interest',
+    );
+
+    expect(categories, hasLength(36));
+    expect(byId[foodId]?.parentAccountId, isNull);
+    expect(byId[mealsId]?.parentAccountId, foodId);
+    expect(byId[investmentId]?.parentAccountId, isNull);
+    expect(byId[interestId]?.parentAccountId, investmentId);
+  });
+
+  test('backfills new defaults without overwriting an existing category',
+      () async {
+    await database.close();
+    database = AppDatabase.forTesting(NativeDatabase.memory());
+    await database.into(database.books).insert(
+          BooksCompanion.insert(
+            id: defaultBookId,
+            name: 'Personal',
+            currencyCode: 'CNY',
+            createdAt: DateTime.utc(2026),
+          ),
+        );
+    await database.into(database.accounts).insert(
+          AccountsCompanion.insert(
+            id: accountKeyFood(defaultBookId),
+            bookId: defaultBookId,
+            name: '家庭餐食',
+            type: 'expense',
+            currencyCode: 'CNY',
+          ),
+        );
+    repository = LedgerRepository(
+      database,
+      deviceIdLoader: () async => 'category-test-device',
+    );
+
+    await repository.seedIfEmpty();
+    await repository.seedIfEmpty();
+
+    final categories = await repository.listCategories(
+      defaultBookId,
+      'expense',
+    );
+    expect(
+      categories
+          .singleWhere(
+            (category) => category.id == accountKeyFood(defaultBookId),
+          )
+          .name,
+      '家庭餐食',
+    );
+    expect(
+      categories.where(
+        (category) => category.id == accountId(defaultBookId, 'acc_food_meals'),
+      ),
+      hasLength(1),
+    );
+  });
+
   test('creates an expense category with a trimmed name', () async {
     final categoryId = await service.createCategory(
       name: '  日常用品  ',
@@ -34,13 +106,59 @@ void main() {
     final created =
         categories.singleWhere((account) => account.id == categoryId);
     expect(created.name, '日常用品');
+    expect(created.parentAccountId, isNull);
+  });
+
+  test('creates a second-level category below a matching root', () async {
+    final categoryId = await service.createCategory(
+      name: '工作午餐',
+      type: 'expense',
+      parentCategoryId: accountKeyFood(defaultBookId),
+    );
+
+    final created = (await repository.listCategories(defaultBookId, 'expense'))
+        .singleWhere((category) => category.id == categoryId);
+    expect(created.parentAccountId, accountKeyFood(defaultBookId));
+
+    final pending = await repository.listPending(defaultBookId);
+    expect(jsonDecode(pending.single.payloadJson), {
+      'name': '工作午餐',
+      'accountType': 'expense',
+      'currency': 'CNY',
+      'parentAccountId': accountKeyFood(defaultBookId),
+    });
+  });
+
+  test('rejects a third category level and cross-type parent', () async {
+    final childId = await service.createCategory(
+      name: '工作午餐',
+      type: 'expense',
+      parentCategoryId: accountKeyFood(defaultBookId),
+    );
+
+    expect(
+      () => service.createCategory(
+        name: '周一午餐',
+        type: 'expense',
+        parentCategoryId: childId,
+      ),
+      throwsA(isA<CategoryValidationException>()),
+    );
+    expect(
+      () => service.createCategory(
+        name: '错误收入分类',
+        type: 'income',
+        parentCategoryId: accountKeyFood(defaultBookId),
+      ),
+      throwsA(isA<CategoryValidationException>()),
+    );
   });
 
   test('rejects duplicate names within the same category type', () async {
-    await service.createCategory(name: '奖金', type: 'income');
+    await service.createCategory(name: '专项补贴', type: 'income');
 
     expect(
-      () => service.createCategory(name: ' 奖金 ', type: 'income'),
+      () => service.createCategory(name: ' 专项补贴 ', type: 'income'),
       throwsA(isA<CategoryValidationException>()),
     );
   });
@@ -104,6 +222,7 @@ void main() {
       'name': '宠物用品',
       'accountType': 'expense',
       'currency': 'CNY',
+      'parentAccountId': null,
     });
   });
 
@@ -122,6 +241,7 @@ void main() {
       'name': '项目收入',
       'accountType': 'income',
       'currency': 'CNY',
+      'parentAccountId': null,
     });
   });
 }

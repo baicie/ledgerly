@@ -7,6 +7,7 @@ import 'package:ledgerly_client/data/database.dart';
 import 'package:ledgerly_client/data/ledger_repository.dart';
 import 'package:ledgerly_client/domain/ids.dart';
 import 'package:ledgerly_client/presentation/design/ledgerly_theme.dart';
+import 'package:ledgerly_client/presentation/pages/category_editor_page.dart';
 import 'package:ledgerly_client/presentation/pages/categories_page.dart';
 import 'package:ledgerly_client/presentation/providers.dart';
 
@@ -33,6 +34,8 @@ void main() {
 
     expect(find.text('餐饮'), findsOneWidget);
     expect(find.text('交通'), findsOneWidget);
+    expect(find.text('日常用餐'), findsOneWidget);
+    expect(find.text('公交地铁'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('category-add')));
     await tester.pumpAndSettle();
@@ -44,15 +47,18 @@ void main() {
     await _pumpUntil(
       tester,
       () =>
-          find.byType(AlertDialog).evaluate().isEmpty &&
-          find.text('日常用品').evaluate().isNotEmpty,
+          find.byType(CategoryEditorPage).evaluate().isEmpty &&
+          _categoryListText('日常用品').evaluate().isNotEmpty,
     );
 
     expect(find.text('日常用品'), findsOneWidget);
     final created = (await repository.listCategories(defaultBookId, 'expense'))
         .singleWhere((category) => category.name == '日常用品');
 
-    await tester.tap(find.byKey(Key('edit-category-${created.id}')));
+    final editButton = find.byKey(Key('edit-category-${created.id}'));
+    await tester.ensureVisible(editButton);
+    await tester.pump();
+    await tester.tap(editButton);
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('category-name-input')),
@@ -62,13 +68,43 @@ void main() {
     await _pumpUntil(
       tester,
       () =>
-          find.byType(AlertDialog).evaluate().isEmpty &&
-          find.text('居家用品').evaluate().isNotEmpty &&
-          find.text('日常用品').evaluate().isEmpty,
+          find.byType(CategoryEditorPage).evaluate().isEmpty &&
+          _categoryListText('居家用品').evaluate().isNotEmpty &&
+          _categoryListText('日常用品').evaluate().isEmpty,
     );
 
     expect(find.text('居家用品'), findsOneWidget);
     expect(find.text('日常用品'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('adds a second-level category from its parent group',
+      (tester) async {
+    await _pumpCategoryPage(tester, repository, service);
+    final foodId = accountKeyFood(defaultBookId);
+
+    await tester.tap(find.byKey(Key('category-add-child-$foodId')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CategoryEditorPage), findsOneWidget);
+    expect(find.text('二级分类'), findsWidgets);
+    expect(find.text('餐饮'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const Key('category-name-input')),
+      '工作午餐',
+    );
+    await tester.tap(find.byKey(const Key('category-save')));
+    await _pumpUntil(
+      tester,
+      () =>
+          find.byType(CategoryEditorPage).evaluate().isEmpty &&
+          _categoryListText('工作午餐').evaluate().isNotEmpty,
+    );
+
+    final created = (await repository.listCategories(defaultBookId, 'expense'))
+        .singleWhere((category) => category.name == '工作午餐');
+    expect(created.parentAccountId, foodId);
+    expect(find.byType(CategoryEditorPage), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -103,9 +139,14 @@ void main() {
     );
 
     expect(find.text('同类型下已存在该分类'), findsOneWidget);
-    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.byType(CategoryEditorPage), findsOneWidget);
   });
 }
+
+Finder _categoryListText(String text) => find.descendant(
+      of: find.byType(CategoriesPage),
+      matching: find.text(text),
+    );
 
 Future<void> _pumpCategoryPage(
   WidgetTester tester,

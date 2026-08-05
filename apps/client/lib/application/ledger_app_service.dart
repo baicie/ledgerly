@@ -2,6 +2,7 @@ import 'package:ledger_domain/ledger_domain.dart' as domain;
 
 import '../data/database.dart';
 import '../data/ledger_repository.dart';
+import '../domain/default_categories.dart';
 import '../domain/ids.dart';
 
 class LedgerAppService {
@@ -166,8 +167,7 @@ class LedgerAppService {
     String? description,
   }) async {
     final accounts = await _repo.listAccounts(bookId.value);
-    final from =
-        _asDomain(accounts.firstWhere((a) => a.id == fromAccountId));
+    final from = _asDomain(accounts.firstWhere((a) => a.id == fromAccountId));
     final to = _asDomain(accounts.firstWhere((a) => a.id == toAccountId));
     final tx = factory.transfer(
       id: domain.TransactionId(transactionId),
@@ -207,12 +207,20 @@ class LedgerAppService {
   Future<String> createCategory({
     required String name,
     required String type,
+    String? parentCategoryId,
   }) async {
     _validateCategoryType(type);
     final normalizedName = _normalizeCategoryName(name);
+    final accounts = await _repo.listAccounts(bookId.value);
+    _validateCategoryParent(
+      parentCategoryId: parentCategoryId,
+      categoryType: type,
+      accounts: accounts,
+    );
     await _ensureUniqueCategoryName(
       name: normalizedName,
       type: type,
+      accounts: accounts,
     );
     final id = accountId(bookId.value, _repo.newId());
     await _repo.createLocalAccount(
@@ -220,6 +228,7 @@ class LedgerAppService {
       bookId: bookId.value,
       name: normalizedName,
       type: type,
+      parentAccountId: parentCategoryId,
     );
     return id;
   }
@@ -241,6 +250,42 @@ class LedgerAppService {
       throw const CategoryValidationException('分类不存在');
     }
 
+    await updateCategory(
+      categoryId: category.id,
+      name: name,
+      parentCategoryId: category.parentAccountId,
+    );
+  }
+
+  Future<void> updateCategory({
+    required String categoryId,
+    required String name,
+    required String? parentCategoryId,
+  }) async {
+    final accounts = await _repo.listAccounts(bookId.value);
+    Account? category;
+    for (final account in accounts) {
+      if (account.id == categoryId) {
+        category = account;
+        break;
+      }
+    }
+    if (category == null ||
+        (category.type != 'expense' && category.type != 'income')) {
+      throw const CategoryValidationException('分类不存在');
+    }
+
+    _validateCategoryParent(
+      parentCategoryId: parentCategoryId,
+      categoryType: category.type,
+      categoryId: category.id,
+      accounts: accounts,
+    );
+    if (parentCategoryId != null &&
+        accounts.any((account) => account.parentAccountId == category!.id)) {
+      throw const CategoryValidationException('包含二级分类的一级分类不能改为二级');
+    }
+
     final normalizedName = _normalizeCategoryName(name);
     await _ensureUniqueCategoryName(
       name: normalizedName,
@@ -248,7 +293,11 @@ class LedgerAppService {
       excludingId: category.id,
       accounts: accounts,
     );
-    await _repo.renameLocalAccount(id: category.id, name: normalizedName);
+    await _repo.updateLocalCategory(
+      id: category.id,
+      name: normalizedName,
+      parentAccountId: parentCategoryId,
+    );
   }
 
   String _normalizeCategoryName(String name) {
@@ -265,6 +314,34 @@ class LedgerAppService {
   void _validateCategoryType(String type) {
     if (type != 'expense' && type != 'income') {
       throw const CategoryValidationException('分类类型无效');
+    }
+  }
+
+  void _validateCategoryParent({
+    required String? parentCategoryId,
+    required String categoryType,
+    required List<Account> accounts,
+    String? categoryId,
+  }) {
+    if (parentCategoryId == null) return;
+    if (parentCategoryId == categoryId) {
+      throw const CategoryValidationException('分类不能作为自己的上级分类');
+    }
+
+    Account? parent;
+    for (final account in accounts) {
+      if (account.id == parentCategoryId) {
+        parent = account;
+        break;
+      }
+    }
+    if (parent == null ||
+        parent.type != categoryType ||
+        (parent.type != 'expense' && parent.type != 'income')) {
+      throw const CategoryValidationException('请选择同类型的一级分类');
+    }
+    if (parent.parentAccountId != null) {
+      throw const CategoryValidationException('分类最多只能分为两级');
     }
   }
 
@@ -288,12 +365,7 @@ class LedgerAppService {
   }
 
   String _categoryComparisonKey(String name) {
-    return switch (name.trim().toLowerCase()) {
-      'food' || '餐饮' => 'built-in:food',
-      'transport' || '交通' => 'built-in:transport',
-      'salary' || '工资收入' => 'built-in:salary',
-      final value => value,
-    };
+    return defaultCategoryComparisonKey(name);
   }
 
   domain.Account _asDomain(Account row) {

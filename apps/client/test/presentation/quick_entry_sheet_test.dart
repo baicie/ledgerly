@@ -8,6 +8,7 @@ import 'package:ledgerly_client/application/ledger_app_service.dart';
 import 'package:ledgerly_client/data/database.dart';
 import 'package:ledgerly_client/data/ledger_repository.dart';
 import 'package:ledgerly_client/domain/ids.dart';
+import 'package:ledgerly_client/presentation/pages/category_editor_page.dart';
 import 'package:ledgerly_client/presentation/providers.dart';
 import 'package:ledgerly_client/presentation/quick_entry.dart';
 import 'package:ledgerly_client/presentation/quick_entry_sheet.dart';
@@ -121,17 +122,16 @@ void main() {
           accountBalancesProvider.overrideWith((ref) async => _accounts),
         ],
         child: MaterialApp(
-          home: Scaffold(
-            body: QuickEntrySheet(transaction: transaction),
-          ),
+          home: _QuickEntryHost(transaction: transaction),
         ),
       ),
     );
+    await tester.tap(find.byKey(const Key('open-quick-entry')));
     await tester.pumpAndSettle();
 
     expect(find.text('编辑流水'), findsOneWidget);
     expect(find.text('12.50'), findsOneWidget);
-    expect(find.text('午餐'), findsOneWidget);
+    expect(find.text('Lunch'), findsOneWidget);
     await tester.enterText(
       find.byKey(const Key('quick-entry-note')),
       'Dinner',
@@ -153,7 +153,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('quick entry creates and immediately uses a new category',
+  testWidgets('quick entry creates and immediately uses a new child category',
       (tester) async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
@@ -178,16 +178,29 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('quick-category-field')));
     await tester.pumpAndSettle();
+
+    expect(find.text('一级分类'), findsWidgets);
+    expect(find.text('餐饮 · 二级分类'), findsNWidgets(2));
     await tester.tap(find.byKey(const Key('category-add-picker')));
     await tester.pumpAndSettle();
+
+    expect(find.byType(CategoryEditorPage), findsOneWidget);
     await tester.enterText(
       find.byKey(const Key('category-name-input')),
       '咖啡',
     );
+    await tester.tap(find.text('二级分类'));
+    await tester.pump();
+    expect(find.byKey(const Key('category-parent-field')), findsOneWidget);
     await tester.tap(find.byKey(const Key('category-save')));
     await tester.pumpAndSettle();
 
+    expect(find.byType(CategoryEditorPage), findsNothing);
     expect(find.text('咖啡'), findsOneWidget);
+    final categories =
+        await repository.listCategories(defaultBookId, 'expense');
+    final coffee = categories.singleWhere((category) => category.name == '咖啡');
+    expect(coffee.parentAccountId, accountKeyFood(defaultBookId));
     await tester.tap(find.byKey(const Key('quick-key-2')));
     await tester.tap(find.byKey(const Key('quick-entry-save')));
     await tester.pumpAndSettle();
@@ -264,7 +277,9 @@ final _accounts = [
 ];
 
 class _QuickEntryHost extends StatelessWidget {
-  const _QuickEntryHost();
+  const _QuickEntryHost({this.transaction});
+
+  final TransactionSummary? transaction;
 
   @override
   Widget build(BuildContext context) {
@@ -272,7 +287,7 @@ class _QuickEntryHost extends StatelessWidget {
       body: Center(
         child: FilledButton(
           key: const Key('open-quick-entry'),
-          onPressed: () => openQuickEntry(context),
+          onPressed: () => openQuickEntry(context, transaction: transaction),
           child: const Text('记一笔'),
         ),
       ),

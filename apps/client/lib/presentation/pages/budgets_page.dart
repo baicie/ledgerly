@@ -123,10 +123,25 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
     final key = remoteId.split(':').last;
     for (final category in categories) {
       if (category.id.split(':').last == key) {
-        return localizedLedgerName(category.name);
+        return _categoryDisplayName(category, categories);
       }
     }
     return '支出分类';
+  }
+
+  String _categoryDisplayName(
+    CategoryAccountRow category,
+    List<CategoryAccountRow> categories,
+  ) {
+    if (category.parentAccountId == null) {
+      return localizedLedgerName(category.name);
+    }
+    for (final parent in categories) {
+      if (parent.id == category.parentAccountId) {
+        return '${localizedLedgerName(parent.name)} / ${localizedLedgerName(category.name)}';
+      }
+    }
+    return localizedLedgerName(category.name);
   }
 
   String _friendlyError(Object error) {
@@ -292,6 +307,18 @@ class _BudgetEditorState extends State<_BudgetEditor> {
         orElse: () => widget.categories.first,
       );
 
+  String _categoryDisplayName(CategoryAccountRow category) {
+    if (category.parentAccountId == null) {
+      return localizedLedgerName(category.name);
+    }
+    for (final parent in widget.categories) {
+      if (parent.id == category.parentAccountId) {
+        return '${localizedLedgerName(parent.name)} / ${localizedLedgerName(category.name)}';
+      }
+    }
+    return localizedLedgerName(category.name);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -357,7 +384,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
               for (final category in widget.categories)
                 DropdownMenuItem(
                   value: category.id,
-                  child: Text(localizedLedgerName(category.name)),
+                  child: Text(_categoryDisplayName(category)),
                 ),
             ],
             onChanged: (value) {

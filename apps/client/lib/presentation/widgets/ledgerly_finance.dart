@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 
 import '../../data/ledger_repository.dart';
+import '../../domain/default_categories.dart';
 import '../design/ledgerly_theme.dart';
 
 String localizedLedgerName(String? name) {
+  if (name == null || name.isEmpty) return '未分类';
+  final defaultName = localizedDefaultCategoryName(name);
+  if (defaultName != null) return defaultName;
   return switch (name) {
     'Cash' => '现金',
     'Bank' => '银行卡',
-    'Food' => '餐饮',
-    'Transport' => '交通',
-    'Salary' => '工资收入',
     'Transfer' => '账户转账',
     'Other' => '其他',
-    final value? when value.isNotEmpty => value,
-    _ => '未分类',
+    final value => value,
   };
 }
 
@@ -36,8 +36,41 @@ IconData ledgerIconFor(String? name, {TransactionSummaryKind? kind}) {
     'Cash' => Icons.payments_outlined,
     'Bank' => Icons.account_balance_outlined,
     'Food' || '餐饮' => Icons.restaurant_outlined,
+    'Meals' || '日常用餐' => Icons.rice_bowl_outlined,
+    'Drinks & Snacks' || '饮品零食' => Icons.local_cafe_outlined,
     'Transport' || '交通' => Icons.directions_bus_outlined,
+    'Public Transport' || '公交地铁' => Icons.directions_subway_outlined,
+    'Taxi' || '网约车' => Icons.local_taxi_outlined,
+    'Car Expenses' || '驾车养车' => Icons.directions_car_outlined,
+    'Shopping' || '购物' => Icons.shopping_bag_outlined,
+    'Daily Essentials' || '日用百货' => Icons.shopping_cart_outlined,
+    'Clothing' || '服饰美妆' => Icons.checkroom_outlined,
+    'Electronics' || '数码电器' => Icons.devices_outlined,
+    'Housing' || '居住' => Icons.home_outlined,
+    'Rent & Mortgage' || '房租房贷' => Icons.apartment_outlined,
+    'Utilities' || '水电燃气' => Icons.bolt_outlined,
+    'Property Services' || '物业家政' => Icons.home_repair_service_outlined,
+    'Leisure' || '休闲' => Icons.weekend_outlined,
+    'Entertainment' || '娱乐' => Icons.movie_outlined,
+    'Fitness' || '运动健身' => Icons.fitness_center_outlined,
+    'Travel' || '旅行' => Icons.luggage_outlined,
+    'Healthcare' || '医疗健康' => Icons.health_and_safety_outlined,
+    'Medical Care' || '看病就医' => Icons.local_hospital_outlined,
+    'Medicine' || '药品保健' => Icons.medication_outlined,
+    'Education' || '学习' => Icons.school_outlined,
+    'Books' || '书籍' => Icons.menu_book_outlined,
+    'Courses' || '课程培训' => Icons.cast_for_education_outlined,
+    'Other Expense' || '其他支出' => Icons.more_horiz_rounded,
     'Salary' || '工资收入' => Icons.work_outline_rounded,
+    'Base Salary' || '基本工资' => Icons.badge_outlined,
+    'Bonus' || '奖金' => Icons.redeem_outlined,
+    'Side Income' || '副业收入' => Icons.business_center_outlined,
+    'Freelance' || '自由职业' => Icons.laptop_mac_outlined,
+    'Business Income' || '经营收入' => Icons.storefront_outlined,
+    'Investment Income' || '投资收益' => Icons.trending_up_rounded,
+    'Interest' || '利息' => Icons.savings_outlined,
+    'Dividends' || '分红' => Icons.pie_chart_outline_rounded,
+    'Other Income' || '其他收入' => Icons.add_chart_outlined,
     _ => Icons.receipt_long_outlined,
   };
 }
@@ -46,9 +79,29 @@ Color ledgerColorFor(String? name, {TransactionSummaryKind? kind}) {
   if (kind == TransactionSummaryKind.income) return LedgerlyColors.income;
   if (kind == TransactionSummaryKind.transfer) return LedgerlyColors.chartBlue;
   return switch (name) {
-    'Food' || '餐饮' => LedgerlyColors.actionStrong,
-    'Transport' || '交通' => LedgerlyColors.chartBlue,
-    'Salary' || '工资收入' => LedgerlyColors.income,
+    'Food' ||
+    '餐饮' ||
+    'Meals' ||
+    '日常用餐' ||
+    'Drinks & Snacks' ||
+    '饮品零食' =>
+      LedgerlyColors.actionStrong,
+    'Transport' ||
+    '交通' ||
+    'Public Transport' ||
+    '公交地铁' ||
+    'Taxi' ||
+    '网约车' ||
+    'Car Expenses' ||
+    '驾车养车' =>
+      LedgerlyColors.chartBlue,
+    'Salary' ||
+    '工资收入' ||
+    'Base Salary' ||
+    '基本工资' ||
+    'Bonus' ||
+    '奖金' =>
+      LedgerlyColors.income,
     'Cash' => LedgerlyColors.warning,
     _ => LedgerlyColors.expense,
   };
