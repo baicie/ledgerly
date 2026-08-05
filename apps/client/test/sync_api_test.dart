@@ -43,6 +43,26 @@ void main() {
     expect(adapter.requests, hasLength(1));
     expect(adapter.requests.single.uri.host, '192.168.1.24');
   });
+
+  test('release signed uploads allow public HTTP when HTTPS is not required',
+      () async {
+    final adapter = _RecordingAdapter();
+    final uploadDio = Dio()..httpClientAdapter = adapter;
+    final api = SyncApi(
+      dio: Dio(),
+      uploadDio: uploadDio,
+      isRelease: true,
+      isWeb: false,
+      requireHttps: false,
+    );
+
+    await api.putSignedUrl(
+      uploadUrl: 'http://storage.example/upload?signature=test',
+      bytes: const [1, 2, 3],
+    );
+
+    expect(adapter.requests.single.uri.host, 'storage.example');
+  });
 }
 
 class _RecordingAdapter implements HttpClientAdapter {

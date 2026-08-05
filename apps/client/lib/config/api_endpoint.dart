@@ -5,6 +5,11 @@ class ApiEndpoint {
     'LEDGERLY_API_BASE_URL',
   );
 
+  static const requireHttps = bool.fromEnvironment(
+    'LEDGERLY_API_REQUIRE_HTTPS',
+    defaultValue: true,
+  );
+
   static String get environmentDefault => _configured;
 
   final Uri uri;
@@ -15,6 +20,7 @@ class ApiEndpoint {
     required String configured,
     required bool isRelease,
     required bool isWeb,
+    bool requireHttps = ApiEndpoint.requireHttps,
   }) {
     var value = configured.trim();
     if (value.isEmpty) {
@@ -41,7 +47,12 @@ class ApiEndpoint {
       );
     }
 
-    _validateTransport(candidate, isRelease: isRelease, isWeb: isWeb);
+    _validateTransport(
+      candidate,
+      isRelease: isRelease,
+      isWeb: isWeb,
+      requireHttps: requireHttps,
+    );
     if (isRelease && isWeb && candidate.hasPort && candidate.port != 443) {
       throw const FormatException(
         'Release Web builds require the default HTTPS port for cookie isolation.',
@@ -55,6 +66,7 @@ class ApiEndpoint {
     String value, {
     required bool isRelease,
     required bool isWeb,
+    bool requireHttps = ApiEndpoint.requireHttps,
   }) {
     final candidate = Uri.tryParse(value.trim());
     if (candidate == null ||
@@ -65,7 +77,12 @@ class ApiEndpoint {
         candidate.hasFragment) {
       throw const FormatException('The resource URL must be an HTTP(S) URL.');
     }
-    _validateTransport(candidate, isRelease: isRelease, isWeb: isWeb);
+    _validateTransport(
+      candidate,
+      isRelease: isRelease,
+      isWeb: isWeb,
+      requireHttps: requireHttps,
+    );
     return candidate;
   }
 
@@ -73,15 +90,22 @@ class ApiEndpoint {
     Uri candidate, {
     required bool isRelease,
     required bool isWeb,
+    required bool requireHttps,
   }) {
     final isLoopback = _isLocalOnlyHost(candidate.host);
     final allowsPrivateHttp = !isWeb &&
         candidate.scheme == 'http' &&
         _isPrivateNetworkHost(candidate.host);
+    final allowsConfiguredHttp = !isWeb &&
+        !requireHttps &&
+        candidate.scheme == 'http';
     if (isRelease &&
-        ((candidate.scheme != 'https' && !allowsPrivateHttp) || isLoopback)) {
+        ((candidate.scheme != 'https' &&
+                !allowsPrivateHttp &&
+                !allowsConfiguredHttp) ||
+            isLoopback)) {
       throw const FormatException(
-        'Release builds require HTTPS, except for private network IP addresses on native clients.',
+        'Release builds require HTTPS, except for private network IP addresses on native clients or when LEDGERLY_API_REQUIRE_HTTPS is false.',
       );
     }
   }

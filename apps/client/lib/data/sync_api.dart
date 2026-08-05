@@ -9,15 +9,18 @@ class SyncApi {
     Dio? uploadDio,
     bool isRelease = kReleaseMode,
     bool isWeb = kIsWeb,
+    bool requireHttps = ApiEndpoint.requireHttps,
   })  : _dio = dio,
         _uploadDio = uploadDio ?? Dio(),
         _isRelease = isRelease,
-        _isWeb = isWeb;
+        _isWeb = isWeb,
+        _requireHttps = requireHttps;
 
   final Dio _dio;
   final Dio _uploadDio;
   final bool _isRelease;
   final bool _isWeb;
+  final bool _requireHttps;
 
   Future<Map<String, dynamic>> push({
     required String bookId,
@@ -142,6 +145,7 @@ class SyncApi {
       uploadUrl,
       isRelease: _isRelease,
       isWeb: _isWeb,
+      requireHttps: _requireHttps,
     );
     await _uploadDio.put(
       uri.toString(),

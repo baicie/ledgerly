@@ -56,6 +56,41 @@ void main() {
       }
     });
 
+    test('release native accepts public HTTP when HTTPS is not required', () {
+      final endpoint = ApiEndpoint.resolve(
+        configured: 'http://api.ledgerly.example:8080',
+        isRelease: true,
+        isWeb: false,
+        requireHttps: false,
+      );
+
+      expect(endpoint.baseUrl, 'http://api.ledgerly.example:8080');
+    });
+
+    test('release Web still rejects HTTP when HTTPS is not required', () {
+      expect(
+        () => ApiEndpoint.resolve(
+          configured: 'http://api.ledgerly.example:8080',
+          isRelease: true,
+          isWeb: true,
+          requireHttps: false,
+        ),
+        throwsFormatException,
+      );
+    });
+
+    test('release still rejects loopback HTTP when HTTPS is not required', () {
+      expect(
+        () => ApiEndpoint.resolve(
+          configured: 'http://127.0.0.1:8080',
+          isRelease: true,
+          isWeb: false,
+          requireHttps: false,
+        ),
+        throwsFormatException,
+      );
+    });
+
     test('release web rejects custom HTTPS ports for cookie isolation', () {
       expect(
         () => ApiEndpoint.resolve(
@@ -180,6 +215,18 @@ void main() {
         ),
         throwsFormatException,
       );
+    });
+
+    test('resource URLs accept public HTTP when HTTPS is not required', () {
+      final uri = ApiEndpoint.validateResourceUrl(
+        'http://storage.example/upload?id=one',
+        isRelease: true,
+        isWeb: false,
+        requireHttps: false,
+      );
+
+      expect(uri.scheme, 'http');
+      expect(uri.host, 'storage.example');
     });
 
     test('release native adds HTTP to a private IPv4 address', () {
