@@ -82,8 +82,11 @@ overrides a saved value.
   local-only mode without attempting authentication or synchronization.
 * A persisted blank value explicitly selects local-only mode and overrides an
   embedded default.
-* Release builds accept only HTTPS origins with no user info, query, fragment,
-  or non-root path and reject loopback hosts.
+* Release builds accept HTTPS origins by default, with no user info, query,
+  fragment, or non-root path, and reject loopback hosts. Native private-network
+  HTTP remains available; native builds may explicitly set
+  `LEDGERLY_API_REQUIRE_HTTPS=false` to accept public HTTP. Web builds continue
+  to require HTTPS for secure refresh cookies.
 * Release Web requires the default HTTPS port because cookies are host-scoped
   but not port-scoped. Native clients may use custom HTTPS ports.
 * Signed-out users can change the origin from the authentication screen.

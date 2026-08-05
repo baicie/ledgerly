@@ -29,6 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       LEDGERLY_API_BASE_URL: ${{ vars.LEDGERLY_API_BASE_URL }}
+      LEDGERLY_API_REQUIRE_HTTPS: ${{ vars.LEDGERLY_API_REQUIRE_HTTPS || 'true' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,15 +50,35 @@ jobs:
 
       - name: Validate optional client API endpoint
         run: |
-          if [[ -n "${LEDGERLY_API_BASE_URL:-}" && "$LEDGERLY_API_BASE_URL" != https://* ]]; then
-            echo "LEDGERLY_API_BASE_URL must be an HTTPS origin when set" >&2
-            exit 1
+          require_https="${LEDGERLY_API_REQUIRE_HTTPS:-true}"
+          case "$require_https" in
+            true|false) ;;
+            *)
+              echo "LEDGERLY_API_REQUIRE_HTTPS must be true or false" >&2
+              exit 1
+              ;;
+          esac
+
+          if [[ -n "${LEDGERLY_API_BASE_URL:-}" ]]; then
+            case "$LEDGERLY_API_BASE_URL" in
+              https://*) ;;
+              http://*)
+                if [[ "$require_https" != false ]]; then
+                  echo "LEDGERLY_API_BASE_URL must use HTTPS unless LEDGERLY_API_REQUIRE_HTTPS=false" >&2
+                  exit 1
+                fi
+                ;;
+              *)
+                echo "LEDGERLY_API_BASE_URL must be an HTTP(S) origin when set" >&2
+                exit 1
+                ;;
+            esac
           fi
 
       - name: Build web
         working-directory: apps/client
         run: |
-          defines=()
+          defines=("--dart-define=LEDGERLY_API_REQUIRE_HTTPS=${LEDGERLY_API_REQUIRE_HTTPS:-true}")
           if [[ -n "${LEDGERLY_API_BASE_URL:-}" ]]; then
             defines+=("--dart-define=LEDGERLY_API_BASE_URL=$LEDGERLY_API_BASE_URL")
           fi
@@ -96,7 +117,7 @@ jobs:
       - name: Build Android APK
         working-directory: apps/client
         run: |
-          defines=()
+          defines=("--dart-define=LEDGERLY_API_REQUIRE_HTTPS=${LEDGERLY_API_REQUIRE_HTTPS:-true}")
           if [[ -n "${LEDGERLY_API_BASE_URL:-}" ]]; then
             defines+=("--dart-define=LEDGERLY_API_BASE_URL=$LEDGERLY_API_BASE_URL")
           fi
@@ -206,6 +227,7 @@ jobs:
           ### Client (this release)
           - API service is optional; without one Ledgerly stays local-only and makes no authentication or sync requests.
           - Configure or clear the API service from login, recovery, or Settings.
+          - Native clients may opt into a public HTTP API with \`LEDGERLY_API_REQUIRE_HTTPS=false\`; Web clients continue to require HTTPS for secure cookies.
           - Refreshed the main Ledgerly experience with responsive feed, accounts, reports, and settings pages.
           - Added expense, income, and transfer quick entry with category/account pickers and a numeric keypad.
           - \`ledgerly-web.zip\` — Flutter Web

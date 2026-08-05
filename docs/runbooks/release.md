@@ -55,10 +55,15 @@ CSV 里的密码仅本地临时用；生产请改 SSH 密钥登录并轮换密�
 
 GHCR 拉取：公开包可用 `GITHUB_TOKEN`；私有包再加 `GHCR_PULL_TOKEN`。
 
-仓库变量 `LEDGERLY_API_BASE_URL` 是可选的客户端初始值。设置时必须是生产
-API 的 HTTPS origin，不能包含路径、查询或凭据。已保存的用户配置优先于该
-变量；用户保存的空值会覆盖该变量并选择纯本地模式。变量为空时 Release 仍
-会正常打包，客户端首次启动直接进入本地账本，不发起认证或同步请求。
+仓库变量 `LEDGERLY_API_BASE_URL` 是可选的客户端初始值。默认要求它是生产
+API 的 HTTPS origin，不能包含路径、查询或凭据。若原生客户端必须连接没有
+TLS 的服务，可将布尔仓库变量 `LEDGERLY_API_REQUIRE_HTTPS` 设为 `false`，
+以允许公网 HTTP；默认值为 `true`（原生私有网段 HTTP 仍可用），回环地址仍会
+被 Release 拒绝。Web
+Release 仍强制 HTTPS，因为 Web 刷新会话使用 `Secure`、`HttpOnly` Cookie。
+已保存的用户配置优先于这些变量；用户保存的空值会覆盖初始地址并选择纯
+本地模式。变量为空时 Release 仍会正常打包，客户端首次启动直接进入本地
+账本，不发起认证或同步请求。
 
 ### 4. Android 正式签名
 
@@ -112,9 +117,12 @@ flutter build web --release
 ```
 
 需要预置初始地址时，可额外传入
-`--dart-define=LEDGERLY_API_BASE_URL="$PRODUCTION_API_ORIGIN"`。API 地址选填；
-留空时客户端仅使用 Drift 本地数据库，不恢复远端会话或同步。登录页、启动
-恢复页和设置页均可保存或清空地址；Release 仅接受非本机 HTTPS origin，Web
+`--dart-define=LEDGERLY_API_BASE_URL="$PRODUCTION_API_ORIGIN"`。若原生 Release
+需要 HTTP，再传入
+`--dart-define=LEDGERLY_API_REQUIRE_HTTPS=false`；Web 构建仍不能使用 HTTP
+会话。API 地址选填；留空时客户端仅使用 Drift 本地数据库，不恢复远端会话或
+同步。登录页、启动恢复页和设置页均可保存或清空地址；Release 默认仅接受
+非本机 HTTPS origin，Native 在关闭 HTTPS 要求后也可使用公网 HTTP，Web
 Release 还要求使用默认 HTTPS 端口（443），Native 可使用自定义 HTTPS 端口。
 
 服务端 `CORS_ALLOWED_ORIGINS` 填 Web 应用的 origin（协议、域名和端口），
@@ -166,7 +174,7 @@ docker compose -f infrastructure/docker/docker-compose.prod.yml --env-file .env.
 ```bash
 # 目标机默认只监听回环地址，先通过 SSH 登录后验收
 ssh ubuntu@82.156.234.84 'curl -sf http://127.0.0.1:8081/health/ready'
-# 客户端：Release 页下载 web/apk；验证空地址本地模式及可选 HTTPS API 模式
+# 客户端：Release 页下载 web/apk；验证空地址本地模式及可选 HTTPS/原生 HTTP API 模式
 ```
 
 ## 五、回滚
