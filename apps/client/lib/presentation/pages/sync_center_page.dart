@@ -38,6 +38,9 @@ class SyncCenterPage extends ConsumerWidget {
                     final result = await sync.syncNow();
                     ref.invalidate(syncStatusProvider);
                     ref.invalidate(transactionListProvider);
+                    ref.invalidate(categoryAccountsProvider('expense'));
+                    ref.invalidate(categoryAccountsProvider('income'));
+                    ref.invalidate(accountBalancesProvider);
                     ref.invalidate(conflictsProvider);
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(

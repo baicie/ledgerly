@@ -14,6 +14,10 @@ void main() {
       '/reports',
     );
     expect(authRedirect(const AuthState.local(), '/settings'), isNull);
+    expect(
+      authRedirect(const AuthState.local(), '/settings/categories'),
+      isNull,
+    );
     expect(authRedirect(const AuthState.local(), '/auth'), '/feed');
   });
 

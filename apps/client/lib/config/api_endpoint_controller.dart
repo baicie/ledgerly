@@ -44,15 +44,18 @@ class ApiEndpointController extends ChangeNotifier {
     required String buildDefault,
     required bool isRelease,
     required bool isWeb,
+    bool requireHttps = ApiEndpoint.requireHttps,
   })  : _store = store,
         _buildDefault = buildDefault,
         _isRelease = isRelease,
-        _isWeb = isWeb;
+        _isWeb = isWeb,
+        _requireHttps = requireHttps;
 
   final ApiEndpointStore _store;
   final String _buildDefault;
   final bool _isRelease;
   final bool _isWeb;
+  final bool _requireHttps;
   ApiEndpointState _state = const ApiEndpointState.loading();
 
   ApiEndpointState get state => _state;
@@ -83,6 +86,7 @@ class ApiEndpointController extends ChangeNotifier {
         configured: configured,
         isRelease: _isRelease,
         isWeb: _isWeb,
+        requireHttps: _requireHttps,
       );
       _setState(ApiEndpointState.ready(endpoint));
     } on FormatException catch (error) {
@@ -98,6 +102,7 @@ class ApiEndpointController extends ChangeNotifier {
       configured: value,
       isRelease: _isRelease,
       isWeb: _isWeb,
+      requireHttps: _requireHttps,
     );
   }
 

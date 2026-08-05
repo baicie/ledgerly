@@ -42,6 +42,23 @@ void main() {
       expect(restarted.state.endpoint?.baseUrl, 'https://api.example');
     });
 
+    test('release accepts public HTTP when HTTPS is explicitly disabled',
+        () async {
+      final controller = ApiEndpointController(
+        store: MemoryApiEndpointStore(),
+        buildDefault: '',
+        isRelease: true,
+        isWeb: false,
+        requireHttps: false,
+      );
+
+      await controller.load();
+      final endpoint = await controller.save('http://api.example:8080');
+
+      expect(endpoint?.baseUrl, 'http://api.example:8080');
+      expect(controller.state.endpoint?.baseUrl, 'http://api.example:8080');
+    });
+
     test('saved blank endpoint overrides the embedded default with local mode',
         () async {
       final controller = releaseController(

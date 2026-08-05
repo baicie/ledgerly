@@ -370,6 +370,125 @@ async fn register_login_and_sync_push_pull() {
     let food = format!("{book_id}:acc_food");
     let cash = format!("{book_id}:acc_cash");
 
+    let custom_category = format!("{book_id}:category_coffee");
+    let category_and_transaction = json!({
+        "deviceId": "dev1",
+        "mutations": [
+            {
+                "mutationId": "mut_category_create",
+                "entityType": "account",
+                "entityId": custom_category,
+                "operation": "create",
+                "baseVersion": 0,
+                "schemaVersion": 1,
+                "payload": {
+                    "name": "Coffee",
+                    "accountType": "expense",
+                    "currency": "CNY"
+                }
+            },
+            {
+                "mutationId": "mut_category_transaction",
+                "entityType": "transaction",
+                "entityId": "tx_category_coffee",
+                "operation": "create",
+                "baseVersion": 0,
+                "schemaVersion": 1,
+                "payload": {
+                    "description": "Coffee beans",
+                    "entries": [
+                        {"accountId": custom_category, "amountMinor": "8800", "currency": "CNY"},
+                        {"accountId": cash, "amountMinor": "-8800", "currency": "CNY"}
+                    ]
+                }
+            }
+        ]
+    });
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/v1/books/{book_id}/sync/push"))
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::from(category_and_transaction.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let category_push = json_body(res).await;
+    assert_eq!(category_push["receipts"][0]["status"], "applied");
+    assert_eq!(category_push["receipts"][1]["status"], "applied");
+
+    let rename_category = json!({
+        "deviceId": "dev1",
+        "mutations": [{
+            "mutationId": "mut_category_rename",
+            "entityType": "account",
+            "entityId": custom_category,
+            "operation": "update",
+            "baseVersion": 0,
+            "schemaVersion": 1,
+            "payload": {
+                "name": "  Coffee & Tea  ",
+                "accountType": "income",
+                "currency": "USD"
+            }
+        }]
+    });
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/v1/books/{book_id}/sync/push"))
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::from(rename_category.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let category_rename = json_body(res).await;
+    assert_eq!(category_rename["receipts"][0]["status"], "applied");
+    assert_eq!(category_rename["receipts"][0]["entityVersion"], 2);
+
+    let idempotent_rename = json!({
+        "deviceId": "dev1",
+        "mutations": [{
+            "mutationId": "mut_category_idempotent_rename",
+            "entityType": "account",
+            "entityId": custom_category,
+            "operation": "update",
+            "baseVersion": 1,
+            "schemaVersion": 1,
+            "payload": {
+                "name": "Coffee Final",
+                "accountType": "expense",
+                "currency": "CNY"
+            }
+        }]
+    });
+    let request = || {
+        app.clone().oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/v1/books/{book_id}/sync/push"))
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::from(idempotent_rename.to_string()))
+                .unwrap(),
+        )
+    };
+    let (first, retry) = tokio::join!(request(), request());
+    for response in [first.unwrap(), retry.unwrap()] {
+        let receipt = json_body(response).await;
+        assert_eq!(receipt["receipts"][0]["status"], "applied");
+        assert_eq!(receipt["receipts"][0]["entityVersion"], 3);
+    }
+
     let mutation = json!({
         "deviceId": "dev1",
         "mutations": [{
@@ -521,6 +640,7 @@ async fn register_login_and_sync_push_pull() {
     assert_eq!(budgets["budgets"][0]["remainingMinor"], "4200");
 
     let res = app
+        .clone()
         .oneshot(
             Request::builder()
                 .uri(format!("/v1/books/{book_id}/sync/pull?cursor=0"))
@@ -533,6 +653,96 @@ async fn register_login_and_sync_push_pull() {
     assert_eq!(res.status(), StatusCode::OK);
     let pull = json_body(res).await;
     assert!(pull["changes"].as_array().unwrap().len() >= 2);
+    assert!(pull["changes"].as_array().unwrap().iter().any(|change| {
+        change["entityType"] == "account"
+            && change["entityId"] == format!("{book_id}:category_coffee")
+            && change["version"] == 3
+            && change["payload"]["name"] == "Coffee Final"
+            && change["payload"]["accountType"] == "expense"
+            && change["payload"]["currency"] == "CNY"
+    }));
+
+    let res = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/v1/books/{book_id}/sync/bootstrap"))
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let bootstrap = json_body(res).await;
+    assert!(bootstrap["accounts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|account| {
+            account["id"] == format!("{book_id}:category_coffee")
+                && account["version"] == 3
+                && account["name"] == "Coffee Final"
+                && account["accountType"] == "expense"
+                && account["currency"] == "CNY"
+        }));
+}
+
+#[tokio::test]
+async fn transaction_rejects_a_missing_account() {
+    let state = test_state();
+    let app = app_router(state.clone());
+    assert_eq!(
+        register_user(&app, "account-owner@example.com")
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    let login = post_json(
+        &app,
+        "/v1/auth/login",
+        json!({
+            "email": "account-owner@example.com",
+            "password": "password123",
+            "deviceId": "account-owner-device"
+        }),
+    )
+    .await;
+    let login = json_body(login).await;
+    let token = login["accessToken"].as_str().unwrap();
+    let book_id = login["bookId"].as_str().unwrap();
+
+    let mutation = json!({
+        "deviceId": "account-owner-device",
+        "mutations": [{
+            "mutationId": "mut_missing_account",
+            "entityType": "transaction",
+            "entityId": "tx_missing_account",
+            "operation": "create",
+            "baseVersion": 0,
+            "schemaVersion": 1,
+            "payload": {
+                "entries": [
+                    {"accountId": format!("{book_id}:missing"), "amountMinor": "100", "currency": "CNY"},
+                    {"accountId": format!("{book_id}:acc_cash"), "amountMinor": "-100", "currency": "CNY"}
+                ]
+            }
+        }]
+    });
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/v1/books/{book_id}/sync/push"))
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::from(mutation.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let body = json_body(response).await;
+    assert_eq!(body["receipts"][0]["status"], "rejected");
+    assert_eq!(body["receipts"][0]["resultCode"], "ACCOUNT_NOT_FOUND");
 }
 
 #[tokio::test]

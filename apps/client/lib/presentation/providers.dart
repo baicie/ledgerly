@@ -122,6 +122,34 @@ class AccountBalanceRow {
   final BigInt balance;
 }
 
+class CategoryAccountRow {
+  const CategoryAccountRow({
+    required this.id,
+    required this.name,
+    required this.type,
+  });
+
+  final String id;
+  final String name;
+  final String type;
+}
+
+final categoryAccountsProvider =
+    FutureProvider.family<List<CategoryAccountRow>, String>((ref, type) async {
+  final repo = ref.watch(ledgerRepositoryProvider);
+  await repo.seedIfEmpty();
+  final accounts = await repo.listCategories(defaultBookId, type);
+  return accounts
+      .map(
+        (account) => CategoryAccountRow(
+          id: account.id,
+          name: account.name,
+          type: account.type,
+        ),
+      )
+      .toList();
+});
+
 final accountBalancesProvider =
     FutureProvider<List<AccountBalanceRow>>((ref) async {
   final repo = ref.watch(ledgerRepositoryProvider);

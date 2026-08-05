@@ -98,12 +98,104 @@ class LedgerAppService {
     required String name,
     required String type,
   }) {
-    return _repo.upsertAccount(
+    return _repo.createLocalAccount(
       id: accountId(bookId.value, _repo.newId()),
       bookId: bookId.value,
       name: name,
       type: type,
     );
+  }
+
+  Future<String> createCategory({
+    required String name,
+    required String type,
+  }) async {
+    _validateCategoryType(type);
+    final normalizedName = _normalizeCategoryName(name);
+    await _ensureUniqueCategoryName(
+      name: normalizedName,
+      type: type,
+    );
+    final id = accountId(bookId.value, _repo.newId());
+    await _repo.createLocalAccount(
+      id: id,
+      bookId: bookId.value,
+      name: normalizedName,
+      type: type,
+    );
+    return id;
+  }
+
+  Future<void> renameCategory({
+    required String categoryId,
+    required String name,
+  }) async {
+    final accounts = await _repo.listAccounts(bookId.value);
+    Account? category;
+    for (final account in accounts) {
+      if (account.id == categoryId) {
+        category = account;
+        break;
+      }
+    }
+    if (category == null ||
+        (category.type != 'expense' && category.type != 'income')) {
+      throw const CategoryValidationException('分类不存在');
+    }
+
+    final normalizedName = _normalizeCategoryName(name);
+    await _ensureUniqueCategoryName(
+      name: normalizedName,
+      type: category.type,
+      excludingId: category.id,
+      accounts: accounts,
+    );
+    await _repo.renameLocalAccount(id: category.id, name: normalizedName);
+  }
+
+  String _normalizeCategoryName(String name) {
+    final normalized = name.trim();
+    if (normalized.isEmpty) {
+      throw const CategoryValidationException('请输入分类名称');
+    }
+    if (normalized.length > 24) {
+      throw const CategoryValidationException('分类名称不能超过 24 个字符');
+    }
+    return normalized;
+  }
+
+  void _validateCategoryType(String type) {
+    if (type != 'expense' && type != 'income') {
+      throw const CategoryValidationException('分类类型无效');
+    }
+  }
+
+  Future<void> _ensureUniqueCategoryName({
+    required String name,
+    required String type,
+    String? excludingId,
+    List<Account>? accounts,
+  }) async {
+    final existing = accounts ?? await _repo.listAccounts(bookId.value);
+    final normalizedName = _categoryComparisonKey(name);
+    final duplicate = existing.any(
+      (account) =>
+          account.type == type &&
+          account.id != excludingId &&
+          _categoryComparisonKey(account.name) == normalizedName,
+    );
+    if (duplicate) {
+      throw const CategoryValidationException('同类型下已存在该分类');
+    }
+  }
+
+  String _categoryComparisonKey(String name) {
+    return switch (name.trim().toLowerCase()) {
+      'food' || '餐饮' => 'built-in:food',
+      'transport' || '交通' => 'built-in:transport',
+      'salary' || '工资收入' => 'built-in:salary',
+      final value => value,
+    };
   }
 
   domain.Account _asDomain(Account row) {
@@ -115,4 +207,13 @@ class LedgerAppService {
       currency: domain.CurrencyCode.parse(row.currencyCode),
     );
   }
+}
+
+class CategoryValidationException implements Exception {
+  const CategoryValidationException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
 }

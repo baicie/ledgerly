@@ -11,7 +11,7 @@ import 'package:ledgerly_client/presentation/providers.dart';
 import 'support/fake_auth_gateway.dart';
 
 void main() {
-  testWidgets('local mode keeps remote settings inactive', (tester) async {
+  testWidgets('local mode hides remote-only settings', (tester) async {
     final auth = AuthController.local();
     final endpointController = ApiEndpointController(
       store: MemoryApiEndpointStore(),
@@ -32,18 +32,11 @@ void main() {
       ),
     );
 
-    expect(find.text('仅本地存储'), findsOneWidget);
+    expect(find.text('本地模式 · 数据保存在当前设备'), findsOneWidget);
     expect(find.text('未设置（仅本地存储）'), findsOneWidget);
     expect(find.byKey(const Key('settings-logout')), findsNothing);
-
-    final syncTile = tester.widget<ListTile>(
-      find.ancestor(
-        of: find.text('同步中心'),
-        matching: find.byType(ListTile),
-      ),
-    );
-    expect(syncTile.enabled, isFalse);
-    expect(syncTile.onTap, isNull);
+    expect(find.text('同步中心'), findsNothing);
+    expect(find.text('冲突处理'), findsNothing);
   });
 
   testWidgets('renders settings navigation', (tester) async {
@@ -70,10 +63,12 @@ void main() {
       ),
     );
 
-    expect(find.text('Plus'), findsOneWidget);
+    expect(find.text('已连接服务 · 自动同步账本数据'), findsOneWidget);
     expect(find.text('https://api.ledgerly.example'), findsOneWidget);
     expect(find.text('同步中心'), findsOneWidget);
     expect(find.text('冲突处理'), findsOneWidget);
+    expect(find.text('Plus'), findsNothing);
+    expect(find.text('订阅权益'), findsNothing);
   });
 
   testWidgets('logout requires confirmation', (tester) async {
@@ -102,8 +97,10 @@ void main() {
 
     await tester.scrollUntilVisible(
       find.byKey(const Key('settings-logout')),
-      200,
+      400,
     );
+    await tester.drag(find.byType(Scrollable), const Offset(0, -80));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('settings-logout')));
     await tester.pumpAndSettle();
     expect(find.text('确认退出登录？'), findsOneWidget);

@@ -23,7 +23,7 @@ class SyncService {
     return id;
   }
 
-  Map<String, dynamic> _rewritePayload(
+  Map<String, dynamic> _rewriteTransactionPayload(
     Map<String, dynamic> payload,
     String fromBook,
     String toBook,
@@ -74,13 +74,15 @@ class SyncService {
           return {
             'mutationId': p.mutationId,
             'entityType': p.entityType,
-            'entityId': p.entityId,
+            'entityId': p.entityType == 'account'
+                ? _rewriteAccountId(p.entityId, bookId, remoteBookId)
+                : p.entityId,
             'operation': p.operation,
             'baseVersion': p.baseVersion,
             'schemaVersion': 1,
-            'payload': p.operation == 'delete'
+            'payload': p.operation == 'delete' || p.entityType != 'transaction'
                 ? payload
-                : _rewritePayload(payload, bookId, remoteBookId),
+                : _rewriteTransactionPayload(payload, bookId, remoteBookId),
           };
         }).toList();
         final push = await _api.push(
@@ -127,9 +129,23 @@ class SyncService {
       final changes = (pull['changes'] as List?) ?? const [];
       for (final raw in changes) {
         final change = Map<String, dynamic>.from(raw as Map);
-        if (change['entityType'] != 'transaction') continue;
+        final entityType = change['entityType'] as String?;
+        if (entityType == 'account' && change['operation'] == 'upsert') {
+          final localAccountId = _rewriteAccountId(
+            change['entityId'] as String,
+            remoteBookId,
+            bookId,
+          );
+          await _repo.applyRemoteAccountUpsert(
+            entityId: localAccountId,
+            bookId: bookId,
+            payload: Map<String, dynamic>.from(change['payload'] as Map),
+          );
+          continue;
+        }
+        if (entityType != 'transaction') continue;
         if (change['operation'] == 'upsert') {
-          final payload = _rewritePayload(
+          final payload = _rewriteTransactionPayload(
             Map<String, dynamic>.from(change['payload'] as Map),
             remoteBookId,
             bookId,

@@ -9,6 +9,7 @@ import 'package:ledgerly_client/domain/ids.dart';
 import 'package:ledgerly_client/presentation/providers.dart';
 import 'package:ledgerly_client/presentation/quick_entry.dart';
 import 'package:ledgerly_client/presentation/quick_entry_sheet.dart';
+import 'package:ledgerly_client/presentation/widgets/quick_entry_keypad.dart';
 
 void main() {
   testWidgets('quick entry switches between expense income and transfer fields',
@@ -48,6 +49,10 @@ void main() {
   });
 
   testWidgets('quick entry keypad saves an income transaction', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
     final repository = LedgerRepository(
@@ -70,6 +75,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('open-quick-entry')));
     await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(QuickEntrySheet)).height, lessThan(660));
     await tester.tap(find.text('收入'));
     await tester.tap(find.byKey(const Key('quick-key-1')));
     await tester.tap(find.byKey(const Key('quick-key-2')));
@@ -84,6 +90,88 @@ void main() {
     final summary = (await repository.watchSummariesSync(defaultBookId)).single;
     expect(summary.kind, TransactionSummaryKind.income);
     expect(summary.amountMinor, BigInt.from(1230));
+  });
+
+  testWidgets('quick entry creates and immediately uses a new category',
+      (tester) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final repository = LedgerRepository(
+      db,
+      deviceIdLoader: () async => 'quick-category-device',
+    );
+    await repository.seedIfEmpty();
+    final service = LedgerAppService(repository);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ledgerRepositoryProvider.overrideWithValue(repository),
+          ledgerAppServiceProvider.overrideWithValue(service),
+        ],
+        child: const MaterialApp(home: _QuickEntryHost()),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('open-quick-entry')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('quick-category-field')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('category-add-picker')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('category-name-input')),
+      '咖啡',
+    );
+    await tester.tap(find.byKey(const Key('category-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('咖啡'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('quick-key-2')));
+    await tester.tap(find.byKey(const Key('quick-entry-save')));
+    await tester.pumpAndSettle();
+
+    final summary = (await repository.watchSummariesSync(defaultBookId)).single;
+    expect(summary.categoryName, '咖啡');
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('quick entry remains usable in a short landscape viewport',
+      (tester) async {
+    tester.view.physicalSize = const Size(844, 390);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          accountBalancesProvider.overrideWith((ref) async => _accounts),
+        ],
+        child: const MaterialApp(home: _QuickEntryHost()),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('open-quick-entry')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('转账'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('quick-entry-note')));
+    await tester.tap(find.byKey(const Key('quick-entry-note')));
+    await tester.pump();
+
+    expect(find.byType(QuickEntryKeypad), findsNothing);
+    expect(tester.takeException(), isNull);
+
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    expect(find.byType(QuickEntryKeypad), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }
 

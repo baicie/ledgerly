@@ -12,7 +12,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::error::ApiError;
-use crate::state::{AppState, ChangeRecord, MutationReceipt, TxRecord};
+use crate::state::{AccountRecord, AppState, ChangeRecord, MutationReceipt, TxRecord};
 use crate::transport::http::authz::{require_book_member, AuthUser};
 
 pub fn routes() -> Router<AppState> {
@@ -26,6 +26,72 @@ pub fn routes() -> Router<AppState> {
 struct PullQuery {
     cursor: Option<i64>,
     limit: Option<usize>,
+}
+
+#[derive(Debug)]
+struct AccountPayload {
+    name: String,
+    account_type: String,
+    currency: String,
+}
+
+fn parse_account_payload(
+    book_id: &str,
+    mutation: &ledger_contracts::SyncMutationDto,
+) -> Result<AccountPayload, MutationReceiptDto> {
+    if mutation.operation != "create" && mutation.operation != "update" {
+        return Err(rejected_receipt(mutation, "UNSUPPORTED_MUTATION", None));
+    }
+
+    let scoped_prefix = format!("{book_id}:");
+    if mutation
+        .entity_id
+        .strip_prefix(&scoped_prefix)
+        .is_none_or(|suffix| suffix.is_empty())
+    {
+        return Err(rejected_receipt(mutation, "INVALID_PAYLOAD", None));
+    }
+
+    let Some(name) = mutation
+        .payload
+        .get("name")
+        .and_then(|value| value.as_str())
+    else {
+        return Err(rejected_receipt(mutation, "INVALID_PAYLOAD", None));
+    };
+    let name = name.trim();
+    let Some(account_type) = mutation
+        .payload
+        .get("accountType")
+        .and_then(|value| value.as_str())
+    else {
+        return Err(rejected_receipt(mutation, "INVALID_PAYLOAD", None));
+    };
+    let Some(currency) = mutation
+        .payload
+        .get("currency")
+        .and_then(|value| value.as_str())
+    else {
+        return Err(rejected_receipt(mutation, "INVALID_PAYLOAD", None));
+    };
+
+    if name.is_empty()
+        || name.chars().count() > 24
+        || !matches!(
+            account_type,
+            "asset" | "liability" | "income" | "expense" | "equity"
+        )
+        || currency.len() != 3
+        || !currency.bytes().all(|byte| byte.is_ascii_uppercase())
+    {
+        return Err(rejected_receipt(mutation, "INVALID_PAYLOAD", None));
+    }
+
+    Ok(AccountPayload {
+        name: name.to_string(),
+        account_type: account_type.to_string(),
+        currency: currency.to_string(),
+    })
 }
 
 async fn push(
@@ -77,6 +143,7 @@ async fn push(
             continue;
         }
 
+        let _memory_sync_guard = state.memory_sync_lock.lock().await;
         let key = (
             book_id.clone(),
             req.device_id.clone(),
@@ -192,6 +259,12 @@ async fn process_mutation_pg(
     device_id: &str,
     mutation: &ledger_contracts::SyncMutationDto,
 ) -> MutationReceiptDto {
+    if mutation.entity_type == "account" {
+        return process_account_mutation_pg(state, book_id, device_id, mutation).await;
+    }
+    if mutation.entity_type != "transaction" {
+        return rejected_receipt(mutation, "UNSUPPORTED_MUTATION", None);
+    }
     let pool = state.pool.as_ref().unwrap();
     let drafts = if mutation.operation == "delete" {
         None
@@ -211,7 +284,7 @@ async fn process_mutation_pg(
         return db_error_receipt(mutation);
     };
 
-    let result = async {
+    let result: Result<MutationReceiptDto, sqlx::Error> = async {
         let lock_key = format!("{book_id}:{}", mutation.entity_id);
         sqlx::query("SELECT pg_advisory_xact_lock(hashtext($1))")
             .bind(lock_key)
@@ -237,6 +310,29 @@ async fn process_mutation_pg(
             };
             tx.commit().await?;
             return Ok(receipt);
+        }
+
+        if let Some(drafts) = drafts.as_ref() {
+            let mut account_ids = drafts
+                .iter()
+                .map(|draft| draft.account_id.clone())
+                .collect::<Vec<_>>();
+            account_ids.sort_unstable();
+            account_ids.dedup();
+            let found: (i64,) = sqlx::query_as(
+                "SELECT COUNT(*)::bigint FROM accounts
+                 WHERE book_id=$1 AND id=ANY($2)",
+            )
+            .bind(book_id)
+            .bind(&account_ids)
+            .fetch_one(&mut *tx)
+            .await?;
+            if found.0 != account_ids.len() as i64 {
+                let receipt = rejected_receipt(mutation, "ACCOUNT_NOT_FOUND", None);
+                insert_pg_receipt(&mut tx, book_id, device_id, &receipt).await?;
+                tx.commit().await?;
+                return Ok(receipt);
+            }
         }
 
         let existing: Option<(i64,)> = sqlx::query_as(
@@ -390,6 +486,139 @@ async fn process_mutation_pg(
     result.unwrap_or_else(|_| db_error_receipt(mutation))
 }
 
+async fn process_account_mutation_pg(
+    state: &AppState,
+    book_id: &str,
+    device_id: &str,
+    mutation: &ledger_contracts::SyncMutationDto,
+) -> MutationReceiptDto {
+    let pool = state.pool.as_ref().unwrap();
+    let Ok(mut tx) = pool.begin().await else {
+        return db_error_receipt(mutation);
+    };
+
+    let result: Result<MutationReceiptDto, sqlx::Error> = async {
+        let mutation_lock_key = format!("{book_id}:mutation:{device_id}:{}", mutation.mutation_id);
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtext($1))")
+            .bind(mutation_lock_key)
+            .execute(&mut *tx)
+            .await?;
+
+        let existing_receipt: Option<(String, String, Option<i64>)> = sqlx::query_as(
+            "SELECT status, result_code, entity_version
+             FROM sync_mutations
+             WHERE book_id=$1 AND device_id=$2 AND mutation_id=$3",
+        )
+        .bind(book_id)
+        .bind(device_id)
+        .bind(&mutation.mutation_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+        if let Some((status, result_code, entity_version)) = existing_receipt {
+            let receipt = MutationReceiptDto {
+                mutation_id: mutation.mutation_id.clone(),
+                status,
+                result_code,
+                entity_version,
+            };
+            tx.commit().await?;
+            return Ok(receipt);
+        }
+
+        let payload = match parse_account_payload(book_id, mutation) {
+            Ok(payload) => payload,
+            Err(receipt) => {
+                insert_pg_receipt(&mut tx, book_id, device_id, &receipt).await?;
+                tx.commit().await?;
+                return Ok(receipt);
+            }
+        };
+
+        let account_lock_key = format!("{book_id}:account:{}", mutation.entity_id);
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtext($1))")
+            .bind(account_lock_key)
+            .execute(&mut *tx)
+            .await?;
+
+        let existing: Option<(String, i64, String, String)> = sqlx::query_as(
+            "SELECT book_id, version, account_type, currency_code
+             FROM accounts WHERE id=$1 FOR UPDATE",
+        )
+        .bind(&mutation.entity_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+
+        let (version, account_type, currency) = if mutation.operation == "create" {
+            if let Some((_, version, _, _)) = existing {
+                let receipt = rejected_receipt(mutation, "LEDGER_VERSION_CONFLICT", Some(version));
+                insert_pg_receipt(&mut tx, book_id, device_id, &receipt).await?;
+                tx.commit().await?;
+                return Ok(receipt);
+            }
+            sqlx::query(
+                "INSERT INTO accounts
+                 (id, book_id, name, account_type, currency_code, version)
+                 VALUES ($1,$2,$3,$4,$5,1)",
+            )
+            .bind(&mutation.entity_id)
+            .bind(book_id)
+            .bind(&payload.name)
+            .bind(&payload.account_type)
+            .bind(&payload.currency)
+            .execute(&mut *tx)
+            .await?;
+            (1, payload.account_type.clone(), payload.currency.clone())
+        } else {
+            let Some((existing_book_id, current_version, account_type, currency)) = existing else {
+                let receipt = rejected_receipt(mutation, "ACCOUNT_NOT_FOUND", None);
+                insert_pg_receipt(&mut tx, book_id, device_id, &receipt).await?;
+                tx.commit().await?;
+                return Ok(receipt);
+            };
+            if existing_book_id != book_id {
+                let receipt = rejected_receipt(mutation, "ACCOUNT_NOT_FOUND", None);
+                insert_pg_receipt(&mut tx, book_id, device_id, &receipt).await?;
+                tx.commit().await?;
+                return Ok(receipt);
+            }
+            let version = current_version + 1;
+            sqlx::query("UPDATE accounts SET name=$1, version=$2 WHERE id=$3 AND book_id=$4")
+                .bind(&payload.name)
+                .bind(version)
+                .bind(&mutation.entity_id)
+                .bind(book_id)
+                .execute(&mut *tx)
+                .await?;
+            (version, account_type, currency)
+        };
+
+        let canonical_payload = serde_json::json!({
+            "name": payload.name,
+            "accountType": account_type,
+            "currency": currency,
+        });
+        sqlx::query(
+            "INSERT INTO sync_changes
+             (book_id, commit_id, entity_type, entity_id, operation, entity_version, payload)
+             VALUES ($1,$2,'account',$3,'upsert',$4,$5)",
+        )
+        .bind(book_id)
+        .bind(Uuid::now_v7().to_string())
+        .bind(&mutation.entity_id)
+        .bind(version)
+        .bind(canonical_payload)
+        .execute(&mut *tx)
+        .await?;
+        let receipt = applied_receipt(mutation, version);
+        insert_pg_receipt(&mut tx, book_id, device_id, &receipt).await?;
+        tx.commit().await?;
+        Ok(receipt)
+    }
+    .await;
+
+    result.unwrap_or_else(|_| db_error_receipt(mutation))
+}
+
 fn db_error_receipt(mutation: &ledger_contracts::SyncMutationDto) -> MutationReceiptDto {
     rejected_receipt(mutation, "DB_ERROR", None)
 }
@@ -480,6 +709,12 @@ async fn process_mutation_mem(
     book_id: &str,
     mutation: &ledger_contracts::SyncMutationDto,
 ) -> MutationReceiptDto {
+    if mutation.entity_type == "account" {
+        return process_account_mutation_mem(state, book_id, mutation).await;
+    }
+    if mutation.entity_type != "transaction" {
+        return rejected_receipt(mutation, "UNSUPPORTED_MUTATION", None);
+    }
     if mutation.operation == "delete" {
         return process_delete_mem(state, book_id, mutation).await;
     }
@@ -492,6 +727,14 @@ async fn process_mutation_mem(
     }
 
     let mut store = state.store.write().await;
+    if !drafts.iter().all(|draft| {
+        store
+            .accounts
+            .get(&draft.account_id)
+            .is_some_and(|account| account.book_id == book_id)
+    }) {
+        return rejected_receipt(mutation, "ACCOUNT_NOT_FOUND", None);
+    }
     if let Some(existing) = store.transactions.get(&mutation.entity_id) {
         if mutation.base_version != 0 && existing.version != mutation.base_version {
             return MutationReceiptDto {
@@ -548,6 +791,68 @@ async fn process_mutation_mem(
         result_code: "OK".into(),
         entity_version: Some(version),
     }
+}
+
+async fn process_account_mutation_mem(
+    state: &AppState,
+    book_id: &str,
+    mutation: &ledger_contracts::SyncMutationDto,
+) -> MutationReceiptDto {
+    let payload = match parse_account_payload(book_id, mutation) {
+        Ok(payload) => payload,
+        Err(receipt) => return receipt,
+    };
+
+    let mut store = state.store.write().await;
+    let (version, account_type, currency) = if mutation.operation == "create" {
+        if let Some(existing) = store.accounts.get(&mutation.entity_id) {
+            return rejected_receipt(mutation, "LEDGER_VERSION_CONFLICT", Some(existing.version));
+        }
+        store.accounts.insert(
+            mutation.entity_id.clone(),
+            AccountRecord {
+                id: mutation.entity_id.clone(),
+                book_id: book_id.to_string(),
+                name: payload.name.clone(),
+                account_type: payload.account_type.clone(),
+                currency: payload.currency.clone(),
+                version: 1,
+            },
+        );
+        (1, payload.account_type, payload.currency)
+    } else {
+        let Some(account) = store.accounts.get_mut(&mutation.entity_id) else {
+            return rejected_receipt(mutation, "ACCOUNT_NOT_FOUND", None);
+        };
+        if account.book_id != book_id {
+            return rejected_receipt(mutation, "ACCOUNT_NOT_FOUND", None);
+        }
+        account.name = payload.name.clone();
+        account.version += 1;
+        (
+            account.version,
+            account.account_type.clone(),
+            account.currency.clone(),
+        )
+    };
+
+    let canonical_payload = serde_json::json!({
+        "name": payload.name,
+        "accountType": account_type,
+        "currency": currency,
+    });
+    let sequence = (store.changes.len() as i64) + 1;
+    store.changes.push(ChangeRecord {
+        sequence,
+        book_id: book_id.to_string(),
+        commit_id: Uuid::now_v7().to_string(),
+        entity_type: "account".into(),
+        entity_id: mutation.entity_id.clone(),
+        operation: "upsert".into(),
+        entity_version: version,
+        payload: canonical_payload,
+    });
+    applied_receipt(mutation, version)
 }
 
 async fn pull(
@@ -706,6 +1011,14 @@ async fn bootstrap(
         .fetch_all(pool)
         .await
         .map_err(db_err)?;
+        let accounts: Vec<(String, i64, String, String, String)> = sqlx::query_as(
+            "SELECT id, version, name, account_type, currency_code
+             FROM accounts WHERE book_id=$1 ORDER BY id",
+        )
+        .bind(&book_id)
+        .fetch_all(pool)
+        .await
+        .map_err(db_err)?;
         let mut out = Vec::new();
         for (id, version, description) in txs {
             let entries: Vec<(String, i64, String)> = sqlx::query_as(
@@ -728,6 +1041,13 @@ async fn bootstrap(
         return Ok(Json(serde_json::json!({
             "bootstrapId": Uuid::now_v7().to_string(),
             "highWaterCursor": high.0.to_string(),
+            "accounts": accounts.iter().map(|(id, version, name, account_type, currency)| serde_json::json!({
+                "id": id,
+                "version": version,
+                "name": name,
+                "accountType": account_type,
+                "currency": currency,
+            })).collect::<Vec<_>>(),
             "transactions": out,
         })));
     }
@@ -753,9 +1073,24 @@ async fn bootstrap(
         .filter(|t| t.book_id == book_id)
         .cloned()
         .collect();
+    let accounts = store
+        .accounts
+        .values()
+        .filter(|account| account.book_id == book_id)
+        .map(|account| {
+            serde_json::json!({
+                "id": account.id,
+                "version": account.version,
+                "name": account.name,
+                "accountType": account.account_type,
+                "currency": account.currency,
+            })
+        })
+        .collect::<Vec<_>>();
     Ok(Json(serde_json::json!({
         "bootstrapId": Uuid::now_v7().to_string(),
         "highWaterCursor": high_water.to_string(),
+        "accounts": accounts,
         "transactions": txs.iter().map(|t| serde_json::json!({
             "id": t.id,
             "version": t.version,
@@ -819,4 +1154,237 @@ async fn process_delete_mem(
 
 fn db_err(e: sqlx::Error) -> ApiError {
     ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "DB_ERROR", e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use ledger_contracts::SyncMutationDto;
+    use serde_json::json;
+
+    use super::{parse_account_payload, process_account_mutation_mem, process_mutation_mem};
+    use crate::{state::AccountRecord, AppState, Config};
+
+    fn account_mutation(
+        mutation_id: &str,
+        entity_id: &str,
+        operation: &str,
+        base_version: i64,
+        name: &str,
+        account_type: &str,
+        currency: &str,
+    ) -> SyncMutationDto {
+        SyncMutationDto {
+            mutation_id: mutation_id.to_string(),
+            entity_type: "account".into(),
+            entity_id: entity_id.to_string(),
+            operation: operation.to_string(),
+            base_version,
+            schema_version: 1,
+            payload: json!({
+                "name": name,
+                "accountType": account_type,
+                "currency": currency,
+            }),
+        }
+    }
+
+    #[test]
+    fn account_payload_validation_trims_name_and_rejects_invalid_fields() {
+        let valid = account_mutation(
+            "valid",
+            "book-1:category",
+            "create",
+            0,
+            "  Groceries  ",
+            "expense",
+            "CNY",
+        );
+        let parsed = parse_account_payload("book-1", &valid).unwrap();
+        assert_eq!(parsed.name, "Groceries");
+        let boundary = account_mutation(
+            "boundary",
+            "book-1:boundary",
+            "create",
+            0,
+            &"x".repeat(24),
+            "expense",
+            "CNY",
+        );
+        assert!(parse_account_payload("book-1", &boundary).is_ok());
+
+        for invalid in [
+            account_mutation(
+                "wrong-scope",
+                "book-2:category",
+                "create",
+                0,
+                "Name",
+                "expense",
+                "CNY",
+            ),
+            account_mutation("empty-id", "book-1:", "create", 0, "Name", "expense", "CNY"),
+            account_mutation(
+                "blank-name",
+                "book-1:blank",
+                "create",
+                0,
+                "   ",
+                "expense",
+                "CNY",
+            ),
+            account_mutation(
+                "long-name",
+                "book-1:long",
+                "create",
+                0,
+                &"x".repeat(25),
+                "expense",
+                "CNY",
+            ),
+            account_mutation(
+                "bad-type",
+                "book-1:type",
+                "create",
+                0,
+                "Name",
+                "other",
+                "CNY",
+            ),
+            account_mutation(
+                "bad-currency",
+                "book-1:currency",
+                "create",
+                0,
+                "Name",
+                "expense",
+                "cny",
+            ),
+        ] {
+            let receipt = parse_account_payload("book-1", &invalid).unwrap_err();
+            assert_eq!(receipt.result_code, "INVALID_PAYLOAD");
+        }
+    }
+
+    #[tokio::test]
+    async fn memory_account_updates_are_last_writer_wins_and_preserve_classification() {
+        let state = AppState::new(Config::for_test());
+        let create = account_mutation(
+            "create",
+            "book-1:category",
+            "create",
+            0,
+            "Food",
+            "expense",
+            "CNY",
+        );
+        assert_eq!(
+            process_account_mutation_mem(&state, "book-1", &create)
+                .await
+                .entity_version,
+            Some(1)
+        );
+
+        let duplicate = account_mutation(
+            "duplicate",
+            "book-1:category",
+            "create",
+            0,
+            "Food",
+            "expense",
+            "CNY",
+        );
+        let duplicate = process_account_mutation_mem(&state, "book-1", &duplicate).await;
+        assert_eq!(duplicate.result_code, "LEDGER_VERSION_CONFLICT");
+        assert_eq!(duplicate.entity_version, Some(1));
+
+        let update = account_mutation(
+            "update",
+            "book-1:category",
+            "update",
+            999,
+            "  Meals  ",
+            "income",
+            "USD",
+        );
+        let update = process_account_mutation_mem(&state, "book-1", &update).await;
+        assert_eq!(update.status, "applied");
+        assert_eq!(update.entity_version, Some(2));
+
+        let second_update = account_mutation(
+            "second-update",
+            "book-1:category",
+            "update",
+            1,
+            "Dining",
+            "asset",
+            "EUR",
+        );
+        let second_update = process_account_mutation_mem(&state, "book-1", &second_update).await;
+        assert_eq!(second_update.status, "applied");
+        assert_eq!(second_update.entity_version, Some(3));
+
+        let missing = account_mutation(
+            "missing",
+            "book-1:missing",
+            "update",
+            0,
+            "Missing",
+            "expense",
+            "CNY",
+        );
+        let missing = process_account_mutation_mem(&state, "book-1", &missing).await;
+        assert_eq!(missing.result_code, "ACCOUNT_NOT_FOUND");
+
+        let store = state.store.read().await;
+        let account = store.accounts.get("book-1:category").unwrap();
+        assert_eq!(account.name, "Dining");
+        assert_eq!(account.account_type, "expense");
+        assert_eq!(account.currency, "CNY");
+        let change = store.changes.last().unwrap();
+        assert_eq!(change.payload["accountType"], "expense");
+        assert_eq!(change.payload["currency"], "CNY");
+    }
+
+    #[tokio::test]
+    async fn memory_transaction_rejects_an_account_owned_by_another_book() {
+        let state = AppState::new(Config::for_test());
+        {
+            let mut store = state.store.write().await;
+            for (id, book_id) in [
+                ("book-1:cash", "book-1"),
+                ("book-2:foreign-expense", "book-2"),
+            ] {
+                store.accounts.insert(
+                    id.into(),
+                    AccountRecord {
+                        id: id.into(),
+                        book_id: book_id.into(),
+                        name: "Account".into(),
+                        account_type: "expense".into(),
+                        currency: "CNY".into(),
+                        version: 1,
+                    },
+                );
+            }
+        }
+        let mutation = SyncMutationDto {
+            mutation_id: "foreign-account".into(),
+            entity_type: "transaction".into(),
+            entity_id: "tx-1".into(),
+            operation: "create".into(),
+            base_version: 0,
+            schema_version: 1,
+            payload: json!({
+                "entries": [
+                    {"accountId": "book-2:foreign-expense", "amountMinor": "100", "currency": "CNY"},
+                    {"accountId": "book-1:cash", "amountMinor": "-100", "currency": "CNY"}
+                ]
+            }),
+        };
+
+        let receipt = process_mutation_mem(&state, "book-1", &mutation).await;
+        assert_eq!(receipt.status, "rejected");
+        assert_eq!(receipt.result_code, "ACCOUNT_NOT_FOUND");
+        assert!(state.store.read().await.transactions.is_empty());
+    }
 }

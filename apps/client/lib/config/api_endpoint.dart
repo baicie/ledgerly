@@ -5,6 +5,11 @@ class ApiEndpoint {
     'LEDGERLY_API_BASE_URL',
   );
 
+  static const requireHttps = bool.fromEnvironment(
+    'LEDGERLY_API_REQUIRE_HTTPS',
+    defaultValue: true,
+  );
+
   static String get environmentDefault => _configured;
 
   final Uri uri;
@@ -15,10 +20,15 @@ class ApiEndpoint {
     required String configured,
     required bool isRelease,
     required bool isWeb,
+    bool requireHttps = ApiEndpoint.requireHttps,
   }) {
-    final value = configured.trim();
+    var value = configured.trim();
     if (value.isEmpty) {
       throw const FormatException('The API endpoint must not be empty.');
+    }
+
+    if (_looksLikeIpv4Origin(value)) {
+      value = 'http://$value';
     }
 
     final candidate = Uri.tryParse(value);
@@ -37,12 +47,12 @@ class ApiEndpoint {
       );
     }
 
-    final isLoopback = _isLocalOnlyHost(candidate.host);
-    if (isRelease && (candidate.scheme != 'https' || isLoopback)) {
-      throw const FormatException(
-        'Release builds require a non-loopback HTTPS API endpoint.',
-      );
-    }
+    _validateTransport(
+      candidate,
+      isRelease: isRelease,
+      isWeb: isWeb,
+      requireHttps: requireHttps,
+    );
     if (isRelease && isWeb && candidate.hasPort && candidate.port != 443) {
       throw const FormatException(
         'Release Web builds require the default HTTPS port for cookie isolation.',
@@ -50,6 +60,72 @@ class ApiEndpoint {
     }
 
     return ApiEndpoint._(Uri.parse(candidate.origin));
+  }
+
+  static Uri validateResourceUrl(
+    String value, {
+    required bool isRelease,
+    required bool isWeb,
+    bool requireHttps = ApiEndpoint.requireHttps,
+  }) {
+    final candidate = Uri.tryParse(value.trim());
+    if (candidate == null ||
+        !candidate.hasScheme ||
+        !candidate.hasAuthority ||
+        !const {'http', 'https'}.contains(candidate.scheme.toLowerCase()) ||
+        candidate.userInfo.isNotEmpty ||
+        candidate.hasFragment) {
+      throw const FormatException('The resource URL must be an HTTP(S) URL.');
+    }
+    _validateTransport(
+      candidate,
+      isRelease: isRelease,
+      isWeb: isWeb,
+      requireHttps: requireHttps,
+    );
+    return candidate;
+  }
+
+  static void _validateTransport(
+    Uri candidate, {
+    required bool isRelease,
+    required bool isWeb,
+    required bool requireHttps,
+  }) {
+    final isLoopback = _isLocalOnlyHost(candidate.host);
+    final allowsPrivateHttp = !isWeb &&
+        candidate.scheme == 'http' &&
+        _isPrivateNetworkHost(candidate.host);
+    final allowsConfiguredHttp = !isWeb &&
+        !requireHttps &&
+        candidate.scheme == 'http';
+    if (isRelease &&
+        ((candidate.scheme != 'https' &&
+                !allowsPrivateHttp &&
+                !allowsConfiguredHttp) ||
+            isLoopback)) {
+      throw const FormatException(
+        'Release builds require HTTPS, except for private network IP addresses on native clients or when LEDGERLY_API_REQUIRE_HTTPS is false.',
+      );
+    }
+  }
+
+  static bool _looksLikeIpv4Origin(String value) {
+    return RegExp(r'^\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?/?$').hasMatch(value);
+  }
+
+  static bool _isPrivateNetworkHost(String host) {
+    final address = _parseIpv4Literal(host);
+    if (address != null) {
+      return address >> 24 == 10 ||
+          address >> 20 == 0xac1 ||
+          address >> 16 == 0xc0a8 ||
+          address >> 16 == 0xa9fe;
+    }
+
+    final ipv6 = _parseIpv6Words(host);
+    if (ipv6 == null) return false;
+    return ipv6.first >> 9 == 0x7e || ipv6.first >> 6 == 0x3fa;
   }
 
   static bool _isLocalOnlyHost(String value) {

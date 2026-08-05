@@ -10,9 +10,16 @@ Future<void> openQuickEntry(BuildContext context) {
     backgroundColor: Colors.transparent,
     constraints: const BoxConstraints(maxWidth: 560),
     clipBehavior: Clip.antiAlias,
-    builder: (context) => const FractionallySizedBox(
-      heightFactor: 0.94,
-      child: QuickEntrySheet(),
-    ),
+    builder: (context) {
+      final height = MediaQuery.sizeOf(context).height;
+      return FractionallySizedBox(
+        heightFactor: height < 600
+            ? 1
+            : height < 720
+                ? 0.94
+                : 0.76,
+        child: const QuickEntrySheet(),
+      );
+    },
   );
 }

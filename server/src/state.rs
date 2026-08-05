@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use serde_json::Value;
 use sqlx::PgPool;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 use uuid::Uuid;
 
 use crate::config::Config;
@@ -13,6 +13,7 @@ use crate::infrastructure::postgres;
 pub struct AppState {
     pub config: Config,
     pub store: Arc<RwLock<MemoryStore>>,
+    pub memory_sync_lock: Arc<Mutex<()>>,
     pub pool: Option<PgPool>,
 }
 
@@ -143,6 +144,7 @@ impl AppState {
         Self {
             config,
             store: Arc::new(RwLock::new(MemoryStore::default())),
+            memory_sync_lock: Arc::new(Mutex::new(())),
             pool: None,
         }
     }
@@ -152,6 +154,7 @@ impl AppState {
         Ok(Self {
             config,
             store: Arc::new(RwLock::new(MemoryStore::default())),
+            memory_sync_lock: Arc::new(Mutex::new(())),
             pool,
         })
     }

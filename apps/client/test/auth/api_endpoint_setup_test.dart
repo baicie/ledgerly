@@ -109,7 +109,7 @@ void main() {
     await tester.tap(find.byKey(const Key('api-endpoint-save')));
     await tester.pump();
 
-    expect(find.text('正式版本仅支持非本机 HTTPS 地址'), findsOneWidget);
+    expect(find.text('请使用 HTTPS；原生客户端也支持局域网 IP 地址'), findsOneWidget);
     expect(store.value, isNull);
 
     await tester.enterText(

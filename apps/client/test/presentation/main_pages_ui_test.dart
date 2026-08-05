@@ -53,22 +53,14 @@ void main() {
         home: Scaffold(
           body: SettingsContent(
             isLocal: true,
-            planLabel: 'Free',
             endpointLabel: '未设置（仅本地存储）',
-            appLock: false,
             loggingOut: false,
             changingEndpoint: false,
             onChangeEndpoint: () {},
-            onAppLockChanged: (_) {},
             onSync: null,
             onConflicts: null,
             onExport: () {},
-            onSubscription: null,
-            onFx: null,
-            onFamily: null,
-            onBudgets: null,
-            onRecurring: null,
-            onAttachments: null,
+            onCategories: () {},
             onLogout: null,
           ),
         ),
@@ -77,6 +69,42 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(_cardInset(tester, '数据与同步'), 20);
+    expect(find.text('分类管理'), findsOneWidget);
+    expect(find.text('同步中心'), findsNothing);
+    expect(find.text('冲突处理'), findsNothing);
+    expect(find.text('应用锁'), findsNothing);
+    expect(find.text('订阅权益'), findsNothing);
+    expect(find.text('汇率'), findsNothing);
+    expect(find.text('家庭共享'), findsNothing);
+    expect(find.text('预算'), findsNothing);
+    expect(find.text('周期记账'), findsNothing);
+    expect(find.text('附件'), findsNothing);
+  });
+
+  testWidgets('remote settings exposes the budget target entry',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SettingsContent(
+            isLocal: false,
+            endpointLabel: 'https://ledger.example',
+            loggingOut: false,
+            changingEndpoint: false,
+            onChangeEndpoint: () {},
+            onSync: () {},
+            onConflicts: () {},
+            onExport: () {},
+            onCategories: () {},
+            onBudgets: () {},
+            onLogout: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('预算目标'), findsOneWidget);
   });
 
   testWidgets('reports page presents monthly income and expense sections',

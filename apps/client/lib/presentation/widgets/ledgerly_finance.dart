@@ -35,9 +35,9 @@ IconData ledgerIconFor(String? name, {TransactionSummaryKind? kind}) {
   return switch (name) {
     'Cash' => Icons.payments_outlined,
     'Bank' => Icons.account_balance_outlined,
-    'Food' => Icons.restaurant_outlined,
-    'Transport' => Icons.directions_bus_outlined,
-    'Salary' => Icons.work_outline_rounded,
+    'Food' || '餐饮' => Icons.restaurant_outlined,
+    'Transport' || '交通' => Icons.directions_bus_outlined,
+    'Salary' || '工资收入' => Icons.work_outline_rounded,
     _ => Icons.receipt_long_outlined,
   };
 }
@@ -46,9 +46,9 @@ Color ledgerColorFor(String? name, {TransactionSummaryKind? kind}) {
   if (kind == TransactionSummaryKind.income) return LedgerlyColors.income;
   if (kind == TransactionSummaryKind.transfer) return LedgerlyColors.chartBlue;
   return switch (name) {
-    'Food' => LedgerlyColors.actionStrong,
-    'Transport' => LedgerlyColors.chartBlue,
-    'Salary' => LedgerlyColors.income,
+    'Food' || '餐饮' => LedgerlyColors.actionStrong,
+    'Transport' || '交通' => LedgerlyColors.chartBlue,
+    'Salary' || '工资收入' => LedgerlyColors.income,
     'Cash' => LedgerlyColors.warning,
     _ => LedgerlyColors.expense,
   };

@@ -71,8 +71,9 @@ class _ApiEndpointEditorDialogState extends State<_ApiEndpointEditorDialog> {
           onSubmitted: (_) => _submit(),
           decoration: InputDecoration(
             labelText: 'API 地址（选填）',
-            hintText: 'https://your-server.example',
-            helperText: '留空后仅使用本地存储',
+            hintText: '192.168.1.10:8080',
+            helperText: '原生端支持局域网 IP；留空则仅本地存储',
+            helperMaxLines: 2,
             prefixIcon: const Icon(Icons.dns_outlined),
             border: const OutlineInputBorder(),
             errorText: _errorText,
@@ -99,7 +100,7 @@ String apiEndpointErrorText(Object error) {
   if (error is FormatException) {
     final message = error.message;
     if (message.contains('Release builds require')) {
-      return '正式版本仅支持非本机 HTTPS 地址';
+      return '请使用 HTTPS；原生客户端也支持局域网 IP 地址';
     }
     if (message.contains('default HTTPS port')) {
       return 'Web 正式版本仅支持 HTTPS 默认端口（443）';
