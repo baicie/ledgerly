@@ -245,6 +245,9 @@ class LedgerRepository {
           amountMinor: details.amountMinor,
           categoryName: details.categoryName,
           accountName: details.accountName,
+          categoryAccountId: details.categoryAccountId,
+          accountId: details.accountId,
+          toAccountId: details.toAccountId,
         ),
       );
     }
@@ -272,6 +275,9 @@ class LedgerRepository {
         amountMinor: _absoluteTotal(expenseEntries),
         categoryName: _joinedAccountNames(expenseEntries, accountsById),
         accountName: _firstAccountName(balanceEntries, accountsById),
+        categoryAccountId:
+            expenseEntries.isEmpty ? null : expenseEntries.first.accountId,
+        accountId: balanceEntries.isEmpty ? null : balanceEntries.first.accountId,
       );
     }
     if (incomeEntries.isNotEmpty) {
@@ -280,6 +286,9 @@ class LedgerRepository {
         amountMinor: _absoluteTotal(incomeEntries),
         categoryName: _joinedAccountNames(incomeEntries, accountsById),
         accountName: _firstAccountName(balanceEntries, accountsById),
+        categoryAccountId:
+            incomeEntries.isEmpty ? null : incomeEntries.first.accountId,
+        accountId: balanceEntries.isEmpty ? null : balanceEntries.first.accountId,
       );
     }
     if (balanceEntries.length >= 2) {
@@ -295,6 +304,8 @@ class LedgerRepository {
             .map((entry) => accountsById[entry.accountId]?.name)
             .whereType<String>()
             .join(' -> '),
+        accountId: ordered.first.accountId,
+        toAccountId: ordered.last.accountId,
       );
     }
     return _TransactionDetails(
@@ -411,6 +422,90 @@ class LedgerRepository {
               createdAt: DateTime.now().toUtc(),
             ),
           );
+    });
+  }
+
+  Future<void> updateDomainTransaction(
+    domain.LedgerTransaction tx, {
+    required int baseVersion,
+    required String mutationId,
+  }) async {
+    final currentDeviceId = await deviceId;
+    await _db.transaction(() async {
+      final current = await (_db.select(_db.transactions)
+            ..where((t) => t.id.equals(tx.id.value)))
+          .getSingleOrNull();
+      if (current == null || current.deletedAt != null) {
+        throw StateError('transaction not found');
+      }
+      if (current.version != baseVersion) {
+        throw StateError('transaction changed; refresh before editing');
+      }
+
+      final nextVersion = current.version + 1;
+      await (_db.update(_db.transactions)
+            ..where((t) => t.id.equals(tx.id.value)))
+          .write(
+        TransactionsCompanion(
+          occurredAt: Value(tx.occurredAt),
+          description: Value(tx.description),
+          version: Value(nextVersion),
+        ),
+      );
+      await (_db.delete(_db.transactionEntries)
+            ..where((entry) => entry.transactionId.equals(tx.id.value)))
+          .go();
+      for (final entry in tx.entries) {
+        await _db.into(_db.transactionEntries).insert(
+              TransactionEntriesCompanion.insert(
+                id: entry.id.value,
+                transactionId: entry.transactionId.value,
+                accountId: entry.accountId.value,
+                amountMinor: entry.amount.minorUnits.toString(),
+                currencyCode: entry.amount.currency.value,
+                entryIndex: entry.index,
+              ),
+            );
+      }
+      final payloadJson = jsonEncode({
+        'description': tx.description,
+        'entries': tx.entries
+            .map(
+              (entry) => {
+                'accountId': entry.accountId.value,
+                'amountMinor': entry.amount.minorUnits.toString(),
+                'currency': entry.amount.currency.value,
+              },
+            )
+            .toList(),
+      });
+      final pendingCreate = await (_db.select(_db.pendingMutations)
+            ..where(
+              (mutation) => mutation.entityType.equals('transaction') &
+                  mutation.entityId.equals(tx.id.value) &
+                  mutation.operation.equals('create'),
+            ))
+          .getSingleOrNull();
+      if (pendingCreate != null) {
+        await (_db.update(_db.pendingMutations)
+              ..where((mutation) =>
+                  mutation.mutationId.equals(pendingCreate.mutationId)))
+            .write(PendingMutationsCompanion(payloadJson: Value(payloadJson)));
+      } else {
+        await _db.into(_db.pendingMutations).insert(
+              PendingMutationsCompanion.insert(
+                mutationId: mutationId,
+                bookId: tx.bookId.value,
+                deviceId: currentDeviceId,
+                entityType: 'transaction',
+                entityId: tx.id.value,
+                operation: 'update',
+                baseVersion: baseVersion,
+                payloadJson: payloadJson,
+                createdAt: DateTime.now().toUtc(),
+              ),
+            );
+      }
     });
   }
 
@@ -632,6 +727,9 @@ class TransactionSummary {
     BigInt? amountMinor,
     this.categoryName,
     this.accountName,
+    this.categoryAccountId,
+    this.accountId,
+    this.toAccountId,
   }) : amountMinor = amountMinor ?? BigInt.zero;
 
   final String id;
@@ -643,6 +741,9 @@ class TransactionSummary {
   final BigInt amountMinor;
   final String? categoryName;
   final String? accountName;
+  final String? categoryAccountId;
+  final String? accountId;
+  final String? toAccountId;
 }
 
 class _TransactionDetails {
@@ -651,12 +752,18 @@ class _TransactionDetails {
     required this.amountMinor,
     required this.categoryName,
     required this.accountName,
+    this.categoryAccountId,
+    this.accountId,
+    this.toAccountId,
   });
 
   final TransactionSummaryKind kind;
   final BigInt amountMinor;
   final String? categoryName;
   final String? accountName;
+  final String? categoryAccountId;
+  final String? accountId;
+  final String? toAccountId;
 }
 
 typedef PendingMutationRow = PendingMutation;

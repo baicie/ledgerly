@@ -11,7 +11,9 @@ import 'widgets/quick_entry_keypad.dart';
 enum QuickEntryMode { expense, income, transfer }
 
 class QuickEntrySheet extends ConsumerStatefulWidget {
-  const QuickEntrySheet({super.key});
+  const QuickEntrySheet({super.key, this.transaction});
+
+  final TransactionSummary? transaction;
 
   @override
   ConsumerState<QuickEntrySheet> createState() => _QuickEntrySheetState();
@@ -31,6 +33,19 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
   void initState() {
     super.initState();
     _noteFocus.addListener(_handleNoteFocus);
+    final transaction = widget.transaction;
+    if (transaction != null) {
+      _mode = switch (transaction.kind) {
+        TransactionSummaryKind.income => QuickEntryMode.income,
+        TransactionSummaryKind.transfer => QuickEntryMode.transfer,
+        _ => QuickEntryMode.expense,
+      };
+      _amount = _amountInput(transaction.amountMinor);
+      _categoryId = transaction.categoryAccountId;
+      _accountId = transaction.accountId;
+      _toAccountId = transaction.toAccountId;
+      _note.text = transaction.description ?? '';
+    }
   }
 
   @override
@@ -96,7 +111,7 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
             children: [
               Expanded(
                 child: Text(
-                  '记一笔',
+                  widget.transaction == null ? '记一笔' : '编辑流水',
                   style: shortViewport
                       ? Theme.of(context).textTheme.titleMedium
                       : Theme.of(context).textTheme.titleLarge,
@@ -289,10 +304,12 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
       };
 
   String get _saveLabel => switch (_mode) {
-        QuickEntryMode.expense => '保存支出',
-        QuickEntryMode.income => '保存收入',
-        QuickEntryMode.transfer => '保存转账',
+        QuickEntryMode.expense => _isEditing ? '更新支出' : '保存支出',
+        QuickEntryMode.income => _isEditing ? '更新收入' : '保存收入',
+        QuickEntryMode.transfer => _isEditing ? '更新转账' : '保存转账',
       };
+
+  bool get _isEditing => widget.transaction != null;
 
   Color get _modeColor => switch (_mode) {
         QuickEntryMode.expense => LedgerlyColors.expense,
@@ -309,6 +326,13 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
   }
 
   String get _displayAmount => formatDisplayMinor(_amountMinor, symbol: false);
+
+  String _amountInput(BigInt minor) {
+    final absolute = minor.abs();
+    final yuan = absolute ~/ BigInt.from(100);
+    final cents = (absolute % BigInt.from(100)).toString().padLeft(2, '0');
+    return '$yuan.$cents';
+  }
 
   void _enter(String value) {
     setState(() {
@@ -411,28 +435,64 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
     final description = _note.text.trim().isEmpty ? null : _note.text.trim();
     try {
       final service = ref.read(ledgerAppServiceProvider);
-      switch (_mode) {
-        case QuickEntryMode.expense:
-          await service.createExpense(
-            expenseAccountId: category!.id,
-            fundingAccountId: account.id,
-            amountMinor: _amountMinor,
-            description: description,
-          );
-        case QuickEntryMode.income:
-          await service.createIncome(
-            incomeAccountId: category!.id,
-            depositAccountId: account.id,
-            amountMinor: _amountMinor,
-            description: description,
-          );
-        case QuickEntryMode.transfer:
-          await service.createTransfer(
-            fromAccountId: account.id,
-            toAccountId: toAccount!.id,
-            amountMinor: _amountMinor,
-            description: description,
-          );
+      final transaction = widget.transaction;
+      if (transaction == null) {
+        switch (_mode) {
+          case QuickEntryMode.expense:
+            await service.createExpense(
+              expenseAccountId: category!.id,
+              fundingAccountId: account.id,
+              amountMinor: _amountMinor,
+              description: description,
+            );
+          case QuickEntryMode.income:
+            await service.createIncome(
+              incomeAccountId: category!.id,
+              depositAccountId: account.id,
+              amountMinor: _amountMinor,
+              description: description,
+            );
+          case QuickEntryMode.transfer:
+            await service.createTransfer(
+              fromAccountId: account.id,
+              toAccountId: toAccount!.id,
+              amountMinor: _amountMinor,
+              description: description,
+            );
+        }
+      } else {
+        switch (_mode) {
+          case QuickEntryMode.expense:
+            await service.updateExpense(
+              transactionId: transaction.id,
+              occurredAt: transaction.occurredAt,
+              version: transaction.version,
+              expenseAccountId: category!.id,
+              fundingAccountId: account.id,
+              amountMinor: _amountMinor,
+              description: description,
+            );
+          case QuickEntryMode.income:
+            await service.updateIncome(
+              transactionId: transaction.id,
+              occurredAt: transaction.occurredAt,
+              version: transaction.version,
+              incomeAccountId: category!.id,
+              depositAccountId: account.id,
+              amountMinor: _amountMinor,
+              description: description,
+            );
+          case QuickEntryMode.transfer:
+            await service.updateTransfer(
+              transactionId: transaction.id,
+              occurredAt: transaction.occurredAt,
+              version: transaction.version,
+              fromAccountId: account.id,
+              toAccountId: toAccount!.id,
+              amountMinor: _amountMinor,
+              description: description,
+            );
+        }
       }
       ref.invalidate(monthTransactionsProvider);
       ref.invalidate(monthlyLedgerSummaryProvider);

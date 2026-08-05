@@ -9,13 +9,11 @@ class FeedTransactionList extends StatelessWidget {
   const FeedTransactionList({
     super.key,
     required this.transactions,
-    required this.hasRemote,
     required this.onOpen,
     required this.onDelete,
   });
 
   final List<TransactionSummary> transactions;
-  final bool hasRemote;
   final ValueChanged<TransactionSummary> onOpen;
   final ValueChanged<TransactionSummary> onDelete;
 
@@ -63,7 +61,9 @@ class FeedTransactionList extends StatelessWidget {
                   if (itemIndex > 0) const Divider(indent: 70, endIndent: 16),
                   _TransactionTile(
                     transaction: items[itemIndex],
-                    onTap: hasRemote ? () => onOpen(items[itemIndex]) : null,
+                    onTap: items[itemIndex].kind == TransactionSummaryKind.adjustment
+                        ? null
+                        : () => onOpen(items[itemIndex]),
                     onDelete: () => onDelete(items[itemIndex]),
                   ),
                 ],
