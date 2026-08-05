@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
+import '../quick_entry.dart';
 import '../providers.dart';
 import '../widgets/feed_transaction_list.dart';
 import '../widgets/ledgerly_layout.dart';
@@ -15,8 +15,6 @@ class FeedPage extends ConsumerWidget {
     final month = ref.watch(selectedMonthProvider);
     final transactions = ref.watch(monthTransactionsProvider);
     final summary = ref.watch(monthlyLedgerSummaryProvider);
-    final hasRemote = ref.watch(apiEndpointProvider) != null;
-
     return Scaffold(
       body: SafeArea(
         child: LedgerlyContent(
@@ -54,9 +52,9 @@ class FeedPage extends ConsumerWidget {
               skipLoadingOnReload: true,
               data: (items) => FeedTransactionList(
                 transactions: items,
-                hasRemote: hasRemote,
-                onOpen: (transaction) => context.go(
-                  '/feed/revisions/${transaction.id}',
+                onOpen: (transaction) => openQuickEntry(
+                  context,
+                  transaction: transaction,
                 ),
                 onDelete: (transaction) =>
                     _deleteTransaction(ref, transaction.id),
@@ -80,6 +78,8 @@ class FeedPage extends ConsumerWidget {
     ref.invalidate(monthTransactionsProvider);
     ref.invalidate(transactionListProvider);
     ref.invalidate(accountBalancesProvider);
+    ref.invalidate(categoryReportProvider);
+    ref.invalidate(monthlyLedgerSummaryProvider);
   }
 }
 

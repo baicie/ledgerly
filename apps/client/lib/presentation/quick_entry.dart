@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../data/ledger_repository.dart';
 import 'quick_entry_sheet.dart';
 
-Future<void> openQuickEntry(BuildContext context) {
+Future<void> openQuickEntry(
+  BuildContext context, {
+  TransactionSummary? transaction,
+}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -18,7 +22,7 @@ Future<void> openQuickEntry(BuildContext context) {
             : height < 720
                 ? 0.94
                 : 0.76,
-        child: const QuickEntrySheet(),
+        child: QuickEntrySheet(transaction: transaction),
       );
     },
   );

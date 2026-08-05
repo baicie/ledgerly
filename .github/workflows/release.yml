@@ -228,6 +228,7 @@ jobs:
           - API service is optional; without one Ledgerly stays local-only and makes no authentication or sync requests.
           - Configure or clear the API service from login, recovery, or Settings.
           - Native clients may opt into a public HTTP API with \`LEDGERLY_API_REQUIRE_HTTPS=false\`; Web clients continue to require HTTPS for secure cookies.
+          - Tap an existing ledger entry to edit its amount, account, category, or note while preserving its transaction identity.
           - Refreshed the main Ledgerly experience with responsive feed, accounts, reports, and settings pages.
           - Added expense, income, and transfer quick entry with category/account pickers and a numeric keypad.
           - \`ledgerly-web.zip\` — Flutter Web

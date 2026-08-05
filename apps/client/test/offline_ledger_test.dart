@@ -74,6 +74,53 @@ void main() {
     expect(summary.amountMinor, BigInt.from(4280));
     expect(summary.categoryName, 'Food');
     expect(summary.accountName, 'Cash');
+    expect(summary.categoryAccountId, accountKeyFood(defaultBookId));
+    expect(summary.accountId, accountKeyCash(defaultBookId));
+  });
+
+  test('editing a transaction keeps its id and queues an update mutation',
+      () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final repo = LedgerRepository(
+      db,
+      deviceIdLoader: () async => 'test-device',
+    );
+    await repo.seedIfEmpty();
+    final service = LedgerAppService(repo);
+
+    await service.createExpense(
+      expenseAccountId: accountKeyFood(defaultBookId),
+      fundingAccountId: accountKeyCash(defaultBookId),
+      amountMinor: BigInt.from(3000),
+      description: 'Lunch',
+    );
+    final original = (await repo.watchSummariesSync(defaultBookId)).single;
+    final createMutation = (await repo.listPending(defaultBookId)).single;
+    await repo.removePending(createMutation.mutationId);
+
+    await service.updateExpense(
+      transactionId: original.id,
+      occurredAt: original.occurredAt,
+      version: original.version,
+      expenseAccountId: accountKeyFood(defaultBookId),
+      fundingAccountId: accountKeyCash(defaultBookId),
+      amountMinor: BigInt.from(4200),
+      description: 'Dinner',
+    );
+
+    final updated = (await repo.watchSummariesSync(defaultBookId)).single;
+    expect(updated.id, original.id);
+    expect(updated.description, 'Dinner');
+    expect(updated.amountMinor, BigInt.from(4200));
+    expect(await repo.accountBalance(accountKeyFood(defaultBookId)),
+        BigInt.from(4200));
+    expect(await repo.accountBalance(accountKeyCash(defaultBookId)),
+        BigInt.from(-4200));
+    final pending = (await repo.listPending(defaultBookId)).single;
+    expect(pending.operation, 'update');
+    expect(pending.entityId, original.id);
+    expect(pending.baseVersion, original.version);
   });
 
   test('soft delete hides transaction from balance', () async {

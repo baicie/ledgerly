@@ -10,7 +10,7 @@ import 'package:ledgerly_client/presentation/pages/sync_center_page.dart';
 import 'package:ledgerly_client/presentation/providers.dart';
 
 void main() {
-  testWidgets('local feed does not open remote transaction revisions',
+  testWidgets('local feed opens an existing transaction for editing',
       (tester) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -23,6 +23,10 @@ void main() {
                 occurredAt: DateTime.utc(2026, 8, 4),
                 description: '午餐',
                 entryCount: 2,
+                kind: TransactionSummaryKind.expense,
+                amountMinor: BigInt.from(1200),
+                categoryName: 'Food',
+                accountName: 'Cash',
               ),
             ],
           ),
@@ -38,7 +42,7 @@ void main() {
         matching: find.byType(ListTile),
       ),
     );
-    expect(transactionTile.onTap, isNull);
+    expect(transactionTile.onTap, isNotNull);
   });
 
   testWidgets(

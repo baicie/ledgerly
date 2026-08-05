@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -90,6 +92,65 @@ void main() {
     final summary = (await repository.watchSummariesSync(defaultBookId)).single;
     expect(summary.kind, TransactionSummaryKind.income);
     expect(summary.amountMinor, BigInt.from(1230));
+  });
+
+  testWidgets('editing an existing transaction pre-fills and updates it',
+      (tester) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final repository = LedgerRepository(
+      db,
+      deviceIdLoader: () async => 'edit-entry-device',
+    );
+    await repository.seedIfEmpty();
+    final service = LedgerAppService(repository);
+    await service.createExpense(
+      expenseAccountId: accountKeyFood(defaultBookId),
+      fundingAccountId: accountKeyCash(defaultBookId),
+      amountMinor: BigInt.from(1250),
+      description: 'Lunch',
+    );
+    final transaction =
+        (await repository.watchSummariesSync(defaultBookId)).single;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ledgerRepositoryProvider.overrideWithValue(repository),
+          ledgerAppServiceProvider.overrideWithValue(service),
+          accountBalancesProvider.overrideWith((ref) async => _accounts),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: QuickEntrySheet(transaction: transaction),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('编辑流水'), findsOneWidget);
+    expect(find.text('12.50'), findsOneWidget);
+    expect(find.text('午餐'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const Key('quick-entry-note')),
+      'Dinner',
+    );
+    await tester.tap(find.byKey(const Key('quick-entry-save')));
+    await tester.pumpAndSettle();
+
+    final updated = (await repository.watchSummariesSync(defaultBookId)).single;
+    expect(updated.id, transaction.id);
+    expect(updated.amountMinor, BigInt.from(1250));
+    expect(updated.description, 'Dinner');
+    final pending = await repository.listPending(defaultBookId);
+    expect(pending, hasLength(1));
+    expect(pending.single.operation, 'create');
+    expect(
+      (jsonDecode(pending.single.payloadJson) as Map)['description'],
+      'Dinner',
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('quick entry creates and immediately uses a new category',

@@ -90,6 +90,104 @@ class LedgerAppService {
     await _repo.saveDomainTransaction(tx, mutationId: mutationId);
   }
 
+  Future<void> updateExpense({
+    required String transactionId,
+    required DateTime occurredAt,
+    required int version,
+    required String expenseAccountId,
+    required String fundingAccountId,
+    required BigInt amountMinor,
+    String? description,
+  }) async {
+    final accounts = await _repo.listAccounts(bookId.value);
+    final expense =
+        _asDomain(accounts.firstWhere((a) => a.id == expenseAccountId));
+    final funding =
+        _asDomain(accounts.firstWhere((a) => a.id == fundingAccountId));
+    final tx = factory.expense(
+      id: domain.TransactionId(transactionId),
+      bookId: bookId,
+      occurredAt: occurredAt,
+      expenseAccount: expense,
+      fundingAccount: funding,
+      amount: domain.Money(
+        minorUnits: amountMinor,
+        currency: domain.CurrencyCode.cny,
+      ),
+      description: description,
+    );
+    await _repo.updateDomainTransaction(
+      tx,
+      baseVersion: version,
+      mutationId: _repo.newId(),
+    );
+  }
+
+  Future<void> updateIncome({
+    required String transactionId,
+    required DateTime occurredAt,
+    required int version,
+    required String incomeAccountId,
+    required String depositAccountId,
+    required BigInt amountMinor,
+    String? description,
+  }) async {
+    final accounts = await _repo.listAccounts(bookId.value);
+    final income =
+        _asDomain(accounts.firstWhere((a) => a.id == incomeAccountId));
+    final deposit =
+        _asDomain(accounts.firstWhere((a) => a.id == depositAccountId));
+    final tx = factory.income(
+      id: domain.TransactionId(transactionId),
+      bookId: bookId,
+      occurredAt: occurredAt,
+      incomeAccount: income,
+      depositAccount: deposit,
+      amount: domain.Money(
+        minorUnits: amountMinor,
+        currency: domain.CurrencyCode.cny,
+      ),
+      description: description,
+    );
+    await _repo.updateDomainTransaction(
+      tx,
+      baseVersion: version,
+      mutationId: _repo.newId(),
+    );
+  }
+
+  Future<void> updateTransfer({
+    required String transactionId,
+    required DateTime occurredAt,
+    required int version,
+    required String fromAccountId,
+    required String toAccountId,
+    required BigInt amountMinor,
+    String? description,
+  }) async {
+    final accounts = await _repo.listAccounts(bookId.value);
+    final from =
+        _asDomain(accounts.firstWhere((a) => a.id == fromAccountId));
+    final to = _asDomain(accounts.firstWhere((a) => a.id == toAccountId));
+    final tx = factory.transfer(
+      id: domain.TransactionId(transactionId),
+      bookId: bookId,
+      occurredAt: occurredAt,
+      from: from,
+      to: to,
+      amount: domain.Money(
+        minorUnits: amountMinor,
+        currency: domain.CurrencyCode.cny,
+      ),
+      description: description,
+    );
+    await _repo.updateDomainTransaction(
+      tx,
+      baseVersion: version,
+      mutationId: _repo.newId(),
+    );
+  }
+
   Future<void> deleteTransaction(String txId) {
     return _repo.softDeleteTransaction(txId, bookId.value);
   }
