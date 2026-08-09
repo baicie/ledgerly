@@ -4,6 +4,13 @@ import 'package:ledgerly_client/data/ledger_repository.dart';
 import 'package:ledgerly_client/presentation/providers.dart';
 
 void main() {
+  test('month range follows local calendar boundaries', () {
+    final range = monthUtcRange(DateTime(2026, 8));
+
+    expect(range.start.toLocal(), DateTime(2026, 8));
+    expect(range.end.toLocal(), DateTime(2026, 9));
+  });
+
   test('monthly report aggregates expense categories and ledger totals',
       () async {
     final transactions = [

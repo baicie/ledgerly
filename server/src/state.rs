@@ -225,6 +225,7 @@ const DEFAULT_ACCOUNTS: &[(&str, &str, &str, Option<&str>)] = &[
 pub struct TxRecord {
     pub id: String,
     pub book_id: String,
+    pub occurred_at: time::OffsetDateTime,
     pub description: Option<String>,
     pub version: i64,
     pub deleted: bool,

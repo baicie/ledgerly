@@ -225,6 +225,8 @@ jobs:
           ## Ledgerly ${{ github.ref_name }}
 
           ### Client (this release)
+          - Choose any transaction date when creating or editing expense, income, and transfer entries, making forgotten entries easy to backfill.
+          - Preserve business dates across local storage and device sync, with monthly lists and reports following local calendar boundaries.
           - API service is optional; without one Ledgerly stays local-only and makes no authentication or sync requests.
           - Configure or clear the API service from login, recovery, or Settings.
           - Native clients may opt into a public HTTP API with \`LEDGERLY_API_REQUIRE_HTTPS=false\`; Web clients continue to require HTTPS for secure cookies.
@@ -240,6 +242,7 @@ jobs:
           - APKs published before release signing was introduced use a different certificate and must be uninstalled before installing this release.
 
           ### Server
+          - Persist transaction business dates in PostgreSQL and use them for reports and budget progress, with compatible backfill for existing data and older clients.
           Docker image: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}\`
           Also tagged \`latest\` when this is a version tag.
 

@@ -1,11 +1,13 @@
 use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
 use ledger_contracts::{CreateTransactionRequest, CreateTransactionResponse};
 use ledger_domain::{validate_balanced, EntryDraft};
+use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::error::ApiError;
 use crate::state::{AppState, ChangeRecord, TxRecord};
 use crate::transport::http::authz::{require_book_member, AuthUser};
+use crate::transport::http::sync::canonical_transaction_payload;
 
 pub fn routes() -> Router<AppState> {
     Router::new().route("/v1/transactions", post(create_transaction))
@@ -43,6 +45,7 @@ async fn create_transaction(
 
     let tx_id = Uuid::now_v7().to_string();
     let commit_id = Uuid::now_v7().to_string();
+    let occurred_at = OffsetDateTime::now_utc();
     let entries: Vec<(String, i64, String)> = drafts
         .iter()
         .map(|d| {
@@ -68,6 +71,7 @@ async fn create_transaction(
             TxRecord {
                 id: tx_id.clone(),
                 book_id: req.book_id.clone(),
+                occurred_at,
                 description: req.description.clone(),
                 version: 1,
                 deleted: false,
@@ -83,10 +87,13 @@ async fn create_transaction(
             entity_id: tx_id.clone(),
             operation: "upsert".into(),
             entity_version: 1,
-            payload: serde_json::json!({
-                "description": req.description,
-                "entries": entries,
-            }),
+            payload: canonical_transaction_payload(
+                &serde_json::json!({
+                    "description": req.description,
+                    "entries": entries,
+                }),
+                occurred_at,
+            ),
         });
     }
 

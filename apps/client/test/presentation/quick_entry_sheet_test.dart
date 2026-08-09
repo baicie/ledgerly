@@ -95,6 +95,55 @@ void main() {
     expect(summary.amountMinor, BigInt.from(1230));
   });
 
+  testWidgets('quick entry saves a new transaction for yesterday',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final repository = LedgerRepository(
+      db,
+      deviceIdLoader: () async => 'backfill-entry-device',
+    );
+    await repository.seedIfEmpty();
+    final service = LedgerAppService(repository);
+    final now = DateTime.now();
+    final yesterday = DateTime(now.year, now.month, now.day - 1);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ledgerAppServiceProvider.overrideWithValue(service),
+          accountBalancesProvider.overrideWith((ref) async => _accounts),
+        ],
+        child: const MaterialApp(home: _QuickEntryHost()),
+      ),
+    );
+    await tester.tap(find.byKey(const Key('open-quick-entry')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('quick-entry-date')));
+    await tester.pumpAndSettle();
+    if (yesterday.month != now.month || yesterday.year != now.year) {
+      await tester.tap(find.byIcon(Icons.chevron_left).first);
+      await tester.pumpAndSettle();
+    }
+    await tester.tap(find.text('${yesterday.day}').last);
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('quick-key-1')));
+    await tester.tap(find.byKey(const Key('quick-entry-save')));
+    await tester.pumpAndSettle();
+
+    final summary = (await repository.watchSummariesSync(defaultBookId)).single;
+    final localDate = summary.occurredAt.toLocal();
+    expect(localDate.year, yesterday.year);
+    expect(localDate.month, yesterday.month);
+    expect(localDate.day, yesterday.day);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('editing an existing transaction pre-fills and updates it',
       (tester) async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
@@ -150,6 +199,70 @@ void main() {
       (jsonDecode(pending.single.payloadJson) as Map)['description'],
       'Dinner',
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('quick entry changes the transaction date and keeps its time',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final repository = LedgerRepository(
+      db,
+      deviceIdLoader: () async => 'edit-date-device',
+    );
+    await repository.seedIfEmpty();
+    final service = LedgerAppService(repository);
+    final originalLocalTime = DateTime(2024, 4, 13, 12, 34, 56);
+    await service.createExpense(
+      expenseAccountId: accountKeyFood(defaultBookId),
+      fundingAccountId: accountKeyCash(defaultBookId),
+      amountMinor: BigInt.from(1800),
+      description: 'Forgotten lunch',
+      occurredAt: originalLocalTime.toUtc(),
+    );
+    final transaction =
+        (await repository.watchSummariesSync(defaultBookId)).single;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ledgerRepositoryProvider.overrideWithValue(repository),
+          ledgerAppServiceProvider.overrideWithValue(service),
+          accountBalancesProvider.overrideWith((ref) async => _accounts),
+        ],
+        child: MaterialApp(
+          home: _QuickEntryHost(transaction: transaction),
+        ),
+      ),
+    );
+    await tester.tap(find.byKey(const Key('open-quick-entry')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2024年4月13日'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('quick-entry-date')));
+    await tester.tap(find.byKey(const Key('quick-entry-date')));
+    await tester.pumpAndSettle();
+    expect(find.byType(DatePickerDialog), findsOneWidget);
+    await tester.tap(find.text('14'));
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2024年4月14日'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('quick-entry-save')));
+    await tester.pumpAndSettle();
+
+    final updated = (await repository.watchSummariesSync(defaultBookId)).single;
+    final updatedLocalTime = updated.occurredAt.toLocal();
+    expect(updatedLocalTime.year, 2024);
+    expect(updatedLocalTime.month, 4);
+    expect(updatedLocalTime.day, 14);
+    expect(updatedLocalTime.hour, originalLocalTime.hour);
+    expect(updatedLocalTime.minute, originalLocalTime.minute);
+    expect(updatedLocalTime.second, originalLocalTime.second);
     expect(tester.takeException(), isNull);
   });
 

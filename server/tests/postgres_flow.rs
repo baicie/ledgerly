@@ -4,6 +4,7 @@ use axum::Router;
 use http_body_util::BodyExt;
 use ledger_server::{app_router, migrate, AppState, Config};
 use serde_json::json;
+use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use tower::ServiceExt;
 
 fn pg_url() -> Option<String> {
@@ -120,6 +121,9 @@ async fn postgres_push_pull_persists() {
     let cash = format!("{book_id}:acc_cash");
     let food = format!("{book_id}:acc_food");
     let custom_category = format!("{book_id}:category_pg_lunch");
+    let transaction_id = format!("tx_{}", uuid::Uuid::now_v7());
+    let historical_input_occurred_at = "2024-04-13T12:34:56+08:00";
+    let historical_occurred_at = "2024-04-13T04:34:56Z";
 
     let ready = app
         .clone()
@@ -154,12 +158,13 @@ async fn postgres_push_pull_persists() {
             {
                 "mutationId": format!("mut_tx_{}", uuid::Uuid::now_v7()),
                 "entityType": "transaction",
-                "entityId": format!("tx_{}", uuid::Uuid::now_v7()),
+                "entityId": transaction_id,
                 "operation": "create",
                 "baseVersion": 0,
                 "schemaVersion": 1,
                 "payload": {
                     "description": "PG lunch",
+                    "occurredAt": historical_input_occurred_at,
                     "entries": [
                         {"accountId": custom_category, "amountMinor": "1200", "currency": "CNY"},
                         {"accountId": cash, "amountMinor": "-1200", "currency": "CNY"}
@@ -186,6 +191,53 @@ async fn postgres_push_pull_persists() {
     let push = json_body(res).await;
     assert_eq!(push["receipts"][0]["status"], "applied");
     assert_eq!(push["receipts"][1]["status"], "applied");
+
+    let transaction_update = json!({
+        "deviceId": "dev_pg",
+        "mutations": [{
+            "mutationId": format!("mut_tx_update_{}", uuid::Uuid::now_v7()),
+            "entityType": "transaction",
+            "entityId": transaction_id,
+            "operation": "update",
+            "baseVersion": 1,
+            "schemaVersion": 1,
+            "payload": {
+                "description": "PG lunch updated by old client",
+                "entries": [
+                    {"accountId": custom_category, "amountMinor": "1200", "currency": "CNY"},
+                    {"accountId": cash, "amountMinor": "-1200", "currency": "CNY"}
+                ]
+            }
+        }]
+    });
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/v1/books/{book_id}/sync/push"))
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::from(transaction_update.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let transaction_update = json_body(res).await;
+    assert_eq!(transaction_update["receipts"][0]["status"], "applied");
+    assert_eq!(transaction_update["receipts"][0]["entityVersion"], 2);
+
+    let stored_occurred_at: OffsetDateTime =
+        sqlx::query_scalar("SELECT occurred_at FROM transactions WHERE id=$1 AND book_id=$2")
+            .bind(&transaction_id)
+            .bind(&book_id)
+            .fetch_one(state.pool.as_ref().unwrap())
+            .await
+            .expect("read persisted transaction occurred_at");
+    assert_eq!(
+        stored_occurred_at.format(&Rfc3339).unwrap(),
+        historical_occurred_at
+    );
 
     let rename = json!({
         "deviceId": "dev_pg",
@@ -310,6 +362,12 @@ async fn postgres_push_pull_persists() {
             && change["payload"]["currency"] == "CNY"
             && change["payload"]["parentAccountId"] == food
     }));
+    assert!(pull["changes"].as_array().unwrap().iter().any(|change| {
+        change["entityType"] == "transaction"
+            && change["entityId"] == transaction_id
+            && change["version"] == 2
+            && change["payload"]["occurredAt"] == historical_occurred_at
+    }));
 
     let res = app
         .oneshot(
@@ -334,6 +392,15 @@ async fn postgres_push_pull_persists() {
                 && account["accountType"] == "expense"
                 && account["currency"] == "CNY"
                 && account["parentAccountId"] == food
+        }));
+    assert!(bootstrap["transactions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|transaction| {
+            transaction["id"] == transaction_id
+                && transaction["version"] == 2
+                && transaction["occurredAt"] == historical_occurred_at
         }));
 }
 

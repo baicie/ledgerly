@@ -88,6 +88,13 @@ final selectedMonthProvider = StateProvider<DateTime>((ref) {
   return DateTime(now.year, now.month);
 });
 
+({DateTime start, DateTime end}) monthUtcRange(DateTime month) {
+  return (
+    start: DateTime(month.year, month.month).toUtc(),
+    end: DateTime(month.year, month.month + 1).toUtc(),
+  );
+}
+
 final transactionListProvider =
     StreamProvider<List<TransactionSummary>>((ref) async* {
   final repo = ref.watch(ledgerRepositoryProvider);
@@ -101,12 +108,11 @@ final monthTransactionsProvider =
   await repo.seedIfEmpty();
   await ref.watch(transactionListProvider.future);
   final month = ref.watch(selectedMonthProvider);
-  final start = DateTime.utc(month.year, month.month);
-  final end = DateTime.utc(month.year, month.month + 1);
+  final range = monthUtcRange(month);
   return repo.watchSummariesSync(
     defaultBookId,
-    monthStart: start,
-    monthEnd: end,
+    monthStart: range.start,
+    monthEnd: range.end,
   );
 });
 

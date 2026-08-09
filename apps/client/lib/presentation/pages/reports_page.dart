@@ -33,10 +33,11 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       final bookId = ref.read(authRepositoryProvider).currentSession?.bookId;
       if (bookId == null) return;
       final month = ref.read(selectedMonthProvider);
+      final range = monthUtcRange(month);
       final summary = await api.reportSummary(
         bookId: bookId,
-        from: DateTime.utc(month.year, month.month).toIso8601String(),
-        to: DateTime.utc(month.year, month.month + 1).toIso8601String(),
+        from: range.start.toIso8601String(),
+        to: range.end.toIso8601String(),
       );
       if (mounted) {
         setState(() {

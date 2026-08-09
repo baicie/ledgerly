@@ -5,6 +5,7 @@ use axum::{
     Json, Router,
 };
 use serde::Deserialize;
+use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::error::ApiError;
@@ -192,8 +193,8 @@ async fn month_spent_for_account(
              WHERE t.book_id = $1
                AND te.account_id = $2
                AND t.deleted_at IS NULL
-               AND t.created_at >= date_trunc('month', now())
-               AND t.created_at < date_trunc('month', now()) + interval '1 month'",
+               AND t.occurred_at >= date_trunc('month', now())
+               AND t.occurred_at < date_trunc('month', now()) + interval '1 month'",
         )
         .bind(book_id)
         .bind(account_id)
@@ -203,9 +204,10 @@ async fn month_spent_for_account(
         return Ok(row.0);
     }
     let store = state.store.read().await;
+    let now = OffsetDateTime::now_utc();
     let mut sum = 0i64;
     for tx in store.transactions.values() {
-        if tx.book_id != book_id || tx.deleted {
+        if tx.book_id != book_id || tx.deleted || !is_same_month(tx.occurred_at, now) {
             continue;
         }
         for (acc, amount, _) in &tx.entries {
@@ -253,12 +255,13 @@ async fn list_budgets(
         return Ok(Json(serde_json::json!({ "budgets": budgets })));
     }
     let store = state.store.read().await;
+    let now = OffsetDateTime::now_utc();
     let mut budgets = Vec::new();
     for b in store.budgets.iter().filter(|b| b.book_id == book_id) {
         let spent = if let Some(ref cat) = b.category_account_id {
             let mut sum = 0i64;
             for tx in store.transactions.values() {
-                if tx.book_id != book_id || tx.deleted {
+                if tx.book_id != book_id || tx.deleted || !is_same_month(tx.occurred_at, now) {
                     continue;
                 }
                 for (acc, amount, _) in &tx.entries {
@@ -282,6 +285,10 @@ async fn list_budgets(
         }));
     }
     Ok(Json(serde_json::json!({ "budgets": budgets })))
+}
+
+fn is_same_month(value: OffsetDateTime, reference: OffsetDateTime) -> bool {
+    value.year() == reference.year() && value.month() == reference.month()
 }
 
 #[derive(Debug, Deserialize)]

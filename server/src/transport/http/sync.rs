@@ -9,6 +9,7 @@ use ledger_contracts::{
 };
 use ledger_domain::{validate_balanced, EntryDraft};
 use serde::Deserialize;
+use time::{format_description::well_known::Rfc3339, OffsetDateTime, UtcOffset};
 use uuid::Uuid;
 
 use crate::error::ApiError;
@@ -31,6 +32,18 @@ pub fn routes() -> Router<AppState> {
 struct PullQuery {
     cursor: Option<i64>,
     limit: Option<usize>,
+}
+
+#[derive(sqlx::FromRow)]
+struct PullChangeRow {
+    sequence: i64,
+    commit_id: String,
+    entity_type: String,
+    entity_id: String,
+    operation: String,
+    entity_version: i64,
+    payload: serde_json::Value,
+    occurred_at: Option<OffsetDateTime>,
 }
 
 #[derive(Debug)]
@@ -296,6 +309,52 @@ fn parse_entries(
     Ok(drafts)
 }
 
+fn parse_occurred_at(
+    mutation: &ledger_contracts::SyncMutationDto,
+) -> Result<Option<OffsetDateTime>, MutationReceiptDto> {
+    let Some(raw) = mutation.payload.get("occurredAt") else {
+        return Ok(None);
+    };
+    let Some(raw) = raw.as_str() else {
+        return Err(rejected_receipt(mutation, "INVALID_PAYLOAD", None));
+    };
+    OffsetDateTime::parse(raw, &Rfc3339)
+        .map(|value| Some(value.to_offset(UtcOffset::UTC)))
+        .map_err(|_| rejected_receipt(mutation, "INVALID_PAYLOAD", None))
+}
+
+pub(crate) fn format_occurred_at(value: OffsetDateTime) -> String {
+    value
+        .to_offset(UtcOffset::UTC)
+        .format(&Rfc3339)
+        .expect("UTC timestamp must be representable as RFC3339")
+}
+
+pub(crate) fn canonical_transaction_payload(
+    payload: &serde_json::Value,
+    occurred_at: OffsetDateTime,
+) -> serde_json::Value {
+    let mut payload = payload.clone();
+    if let Some(object) = payload.as_object_mut() {
+        object.insert(
+            "occurredAt".into(),
+            serde_json::Value::String(format_occurred_at(occurred_at)),
+        );
+    }
+    payload
+}
+
+fn backfill_transaction_occurred_at(
+    payload: serde_json::Value,
+    occurred_at: OffsetDateTime,
+) -> serde_json::Value {
+    if payload.get("occurredAt").is_some() {
+        payload
+    } else {
+        canonical_transaction_payload(&payload, occurred_at)
+    }
+}
+
 fn validate_or_reject(
     mutation: &ledger_contracts::SyncMutationDto,
     drafts: &[EntryDraft],
@@ -344,10 +403,14 @@ async fn process_mutation_pg(
         return rejected_receipt(mutation, "UNSUPPORTED_MUTATION", None);
     }
     let pool = state.pool.as_ref().unwrap();
-    let drafts = if mutation.operation == "delete" {
-        None
+    let (drafts, requested_occurred_at) = if mutation.operation == "delete" {
+        (None, None)
     } else {
-        match parse_entries(mutation) {
+        let requested_occurred_at = match parse_occurred_at(mutation) {
+            Ok(value) => value,
+            Err(receipt) => return receipt,
+        };
+        let drafts = match parse_entries(mutation) {
             Ok(drafts) => {
                 if let Some(receipt) = validate_or_reject(mutation, &drafts) {
                     return receipt;
@@ -355,7 +418,8 @@ async fn process_mutation_pg(
                 Some(drafts)
             }
             Err(receipt) => return receipt,
-        }
+        };
+        (drafts, requested_occurred_at)
     };
 
     let Ok(mut tx) = pool.begin().await else {
@@ -413,8 +477,8 @@ async fn process_mutation_pg(
             }
         }
 
-        let existing: Option<(i64,)> = sqlx::query_as(
-            "SELECT version FROM transactions
+        let existing: Option<(i64, OffsetDateTime)> = sqlx::query_as(
+            "SELECT version, occurred_at FROM transactions
              WHERE id=$1 AND book_id=$2
              FOR UPDATE",
         )
@@ -424,7 +488,7 @@ async fn process_mutation_pg(
         .await?;
 
         if mutation.operation == "delete" {
-            let Some((version,)) = existing else {
+            let Some((version, _)) = existing else {
                 let receipt = rejected_receipt(mutation, "NOT_FOUND", None);
                 insert_pg_receipt(&mut tx, book_id, device_id, &receipt).await?;
                 tx.commit().await?;
@@ -459,27 +523,36 @@ async fn process_mutation_pg(
             return Ok(receipt);
         }
 
-        if let Some((version,)) = existing {
-            if mutation.operation == "create" || mutation.base_version != version {
-                let receipt = rejected_receipt(mutation, "LEDGER_VERSION_CONFLICT", Some(version));
+        if let Some((version, _)) = existing.as_ref() {
+            if mutation.operation == "create" || mutation.base_version != *version {
+                let receipt = rejected_receipt(mutation, "LEDGER_VERSION_CONFLICT", Some(*version));
                 insert_pg_receipt(&mut tx, book_id, device_id, &receipt).await?;
                 tx.commit().await?;
                 return Ok(receipt);
             }
         }
 
-        let version = existing.map(|(version,)| version + 1).unwrap_or(1);
+        let is_update = existing.is_some();
+        let version = existing
+            .as_ref()
+            .map(|(version, _)| version + 1)
+            .unwrap_or(1);
+        let occurred_at = requested_occurred_at
+            .or_else(|| existing.as_ref().map(|(_, occurred_at)| *occurred_at))
+            .unwrap_or_else(OffsetDateTime::now_utc);
+        let canonical_payload = canonical_transaction_payload(&mutation.payload, occurred_at);
         let description = mutation
             .payload
             .get("description")
             .and_then(|value| value.as_str())
             .map(str::to_string);
-        if existing.is_some() {
+        if is_update {
             let updated = sqlx::query(
-                "UPDATE transactions SET description=$1, version=$2
-                 WHERE id=$3 AND book_id=$4 AND version=$5",
+                "UPDATE transactions SET description=$1, occurred_at=$2, version=$3
+                 WHERE id=$4 AND book_id=$5 AND version=$6",
             )
             .bind(&description)
+            .bind(occurred_at)
             .bind(version)
             .bind(&mutation.entity_id)
             .bind(book_id)
@@ -495,12 +568,13 @@ async fn process_mutation_pg(
                 .await?;
         } else {
             sqlx::query(
-                "INSERT INTO transactions (id, book_id, description, version)
-                 VALUES ($1,$2,$3,$4)",
+                "INSERT INTO transactions (id, book_id, description, occurred_at, version)
+                 VALUES ($1,$2,$3,$4,$5)",
             )
             .bind(&mutation.entity_id)
             .bind(book_id)
             .bind(&description)
+            .bind(occurred_at)
             .bind(version)
             .execute(&mut *tx)
             .await?;
@@ -538,7 +612,7 @@ async fn process_mutation_pg(
         .bind(&commit_id)
         .bind(&mutation.entity_id)
         .bind(version)
-        .bind(&mutation.payload)
+        .bind(&canonical_payload)
         .execute(&mut *tx)
         .await?;
         sqlx::query(
@@ -551,7 +625,7 @@ async fn process_mutation_pg(
         .bind(&mutation.entity_id)
         .bind(version)
         .bind(&mutation.operation)
-        .bind(&mutation.payload)
+        .bind(&canonical_payload)
         .execute(&mut *tx)
         .await?;
         let receipt = applied_receipt(mutation, version);
@@ -859,6 +933,10 @@ async fn process_mutation_mem(
     if mutation.operation == "delete" {
         return process_delete_mem(state, book_id, mutation).await;
     }
+    let requested_occurred_at = match parse_occurred_at(mutation) {
+        Ok(value) => value,
+        Err(receipt) => return receipt,
+    };
     let drafts = match parse_entries(mutation) {
         Ok(d) => d,
         Err(r) => return r,
@@ -876,18 +954,21 @@ async fn process_mutation_mem(
     }) {
         return rejected_receipt(mutation, "ACCOUNT_NOT_FOUND", None);
     }
-    if let Some(existing) = store.transactions.get(&mutation.entity_id) {
-        if mutation.base_version != 0 && existing.version != mutation.base_version {
-            return MutationReceiptDto {
-                mutation_id: mutation.mutation_id.clone(),
-                status: "rejected".into(),
-                result_code: "LEDGER_VERSION_CONFLICT".into(),
-                entity_version: Some(existing.version),
-            };
+    let existing = store.transactions.get(&mutation.entity_id).cloned();
+    if let Some(existing) = existing.as_ref() {
+        if mutation.operation == "create" || mutation.base_version != existing.version {
+            return rejected_receipt(mutation, "LEDGER_VERSION_CONFLICT", Some(existing.version));
         }
     }
 
-    let version = 1;
+    let version = existing
+        .as_ref()
+        .map(|transaction| transaction.version + 1)
+        .unwrap_or(1);
+    let occurred_at = requested_occurred_at
+        .or_else(|| existing.as_ref().map(|transaction| transaction.occurred_at))
+        .unwrap_or_else(OffsetDateTime::now_utc);
+    let canonical_payload = canonical_transaction_payload(&mutation.payload, occurred_at);
     let commit_id = Uuid::now_v7().to_string();
     let entry_tuples: Vec<(String, i64, String)> = drafts
         .iter()
@@ -904,6 +985,7 @@ async fn process_mutation_mem(
         TxRecord {
             id: mutation.entity_id.clone(),
             book_id: book_id.to_string(),
+            occurred_at,
             description: mutation
                 .payload
                 .get("description")
@@ -923,7 +1005,7 @@ async fn process_mutation_mem(
         entity_id: mutation.entity_id.clone(),
         operation: "upsert".into(),
         entity_version: version,
-        payload: mutation.payload.clone(),
+        payload: canonical_payload,
     });
 
     MutationReceiptDto {
@@ -1036,26 +1118,44 @@ async fn pull(
     let limit = q.limit.unwrap_or(500).min(1000);
 
     if let Some(pool) = &state.pool {
-        let rows: Vec<(i64, String, String, String, String, i64, serde_json::Value)> =
-            sqlx::query_as(
-                "SELECT sequence, commit_id, entity_type, entity_id, operation, entity_version, payload
-                 FROM sync_changes
-                 WHERE book_id=$1 AND sequence > $2
-                 ORDER BY sequence ASC
+        let rows: Vec<PullChangeRow> = sqlx::query_as(
+            "SELECT sc.sequence, sc.commit_id, sc.entity_type, sc.entity_id, sc.operation,
+                        sc.entity_version, sc.payload, t.occurred_at
+                 FROM sync_changes sc
+                 LEFT JOIN transactions t
+                   ON sc.entity_type='transaction' AND sc.entity_id=t.id AND sc.book_id=t.book_id
+                 WHERE sc.book_id=$1 AND sc.sequence > $2
+                 ORDER BY sc.sequence ASC
                  LIMIT $3",
-            )
-            .bind(&book_id)
-            .bind(cursor)
-            .bind((limit as i64) + 50)
-            .fetch_all(pool)
-            .await
-            .map_err(db_err)?;
+        )
+        .bind(&book_id)
+        .bind(cursor)
+        .bind((limit as i64) + 50)
+        .fetch_all(pool)
+        .await
+        .map_err(db_err)?;
 
         let mut page = Vec::new();
         let mut last_commit: Option<String> = None;
-        for (sequence, commit_id, entity_type, entity_id, operation, entity_version, payload) in
-            rows
-        {
+        for row in rows {
+            let PullChangeRow {
+                sequence,
+                commit_id,
+                entity_type,
+                entity_id,
+                operation,
+                entity_version,
+                payload,
+                occurred_at,
+            } = row;
+            let payload = if entity_type == "transaction" && operation == "upsert" {
+                match occurred_at {
+                    Some(value) => backfill_transaction_occurred_at(payload, value),
+                    None => payload,
+                }
+            } else {
+                payload
+            };
             if page.len() >= limit {
                 if last_commit.as_ref() == Some(&commit_id) {
                     page.push(SyncChangeDto {
@@ -1135,14 +1235,30 @@ async fn pull(
         has_more,
         changes: page
             .into_iter()
-            .map(|c| SyncChangeDto {
-                sequence: c.sequence.to_string(),
-                commit_id: c.commit_id,
-                entity_type: c.entity_type,
-                entity_id: c.entity_id,
-                operation: c.operation,
-                version: c.entity_version,
-                payload: c.payload,
+            .map(|c| {
+                let payload = if c.entity_type == "transaction" && c.operation == "upsert" {
+                    store
+                        .transactions
+                        .get(&c.entity_id)
+                        .map(|transaction| {
+                            backfill_transaction_occurred_at(
+                                c.payload.clone(),
+                                transaction.occurred_at,
+                            )
+                        })
+                        .unwrap_or(c.payload)
+                } else {
+                    c.payload
+                };
+                SyncChangeDto {
+                    sequence: c.sequence.to_string(),
+                    commit_id: c.commit_id,
+                    entity_type: c.entity_type,
+                    entity_id: c.entity_id,
+                    operation: c.operation,
+                    version: c.entity_version,
+                    payload,
+                }
             })
             .collect(),
     }))
@@ -1174,8 +1290,9 @@ async fn bootstrap(
         .fetch_one(pool)
         .await
         .map_err(db_err)?;
-        let txs: Vec<(String, i64, Option<String>)> = sqlx::query_as(
-            "SELECT id, version, description FROM transactions WHERE book_id=$1 AND deleted_at IS NULL",
+        let txs: Vec<(String, i64, Option<String>, OffsetDateTime)> = sqlx::query_as(
+            "SELECT id, version, description, occurred_at
+             FROM transactions WHERE book_id=$1 AND deleted_at IS NULL",
         )
         .bind(&book_id)
         .fetch_all(pool)
@@ -1190,7 +1307,7 @@ async fn bootstrap(
         .await
         .map_err(db_err)?;
         let mut out = Vec::new();
-        for (id, version, description) in txs {
+        for (id, version, description, occurred_at) in txs {
             let entries: Vec<(String, i64, String)> = sqlx::query_as(
                 "SELECT account_id, amount_minor, currency_code FROM transaction_entries
                  WHERE transaction_id=$1 ORDER BY entry_index",
@@ -1202,6 +1319,7 @@ async fn bootstrap(
             out.push(serde_json::json!({
                 "id": id,
                 "version": version,
+                "occurredAt": format_occurred_at(occurred_at),
                 "description": description,
                 "entries": entries.iter().map(|(a,m,c)| serde_json::json!({
                     "accountId": a, "amountMinor": m.to_string(), "currency": c
@@ -1241,7 +1359,7 @@ async fn bootstrap(
     let txs: Vec<_> = store
         .transactions
         .values()
-        .filter(|t| t.book_id == book_id)
+        .filter(|t| t.book_id == book_id && !t.deleted)
         .cloned()
         .collect();
     let accounts = store
@@ -1266,8 +1384,13 @@ async fn bootstrap(
         "transactions": txs.iter().map(|t| serde_json::json!({
             "id": t.id,
             "version": t.version,
+            "occurredAt": format_occurred_at(t.occurred_at),
             "description": t.description,
-            "entries": t.entries,
+            "entries": t.entries.iter().map(|(account_id, amount_minor, currency)| serde_json::json!({
+                "accountId": account_id,
+                "amountMinor": amount_minor.to_string(),
+                "currency": currency,
+            })).collect::<Vec<_>>(),
         })).collect::<Vec<_>>(),
     })))
 }
@@ -1333,7 +1456,10 @@ mod tests {
     use ledger_contracts::SyncMutationDto;
     use serde_json::json;
 
-    use super::{parse_account_payload, process_account_mutation_mem, process_mutation_mem};
+    use super::{
+        parse_account_payload, parse_occurred_at, process_account_mutation_mem,
+        process_mutation_mem,
+    };
     use crate::{state::AccountRecord, AppState, Config};
 
     fn account_mutation(
@@ -1357,6 +1483,47 @@ mod tests {
                 "accountType": account_type,
                 "currency": currency,
             }),
+        }
+    }
+
+    fn transaction_mutation(payload: serde_json::Value) -> SyncMutationDto {
+        SyncMutationDto {
+            mutation_id: "transaction-date".into(),
+            entity_type: "transaction".into(),
+            entity_id: "tx-1".into(),
+            operation: "create".into(),
+            base_version: 0,
+            schema_version: 1,
+            payload,
+        }
+    }
+
+    #[test]
+    fn occurred_at_accepts_rfc3339_and_normalizes_to_utc() {
+        let mutation = transaction_mutation(json!({
+            "occurredAt": "2024-04-13T12:34:56+08:00",
+        }));
+
+        let occurred_at = parse_occurred_at(&mutation).unwrap().unwrap();
+
+        assert_eq!(occurred_at.offset(), time::UtcOffset::UTC);
+        assert_eq!(occurred_at.date().to_string(), "2024-04-13");
+        assert_eq!(occurred_at.hour(), 4);
+        assert_eq!(occurred_at.minute(), 34);
+        assert_eq!(occurred_at.second(), 56);
+    }
+
+    #[test]
+    fn occurred_at_allows_missing_and_rejects_invalid_values() {
+        assert!(parse_occurred_at(&transaction_mutation(json!({})))
+            .unwrap()
+            .is_none());
+
+        for invalid in [json!(null), json!(42), json!("2024-04-13")] {
+            let mutation = transaction_mutation(json!({"occurredAt": invalid}));
+            let receipt = parse_occurred_at(&mutation).unwrap_err();
+            assert_eq!(receipt.status, "rejected");
+            assert_eq!(receipt.result_code, "INVALID_PAYLOAD");
         }
     }
 
@@ -1745,5 +1912,76 @@ mod tests {
         assert_eq!(receipt.status, "rejected");
         assert_eq!(receipt.result_code, "ACCOUNT_NOT_FOUND");
         assert!(state.store.read().await.transactions.is_empty());
+    }
+
+    #[tokio::test]
+    async fn memory_transaction_update_without_occurred_at_preserves_existing_date() {
+        let state = AppState::new(Config::for_test());
+        {
+            let mut store = state.store.write().await;
+            for (id, account_type) in [("book-1:expense", "expense"), ("book-1:cash", "asset")] {
+                store.accounts.insert(
+                    id.into(),
+                    AccountRecord {
+                        id: id.into(),
+                        book_id: "book-1".into(),
+                        name: "Account".into(),
+                        account_type: account_type.into(),
+                        currency: "CNY".into(),
+                        parent_account_id: None,
+                        version: 1,
+                    },
+                );
+            }
+        }
+        let entries = json!([
+            {"accountId": "book-1:expense", "amountMinor": "100", "currency": "CNY"},
+            {"accountId": "book-1:cash", "amountMinor": "-100", "currency": "CNY"}
+        ]);
+        let create = transaction_mutation(json!({
+            "occurredAt": "2024-04-13T12:34:56+08:00",
+            "description": "Original",
+            "entries": entries,
+        }));
+        let create_receipt = process_mutation_mem(&state, "book-1", &create).await;
+        assert_eq!(create_receipt.status, "applied");
+        assert_eq!(create_receipt.entity_version, Some(1));
+
+        let mut duplicate_create = transaction_mutation(create.payload.clone());
+        duplicate_create.mutation_id = "transaction-date-duplicate-create".into();
+        let duplicate_receipt = process_mutation_mem(&state, "book-1", &duplicate_create).await;
+        assert_eq!(duplicate_receipt.status, "rejected");
+        assert_eq!(duplicate_receipt.result_code, "LEDGER_VERSION_CONFLICT");
+        assert_eq!(duplicate_receipt.entity_version, Some(1));
+
+        let mut update = transaction_mutation(json!({
+            "description": "Updated",
+            "entries": entries,
+        }));
+        update.mutation_id = "transaction-date-update".into();
+        update.operation = "update".into();
+
+        let stale_receipt = process_mutation_mem(&state, "book-1", &update).await;
+        assert_eq!(stale_receipt.status, "rejected");
+        assert_eq!(stale_receipt.result_code, "LEDGER_VERSION_CONFLICT");
+        assert_eq!(stale_receipt.entity_version, Some(1));
+
+        update.base_version = 1;
+        let update_receipt = process_mutation_mem(&state, "book-1", &update).await;
+        assert_eq!(update_receipt.status, "applied");
+        assert_eq!(update_receipt.entity_version, Some(2));
+
+        let store = state.store.read().await;
+        let transaction = store.transactions.get("tx-1").unwrap();
+        assert_eq!(transaction.version, 2);
+        assert_eq!(
+            super::format_occurred_at(transaction.occurred_at),
+            "2024-04-13T04:34:56Z"
+        );
+        assert_eq!(store.changes.last().unwrap().entity_version, 2);
+        assert_eq!(
+            store.changes.last().unwrap().payload["occurredAt"],
+            "2024-04-13T04:34:56Z"
+        );
     }
 }

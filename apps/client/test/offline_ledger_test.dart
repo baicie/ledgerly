@@ -50,6 +50,115 @@ void main() {
     expect(pending.first.deviceId, 'test-device');
   });
 
+  test('offline create expense preserves an explicitly selected date',
+      () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final repo = LedgerRepository(
+      db,
+      deviceIdLoader: () async => 'backfill-date-device',
+    );
+    await repo.seedIfEmpty();
+    final service = LedgerAppService(repo);
+    final occurredAt = DateTime.utc(2024, 4, 13, 12, 34, 56);
+
+    await service.createExpense(
+      expenseAccountId: accountKeyFood(defaultBookId),
+      fundingAccountId: accountKeyCash(defaultBookId),
+      amountMinor: BigInt.from(1800),
+      description: 'Forgotten lunch',
+      occurredAt: occurredAt,
+    );
+
+    final summary = (await repo.watchSummariesSync(defaultBookId)).single;
+    expect(summary.occurredAt.toUtc(), occurredAt);
+    final pending = (await repo.listPending(defaultBookId)).single;
+    final payload = jsonDecode(pending.payloadJson) as Map<String, dynamic>;
+    expect(payload['occurredAt'], occurredAt.toIso8601String());
+  });
+
+  test('remote upserts normalize dates and legacy updates preserve them',
+      () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final repo = LedgerRepository(
+      db,
+      deviceIdLoader: () async => 'remote-date-device',
+    );
+    await repo.seedIfEmpty();
+    final entries = [
+      {
+        'accountId': accountKeyFood(defaultBookId),
+        'amountMinor': '1800',
+        'currency': 'CNY',
+      },
+      {
+        'accountId': accountKeyCash(defaultBookId),
+        'amountMinor': '-1800',
+        'currency': 'CNY',
+      },
+    ];
+
+    await repo.applyRemoteUpsert(
+      entityId: 'remote-date-transaction',
+      bookId: defaultBookId,
+      version: 1,
+      payload: {
+        'description': 'Forgotten lunch',
+        'occurredAt': '2024-04-13T12:34:56+08:00',
+        'entries': entries,
+      },
+    );
+    await repo.applyRemoteUpsert(
+      entityId: 'remote-date-transaction',
+      bookId: defaultBookId,
+      version: 2,
+      payload: {
+        'description': 'Updated lunch',
+        'entries': entries,
+      },
+    );
+
+    final summary = (await repo.watchSummariesSync(defaultBookId)).single;
+    expect(
+      summary.occurredAt.toUtc(),
+      DateTime.utc(2024, 4, 13, 4, 34, 56),
+    );
+    expect(summary.description, 'Updated lunch');
+  });
+
+  test('remote upsert rejects non-RFC 3339 occurred dates', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final repo = LedgerRepository(
+      db,
+      deviceIdLoader: () async => 'invalid-remote-date-device',
+    );
+    await repo.seedIfEmpty();
+
+    for (final invalidDate in [
+      'not-a-date',
+      '2024-04-13',
+      '2024-04-13T12:34:56',
+      '2024-02-30T12:34:56Z',
+    ]) {
+      await expectLater(
+        repo.applyRemoteUpsert(
+          entityId: 'invalid-date-transaction',
+          bookId: defaultBookId,
+          version: 1,
+          payload: {
+            'description': 'Invalid date',
+            'occurredAt': invalidDate,
+            'entries': const [],
+          },
+        ),
+        throwsFormatException,
+        reason: invalidDate,
+      );
+    }
+  });
+
   test('transaction summaries expose the amount, category, and account',
       () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
@@ -121,6 +230,10 @@ void main() {
     expect(pending.operation, 'update');
     expect(pending.entityId, original.id);
     expect(pending.baseVersion, original.version);
+    expect(
+      (jsonDecode(pending.payloadJson) as Map)['occurredAt'],
+      updated.occurredAt.toUtc().toIso8601String(),
+    );
   });
 
   test('soft delete hides transaction from balance', () async {

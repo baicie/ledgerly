@@ -17,6 +17,7 @@ class LedgerAppService {
     required String fundingAccountId,
     required BigInt amountMinor,
     String? description,
+    DateTime? occurredAt,
   }) async {
     final accounts = await _repo.listAccounts(bookId.value);
     final expense =
@@ -27,7 +28,7 @@ class LedgerAppService {
     final tx = factory.expense(
       id: domain.TransactionId(_repo.newId()),
       bookId: bookId,
-      occurredAt: DateTime.now().toUtc(),
+      occurredAt: (occurredAt ?? DateTime.now()).toUtc(),
       expenseAccount: expense,
       fundingAccount: funding,
       amount: domain.Money(
@@ -44,6 +45,7 @@ class LedgerAppService {
     required String depositAccountId,
     required BigInt amountMinor,
     String? description,
+    DateTime? occurredAt,
   }) async {
     final accounts = await _repo.listAccounts(bookId.value);
     final income =
@@ -54,7 +56,7 @@ class LedgerAppService {
     final tx = factory.income(
       id: domain.TransactionId(_repo.newId()),
       bookId: bookId,
-      occurredAt: DateTime.now().toUtc(),
+      occurredAt: (occurredAt ?? DateTime.now()).toUtc(),
       incomeAccount: income,
       depositAccount: deposit,
       amount: domain.Money(
@@ -71,6 +73,7 @@ class LedgerAppService {
     required String toAccountId,
     required BigInt amountMinor,
     String? description,
+    DateTime? occurredAt,
   }) async {
     final accounts = await _repo.listAccounts(bookId.value);
     final from = _asDomain(accounts.firstWhere((a) => a.id == fromAccountId));
@@ -79,7 +82,7 @@ class LedgerAppService {
     final tx = factory.transfer(
       id: domain.TransactionId(_repo.newId()),
       bookId: bookId,
-      occurredAt: DateTime.now().toUtc(),
+      occurredAt: (occurredAt ?? DateTime.now()).toUtc(),
       from: from,
       to: to,
       amount: domain.Money(
@@ -108,7 +111,7 @@ class LedgerAppService {
     final tx = factory.expense(
       id: domain.TransactionId(transactionId),
       bookId: bookId,
-      occurredAt: occurredAt,
+      occurredAt: occurredAt.toUtc(),
       expenseAccount: expense,
       fundingAccount: funding,
       amount: domain.Money(
@@ -141,7 +144,7 @@ class LedgerAppService {
     final tx = factory.income(
       id: domain.TransactionId(transactionId),
       bookId: bookId,
-      occurredAt: occurredAt,
+      occurredAt: occurredAt.toUtc(),
       incomeAccount: income,
       depositAccount: deposit,
       amount: domain.Money(
@@ -172,7 +175,7 @@ class LedgerAppService {
     final tx = factory.transfer(
       id: domain.TransactionId(transactionId),
       bookId: bookId,
-      occurredAt: occurredAt,
+      occurredAt: occurredAt.toUtc(),
       from: from,
       to: to,
       amount: domain.Money(

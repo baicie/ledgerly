@@ -19,6 +19,11 @@ class LedgerRepository {
 
   final AppDatabase _db;
   final DeviceIdLoader _deviceIdLoader;
+  static final _rfc3339Timestamp = RegExp(
+    r'^(\d{4})-(\d{2})-(\d{2})T'
+    r'(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?'
+    r'(?:Z|[+-](\d{2}):(\d{2}))$',
+  );
   Future<String>? _deviceId;
   var _seq = 0;
 
@@ -479,6 +484,7 @@ class LedgerRepository {
       }
       final payload = {
         'description': tx.description,
+        'occurredAt': tx.occurredAt.toUtc().toIso8601String(),
         'entries': tx.entries
             .map(
               (e) => {
@@ -549,6 +555,7 @@ class LedgerRepository {
       }
       final payloadJson = jsonEncode({
         'description': tx.description,
+        'occurredAt': tx.occurredAt.toUtc().toIso8601String(),
         'entries': tx.entries
             .map(
               (entry) => {
@@ -822,12 +829,13 @@ class LedgerRepository {
     required int version,
     required Map<String, dynamic> payload,
   }) async {
+    final occurredAt = await _remoteOccurredAt(entityId, payload);
     await _db.transaction(() async {
       await _db.into(_db.transactions).insertOnConflictUpdate(
             TransactionsCompanion.insert(
               id: entityId,
               bookId: bookId,
-              occurredAt: DateTime.now().toUtc(),
+              occurredAt: occurredAt,
               description: Value(payload['description'] as String?),
               version: Value(version),
               createdAt: DateTime.now().toUtc(),
@@ -854,6 +862,56 @@ class LedgerRepository {
         index++;
       }
     });
+  }
+
+  Future<DateTime> _remoteOccurredAt(
+    String entityId,
+    Map<String, dynamic> payload,
+  ) async {
+    if (payload.containsKey('occurredAt')) {
+      final raw = payload['occurredAt'];
+      if (raw is! String) {
+        throw const FormatException(
+          'transaction occurredAt must be an RFC 3339 string',
+        );
+      }
+      final match = _rfc3339Timestamp.firstMatch(raw);
+      final parsed = DateTime.tryParse(raw);
+      if (match == null || parsed == null || !_validRfc3339Parts(match)) {
+        throw const FormatException(
+          'transaction occurredAt must be an RFC 3339 string',
+        );
+      }
+      return parsed.toUtc();
+    }
+
+    final existing = await (_db.select(_db.transactions)
+          ..where((table) => table.id.equals(entityId)))
+        .getSingleOrNull();
+    return existing?.occurredAt ?? DateTime.now().toUtc();
+  }
+
+  static bool _validRfc3339Parts(RegExpMatch match) {
+    int part(int index) => int.parse(match.group(index)!);
+
+    final year = part(1);
+    final month = part(2);
+    final day = part(3);
+    final hour = part(4);
+    final minute = part(5);
+    final second = part(6);
+    final offsetHour = match.group(7);
+    final offsetMinute = match.group(8);
+    final date = DateTime.utc(year, month, day);
+
+    return date.year == year &&
+        date.month == month &&
+        date.day == day &&
+        hour <= 23 &&
+        minute <= 59 &&
+        second <= 59 &&
+        (offsetHour == null || int.parse(offsetHour) <= 23) &&
+        (offsetMinute == null || int.parse(offsetMinute) <= 59);
   }
 
   String newId() {

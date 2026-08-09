@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -12,6 +13,9 @@ import 'presentation/design/ledgerly_theme.dart';
 import 'presentation/pages/api_endpoint_setup_page.dart';
 import 'presentation/providers.dart';
 import 'routing/app_router.dart';
+
+const _ledgerlyLocale = Locale('zh', 'CN');
+const _ledgerlySupportedLocales = [_ledgerlyLocale];
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -65,6 +69,9 @@ class _LedgerlyBootstrapState extends State<LedgerlyBootstrap> {
             title: 'Ledgerly',
             debugShowCheckedModeBanner: false,
             theme: ledgerlyTheme(),
+            locale: _ledgerlyLocale,
+            localizationsDelegates: GlobalMaterialLocalizations.delegates,
+            supportedLocales: _ledgerlySupportedLocales,
             home: ApiEndpointSetupPage(controller: widget.controller),
           );
         }
@@ -112,6 +119,9 @@ class _LedgerlyAppState extends ConsumerState<LedgerlyApp> {
       title: 'Ledgerly',
       debugShowCheckedModeBanner: false,
       theme: ledgerlyTheme(),
+      locale: _ledgerlyLocale,
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: _ledgerlySupportedLocales,
       routerConfig: _router,
     );
   }
@@ -126,6 +136,9 @@ class _EndpointLoadingApp extends StatelessWidget {
       title: 'Ledgerly',
       debugShowCheckedModeBanner: false,
       theme: ledgerlyTheme(),
+      locale: _ledgerlyLocale,
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: _ledgerlySupportedLocales,
       home: const Scaffold(
         body: Center(
           child: CircularProgressIndicator(

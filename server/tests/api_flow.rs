@@ -573,23 +573,41 @@ async fn register_login_and_sync_push_pull() {
     // budget progress after expense (deleted so spent may be 0 — create fresh)
     let mut_budget = json!({
         "deviceId": "dev1",
-        "mutations": [{
-            "mutationId": "mut_food2",
-            "entityType": "transaction",
-            "entityId": "tx_food2",
-            "operation": "create",
-            "baseVersion": 0,
-            "schemaVersion": 1,
-            "payload": {
-                "description": "Dinner",
-                "entries": [
-                    {"accountId": food, "amountMinor": "800", "currency": "CNY"},
-                    {"accountId": cash, "amountMinor": "-800", "currency": "CNY"}
-                ]
+        "mutations": [
+            {
+                "mutationId": "mut_food2",
+                "entityType": "transaction",
+                "entityId": "tx_food2",
+                "operation": "create",
+                "baseVersion": 0,
+                "schemaVersion": 1,
+                "payload": {
+                    "description": "Dinner",
+                    "entries": [
+                        {"accountId": food, "amountMinor": "800", "currency": "CNY"},
+                        {"accountId": cash, "amountMinor": "-800", "currency": "CNY"}
+                    ]
+                }
+            },
+            {
+                "mutationId": "mut_historical",
+                "entityType": "transaction",
+                "entityId": "tx_historical",
+                "operation": "create",
+                "baseVersion": 0,
+                "schemaVersion": 1,
+                "payload": {
+                    "description": "Historical dinner",
+                    "occurredAt": "2024-04-13T04:34:56Z",
+                    "entries": [
+                        {"accountId": food, "amountMinor": "200", "currency": "CNY"},
+                        {"accountId": cash, "amountMinor": "-200", "currency": "CNY"}
+                    ]
+                }
             }
-        }]
+        ]
     });
-    let _ = app
+    let res = app
         .clone()
         .oneshot(
             Request::builder()
@@ -602,6 +620,45 @@ async fn register_login_and_sync_push_pull() {
         )
         .await
         .unwrap();
+    let create_expenses = json_body(res).await;
+    assert_eq!(create_expenses["receipts"][0]["status"], "applied");
+    assert_eq!(create_expenses["receipts"][1]["status"], "applied");
+
+    let update_historical = json!({
+        "deviceId": "dev1",
+        "mutations": [{
+            "mutationId": "mut_historical_update",
+            "entityType": "transaction",
+            "entityId": "tx_historical",
+            "operation": "update",
+            "baseVersion": 1,
+            "schemaVersion": 1,
+            "payload": {
+                "description": "Rescheduled historical dinner",
+                "occurredAt": "2025-05-14T03:21:00Z",
+                "entries": [
+                    {"accountId": food, "amountMinor": "200", "currency": "CNY"},
+                    {"accountId": cash, "amountMinor": "-200", "currency": "CNY"}
+                ]
+            }
+        }]
+    });
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/v1/books/{book_id}/sync/push"))
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::from(update_historical.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let update_historical = json_body(res).await;
+    assert_eq!(update_historical["receipts"][0]["status"], "applied");
+    assert_eq!(update_historical["receipts"][0]["entityVersion"], 2);
 
     let res = app
         .clone()
@@ -660,6 +717,18 @@ async fn register_login_and_sync_push_pull() {
             && change["payload"]["parentAccountId"] == food
     }));
     assert!(pull["changes"].as_array().unwrap().iter().any(|change| {
+        change["entityType"] == "transaction"
+            && change["entityId"] == "tx_historical"
+            && change["version"] == 1
+            && change["payload"]["occurredAt"] == "2024-04-13T04:34:56Z"
+    }));
+    assert!(pull["changes"].as_array().unwrap().iter().any(|change| {
+        change["entityType"] == "transaction"
+            && change["entityId"] == "tx_historical"
+            && change["version"] == 2
+            && change["payload"]["occurredAt"] == "2025-05-14T03:21:00Z"
+    }));
+    assert!(pull["changes"].as_array().unwrap().iter().any(|change| {
         change["entityType"] == "account"
             && change["entityId"] == format!("{book_id}:category_coffee")
             && change["version"] == 3
@@ -692,6 +761,15 @@ async fn register_login_and_sync_push_pull() {
                 && account["accountType"] == "expense"
                 && account["currency"] == "CNY"
                 && account["parentAccountId"] == food
+        }));
+    assert!(bootstrap["transactions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|transaction| {
+            transaction["id"] == "tx_historical"
+                && transaction["version"] == 2
+                && transaction["occurredAt"] == "2025-05-14T03:21:00Z"
         }));
 }
 

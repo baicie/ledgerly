@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use sqlx::PgPool;
+use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
 
 /// Background job worker using PostgreSQL SKIP LOCKED.
@@ -171,6 +172,8 @@ async fn generate_due_recurring(pool: &PgPool) -> anyhow::Result<()> {
 
         let tx_id = Uuid::now_v7().to_string();
         let commit_id = Uuid::now_v7().to_string();
+        let occurred_at = OffsetDateTime::now_utc();
+        let occurred_at_rfc3339 = occurred_at.format(&Rfc3339)?;
         let description = payload
             .get("description")
             .and_then(|v| v.as_str())
@@ -179,12 +182,13 @@ async fn generate_due_recurring(pool: &PgPool) -> anyhow::Result<()> {
 
         let mut db = pool.begin().await?;
         sqlx::query(
-            "INSERT INTO transactions (id, book_id, description, version)
-             VALUES ($1,$2,$3,1)",
+            "INSERT INTO transactions (id, book_id, description, occurred_at, version)
+             VALUES ($1,$2,$3,$4,1)",
         )
         .bind(&tx_id)
         .bind(&book_id)
         .bind(&description)
+        .bind(occurred_at)
         .execute(&mut *db)
         .await?;
 
@@ -213,6 +217,7 @@ async fn generate_due_recurring(pool: &PgPool) -> anyhow::Result<()> {
 
         let change_payload = serde_json::json!({
             "description": description,
+            "occurredAt": occurred_at_rfc3339,
             "entries": entry_payload,
             "recurringRuleId": rule_id,
         });

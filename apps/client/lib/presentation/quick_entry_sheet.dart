@@ -27,6 +27,7 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
   String? _categoryId;
   String? _accountId;
   String? _toAccountId;
+  late DateTime _occurredAt;
   var _busy = false;
 
   @override
@@ -34,6 +35,7 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
     super.initState();
     _noteFocus.addListener(_handleNoteFocus);
     final transaction = widget.transaction;
+    _occurredAt = transaction?.occurredAt.toLocal() ?? DateTime.now();
     if (transaction != null) {
       _mode = switch (transaction.kind) {
         TransactionSummaryKind.income => QuickEntryMode.income,
@@ -203,6 +205,14 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
               ),
               child: Column(
                 children: [
+                  QuickEntrySelectionField(
+                    key: const Key('quick-entry-date'),
+                    label: '日期',
+                    value: _dateLabel,
+                    icon: Icons.calendar_month_outlined,
+                    color: LedgerlyColors.brand,
+                    onTap: _pickDate,
+                  ),
                   if (_mode != QuickEntryMode.transfer)
                     QuickEntrySelectionField(
                       key: const Key('quick-category-field'),
@@ -327,6 +337,9 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
 
   String get _displayAmount => formatDisplayMinor(_amountMinor, symbol: false);
 
+  String get _dateLabel =>
+      '${_occurredAt.year}年${_occurredAt.month}月${_occurredAt.day}日';
+
   String _amountInput(BigInt minor) {
     final absolute = minor.abs();
     final yuan = absolute ~/ BigInt.from(100);
@@ -383,6 +396,33 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
       categoryType: _mode == QuickEntryMode.income ? 'income' : 'expense',
     );
     if (id != null && mounted) setState(() => _categoryId = id);
+  }
+
+  Future<void> _pickDate() async {
+    _noteFocus.unfocus();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateUtils.dateOnly(_occurredAt),
+      firstDate: DateTime(1),
+      lastDate: DateTime(9999, 12, 31),
+      currentDate: DateUtils.dateOnly(DateTime.now()),
+      helpText: '选择日期',
+      cancelText: '取消',
+      confirmText: '确定',
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _occurredAt = DateTime(
+        picked.year,
+        picked.month,
+        picked.day,
+        _occurredAt.hour,
+        _occurredAt.minute,
+        _occurredAt.second,
+        _occurredAt.millisecond,
+        _occurredAt.microsecond,
+      );
+    });
   }
 
   Future<void> _pickAccount(
@@ -444,6 +484,7 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
               fundingAccountId: account.id,
               amountMinor: _amountMinor,
               description: description,
+              occurredAt: _occurredAt.toUtc(),
             );
           case QuickEntryMode.income:
             await service.createIncome(
@@ -451,6 +492,7 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
               depositAccountId: account.id,
               amountMinor: _amountMinor,
               description: description,
+              occurredAt: _occurredAt.toUtc(),
             );
           case QuickEntryMode.transfer:
             await service.createTransfer(
@@ -458,6 +500,7 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
               toAccountId: toAccount!.id,
               amountMinor: _amountMinor,
               description: description,
+              occurredAt: _occurredAt.toUtc(),
             );
         }
       } else {
@@ -465,7 +508,7 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
           case QuickEntryMode.expense:
             await service.updateExpense(
               transactionId: transaction.id,
-              occurredAt: transaction.occurredAt,
+              occurredAt: _occurredAt.toUtc(),
               version: transaction.version,
               expenseAccountId: category!.id,
               fundingAccountId: account.id,
@@ -475,7 +518,7 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
           case QuickEntryMode.income:
             await service.updateIncome(
               transactionId: transaction.id,
-              occurredAt: transaction.occurredAt,
+              occurredAt: _occurredAt.toUtc(),
               version: transaction.version,
               incomeAccountId: category!.id,
               depositAccountId: account.id,
@@ -485,7 +528,7 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
           case QuickEntryMode.transfer:
             await service.updateTransfer(
               transactionId: transaction.id,
-              occurredAt: transaction.occurredAt,
+              occurredAt: _occurredAt.toUtc(),
               version: transaction.version,
               fromAccountId: account.id,
               toAccountId: toAccount!.id,

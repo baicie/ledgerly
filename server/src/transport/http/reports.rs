@@ -52,7 +52,7 @@ async fn summary(
              JOIN transactions t ON t.id = te.transaction_id
              JOIN accounts a ON a.id = te.account_id
              WHERE t.book_id=$1 AND t.deleted_at IS NULL
-               AND t.created_at >= $2::timestamptz AND t.created_at < $3::timestamptz",
+               AND t.occurred_at >= $2::timestamptz AND t.occurred_at < $3::timestamptz",
         )
         .bind(&book_id)
         .bind(&from)
