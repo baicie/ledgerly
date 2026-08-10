@@ -31,7 +31,7 @@ jobs:
       LEDGERLY_API_BASE_URL: ${{ vars.LEDGERLY_API_BASE_URL }}
       LEDGERLY_API_REQUIRE_HTTPS: ${{ vars.LEDGERLY_API_REQUIRE_HTTPS || 'true' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag || github.sha }}
 
@@ -170,7 +170,7 @@ jobs:
       image: ${{ steps.meta.outputs.tags }}
       digest: ${{ steps.build.outputs.digest }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag || github.sha }}
 
@@ -213,7 +213,7 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/download-artifact@v4
         with:
