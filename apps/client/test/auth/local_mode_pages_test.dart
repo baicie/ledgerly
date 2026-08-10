@@ -43,6 +43,8 @@ void main() {
       ),
     );
     expect(transactionTile.onTap, isNotNull);
+    expect(find.text('当日净额'), findsOneWidget);
+    expect(find.text('-¥12.00'), findsNWidgets(2));
   });
 
   testWidgets(

@@ -5,6 +5,22 @@ import '../design/ledgerly_theme.dart';
 import 'ledgerly_finance.dart';
 import 'ledgerly_layout.dart';
 
+BigInt dailyNetMinor(Iterable<TransactionSummary> transactions) {
+  var net = BigInt.zero;
+  for (final transaction in transactions) {
+    switch (transaction.kind) {
+      case TransactionSummaryKind.income:
+        net += transaction.amountMinor;
+      case TransactionSummaryKind.expense:
+        net -= transaction.amountMinor;
+      case TransactionSummaryKind.transfer:
+      case TransactionSummaryKind.adjustment:
+        break;
+    }
+  }
+  return net;
+}
+
 class FeedTransactionList extends StatelessWidget {
   const FeedTransactionList({
     super.key,
@@ -50,9 +66,28 @@ class FeedTransactionList extends StatelessWidget {
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                  child: Text(
-                    _dateLabel(day),
-                    style: Theme.of(context).textTheme.titleMedium,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _dateLabel(day),
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ),
+                      Text(
+                        '当日净额',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _dailyNetLabel(items),
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: _dailyNetColor(items),
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 for (var itemIndex = 0;
@@ -61,7 +96,8 @@ class FeedTransactionList extends StatelessWidget {
                   if (itemIndex > 0) const Divider(indent: 70, endIndent: 16),
                   _TransactionTile(
                     transaction: items[itemIndex],
-                    onTap: items[itemIndex].kind == TransactionSummaryKind.adjustment
+                    onTap: items[itemIndex].kind ==
+                            TransactionSummaryKind.adjustment
                         ? null
                         : () => onOpen(items[itemIndex]),
                     onDelete: () => onDelete(items[itemIndex]),
@@ -78,6 +114,19 @@ class FeedTransactionList extends StatelessWidget {
   String _dateLabel(DateTime date) {
     const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
     return '${date.month}月${date.day}日 ${weekdays[date.weekday - 1]}';
+  }
+
+  String _dailyNetLabel(List<TransactionSummary> transactions) {
+    final net = dailyNetMinor(transactions);
+    final prefix = net > BigInt.zero ? '+' : '';
+    return '$prefix${formatDisplayMinor(net)}';
+  }
+
+  Color _dailyNetColor(List<TransactionSummary> transactions) {
+    final net = dailyNetMinor(transactions);
+    if (net > BigInt.zero) return LedgerlyColors.income;
+    if (net < BigInt.zero) return LedgerlyColors.expense;
+    return LedgerlyColors.muted;
   }
 }
 
