@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ledgerly_client/data/ledger_repository.dart';
 import 'package:ledgerly_client/presentation/widgets/feed_transaction_list.dart';
@@ -20,6 +21,135 @@ void main() {
 
     expect(total, BigInt.from(7500));
   });
+
+  testWidgets('historical days default to a collapsed daily overview',
+      (tester) async {
+    final historicalDay = _dayOffsetFromToday(-2);
+
+    await tester.pumpWidget(
+      _feed(
+        [
+          _datedSummary(
+            id: 'historical-income',
+            occurredAt: historicalDay,
+            description: 'Historical income',
+            kind: TransactionSummaryKind.income,
+            amountMinor: 10000,
+          ),
+          _datedSummary(
+            id: 'historical-expense',
+            occurredAt: historicalDay,
+            description: 'Historical expense',
+            kind: TransactionSummaryKind.expense,
+            amountMinor: 2500,
+          ),
+        ],
+      ),
+    );
+
+    expect(find.text(_dateLabel(historicalDay)), findsOneWidget);
+    expect(find.text('当日净额'), findsOneWidget);
+    expect(find.text('+¥75.00'), findsOneWidget);
+    expect(find.text('Historical income'), findsNothing);
+    expect(find.text('Historical expense'), findsNothing);
+  });
+
+  testWidgets("today's group defaults to expanded", (tester) async {
+    final today = _dayOffsetFromToday(0);
+
+    await tester.pumpWidget(
+      _feed(
+        [
+          _datedSummary(
+            id: 'today-expense',
+            occurredAt: today,
+            description: 'Today expense',
+            kind: TransactionSummaryKind.expense,
+            amountMinor: 1800,
+          ),
+        ],
+      ),
+    );
+
+    expect(find.text(_dateLabel(today)), findsOneWidget);
+    expect(find.text('Today expense'), findsOneWidget);
+  });
+
+  testWidgets('tapping a historical day toggles its transactions',
+      (tester) async {
+    final historicalDay = _dayOffsetFromToday(-1);
+
+    await tester.pumpWidget(
+      _feed(
+        [
+          _datedSummary(
+            id: 'historical-coffee',
+            occurredAt: historicalDay,
+            description: 'Historical coffee',
+            kind: TransactionSummaryKind.expense,
+            amountMinor: 3200,
+          ),
+        ],
+      ),
+    );
+
+    expect(find.text('Historical coffee'), findsNothing);
+
+    await tester.tap(find.text(_dateLabel(historicalDay)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Historical coffee'), findsOneWidget);
+
+    await tester.tap(find.text(_dateLabel(historicalDay)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Historical coffee'), findsNothing);
+  });
+}
+
+Widget _feed(List<TransactionSummary> transactions) {
+  return MaterialApp(
+    home: Scaffold(
+      body: CustomScrollView(
+        slivers: [
+          FeedTransactionList(
+            transactions: transactions,
+            onOpen: (_) {},
+            onDelete: (_) {},
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+DateTime _dayOffsetFromToday(int dayOffset) {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month, now.day + dayOffset, 12);
+}
+
+String _dateLabel(DateTime date) {
+  const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+  return '${date.month}月${date.day}日 ${weekdays[date.weekday - 1]}';
+}
+
+TransactionSummary _datedSummary({
+  required String id,
+  required DateTime occurredAt,
+  required String description,
+  required TransactionSummaryKind kind,
+  required int amountMinor,
+}) {
+  return TransactionSummary(
+    id: id,
+    occurredAt: occurredAt,
+    description: description,
+    entryCount: 2,
+    kind: kind,
+    amountMinor: BigInt.from(amountMinor),
+    categoryName: 'Food',
+    accountName: 'Cash',
+  );
 }
 
 TransactionSummary _summary(TransactionSummaryKind kind, int amountMinor) {

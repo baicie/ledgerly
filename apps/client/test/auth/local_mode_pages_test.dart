@@ -12,6 +12,7 @@ import 'package:ledgerly_client/presentation/providers.dart';
 void main() {
   testWidgets('local feed opens an existing transaction for editing',
       (tester) async {
+    final occurredAt = DateTime.utc(2026, 8, 4);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -20,7 +21,7 @@ void main() {
             (ref) async => [
               TransactionSummary(
                 id: 'tx-1',
-                occurredAt: DateTime.utc(2026, 8, 4),
+                occurredAt: occurredAt,
                 description: '午餐',
                 entryCount: 2,
                 kind: TransactionSummaryKind.expense,
@@ -36,6 +37,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('午餐'), findsNothing);
+    expect(find.text('当日净额'), findsOneWidget);
+    expect(find.text('-¥12.00'), findsOneWidget);
+
+    await tester.tap(find.text(_dateLabel(occurredAt)));
+    await tester.pumpAndSettle();
+
     final transactionTile = tester.widget<ListTile>(
       find.ancestor(
         of: find.text('午餐'),
@@ -43,13 +51,13 @@ void main() {
       ),
     );
     expect(transactionTile.onTap, isNotNull);
-    expect(find.text('当日净额'), findsOneWidget);
     expect(find.text('-¥12.00'), findsNWidgets(2));
   });
 
   testWidgets(
       'local feed keeps its header and previous data while changing month',
       (tester) async {
+    final occurredAt = DateTime.utc(2026, 8, 4);
     final nextTransactions = Completer<List<TransactionSummary>>();
     final nextSummary = Completer<MonthlyLedgerSummary>();
 
@@ -64,7 +72,7 @@ void main() {
             return [
               TransactionSummary(
                 id: 'tx-1',
-                occurredAt: DateTime.utc(2026, 8, 4),
+                occurredAt: occurredAt,
                 description: '午餐',
                 entryCount: 2,
               ),
@@ -86,6 +94,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('全部流水'), findsOneWidget);
+    expect(find.text(_dateLabel(occurredAt)), findsOneWidget);
+    expect(find.text('午餐'), findsNothing);
+
+    await tester.tap(find.text(_dateLabel(occurredAt)));
+    await tester.pumpAndSettle();
+
     expect(find.text('午餐'), findsOneWidget);
 
     await tester.tap(find.byTooltip('下个月'));
@@ -160,4 +174,10 @@ void main() {
     expect(find.text('立即同步'), findsNothing);
     expect(find.text('待推送：2'), findsOneWidget);
   });
+}
+
+String _dateLabel(DateTime occurredAt) {
+  final date = occurredAt.toLocal();
+  const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+  return '${date.month}月${date.day}日 ${weekdays[date.weekday - 1]}';
 }

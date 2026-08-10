@@ -61,35 +61,49 @@ class FeedTransactionList extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
           child: LedgerlySection(
             padding: EdgeInsets.zero,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _dateLabel(day),
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                      ),
-                      Text(
-                        '当日净额',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
+            child: ExpansionTile(
+              key: PageStorageKey<String>(
+                'feed-day-${day.year}-${day.month}-${day.day}',
+              ),
+              initiallyExpanded: DateUtils.isSameDay(day, DateTime.now()),
+              tilePadding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
+              childrenPadding: EdgeInsets.zero,
+              shape: const Border(),
+              collapsedShape: const Border(),
+              title: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _dateLabel(day),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '当日净额',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(
                         _dailyNetLabel(items),
+                        maxLines: 1,
                         style:
                             Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: _dailyNetColor(items),
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
+              ),
+              children: [
                 for (var itemIndex = 0;
                     itemIndex < items.length;
                     itemIndex++) ...[
