@@ -82,7 +82,7 @@ dependencies = [
  "base64ct",
  "blake2",
  "cpufeatures",
- "password-hash",
+ "password-hash 0.5.0",
 ]
 
 [[package]]
@@ -1024,7 +1024,7 @@ dependencies = [
  "jsonwebtoken",
  "ledger-contracts",
  "ledger-domain",
- "password-hash",
+ "password-hash 0.6.1",
  "rand",
  "serde",
  "serde_json",
@@ -1266,6 +1266,12 @@ dependencies = [
  "rand_core",
  "subtle",
 ]
+
+[[package]]
+name = "password-hash"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aab41826031698d6ffcd9cff78ef56ef998e39dc7e5067cdfebe373842d4723b"
 
 [[package]]
 name = "pem"
