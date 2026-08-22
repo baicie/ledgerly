@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/l10n.dart';
 import '../design/ledgerly_theme.dart';
 
 class LedgerlyContent extends StatelessWidget {
@@ -133,13 +134,14 @@ class LedgerlyMonthPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
     return SizedBox(
       height: 52,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           IconButton(
-            tooltip: '上个月',
+            tooltip: l10n.previousMonth,
             onPressed: onPrevious,
             icon: const Icon(Icons.chevron_left),
           ),
@@ -149,14 +151,14 @@ class LedgerlyMonthPicker extends StatelessWidget {
           SizedBox(
             width: 112,
             child: Text(
-              '${month.year}年 ${month.month}月',
+              l10n.monthPickerLabel(month.year, month.month),
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleMedium,
             ),
           ),
           const SizedBox(width: 16),
           IconButton(
-            tooltip: '下个月',
+            tooltip: l10n.nextMonth,
             onPressed: onNext,
             icon: const Icon(Icons.chevron_right),
           ),

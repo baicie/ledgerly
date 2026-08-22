@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/ledger_app_service.dart';
+import '../../l10n/l10n.dart';
 import '../providers.dart';
-import '../widgets/ledgerly_finance.dart';
 import '../widgets/ledgerly_layout.dart';
 
 Future<String?> showCategoryEditorPage({
@@ -51,7 +51,6 @@ class _CategoryEditorPageState extends ConsumerState<CategoryEditorPage> {
   String? _error;
 
   bool get _editing => widget.category != null;
-  String get _typeLabel => widget.type == 'income' ? '收入' : '支出';
   bool get _hasChildren =>
       widget.category != null &&
       widget.categories.any(
@@ -74,7 +73,7 @@ class _CategoryEditorPageState extends ConsumerState<CategoryEditorPage> {
     _name = TextEditingController(
       text: widget.category == null
           ? ''
-          : localizedLedgerName(widget.category!.name),
+          : localizedLedgerName(L10n.current, widget.category!.name),
     );
     _secondLevel = initialParentId != null;
     _parentId = initialParentId;
@@ -102,7 +101,7 @@ class _CategoryEditorPageState extends ConsumerState<CategoryEditorPage> {
   Future<void> _save() async {
     if (_saving) return;
     if (_secondLevel && _parentId == null) {
-      setState(() => _error = '请先新建一个同类型的一级分类');
+      setState(() => _error = l10nOf(context).needParentCategoryFirst);
       return;
     }
     setState(() {
@@ -140,7 +139,7 @@ class _CategoryEditorPageState extends ConsumerState<CategoryEditorPage> {
       if (mounted) {
         setState(() {
           _saving = false;
-          _error = '分类保存失败，请稍后重试';
+          _error = l10nOf(context).categorySaveFailed;
         });
       }
     }
@@ -148,11 +147,15 @@ class _CategoryEditorPageState extends ConsumerState<CategoryEditorPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
+    final typeLabel = widget.type == 'income' ? l10n.income : l10n.expense;
     final roots = _roots;
     return PopScope(
       canPop: !_saving,
       child: Scaffold(
-        appBar: AppBar(title: Text(_editing ? '编辑分类' : '新建分类')),
+        appBar: AppBar(
+          title: Text(_editing ? l10n.editCategory : l10n.newCategory),
+        ),
         body: SafeArea(
           top: false,
           child: LedgerlyContent(
@@ -161,7 +164,7 @@ class _CategoryEditorPageState extends ConsumerState<CategoryEditorPage> {
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
                 sliver: SliverToBoxAdapter(
                   child: LedgerlySection(
-                    title: '分类信息',
+                    title: l10n.categoryInfo,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -174,22 +177,22 @@ class _CategoryEditorPageState extends ConsumerState<CategoryEditorPage> {
                           textInputAction: TextInputAction.done,
                           onSubmitted: (_) => _save(),
                           decoration: InputDecoration(
-                            labelText: '分类名称',
+                            labelText: l10n.categoryName,
                             prefixIcon: const Icon(Icons.edit_outlined),
                             errorText: _error,
                           ),
                         ),
                         const SizedBox(height: 12),
                         InputDecorator(
-                          decoration: const InputDecoration(
-                            labelText: '收支类型',
-                            prefixIcon: Icon(Icons.swap_vert_rounded),
+                          decoration: InputDecoration(
+                            labelText: l10n.flowType,
+                            prefixIcon: const Icon(Icons.swap_vert_rounded),
                           ),
-                          child: Text('$_typeLabel分类'),
+                          child: Text(l10n.categoryTypeHeading(typeLabel)),
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          '分类级别',
+                          l10n.categoryLevel,
                           style: Theme.of(context).textTheme.labelLarge,
                         ),
                         const SizedBox(height: 8),
@@ -197,17 +200,18 @@ class _CategoryEditorPageState extends ConsumerState<CategoryEditorPage> {
                           width: double.infinity,
                           child: SegmentedButton<bool>(
                             segments: [
-                              const ButtonSegment(
+                              ButtonSegment(
                                 value: false,
-                                label: Text('一级分类'),
-                                icon: Icon(Icons.account_tree_outlined),
+                                label: Text(l10n.firstLevelCategory),
+                                icon: const Icon(Icons.account_tree_outlined),
                               ),
                               ButtonSegment(
                                 value: true,
                                 enabled: !_hasChildren && roots.isNotEmpty,
-                                label: const Text('二级分类'),
-                                icon:
-                                    const Icon(Icons.subdirectory_arrow_right),
+                                label: Text(l10n.secondLevelCategory),
+                                icon: const Icon(
+                                  Icons.subdirectory_arrow_right,
+                                ),
                               ),
                             ],
                             selected: {_secondLevel},
@@ -222,15 +226,18 @@ class _CategoryEditorPageState extends ConsumerState<CategoryEditorPage> {
                           DropdownButtonFormField<String>(
                             key: const Key('category-parent-field'),
                             initialValue: _parentId,
-                            decoration: const InputDecoration(
-                              labelText: '上级分类',
-                              prefixIcon: Icon(Icons.account_tree_outlined),
+                            decoration: InputDecoration(
+                              labelText: l10n.parentCategory,
+                              prefixIcon:
+                                  const Icon(Icons.account_tree_outlined),
                             ),
                             items: [
                               for (final root in roots)
                                 DropdownMenuItem(
                                   value: root.id,
-                                  child: Text(localizedLedgerName(root.name)),
+                                  child: Text(
+                                    localizedLedgerName(l10n, root.name),
+                                  ),
                                 ),
                             ],
                             onChanged: _saving
@@ -248,8 +255,8 @@ class _CategoryEditorPageState extends ConsumerState<CategoryEditorPage> {
                                 color: Theme.of(context).colorScheme.primary,
                               ),
                               const SizedBox(width: 8),
-                              const Expanded(
-                                child: Text('该分类包含二级分类，级别保持为一级。'),
+                              Expanded(
+                                child: Text(l10n.categoryHasChildrenKeepRoot),
                               ),
                             ],
                           ),
@@ -271,7 +278,7 @@ class _CategoryEditorPageState extends ConsumerState<CategoryEditorPage> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: _saving ? null : () => Navigator.pop(context),
-                    child: const Text('取消'),
+                    child: Text(l10n.cancel),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -288,7 +295,7 @@ class _CategoryEditorPageState extends ConsumerState<CategoryEditorPage> {
                             ),
                           )
                         : const Icon(Icons.check_rounded),
-                    label: Text(_saving ? '保存中' : '保存'),
+                    label: Text(_saving ? l10n.saving : l10n.save),
                   ),
                 ),
               ],

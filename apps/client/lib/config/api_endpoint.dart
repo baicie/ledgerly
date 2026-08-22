@@ -96,9 +96,8 @@ class ApiEndpoint {
     final allowsPrivateHttp = !isWeb &&
         candidate.scheme == 'http' &&
         _isPrivateNetworkHost(candidate.host);
-    final allowsConfiguredHttp = !isWeb &&
-        !requireHttps &&
-        candidate.scheme == 'http';
+    final allowsConfiguredHttp =
+        !isWeb && !requireHttps && candidate.scheme == 'http';
     if (isRelease &&
         ((candidate.scheme != 'https' &&
                 !allowsPrivateHttp &&

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../ai/ai_models.dart';
+import '../../l10n/l10n.dart';
 import '../ai_providers.dart';
 import '../design/ledgerly_theme.dart';
 import '../widgets/ledgerly_layout.dart';
@@ -85,14 +86,14 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _message = '已保存。密钥只留在本机，不会同步到账本服务。';
+        _message = l10nOf(context).aiSavedLocally;
         _messageError = false;
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _message = '保存失败：$error';
+        _message = l10nOf(context).saveFailed('$error');
         _messageError = true;
       });
     }
@@ -112,7 +113,7 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
     }
     if (_keyController.text.trim().isEmpty) {
       setState(() {
-        _message = '请先填写 API Key。';
+        _message = l10nOf(context).enterApiKeyFirst;
         _messageError = true;
       });
       return;
@@ -126,7 +127,7 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
       if (!mounted) return;
       setState(() {
         _testing = false;
-        _message = '连接成功。';
+        _message = l10nOf(context).connectionSuccess;
         _messageError = false;
       });
     } catch (error) {
@@ -149,7 +150,7 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
     final usingCustomModel = !presets.contains(_modelController.text);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('智能分析')),
+      appBar: AppBar(title: Text(l10nOf(context).aiSettingsTitle)),
       body: SafeArea(
         top: false,
         child: LedgerlyContent(
@@ -158,13 +159,14 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
               sliver: SliverToBoxAdapter(
                 child: LedgerlySection(
-                  title: '模型服务',
+                  title: l10nOf(context).modelService,
                   child: Column(
                     children: [
                       DropdownButtonFormField<AiProviderKind>(
                         key: Key('ai-settings-provider-${_provider.name}'),
                         initialValue: _provider,
-                        decoration: const InputDecoration(labelText: '供应商'),
+                        decoration: InputDecoration(
+                            labelText: l10nOf(context).provider),
                         items: [
                           for (final kind in AiProviderKind.values)
                             DropdownMenuItem(
@@ -183,7 +185,9 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
                           labelText: 'API Key',
                           hintText: 'sk-...',
                           suffixIcon: IconButton(
-                            tooltip: _obscureKey ? '显示' : '隐藏',
+                            tooltip: _obscureKey
+                                ? l10nOf(context).show
+                                : l10nOf(context).hide,
                             onPressed: () =>
                                 setState(() => _obscureKey = !_obscureKey),
                             icon: Icon(
@@ -213,13 +217,14 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
                         ),
                         initialValue:
                             usingCustomModel ? 'custom' : _modelController.text,
-                        decoration: const InputDecoration(labelText: '模型'),
+                        decoration:
+                            InputDecoration(labelText: l10nOf(context).model),
                         items: [
                           for (final model in presets)
                             DropdownMenuItem(value: model, child: Text(model)),
-                          const DropdownMenuItem(
+                          DropdownMenuItem(
                             value: 'custom',
-                            child: Text('自定义'),
+                            child: Text(l10nOf(context).custom),
                           ),
                         ],
                         onChanged: (value) {
@@ -240,8 +245,8 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
                         TextField(
                           key: const Key('ai-settings-model-custom'),
                           controller: _modelController,
-                          decoration: const InputDecoration(
-                            labelText: '自定义模型 ID',
+                          decoration: InputDecoration(
+                            labelText: l10nOf(context).customModelId,
                             hintText: AiSettings.defaultModel,
                           ),
                         ),
@@ -249,8 +254,9 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
                       SwitchListTile(
                         key: const Key('ai-settings-auto-generate'),
                         contentPadding: EdgeInsets.zero,
-                        title: const Text('自动生成分析'),
-                        subtitle: const Text('打开应用时补齐今日、昨日和上月总结'),
+                        title: Text(l10nOf(context).autoGenerateInsights),
+                        subtitle:
+                            Text(l10nOf(context).autoGenerateInsightsSubtitle),
                         value: _autoGenerate,
                         onChanged: (value) =>
                             setState(() => _autoGenerate = value),
@@ -262,7 +268,11 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
                             child: OutlinedButton(
                               key: const Key('ai-settings-test'),
                               onPressed: _testing || _saving ? null : _test,
-                              child: Text(_testing ? '测试中…' : '测试连接'),
+                              child: Text(
+                                _testing
+                                    ? l10nOf(context).testingConnection
+                                    : l10nOf(context).testConnection,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -270,7 +280,11 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
                             child: FilledButton(
                               key: const Key('ai-settings-save'),
                               onPressed: _saving || _testing ? null : _save,
-                              child: Text(_saving ? '保存中…' : '保存'),
+                              child: Text(
+                                _saving
+                                    ? l10nOf(context).savingEllipsis
+                                    : l10nOf(context).save,
+                              ),
                             ),
                           ),
                         ],
@@ -284,7 +298,7 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
               sliver: SliverToBoxAdapter(
                 child: LedgerlySection(
-                  title: '能力与用量',
+                  title: l10nOf(context).capabilitiesAndUsage,
                   child: Text(
                     _capabilityCopy(),
                     style: Theme.of(context).textTheme.bodyMedium,
@@ -314,14 +328,9 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
   }
 
   String _capabilityCopy() {
-    final protocol = '当前走 OpenAI 兼容的 Chat Completions。分析模型不能语音转文字。'
-        '分析会把分类、金额和备注发送到你配置的端点。';
-    final opencode = _provider == AiProviderKind.opencode
-        ? 'OpenCode 使用 Zen Go 网关 https://opencode.ai/zen/go/v1。'
-            '网页浏览器会拦截跨域请求，测试连接在网页里会失败；请保存后用 App。'
-            '预设仅包含 Chat Completions 模型，GPT / Claude 本期不接。'
-        : '';
-    return '$protocol$opencode\n第一期不做累计用量看板，${_provider.usageHint}'
-        '分析卡片会显示最近一次调用的 token。';
+    final l10n = L10n.current;
+    final opencode =
+        _provider == AiProviderKind.opencode ? l10n.aiCapabilityOpencode : '';
+    return '${l10n.aiCapabilityProtocol}$opencode\n${l10n.aiCapabilityUsage(_provider.usageHint)}';
   }
 }

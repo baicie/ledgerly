@@ -75,6 +75,75 @@ void main() {
     expect(find.text('Today expense'), findsOneWidget);
   });
 
+  testWidgets('today insight is inserted into the expanded today group',
+      (tester) async {
+    final today = _dayOffsetFromToday(0);
+
+    await tester.pumpWidget(
+      _feed(
+        [
+          _datedSummary(
+            id: 'today-expense',
+            occurredAt: today,
+            description: 'Today expense',
+            kind: TransactionSummaryKind.expense,
+            amountMinor: 1800,
+          ),
+        ],
+        todayInsight: const Text('TODAY_INSIGHT'),
+      ),
+    );
+
+    expect(find.text('TODAY_INSIGHT'), findsOneWidget);
+    expect(find.text('Today expense'), findsOneWidget);
+  });
+
+  testWidgets('today insight still appears when today has no transactions',
+      (tester) async {
+    final historicalDay = _dayOffsetFromToday(-2);
+
+    await tester.pumpWidget(
+      _feed(
+        [
+          _datedSummary(
+            id: 'historical-income',
+            occurredAt: historicalDay,
+            description: 'Historical income',
+            kind: TransactionSummaryKind.income,
+            amountMinor: 10000,
+          ),
+        ],
+        todayInsight: const Text('TODAY_INSIGHT'),
+      ),
+    );
+
+    expect(find.text('TODAY_INSIGHT'), findsOneWidget);
+  });
+
+  testWidgets('unconfigured today insight is not orphaned above other days',
+      (tester) async {
+    final historicalDay = _dayOffsetFromToday(-2);
+
+    await tester.pumpWidget(
+      _feed(
+        [
+          _datedSummary(
+            id: 'historical-income',
+            occurredAt: historicalDay,
+            description: 'Historical income',
+            kind: TransactionSummaryKind.income,
+            amountMinor: 10000,
+          ),
+        ],
+        todayInsight: const Text('TODAY_INSIGHT'),
+        orphanTodayInsight: false,
+      ),
+    );
+
+    expect(find.text('TODAY_INSIGHT'), findsNothing);
+    expect(find.text(_dateLabel(historicalDay)), findsOneWidget);
+  });
+
   testWidgets('tapping a historical day toggles its transactions',
       (tester) async {
     final historicalDay = _dayOffsetFromToday(-1);
@@ -107,13 +176,19 @@ void main() {
   });
 }
 
-Widget _feed(List<TransactionSummary> transactions) {
+Widget _feed(
+  List<TransactionSummary> transactions, {
+  Widget? todayInsight,
+  bool orphanTodayInsight = true,
+}) {
   return MaterialApp(
     home: Scaffold(
       body: CustomScrollView(
         slivers: [
           FeedTransactionList(
             transactions: transactions,
+            todayInsight: todayInsight,
+            orphanTodayInsight: orphanTodayInsight,
             onOpen: (_) {},
             onDelete: (_) {},
           ),

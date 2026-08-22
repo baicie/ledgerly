@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/l10n.dart';
 import '../providers.dart';
 
 class AttachmentsPage extends ConsumerStatefulWidget {
@@ -25,7 +26,7 @@ class _AttachmentsPageState extends ConsumerState<AttachmentsPage> {
       final api = ref.read(syncApiProvider);
       final bookId = ref.read(authRepositoryProvider).currentSession?.bookId;
       if (bookId == null) {
-        setState(() => _result = '尚未登录同步');
+        setState(() => _result = L10n.current.notSignedInSync);
         return;
       }
       final bytes = Uint8List.fromList(List<int>.generate(64, (i) => i));
@@ -55,18 +56,19 @@ class _AttachmentsPageState extends ConsumerState<AttachmentsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('附件上传')),
+      appBar: AppBar(title: Text(l10n.attachmentsUpload)),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('HMAC 签名直传本地对象存储：创建会话 → PUT → complete。'),
+            Text(l10n.attachmentsHelp),
             const SizedBox(height: 12),
             FilledButton(
               onPressed: _busy ? null : _uploadDemo,
-              child: Text(_busy ? '上传中…' : '上传演示文件'),
+              child: Text(_busy ? l10n.uploading : l10n.uploadDemoFile),
             ),
             const SizedBox(height: 16),
             if (_result != null) SelectableText(_result!),

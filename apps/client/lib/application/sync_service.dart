@@ -4,6 +4,7 @@ import '../auth/auth_repository.dart';
 import '../data/ledger_repository.dart';
 import '../data/sync_api.dart';
 import '../domain/ids.dart';
+import '../l10n/l10n.dart';
 
 class SyncService {
   SyncService(this._repo, this._api, this._auth);
@@ -83,7 +84,7 @@ class SyncService {
         );
         cursor = 0;
       } else if (state!.remoteBookId != remoteBookId) {
-        throw StateError('本地账本已绑定到其他账户，已停止同步。');
+        throw StateError(L10n.current.bookBoundToOtherAccount);
       }
 
       for (var pushAttempt = 0; pushAttempt < 2; pushAttempt++) {

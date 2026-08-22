@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../auth/auth_controller.dart';
 import '../../config/api_endpoint_controller.dart';
+import '../../l10n/l10n.dart';
 import '../api_endpoint_editor.dart';
 
 enum AuthMode { login, register }
@@ -74,7 +75,7 @@ class _AuthPageState extends State<AuthPage> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('API 地址保存失败，请稍后重试。')),
+          SnackBar(content: Text(l10nOf(context).apiAddressSaveFailed)),
         );
       }
     } finally {
@@ -144,7 +145,7 @@ class _AuthPageState extends State<AuthPage> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            'API 服务',
+                                            l10nOf(context).apiService,
                                             style: Theme.of(context)
                                                 .textTheme
                                                 .labelMedium,
@@ -159,7 +160,7 @@ class _AuthPageState extends State<AuthPage> {
                                     ),
                                     IconButton(
                                       key: const Key('auth-api-edit'),
-                                      tooltip: '更换 API 服务',
+                                      tooltip: l10nOf(context).changeApiService,
                                       onPressed: busy ? null : _editEndpoint,
                                       icon: const Icon(Icons.edit_outlined),
                                     ),
@@ -167,16 +168,17 @@ class _AuthPageState extends State<AuthPage> {
                                 ),
                                 const SizedBox(height: 28),
                                 SegmentedButton<AuthMode>(
-                                  segments: const [
+                                  segments: [
                                     ButtonSegment(
                                       value: AuthMode.login,
-                                      icon: Icon(Icons.login),
-                                      label: Text('登录'),
+                                      icon: const Icon(Icons.login),
+                                      label: Text(l10nOf(context).login),
                                     ),
                                     ButtonSegment(
                                       value: AuthMode.register,
-                                      icon: Icon(Icons.person_add_outlined),
-                                      label: Text('注册'),
+                                      icon:
+                                          const Icon(Icons.person_add_outlined),
+                                      label: Text(l10nOf(context).register),
                                     ),
                                   ],
                                   selected: {_mode},
@@ -198,20 +200,22 @@ class _AuthPageState extends State<AuthPage> {
                                   textInputAction: TextInputAction.next,
                                   autofillHints: const [AutofillHints.email],
                                   autocorrect: false,
-                                  decoration: const InputDecoration(
-                                    labelText: '邮箱',
+                                  decoration: InputDecoration(
+                                    labelText: l10nOf(context).email,
                                     prefixIcon: Icon(Icons.mail_outline),
                                     border: OutlineInputBorder(),
                                   ),
                                   validator: (value) {
                                     final email = value?.trim() ?? '';
                                     if (email.length > _maxEmailLength) {
-                                      return '邮箱不能超过 254 个字符';
+                                      return l10nOf(context).emailTooLong;
                                     }
                                     final valid = RegExp(
                                       r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
                                     ).hasMatch(email);
-                                    return valid ? null : '请输入有效邮箱';
+                                    return valid
+                                        ? null
+                                        : l10nOf(context).invalidEmail;
                                   },
                                 ),
                                 if (_mode == AuthMode.register) ...[
@@ -222,18 +226,18 @@ class _AuthPageState extends State<AuthPage> {
                                     enabled: !busy,
                                     textInputAction: TextInputAction.next,
                                     autofillHints: const [AutofillHints.name],
-                                    decoration: const InputDecoration(
-                                      labelText: '称呼',
+                                    decoration: InputDecoration(
+                                      labelText: l10nOf(context).displayName,
                                       prefixIcon: Icon(Icons.person_outline),
                                       border: OutlineInputBorder(),
                                     ),
                                     validator: (value) {
                                       final length = value?.trim().length ?? 0;
                                       if (length < 1) {
-                                        return '请输入称呼';
+                                        return l10nOf(context).enterDisplayName;
                                       }
                                       return length > _maxDisplayNameLength
-                                          ? '称呼不能超过 80 个字符'
+                                          ? l10nOf(context).displayNameTooLong
                                           : null;
                                     },
                                   ),
@@ -252,12 +256,13 @@ class _AuthPageState extends State<AuthPage> {
                                   ],
                                   onFieldSubmitted: (_) => _submit(),
                                   decoration: InputDecoration(
-                                    labelText: '密码',
+                                    labelText: l10nOf(context).password,
                                     prefixIcon: const Icon(Icons.lock_outline),
                                     border: const OutlineInputBorder(),
                                     suffixIcon: IconButton(
-                                      tooltip:
-                                          _obscurePassword ? '显示密码' : '隐藏密码',
+                                      tooltip: _obscurePassword
+                                          ? l10nOf(context).showPassword
+                                          : l10nOf(context).hidePassword,
                                       onPressed: busy
                                           ? null
                                           : () => setState(() {
@@ -274,10 +279,10 @@ class _AuthPageState extends State<AuthPage> {
                                   validator: (value) {
                                     final length = value?.length ?? 0;
                                     if (length < 8) {
-                                      return '密码至少 8 位';
+                                      return l10nOf(context).passwordTooShort;
                                     }
                                     return length > _maxPasswordLength
-                                        ? '密码不能超过 128 位'
+                                        ? l10nOf(context).passwordTooLong
                                         : null;
                                   },
                                 ),
@@ -312,7 +317,9 @@ class _AuthPageState extends State<AuthPage> {
                                               : Icons.person_add_outlined,
                                         ),
                                   label: Text(
-                                    _mode == AuthMode.login ? '登录' : '注册并继续',
+                                    _mode == AuthMode.login
+                                        ? l10nOf(context).login
+                                        : l10nOf(context).registerAndContinue,
                                   ),
                                 ),
                               ],

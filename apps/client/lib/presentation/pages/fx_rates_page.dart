@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/l10n.dart';
 import '../providers.dart';
 
 class FxRatesPage extends ConsumerStatefulWidget {
@@ -72,23 +73,24 @@ class _FxRatesPageState extends ConsumerState<FxRatesPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('汇率')),
+      appBar: AppBar(title: Text(l10n.fxRates)),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
             TextField(
               controller: _quote,
-              decoration: const InputDecoration(labelText: '报价币（相对 CNY）'),
+              decoration: InputDecoration(labelText: l10n.quoteCurrencyVsCny),
             ),
             TextField(
               controller: _rate,
-              decoration: const InputDecoration(labelText: '汇率'),
+              decoration: InputDecoration(labelText: l10n.exchangeRate),
             ),
             FilledButton(
               onPressed: _busy ? null : _save,
-              child: const Text('保存'),
+              child: Text(l10n.save),
             ),
             if (_message != null)
               Text(_message!, style: const TextStyle(color: Colors.red)),

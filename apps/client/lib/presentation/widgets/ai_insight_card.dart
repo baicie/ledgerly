@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../ai/ai_models.dart';
-import '../../ai/insight_period.dart';
+import '../../l10n/l10n.dart';
 import '../design/ledgerly_theme.dart';
 import 'ledgerly_layout.dart';
 
@@ -12,72 +12,110 @@ class AiInsightCard extends StatelessWidget {
     this.onConfigure,
     this.onGenerate,
     this.busy = false,
+    this.embedded = false,
   });
 
   final AiInsightView view;
   final VoidCallback? onConfigure;
   final VoidCallback? onGenerate;
   final bool busy;
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
-    return LedgerlySection(
-      title: _title(),
-      trailing: _trailing(context),
-      child: busy
-          ? const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Center(
-                child: SizedBox.square(
-                  dimension: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
+    final l10n = l10nOf(context);
+    final body = busy
+        ? const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(
+              child: SizedBox.square(
+                dimension: 22,
+                child: CircularProgressIndicator(strokeWidth: 2),
               ),
-            )
-          : _body(context),
+            ),
+          )
+        : _body(context, l10n);
+    if (embedded) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _title(l10n),
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                if (_trailing(l10n) != null) _trailing(l10n)!,
+              ],
+            ),
+            const SizedBox(height: 8),
+            body,
+          ],
+        ),
+      );
+    }
+    return LedgerlySection(
+      title: _title(l10n),
+      trailing: _trailing(l10n),
+      child: body,
     );
   }
 
-  String _title() {
-    final kind = insightKindLabel(view.kind);
-    final label = view.periodLabel;
-    if (label == null || label.isEmpty) return 'AI $kind';
-    return 'AI $kind · $label';
+  String _title(AppLocalizations l10n) {
+    final kind = insightKindLabel(l10n, view.kind.name);
+    final label = insightPeriodLabel(
+      l10n: l10n,
+      kindName: view.kind.name,
+      periodKey: view.periodKey,
+      fallback: view.periodLabel,
+    );
+    if (label.isEmpty) return l10n.aiInsightTitleKindOnly(kind);
+    return l10n.aiInsightTitleWithPeriod(kind, label);
   }
 
-  Widget? _trailing(BuildContext context) {
+  Widget? _trailing(AppLocalizations l10n) {
     if (view.status == AiInsightStatus.unconfigured) {
       return TextButton(
         key: const Key('ai-insight-configure'),
         onPressed: onConfigure,
-        child: const Text('去配置'),
+        child: Text(l10n.goConfigure),
       );
     }
     if (onGenerate == null) return null;
     return TextButton(
       key: const Key('ai-insight-generate'),
       onPressed: busy ? null : onGenerate,
-      child: Text(view.status == AiInsightStatus.ready ? '重新生成' : '生成'),
+      child: Text(
+        view.status == AiInsightStatus.ready ? l10n.regenerate : l10n.generate,
+      ),
     );
   }
 
-  Widget _body(BuildContext context) {
+  Widget _body(BuildContext context, AppLocalizations l10n) {
     switch (view.status) {
       case AiInsightStatus.unconfigured:
         return Text(
-          '配置模型供应商和 API Key 后，可自动生成每日消费总结，并在新月补齐上月月报。当前接入的文本模型不支持语音转文字。',
+          view.kind == InsightKind.monthly
+              ? l10n.insightUnconfiguredMonthly
+              : l10n.insightUnconfiguredDaily,
           style: Theme.of(context).textTheme.bodyMedium,
         );
       case AiInsightStatus.empty:
         return Text(
           view.generatedAt == null
-              ? (view.headline ?? '尚未生成分析')
-              : (view.headline ?? '暂无消费，未调用模型。'),
+              ? l10n.insightNotGenerated
+              : (view.kind == InsightKind.daily
+                  ? l10n.insightEmptyDaily
+                  : l10n.insightEmptyMonthly),
           style: Theme.of(context).textTheme.bodyMedium,
         );
       case AiInsightStatus.error:
         return Text(
-          view.errorMessage ?? view.headline ?? '分析失败',
+          view.errorMessage ?? view.headline ?? l10n.insightFailed,
           style: TextStyle(color: Theme.of(context).colorScheme.error),
         );
       case AiInsightStatus.ready:
@@ -88,14 +126,14 @@ class AiInsightCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
-                  '账目已更新，可重新生成。',
+                  l10n.insightStale,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: LedgerlyColors.warning,
                       ),
                 ),
               ),
             Text(
-              view.headline ?? '消费总结',
+              view.headline ?? l10n.insightFallbackHeadline,
               style: Theme.of(context).textTheme.titleMedium,
             ),
             if (view.highlights.isNotEmpty) ...[
@@ -117,7 +155,7 @@ class AiInsightCard extends StatelessWidget {
             if (view.model != null) ...[
               const SizedBox(height: 10),
               Text(
-                _usageCaption(),
+                _usageCaption(l10n),
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ],
@@ -126,11 +164,11 @@ class AiInsightCard extends StatelessWidget {
     }
   }
 
-  String _usageCaption() {
+  String _usageCaption(AppLocalizations l10n) {
     final model = view.model ?? AiSettings.defaultModel;
     final prompt = view.promptTokens;
     final completion = view.completionTokens;
     if (prompt == null && completion == null) return model;
-    return '$model · 入 ${prompt ?? '-'} / 出 ${completion ?? '-'} tokens';
+    return l10n.tokenUsage(model, '${prompt ?? '-'}', '${completion ?? '-'}');
   }
 }

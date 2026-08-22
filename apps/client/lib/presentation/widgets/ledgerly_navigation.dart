@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/l10n.dart';
 import '../design/ledgerly_theme.dart';
 
 class LedgerlyBottomNavigation extends StatelessWidget {
@@ -14,19 +15,23 @@ class LedgerlyBottomNavigation extends StatelessWidget {
   final ValueChanged<int> onDestinationSelected;
   final VoidCallback onQuickEntry;
 
-  static const _destinations = [
-    _Destination(Icons.receipt_long_outlined, Icons.receipt_long, '流水'),
-    _Destination(
-      Icons.account_balance_wallet_outlined,
-      Icons.account_balance_wallet,
-      '资产',
-    ),
-    _Destination(Icons.analytics_outlined, Icons.analytics, '报表'),
-    _Destination(Icons.settings_outlined, Icons.settings, '我的'),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
+    final destinations = [
+      _Destination(
+        Icons.receipt_long_outlined,
+        Icons.receipt_long,
+        l10n.navFeed,
+      ),
+      _Destination(
+        Icons.account_balance_wallet_outlined,
+        Icons.account_balance_wallet,
+        l10n.navAssets,
+      ),
+      _Destination(Icons.analytics_outlined, Icons.analytics, l10n.navReports),
+      _Destination(Icons.settings_outlined, Icons.settings, l10n.navMe),
+    ];
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     return SizedBox(
       height: 76 + bottomInset,
@@ -47,21 +52,21 @@ class LedgerlyBottomNavigation extends StatelessWidget {
                 top: false,
                 child: Row(
                   children: [
-                    _item(context, 0),
-                    _item(context, 1),
+                    _item(context, 0, destinations),
+                    _item(context, 1, destinations),
                     const SizedBox(width: 72),
-                    _item(context, 2),
-                    _item(context, 3),
+                    _item(context, 2, destinations),
+                    _item(context, 3, destinations),
                   ],
                 ),
               ),
             ),
           ),
           Tooltip(
-            message: '记一笔',
+            message: l10n.addTransaction,
             child: Semantics(
               button: true,
-              label: '记一笔',
+              label: l10n.addTransaction,
               child: Material(
                 color: LedgerlyColors.action,
                 elevation: 4,
@@ -82,8 +87,12 @@ class LedgerlyBottomNavigation extends StatelessWidget {
     );
   }
 
-  Widget _item(BuildContext context, int index) {
-    final destination = _destinations[index];
+  Widget _item(
+    BuildContext context,
+    int index,
+    List<_Destination> destinations,
+  ) {
+    final destination = destinations[index];
     final selected = selectedIndex == index;
     return Expanded(
       child: Semantics(

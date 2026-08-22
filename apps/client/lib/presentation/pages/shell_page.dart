@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../l10n/l10n.dart';
 import '../design/ledgerly_theme.dart';
 import '../quick_entry.dart';
 import '../widgets/ledgerly_navigation.dart';
@@ -11,32 +12,32 @@ class ShellPage extends StatelessWidget {
 
   final StatefulNavigationShell navigationShell;
 
-  static const _railDestinations = [
-    NavigationRailDestination(
-      icon: Icon(Icons.receipt_long_outlined),
-      selectedIcon: Icon(Icons.receipt_long),
-      label: Text('流水'),
-    ),
-    NavigationRailDestination(
-      icon: Icon(Icons.account_balance_wallet_outlined),
-      selectedIcon: Icon(Icons.account_balance_wallet),
-      label: Text('资产'),
-    ),
-    NavigationRailDestination(
-      icon: Icon(Icons.pie_chart_outline),
-      selectedIcon: Icon(Icons.pie_chart),
-      label: Text('报表'),
-    ),
-    NavigationRailDestination(
-      icon: Icon(Icons.settings_outlined),
-      selectedIcon: Icon(Icons.settings),
-      label: Text('我的'),
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
     final wide = MediaQuery.sizeOf(context).width >= 900;
+    final railDestinations = [
+      NavigationRailDestination(
+        icon: const Icon(Icons.receipt_long_outlined),
+        selectedIcon: const Icon(Icons.receipt_long),
+        label: Text(l10n.navFeed),
+      ),
+      NavigationRailDestination(
+        icon: const Icon(Icons.account_balance_wallet_outlined),
+        selectedIcon: const Icon(Icons.account_balance_wallet),
+        label: Text(l10n.navAssets),
+      ),
+      NavigationRailDestination(
+        icon: const Icon(Icons.pie_chart_outline),
+        selectedIcon: const Icon(Icons.pie_chart),
+        label: Text(l10n.navReports),
+      ),
+      NavigationRailDestination(
+        icon: const Icon(Icons.settings_outlined),
+        selectedIcon: const Icon(Icons.settings),
+        label: Text(l10n.navMe),
+      ),
+    ];
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.keyN, meta: true): () =>
@@ -58,12 +59,12 @@ class ShellPage extends StatelessWidget {
                       leading: Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: FloatingActionButton(
-                          tooltip: '记一笔',
+                          tooltip: l10n.addTransaction,
                           onPressed: () => openQuickEntry(context),
                           child: const Icon(Icons.add_rounded),
                         ),
                       ),
-                      destinations: _railDestinations,
+                      destinations: railDestinations,
                     ),
                     const VerticalDivider(width: 1),
                     Expanded(child: navigationShell),

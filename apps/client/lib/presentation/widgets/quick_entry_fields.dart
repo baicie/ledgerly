@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/l10n.dart';
 import '../design/ledgerly_theme.dart';
 import '../pages/category_editor_page.dart';
 import '../providers.dart';
@@ -147,6 +148,7 @@ class _QuickEntryPickerState extends ConsumerState<_QuickEntryPicker> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
     final maxHeight = MediaQuery.sizeOf(context).height * 0.72;
     final gridRows = (_rows.length + 2) ~/ 3;
     final desiredHeight = _isCategoryPicker
@@ -171,14 +173,15 @@ class _QuickEntryPickerState extends ConsumerState<_QuickEntryPicker> {
                 if (_isCategoryPicker && _rows.isNotEmpty)
                   IconButton(
                     key: const Key('category-edit-toggle'),
-                    tooltip: _editing ? '完成编辑' : '编辑分类',
+                    tooltip:
+                        _editing ? l10n.finishEditing : l10n.editCategoryAction,
                     isSelected: _editing,
                     onPressed: () => setState(() => _editing = !_editing),
                     icon: const Icon(Icons.edit_outlined),
                     selectedIcon: const Icon(Icons.check_rounded),
                   ),
                 IconButton(
-                  tooltip: '关闭',
+                  tooltip: l10n.close,
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.close),
                 ),
@@ -199,7 +202,9 @@ class _QuickEntryPickerState extends ConsumerState<_QuickEntryPicker> {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          _isCategoryPicker ? '暂无分类' : '暂无可用账户',
+                          _isCategoryPicker
+                              ? l10n.noCategories
+                              : l10n.noAccounts,
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                       ],
@@ -233,7 +238,7 @@ class _QuickEntryPickerState extends ConsumerState<_QuickEntryPicker> {
                 key: const Key('category-add-picker'),
                 onPressed: _addCategory,
                 icon: const Icon(Icons.add_circle_outline_rounded),
-                label: const Text('新增分类'),
+                label: Text(l10n.addCategory),
               ),
             ),
         ],
@@ -242,6 +247,7 @@ class _QuickEntryPickerState extends ConsumerState<_QuickEntryPicker> {
   }
 
   Widget _buildCategoryList() {
+    final l10n = l10nOf(context);
     final rows = _orderedCategoryRows();
     final byId = {for (final row in rows) row.id: row};
     return ListView.separated(
@@ -257,7 +263,7 @@ class _QuickEntryPickerState extends ConsumerState<_QuickEntryPicker> {
         final parent = byId[row.parentAccountId];
         final selected = row.id == widget.selectedId;
         final color = ledgerColorFor(row.name);
-        final name = localizedLedgerName(row.name);
+        final name = localizedLedgerName(l10n, row.name);
         return ListTile(
           key: Key('quick-category-${row.id}'),
           minTileHeight: 58,
@@ -275,8 +281,9 @@ class _QuickEntryPickerState extends ConsumerState<_QuickEntryPicker> {
           title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
           subtitle: Text(
             parent == null
-                ? '一级分类'
-                : '${localizedLedgerName(parent.name)} · 二级分类',
+                ? l10n.firstLevelCategory
+                : l10n
+                    .parentSecondLevel(localizedLedgerName(l10n, parent.name)),
           ),
           selected: selected,
           selectedTileColor: LedgerlyColors.actionSurface,
@@ -315,13 +322,14 @@ class _QuickEntryPickerState extends ConsumerState<_QuickEntryPicker> {
   }
 
   Widget _buildGridTile(AccountBalanceRow row) {
+    final l10n = l10nOf(context);
     final selected = row.id == widget.selectedId;
     final color = ledgerColorFor(row.name);
-    final name = localizedLedgerName(row.name);
+    final name = localizedLedgerName(l10n, row.name);
     return Semantics(
       button: true,
       selected: selected,
-      label: _editing ? '编辑$name' : '选择$name',
+      label: _editing ? l10n.editNamed(name) : l10n.selectNamed(name),
       child: Material(
         color: selected ? LedgerlyColors.actionSurface : LedgerlyColors.surface,
         shape: RoundedRectangleBorder(

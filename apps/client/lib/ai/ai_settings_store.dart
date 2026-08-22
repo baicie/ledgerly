@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../l10n/l10n.dart';
 import 'ai_models.dart';
 
 abstract interface class AiSettingsStore {
@@ -95,7 +96,7 @@ class PlatformAiSettingsStore implements AiSettingsStore {
         await _secureStorage.write(key: apiKeyStorageKey, value: key);
       }
     } catch (_) {
-      throw StateError('无法保存 API Key。');
+      throw StateError(L10n.current.cannotSaveApiKey);
     }
     final written = await (await _preferences).setString(
       configPreferenceKey,
@@ -109,7 +110,7 @@ class PlatformAiSettingsStore implements AiSettingsStore {
       }),
     );
     if (!written) {
-      throw StateError('无法保存模型设置。');
+      throw StateError(L10n.current.cannotSaveModelSettings);
     }
   }
 }

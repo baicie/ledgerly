@@ -62,19 +62,6 @@ final todayAiInsightProvider = FutureProvider<AiInsightView>((ref) async {
       .load(InsightPeriod.daily(DateTime.now()), settings: settings);
 });
 
-final previousMonthHighlightProvider = FutureProvider<AiInsightView?>((
-  ref,
-) async {
-  final now = DateTime.now();
-  if (!InsightPeriod.highlightPreviousMonth(now)) return null;
-  final settings = ref.watch(aiSettingsControllerProvider).settings;
-  if (!settings.isConfigured) return null;
-  await ref.watch(aiInsightBootstrapProvider.future);
-  return ref
-      .read(insightServiceProvider)
-      .load(InsightPeriod.previousMonth(now), settings: settings);
-});
-
 final selectedMonthAiInsightProvider = FutureProvider<AiInsightView>((
   ref,
 ) async {
@@ -98,6 +85,5 @@ Future<void> regenerateAiInsight(
       .ensure(period, settings: settings, force: force);
   ref.invalidate(aiInsightBootstrapProvider);
   ref.invalidate(todayAiInsightProvider);
-  ref.invalidate(previousMonthHighlightProvider);
   ref.invalidate(selectedMonthAiInsightProvider);
 }

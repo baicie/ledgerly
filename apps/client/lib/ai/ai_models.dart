@@ -1,3 +1,5 @@
+import '../l10n/l10n.dart';
+
 enum InsightKind { daily, monthly }
 
 enum AiInsightStatus { unconfigured, empty, ready, error }
@@ -10,7 +12,7 @@ enum AiProviderKind {
   String get label => switch (this) {
         deepseek => 'DeepSeek',
         opencode => 'OpenCode',
-        custom => '自定义兼容接口',
+        custom => L10n.current.aiProviderCustom,
       };
 
   String get defaultBaseUrl => switch (this) {
@@ -35,9 +37,9 @@ enum AiProviderKind {
       };
 
   String get usageHint => switch (this) {
-        deepseek => '余额请到 DeepSeek 控制台查看。',
-        opencode => '密钥和余额请到 OpenCode 控制台查看。网页浏览器无法直连该接口（无 CORS），请在 App 中使用。',
-        custom => '用量请到你使用的供应商控制台查看。',
+        deepseek => L10n.current.aiUsageHintDeepseek,
+        opencode => L10n.current.aiUsageHintOpencode,
+        custom => L10n.current.aiUsageHintCustom,
       };
 
   static AiProviderKind? tryParse(String? raw) {
@@ -122,10 +124,10 @@ class AiSettings {
         !uri.hasScheme ||
         !uri.hasAuthority ||
         !const {'http', 'https'}.contains(uri.scheme.toLowerCase())) {
-      return '请输入 http(s) 地址';
+      return L10n.current.invalidHttpUrl;
     }
     if (uri.userInfo.isNotEmpty) {
-      return '地址不能包含账号密码';
+      return L10n.current.urlMustNotIncludeCredentials;
     }
     return null;
   }

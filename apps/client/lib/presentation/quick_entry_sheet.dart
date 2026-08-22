@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/ledger_repository.dart';
+import '../l10n/l10n.dart';
 import 'design/ledgerly_theme.dart';
 import 'providers.dart';
 import 'widgets/ledgerly_finance.dart';
@@ -78,7 +79,8 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
         child: balances.when(
           data: (rows) => _buildForm(rows, shortViewport: shortViewport),
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Center(child: Text('账户加载失败：$error')),
+          error: (error, _) =>
+              Center(child: Text(l10nOf(context).accountsLoadFailed('$error'))),
         ),
       ),
     );
@@ -95,6 +97,7 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
     final accounts = rows
         .where((row) => row.type == 'asset' || row.type == 'liability')
         .toList();
+    final l10n = l10nOf(context);
     final category = _findRow(categories, _categoryId);
     final account = _findRow(accounts, _accountId);
     final toAccount = _findRow(
@@ -113,14 +116,16 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
             children: [
               Expanded(
                 child: Text(
-                  widget.transaction == null ? '记一笔' : '编辑流水',
+                  widget.transaction == null
+                      ? l10n.addTransaction
+                      : l10n.editTransaction,
                   style: shortViewport
                       ? Theme.of(context).textTheme.titleMedium
                       : Theme.of(context).textTheme.titleLarge,
                 ),
               ),
               IconButton(
-                tooltip: '关闭',
+                tooltip: l10n.close,
                 visualDensity: shortViewport
                     ? VisualDensity.compact
                     : VisualDensity.standard,
@@ -139,11 +144,19 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
           child: SizedBox(
             width: double.infinity,
             child: SegmentedButton<QuickEntryMode>(
-              segments: const [
-                ButtonSegment(value: QuickEntryMode.expense, label: Text('支出')),
-                ButtonSegment(value: QuickEntryMode.income, label: Text('收入')),
+              segments: [
                 ButtonSegment(
-                    value: QuickEntryMode.transfer, label: Text('转账')),
+                  value: QuickEntryMode.expense,
+                  label: Text(l10n.expense),
+                ),
+                ButtonSegment(
+                  value: QuickEntryMode.income,
+                  label: Text(l10n.income),
+                ),
+                ButtonSegment(
+                  value: QuickEntryMode.transfer,
+                  label: Text(l10n.transfer),
+                ),
               ],
               selected: {_mode},
               showSelectedIcon: false,
@@ -207,7 +220,7 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
                 children: [
                   QuickEntrySelectionField(
                     key: const Key('quick-entry-date'),
-                    label: '日期',
+                    label: l10n.date,
                     value: _dateLabel,
                     icon: Icons.calendar_month_outlined,
                     color: LedgerlyColors.brand,
@@ -216,8 +229,8 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
                   if (_mode != QuickEntryMode.transfer)
                     QuickEntrySelectionField(
                       key: const Key('quick-category-field'),
-                      label: '分类',
-                      value: localizedLedgerName(category?.name),
+                      label: l10n.category,
+                      value: localizedLedgerName(l10n, category?.name),
                       icon: ledgerIconFor(category?.name),
                       color: ledgerColorFor(
                         category?.name,
@@ -228,8 +241,10 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
                       onTap: () => _pickCategory(categories, category?.id),
                     ),
                   QuickEntrySelectionField(
-                    label: _mode == QuickEntryMode.transfer ? '转出账户' : '账户',
-                    value: localizedLedgerName(account?.name),
+                    label: _mode == QuickEntryMode.transfer
+                        ? l10n.fromAccount
+                        : l10n.account,
+                    value: localizedLedgerName(l10n, account?.name),
                     icon: ledgerIconFor(account?.name),
                     color: ledgerColorFor(account?.name),
                     onTap: accounts.isEmpty
@@ -238,8 +253,8 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
                   ),
                   if (_mode == QuickEntryMode.transfer)
                     QuickEntrySelectionField(
-                      label: '转入账户',
-                      value: localizedLedgerName(toAccount?.name),
+                      label: l10n.toAccount,
+                      value: localizedLedgerName(l10n, toAccount?.name),
                       icon: ledgerIconFor(toAccount?.name),
                       color: ledgerColorFor(toAccount?.name),
                       onTap: accounts.isEmpty
@@ -256,9 +271,10 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
                       maxLength: 120,
                       textInputAction: TextInputAction.done,
                       onSubmitted: (_) => _noteFocus.unfocus(),
-                      decoration: const InputDecoration(
-                        hintText: '添加备注（可选）',
-                        prefixIcon: Icon(Icons.edit_note_outlined, size: 20),
+                      decoration: InputDecoration(
+                        hintText: l10n.noteOptional,
+                        prefixIcon:
+                            const Icon(Icons.edit_note_outlined, size: 20),
                         counterText: '',
                         isDense: true,
                       ),
@@ -299,7 +315,7 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
                       ),
                     )
                   : const Icon(Icons.check_rounded),
-              label: Text(_busy ? '保存中' : _saveLabel),
+              label: Text(_busy ? l10n.saving : _saveLabel),
             ),
           ),
         ),
@@ -307,17 +323,25 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
     );
   }
 
-  String get _modeLabel => switch (_mode) {
-        QuickEntryMode.expense => '支出金额',
-        QuickEntryMode.income => '收入金额',
-        QuickEntryMode.transfer => '转账金额',
-      };
+  String get _modeLabel {
+    final l10n = l10nOf(context);
+    return switch (_mode) {
+      QuickEntryMode.expense => l10n.expenseAmountLabel,
+      QuickEntryMode.income => l10n.incomeAmountLabel,
+      QuickEntryMode.transfer => l10n.transferAmountLabel,
+    };
+  }
 
-  String get _saveLabel => switch (_mode) {
-        QuickEntryMode.expense => _isEditing ? '更新支出' : '保存支出',
-        QuickEntryMode.income => _isEditing ? '更新收入' : '保存收入',
-        QuickEntryMode.transfer => _isEditing ? '更新转账' : '保存转账',
-      };
+  String get _saveLabel {
+    final l10n = l10nOf(context);
+    return switch (_mode) {
+      QuickEntryMode.expense =>
+        _isEditing ? l10n.updateExpense : l10n.saveExpense,
+      QuickEntryMode.income => _isEditing ? l10n.updateIncome : l10n.saveIncome,
+      QuickEntryMode.transfer =>
+        _isEditing ? l10n.updateTransfer : l10n.saveTransfer,
+    };
+  }
 
   bool get _isEditing => widget.transaction != null;
 
@@ -337,8 +361,11 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
 
   String get _displayAmount => formatDisplayMinor(_amountMinor, symbol: false);
 
-  String get _dateLabel =>
-      '${_occurredAt.year}年${_occurredAt.month}月${_occurredAt.day}日';
+  String get _dateLabel => l10nOf(context).fullDateLabel(
+        _occurredAt.year,
+        _occurredAt.month,
+        _occurredAt.day,
+      );
 
   String _amountInput(BigInt minor) {
     final absolute = minor.abs();
@@ -388,9 +415,12 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
     List<AccountBalanceRow> rows,
     String? selectedId,
   ) async {
+    final l10n = l10nOf(context);
     final id = await showQuickEntryPicker(
       context: context,
-      title: _mode == QuickEntryMode.income ? '选择收入分类' : '选择支出分类',
+      title: _mode == QuickEntryMode.income
+          ? l10n.pickIncomeCategory
+          : l10n.pickExpenseCategory,
       rows: rows,
       selectedId: selectedId,
       categoryType: _mode == QuickEntryMode.income ? 'income' : 'expense',
@@ -406,9 +436,9 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
       firstDate: DateTime(1),
       lastDate: DateTime(9999, 12, 31),
       currentDate: DateUtils.dateOnly(DateTime.now()),
-      helpText: '选择日期',
-      cancelText: '取消',
-      confirmText: '确定',
+      helpText: l10nOf(context).pickDate,
+      cancelText: l10nOf(context).cancel,
+      confirmText: l10nOf(context).ok,
     );
     if (picked == null || !mounted) return;
     setState(() {
@@ -429,9 +459,12 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
     List<AccountBalanceRow> rows,
     String? selectedId,
   ) async {
+    final l10n = l10nOf(context);
     final id = await showQuickEntryPicker(
       context: context,
-      title: _mode == QuickEntryMode.transfer ? '选择转出账户' : '选择账户',
+      title: _mode == QuickEntryMode.transfer
+          ? l10n.pickFromAccount
+          : l10n.pickAccount,
       rows: rows,
       selectedId: selectedId,
     );
@@ -444,7 +477,7 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
   ) async {
     final id = await showQuickEntryPicker(
       context: context,
-      title: '选择转入账户',
+      title: l10nOf(context).pickToAccount,
       rows: rows,
       selectedId: selectedId,
     );
@@ -456,18 +489,19 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
     required AccountBalanceRow? account,
     required AccountBalanceRow? toAccount,
   }) async {
+    final l10n = l10nOf(context);
     if (_amountMinor <= BigInt.zero) {
-      _showMessage('请输入大于 0 的金额');
+      _showMessage(l10n.enterPositiveAmount);
       return;
     }
     if (account == null ||
         (_mode != QuickEntryMode.transfer && category == null)) {
-      _showMessage('当前账本缺少可用的分类或账户');
+      _showMessage(l10n.missingCategoryOrAccount);
       return;
     }
     if (_mode == QuickEntryMode.transfer &&
         (toAccount == null || toAccount.id == account.id)) {
-      _showMessage('转出账户和转入账户不能相同');
+      _showMessage(l10n.transferAccountsMustDiffer);
       return;
     }
 
@@ -546,7 +580,7 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
     } catch (error) {
       if (mounted) {
         setState(() => _busy = false);
-        _showMessage('保存失败：$error');
+        _showMessage(l10nOf(context).saveFailed('$error'));
       }
     }
   }

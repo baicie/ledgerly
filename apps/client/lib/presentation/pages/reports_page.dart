@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../ai/insight_period.dart';
 import '../../data/ledger_repository.dart';
+import '../../l10n/l10n.dart';
 import '../ai_providers.dart';
 import '../design/ledgerly_theme.dart';
 import '../providers.dart';
@@ -61,6 +62,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     final transactions = ref.watch(monthTransactionsProvider);
     final month = ref.watch(selectedMonthProvider);
     final isLocal = ref.watch(apiEndpointProvider) == null;
+    final l10n = l10nOf(context);
 
     return Scaffold(
       body: SafeArea(
@@ -68,13 +70,13 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
           slivers: [
             SliverToBoxAdapter(
               child: LedgerlyPageHeader(
-                title: '报表',
+                title: l10n.reportsTitle,
                 subtitle:
-                    '${isLocal ? '本地' : '已同步'} · ${month.year}-${month.month.toString().padLeft(2, '0')}',
+                    '${isLocal ? l10n.localShort : l10n.syncedShort} · ${month.year}-${month.month.toString().padLeft(2, '0')}',
                 actions: [
                   if (!isLocal)
                     IconButton(
-                      tooltip: '刷新服务端汇总',
+                      tooltip: l10n.refreshRemoteSummary,
                       icon: const Icon(Icons.sync_rounded),
                       onPressed: _loadRemote,
                     ),
@@ -93,7 +95,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                 padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
                 sliver: SliverToBoxAdapter(
                   child: LedgerlySummaryCard(
-                    title: '本月收支统计',
+                    title: l10n.monthlyFlowStats,
                     balanceMinor: summary.balanceMinor,
                     incomeMinor: summary.incomeMinor,
                     expenseMinor: summary.expenseMinor,
@@ -112,10 +114,10 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                   (value, row) => value + row.amount,
                 );
                 return _RankingSection(
-                  title: '收入来源',
+                  title: l10n.incomeSources,
                   rows: rows,
                   total: total,
-                  emptyMessage: '本月暂无收入',
+                  emptyMessage: l10n.noIncomeThisMonth,
                   income: true,
                 );
               },
@@ -129,10 +131,10 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                   (value, row) => value + row.amount,
                 );
                 return _RankingSection(
-                  title: '支出分布',
+                  title: l10n.expenseBreakdown,
                   rows: rows,
                   total: total,
-                  emptyMessage: '本月暂无支出',
+                  emptyMessage: l10n.noExpenseThisMonth,
                 );
               },
               loading: () => const _ReportPlaceholder(height: 136),
@@ -143,7 +145,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                 sliver: SliverToBoxAdapter(
                   child: LedgerlySection(
-                    title: '月度趋势',
+                    title: l10n.monthlyTrend,
                     child: LedgerlyTrendChart(
                       month: month,
                       transactions: items,
@@ -180,29 +182,8 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     WidgetRef ref,
     DateTime month,
   ) {
-    final now = DateTime.now();
-    final isCurrentMonth = month.year == now.year && month.month == now.month;
     final monthly = ref.watch(selectedMonthAiInsightProvider);
-    final today = isCurrentMonth ? ref.watch(todayAiInsightProvider) : null;
     return [
-      if (today != null)
-        today.when(
-          skipLoadingOnReload: true,
-          data: (view) => SliverPadding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            sliver: SliverToBoxAdapter(
-              child: AiInsightCard(
-                view: view,
-                onConfigure: () => context.go('/settings/ai'),
-                onGenerate: view.canGenerate
-                    ? () => regenerateAiInsight(ref, InsightPeriod.daily(now))
-                    : null,
-              ),
-            ),
-          ),
-          loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
-          error: (error, _) => _ReportError(error: error),
-        ),
       monthly.when(
         skipLoadingOnReload: true,
         data: (view) => SliverPadding(
@@ -280,8 +261,9 @@ class _RankingList extends StatelessWidget {
         for (var index = 0; index < rows.length; index++)
           LedgerlyProgressRow(
             rank: index + 1,
-            name: localizedLedgerName(rows[index].name),
-            subtitle: '${rows[index].transactionCount} 笔',
+            name: localizedLedgerName(l10nOf(context), rows[index].name),
+            subtitle: l10nOf(context)
+                .transactionCountLabel(rows[index].transactionCount),
             amount: rows[index].amount,
             fraction: total == BigInt.zero
                 ? 0
@@ -319,7 +301,13 @@ class _RankingSection extends StatelessWidget {
         child: LedgerlySection(
           title: title,
           trailing: Text(
-            '${rows.fold<int>(0, (count, row) => count + row.transactionCount)} 笔 · ${formatDisplayMinor(total)}',
+            l10nOf(context).rankingTrailing(
+              rows.fold<int>(
+                0,
+                (count, row) => count + row.transactionCount,
+              ),
+              formatDisplayMinor(total),
+            ),
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           child: _RankingList(
@@ -343,14 +331,17 @@ class _RemoteSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LedgerlySection(
-      title: '云端校验',
+      title: l10nOf(context).cloudCheck,
       child: error != null
           ? Text(
               error!,
               style: TextStyle(color: Theme.of(context).colorScheme.error),
             )
           : Text(
-              '服务端净额 ${data?['netMinor'] ?? '--'} · ${data?['baseCurrency'] ?? 'CNY'}',
+              l10nOf(context).remoteNet(
+                '${data?['netMinor'] ?? '--'}',
+                '${data?['baseCurrency'] ?? 'CNY'}',
+              ),
               style: Theme.of(context).textTheme.bodyMedium,
             ),
     );
@@ -390,7 +381,7 @@ class _ReportError extends StatelessWidget {
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Text('报表加载失败：$error'),
+        child: Text(l10nOf(context).reportsLoadFailed('$error')),
       ),
     );
   }

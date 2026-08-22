@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ledgerly_client/auth/auth_controller.dart';
 import 'package:ledgerly_client/auth/auth_repository.dart';
 import 'package:ledgerly_client/config/api_endpoint_controller.dart';
+import 'package:ledgerly_client/l10n/l10n.dart';
 import 'package:ledgerly_client/main.dart';
 import 'package:ledgerly_client/presentation/pages/api_endpoint_setup_page.dart';
 import 'package:ledgerly_client/presentation/pages/startup_page.dart';
@@ -10,6 +11,10 @@ import 'package:ledgerly_client/presentation/pages/startup_page.dart';
 import '../support/fake_auth_gateway.dart';
 
 void main() {
+  tearDown(() {
+    L10n.locale = const Locale('zh');
+  });
+
   testWidgets('invalid endpoint recovery fits a phone viewport',
       (tester) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -100,6 +105,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(home: ApiEndpointSetupPage(controller: controller)),
     );
+    await tester.pump();
 
     expect(find.text('API 服务配置'), findsOneWidget);
     await tester.enterText(

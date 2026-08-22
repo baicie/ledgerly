@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../data/database.dart';
+import '../l10n/l10n.dart';
 import 'ai_models.dart';
 import 'insight_parser.dart';
 import 'insight_period.dart';
@@ -63,7 +64,7 @@ class InsightRepository {
     final body = insight.status == AiInsightStatus.error
         ? encodeInsightBody(
             AiInsightContent(
-              headline: insight.errorMessage ?? '分析失败',
+              headline: insight.errorMessage ?? L10n.current.insightFailed,
               highlights: const [],
               advice: const [],
             ),

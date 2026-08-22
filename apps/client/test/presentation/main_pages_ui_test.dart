@@ -154,6 +154,10 @@ void main() {
 
     expect(find.text('本月收支统计'), findsOneWidget);
     expect(find.textContaining('配置模型供应商和 API Key'), findsWidgets);
+    expect(find.textContaining('所选月份的消费月报'), findsOneWidget);
+    expect(find.textContaining('当天流水'), findsNothing);
+    expect(find.textContaining('AI 月报'), findsOneWidget);
+    expect(find.textContaining('AI 日分析'), findsNothing);
 
     await tester.scrollUntilVisible(find.text('收入来源'), 300);
     await tester.pump();

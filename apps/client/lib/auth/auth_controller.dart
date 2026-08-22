@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import '../l10n/l10n.dart';
 import 'auth_repository.dart';
 
 enum AuthStatus {
@@ -74,7 +75,8 @@ class AuthController extends ChangeNotifier {
             : AuthState.authenticated(session),
       );
     } catch (error) {
-      _setState(AuthState.failure(_errorMessage(error, operation: '恢复会话')));
+      _setState(AuthState.failure(
+          _errorMessage(error, L10n.current.restoreSessionFailedRetry)));
     }
   }
 
@@ -92,7 +94,9 @@ class AuthController extends ChangeNotifier {
       _setState(AuthState.authenticated(session));
     } catch (error) {
       _setState(
-        AuthState.signedOut(message: _errorMessage(error, operation: '登录')),
+        AuthState.signedOut(
+          message: _errorMessage(error, L10n.current.loginFailedRetry),
+        ),
       );
     }
   }
@@ -113,7 +117,9 @@ class AuthController extends ChangeNotifier {
       _setState(AuthState.authenticated(session));
     } catch (error) {
       _setState(
-        AuthState.signedOut(message: _errorMessage(error, operation: '注册')),
+        AuthState.signedOut(
+          message: _errorMessage(error, L10n.current.registerFailedRetry),
+        ),
       );
     }
   }
@@ -129,8 +135,8 @@ class AuthController extends ChangeNotifier {
       _setState(const AuthState.signedOut());
     } catch (_) {
       _setState(
-        const AuthState.signedOut(
-          message: '已清除本机登录状态，但服务器会话撤销失败。',
+        AuthState.signedOut(
+          message: L10n.current.logoutRemoteRevokeFailed,
         ),
       );
     }
@@ -148,8 +154,8 @@ class AuthController extends ChangeNotifier {
       _setState(AuthState.authenticated(session));
     } else if (_state.status == AuthStatus.authenticated) {
       _setState(
-        const AuthState.signedOut(
-          message: '登录状态已失效，请重新登录。',
+        AuthState.signedOut(
+          message: L10n.current.sessionExpired,
         ),
       );
     }
@@ -168,23 +174,24 @@ class AuthController extends ChangeNotifier {
     return gateway;
   }
 
-  String _errorMessage(Object error, {required String operation}) {
+  String _errorMessage(Object error, String fallback) {
+    final l10n = L10n.current;
     if (error is DioException) {
       final data = error.response?.data;
       final code = data is Map ? data['code'] : null;
       return switch (code) {
-        'INVALID_CREDENTIALS' => '邮箱或密码错误。',
-        'EMAIL_TAKEN' => '该邮箱已注册。',
-        'INVALID_EMAIL' => '请输入有效邮箱。',
-        'WEAK_PASSWORD' => '密码需为 8–128 位。',
+        'INVALID_CREDENTIALS' => l10n.invalidCredentials,
+        'EMAIL_TAKEN' => l10n.emailTaken,
+        'INVALID_EMAIL' => l10n.invalidEmail,
+        'WEAK_PASSWORD' => l10n.weakPassword,
         _
             when error.type == DioExceptionType.connectionError ||
                 error.type == DioExceptionType.connectionTimeout =>
-          '无法连接服务器，请检查网络后重试。',
-        _ => '$operation失败，请稍后重试。',
+          l10n.cannotReachServer,
+        _ => fallback,
       };
     }
-    return '$operation失败，请稍后重试。';
+    return fallback;
   }
 
   @override

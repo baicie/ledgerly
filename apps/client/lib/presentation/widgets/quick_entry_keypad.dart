@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/l10n.dart';
 import '../design/ledgerly_theme.dart';
 
 class QuickEntryKeypad extends StatelessWidget {
@@ -61,11 +62,12 @@ class _KeyButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final backspace = value == 'backspace';
+    final l10n = l10nOf(context);
     return Semantics(
       label: backspace
-          ? '退格'
+          ? l10n.backspace
           : value == '.'
-              ? '小数点'
+              ? l10n.decimalPoint
               : value,
       button: true,
       child: InkWell(

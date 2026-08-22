@@ -106,10 +106,3 @@ String localizedInsightName(String? name) {
       return name;
   }
 }
-
-String insightKindLabel(InsightKind kind) {
-  return switch (kind) {
-    InsightKind.daily => '日分析',
-    InsightKind.monthly => '月报',
-  };
-}

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../config/api_endpoint_controller.dart';
-import '../api_endpoint_editor.dart';
+import '../../config/api_endpoint_messages.dart';
+import '../../l10n/l10n.dart';
 
 class ApiEndpointSetupPage extends StatefulWidget {
   const ApiEndpointSetupPage({super.key, required this.controller});
@@ -22,9 +23,7 @@ class _ApiEndpointSetupPageState extends State<ApiEndpointSetupPage> {
     super.initState();
     final message = widget.controller.state.message;
     if (message != null) {
-      _errorText = message.startsWith('无法')
-          ? message
-          : apiEndpointErrorText(FormatException(message));
+      _errorText = message;
     }
   }
 
@@ -44,11 +43,12 @@ class _ApiEndpointSetupPageState extends State<ApiEndpointSetupPage> {
       await widget.controller.save(_inputController.text);
     } on FormatException catch (error) {
       if (mounted) {
-        setState(() => _errorText = apiEndpointErrorText(error));
+        setState(
+            () => _errorText = apiEndpointErrorText(error, l10nOf(context)));
       }
     } catch (_) {
       if (mounted) {
-        setState(() => _errorText = 'API 地址保存失败，请稍后重试。');
+        setState(() => _errorText = l10nOf(context).apiAddressSaveFailed);
       }
     } finally {
       if (mounted) {
@@ -59,6 +59,7 @@ class _ApiEndpointSetupPageState extends State<ApiEndpointSetupPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
@@ -92,13 +93,13 @@ class _ApiEndpointSetupPageState extends State<ApiEndpointSetupPage> {
                         ),
                         const SizedBox(height: 28),
                         Text(
-                          'API 服务配置',
+                          l10n.apiEndpointSetupTitle,
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.headlineSmall,
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '地址选填，留空时仅在本机存储',
+                          l10n.apiEndpointSetupSubtitle,
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
@@ -113,9 +114,9 @@ class _ApiEndpointSetupPageState extends State<ApiEndpointSetupPage> {
                           textInputAction: TextInputAction.done,
                           onSubmitted: (_) => _save(),
                           decoration: InputDecoration(
-                            labelText: 'API 地址（选填）',
+                            labelText: l10n.apiAddressOptional,
                             hintText: '192.168.1.10:8080',
-                            helperText: '原生端支持局域网 IP；留空则仅本地存储',
+                            helperText: l10n.apiAddressHelper,
                             helperMaxLines: 2,
                             prefixIcon: const Icon(Icons.dns_outlined),
                             border: const OutlineInputBorder(),
@@ -134,7 +135,7 @@ class _ApiEndpointSetupPageState extends State<ApiEndpointSetupPage> {
                                   ),
                                 )
                               : const Icon(Icons.arrow_forward),
-                          label: const Text('保存设置'),
+                          label: Text(l10n.saveSettings),
                         ),
                       ],
                     ),

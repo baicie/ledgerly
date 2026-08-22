@@ -242,7 +242,7 @@ final class _LoggingAuthGateway extends FakeAuthGateway {
 
 final class _LoggingEndpointStore extends MemoryApiEndpointStore {
   _LoggingEndpointStore(this.events)
-    : super(initialValue: 'https://one.example');
+      : super(initialValue: 'https://one.example');
 
   final List<String> events;
 
