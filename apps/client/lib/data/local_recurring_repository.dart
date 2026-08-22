@@ -63,7 +63,7 @@ class LocalRecurringRepository {
     required String accountId,
     required int dayOfMonth,
   }) async {
-    final day = dayOfMonth.clamp(1, 28);
+    final day = dayOfMonth.clamp(1, 31);
     final record = LocalRecurringRule(
       id: const Uuid().v4(),
       bookId: bookId,

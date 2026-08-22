@@ -3,7 +3,7 @@ import 'dart:typed_data';
 abstract class UserFilePort {
   Future<String?> pickCsvText();
 
-  Future<PickedBinaryFile?> pickBinaryFile();
+  Future<PickedBinaryFile?> pickBinaryFile({bool imagesOnly = false});
 
   Future<void> saveTextFile({
     required String fileName,
@@ -27,7 +27,8 @@ class UnsupportedUserFilePort implements UserFilePort {
   const UnsupportedUserFilePort();
 
   @override
-  Future<PickedBinaryFile?> pickBinaryFile() async => null;
+  Future<PickedBinaryFile?> pickBinaryFile({bool imagesOnly = false}) async =>
+      null;
 
   @override
   Future<String?> pickCsvText() async => null;
@@ -53,7 +54,8 @@ class MemoryUserFilePort implements UserFilePort {
   Future<String?> pickCsvText() async => csvText;
 
   @override
-  Future<PickedBinaryFile?> pickBinaryFile() async => binaryFile;
+  Future<PickedBinaryFile?> pickBinaryFile({bool imagesOnly = false}) async =>
+      binaryFile;
 
   @override
   Future<void> saveTextFile({

@@ -9,6 +9,8 @@ import '../application/sync_service.dart';
 import '../auth/app_lock_store.dart';
 import '../auth/auth_repository.dart';
 import '../auth/auth_controller.dart';
+import '../auth/biometric_auth.dart';
+import '../auth/biometric_auth_factory.dart';
 import '../auth/platform_session_store.dart';
 import '../auth/session_store.dart';
 import '../config/api_endpoint.dart';
@@ -84,9 +86,16 @@ final appLockStoreProvider = Provider<AppLockStore>((ref) {
   return createPlatformAppLockStore();
 });
 
+final biometricAuthProvider = Provider<BiometricAuth>((ref) {
+  return createPlatformBiometricAuth();
+});
+
 final appLockControllerProvider =
     ChangeNotifierProvider<AppLockController>((ref) {
-  final controller = AppLockController(store: ref.watch(appLockStoreProvider));
+  final controller = AppLockController(
+    store: ref.watch(appLockStoreProvider),
+    biometric: ref.watch(biometricAuthProvider),
+  );
   unawaited(controller.load());
   return controller;
 });
@@ -117,6 +126,7 @@ final recurringSchedulerProvider = Provider<RecurringScheduler>((ref) {
   return RecurringScheduler(
     rules: ref.watch(localRecurringRepositoryProvider),
     ledger: ref.watch(ledgerAppServiceProvider),
+    repository: ref.watch(ledgerRepositoryProvider),
   );
 });
 
@@ -408,6 +418,39 @@ final exportCsvProvider = FutureProvider<String>((ref) async {
   return buildLedgerCsv(txs, l10n: L10n.current);
 });
 
+class LocalBudgetProgress {
+  const LocalBudgetProgress({required this.budget, required this.spent});
+
+  final LocalBudgetRecord budget;
+  final BigInt spent;
+
+  BigInt get remaining => budget.amountMinor - spent;
+}
+
+final localMonthBudgetProgressProvider =
+    FutureProvider<List<LocalBudgetProgress>>((ref) async {
+  await ref.watch(ledgerRepositoryProvider).seedIfEmpty();
+  final records =
+      await ref.watch(localBudgetRepositoryProvider).list(defaultBookId);
+  final transactions = await ref.watch(monthTransactionsProvider.future);
+  final categories =
+      await ref.watch(categoryAccountsProvider('expense').future);
+  final parentById = {
+    for (final category in categories) category.id: category.parentAccountId,
+  };
+  return [
+    for (final record in records)
+      LocalBudgetProgress(
+        budget: record,
+        spent: spentForBudget(
+          budget: record,
+          transactions: transactions,
+          parentById: parentById,
+        ),
+      ),
+  ];
+});
+
 void invalidateLedgerViews(WidgetRef ref) {
   ref.invalidate(monthTransactionsProvider);
   ref.invalidate(transactionListProvider);
@@ -417,6 +460,7 @@ void invalidateLedgerViews(WidgetRef ref) {
   ref.invalidate(exportCsvProvider);
   ref.invalidate(localAttachmentsProvider);
   ref.invalidate(recurringCatchUpProvider);
+  ref.invalidate(localMonthBudgetProgressProvider);
 }
 
 String formatMinor(BigInt minor) {

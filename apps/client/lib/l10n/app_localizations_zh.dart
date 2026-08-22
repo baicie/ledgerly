@@ -1276,10 +1276,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appLock => '应用锁';
 
   @override
-  String get appLockSubtitle => '用 PIN 保护打开应用';
+  String get appLockSubtitle => '用 PIN 或生物识别保护打开应用';
 
   @override
-  String get appLockBody => '启用后，冷启动和回到前台需要输入 PIN。';
+  String get appLockBody => '启用后，冷启动和回到前台需要解锁。PIN 始终可用；可再打开指纹或面容。';
 
   @override
   String get enableAppLock => '启用应用锁';
@@ -1312,6 +1312,30 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appLockedTitle => '已锁定';
 
   @override
+  String get unlockWithBiometrics => '用指纹或面容解锁';
+
+  @override
+  String get useBiometrics => '生物识别解锁';
+
+  @override
+  String get useBiometricsSubtitle => '打开应用时优先用指纹或面容，失败再输入 PIN';
+
+  @override
+  String get biometricsUnavailable => '这台设备没有可用的生物识别';
+
+  @override
+  String get importSelectAll => '全选';
+
+  @override
+  String get importSelectNone => '全不选';
+
+  @override
+  String get importDuplicateHint => '账本里已有同日同额同备注，已取消勾选';
+
+  @override
+  String get importHelp => '支持支付宝、微信导出的 CSV（UTF-8 或 GBK）。退款和关闭单会跳过。确认后才会写入账本。';
+
+  @override
   String get importCsv => '导入账单';
 
   @override
@@ -1340,9 +1364,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get importNothing => '没有可导入的记录';
 
   @override
-  String get importHelp => '导入前请核对金额和分类，确认后才会写入账本。';
-
-  @override
   String get saveCsvFile => '保存 / 分享';
 
   @override
@@ -1360,7 +1381,8 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get recurringLocalHelp => '每月固定日期自动记账，只保存在本机。';
+  String get recurringLocalHelp =>
+      '每月 1 到 31 日自动记账；没有那天就记在月末。只保存在本机，重复的不会再记一笔。';
 
   @override
   String get recurringSubtitle => '每月固定日期自动记账';
@@ -1372,10 +1394,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get attachmentsSubtitle => '只保存在本机，不同步';
 
   @override
-  String get addAttachment => '添加附件';
+  String get addAttachment => '添加文件';
+
+  @override
+  String get addImage => '添加图片';
 
   @override
   String get noAttachments => '还没有附件';
+
+  @override
+  String get monthBudgetProgress => '本月预算';
+
+  @override
+  String get lastDayOfMonthHint => '该月没有这天则记在月末';
 
   @override
   String get deleteBudget => '删除预算';

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ledgerly_client/auth/app_lock_store.dart';
+import 'package:ledgerly_client/auth/biometric_auth.dart';
 import 'package:ledgerly_client/presentation/providers.dart';
 import 'package:ledgerly_client/presentation/widgets/app_lock_gate.dart';
 
@@ -66,5 +67,34 @@ void main() {
 
     expect(find.byKey(const Key('app-lock-pin')), findsNothing);
     expect(find.text('OPEN'), findsOneWidget);
+  });
+
+  testWidgets('biometric unlock dismisses the overlay without a PIN', (
+    tester,
+  ) async {
+    final store = MemoryAppLockStore(pin: '1234', biometricEnabled: true);
+    final biometrics = MemoryBiometricAuth();
+    final controller = AppLockController(store: store, biometric: biometrics);
+    await controller.load();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appLockStoreProvider.overrideWithValue(store),
+          appLockControllerProvider.overrideWith((ref) => controller),
+        ],
+        child: const MaterialApp(
+          home: AppLockGate(
+            child: Scaffold(body: Text('SECRET_LEDGER')),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('app-lock-pin')), findsNothing);
+    expect(find.text('SECRET_LEDGER'), findsOneWidget);
+    expect(biometrics.authenticateCount, 1);
   });
 }

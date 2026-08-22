@@ -1,13 +1,16 @@
 import 'package:drift/native.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gbk_codec/gbk_codec.dart';
 import 'package:ledgerly_client/application/csv_bill_parser.dart';
+import 'package:ledgerly_client/application/csv_text.dart';
 import 'package:ledgerly_client/application/feed_search.dart';
 import 'package:ledgerly_client/application/ledger_app_service.dart';
 import 'package:ledgerly_client/application/ledger_csv.dart';
 import 'package:ledgerly_client/application/recurring_date.dart';
 import 'package:ledgerly_client/application/recurring_scheduler.dart';
 import 'package:ledgerly_client/auth/app_lock_store.dart';
+import 'package:ledgerly_client/auth/biometric_auth.dart';
 import 'package:ledgerly_client/data/database.dart';
 import 'package:ledgerly_client/data/ledger_repository.dart';
 import 'package:ledgerly_client/data/local_budget_repository.dart';
@@ -115,6 +118,14 @@ date,kind,amount,category,account,description
       '2026-08-15',
     );
     expect(RecurringDate.advanceOneMonth('2026-01-28', 28), '2026-02-28');
+    expect(RecurringDate.advanceOneMonth('2026-01-31', 31), '2026-02-28');
+    expect(
+      RecurringDate.nextMonthlyDate(
+        from: DateTime(2026, 2, 10),
+        dayOfMonth: 31,
+      ),
+      '2026-02-28',
+    );
     expect(RecurringDate.isDue('2026-08-22', DateTime(2026, 8, 22)), isTrue);
     expect(RecurringDate.isDue('2026-08-23', DateTime(2026, 8, 22)), isFalse);
   });
@@ -198,6 +209,7 @@ date,kind,amount,category,account,description
     final posted = await RecurringScheduler(
       rules: rules,
       ledger: LedgerAppService(repo),
+      repository: repo,
     ).catchUp(now: DateTime(2026, 8, 22));
 
     expect(posted, greaterThanOrEqualTo(1));
@@ -205,5 +217,83 @@ date,kind,amount,category,account,description
     expect(summaries.any((tx) => tx.description == '地铁'), isTrue);
     final updated = (await rules.list(defaultBookId)).single;
     expect(updated.nextRunDate.compareTo('2026-08-01'), greaterThan(0));
+
+    final again = await RecurringScheduler(
+      rules: rules,
+      ledger: LedgerAppService(repo),
+      repository: repo,
+    ).catchUp(now: DateTime(2026, 8, 22));
+    expect(again, 0);
+  });
+
+  test('csv parser skips refunds, reads Alipay tabs, and uses counterparty', () {
+    const alipay = '''
+支付宝交易记录明细查询
+交易创建时间\t交易对方\t商品名称\t金额（元）\t收/支\t交易状态
+2026-08-01 08:00:00\t星巴克\t\t32.00\t支出\t交易成功
+2026-08-01 09:00:00\t退款商户\t拿铁\t32.00\t支出\t退款成功
+''';
+    const parser = CsvBillParser();
+    final drafts = parser.parse(alipay);
+    expect(drafts, hasLength(1));
+    expect(drafts.single.description, '星巴克');
+    expect(drafts.single.amountMinor, BigInt.from(3200));
+  });
+
+  test('csv decoder reads GBK Alipay exports', () {
+    final csv = '交易时间,金额,收/支\n2026-08-03 10:00:00,12.50,支出\n';
+    final drafts = const CsvBillParser().parse(decodeBillCsvBytes(gbk.encode(csv)));
+    expect(drafts, hasLength(1));
+    expect(drafts.single.amountMinor, BigInt.from(1250));
+  });
+
+  test('import duplicates are unchecked', () {
+    final draft = ImportDraft(
+      occurredAt: DateTime(2026, 8, 4, 12),
+      kind: TransactionSummaryKind.expense,
+      amountMinor: BigInt.from(3200),
+      description: '星巴克拿铁',
+    );
+    markDuplicateImportDrafts(
+      drafts: [draft],
+      existing: [
+        TransactionSummary(
+          id: '1',
+          occurredAt: DateTime(2026, 8, 4, 9),
+          description: '星巴克拿铁',
+          entryCount: 2,
+          kind: TransactionSummaryKind.expense,
+          amountMinor: BigInt.from(3200),
+        ),
+      ],
+    );
+    expect(draft.duplicate, isTrue);
+    expect(draft.selected, isFalse);
+  });
+
+  test('app lock can unlock with biometrics then still require PIN later', () async {
+    final biometrics = MemoryBiometricAuth();
+    final controller = AppLockController(
+      store: MemoryAppLockStore(pin: '1234', biometricEnabled: true),
+      biometric: biometrics,
+    );
+    await controller.load();
+    expect(controller.locked, isTrue);
+    expect(controller.biometricEnabled, isTrue);
+    expect(
+      await controller.unlockWithBiometrics(reason: 'unlock'),
+      isTrue,
+    );
+    expect(controller.locked, isFalse);
+    expect(biometrics.authenticateCount, 1);
+
+    controller.lock();
+    biometrics.succeeds = false;
+    expect(
+      await controller.unlockWithBiometrics(reason: 'unlock'),
+      isFalse,
+    );
+    expect(controller.locked, isTrue);
+    expect(await controller.unlock('1234'), isTrue);
   });
 }

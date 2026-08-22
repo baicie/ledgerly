@@ -7,7 +7,9 @@ class ImportDraft {
     required this.amountMinor,
     required this.description,
     this.rawCategory,
+    this.counterparty,
     this.selected = true,
+    this.duplicate = false,
   });
 
   final DateTime occurredAt;
@@ -15,10 +17,12 @@ class ImportDraft {
   final BigInt amountMinor;
   final String description;
   final String? rawCategory;
+  final String? counterparty;
   bool selected;
+  bool duplicate;
 }
 
-List<String> splitCsvLine(String line) {
+List<String> splitCsvLine(String line, {String delimiter = ','}) {
   final fields = <String>[];
   final buffer = StringBuffer();
   var inQuotes = false;
@@ -37,7 +41,7 @@ List<String> splitCsvLine(String line) {
       }
     } else if (char == '"') {
       inQuotes = true;
-    } else if (char == ',') {
+    } else if (char == delimiter) {
       fields.add(buffer.toString().trim());
       buffer.clear();
     } else {
@@ -46,6 +50,23 @@ List<String> splitCsvLine(String line) {
   }
   fields.add(buffer.toString().trim());
   return fields;
+}
+
+bool isSkippedImportStatus(String raw) {
+  final value = raw.trim().toLowerCase();
+  if (value.isEmpty) return false;
+  const needles = [
+    '退款',
+    'refund',
+    '关闭',
+    'closed',
+    '失败',
+    'fail',
+    '撤销',
+    '已退还',
+    '全额退款',
+  ];
+  return needles.any(value.contains);
 }
 
 DateTime? parseImportDate(String raw) {
@@ -94,7 +115,9 @@ TransactionSummaryKind? parseImportKind(String? raw, BigInt amount) {
   final value = (raw ?? '').trim();
   if (value.contains('不计') ||
       value.contains('转账') ||
-      value.toLowerCase() == 'transfer') {
+      value.contains('其他') ||
+      value.toLowerCase() == 'transfer' ||
+      value.toLowerCase() == 'other') {
     return null;
   }
   if (value.contains('收入') || value.toLowerCase() == 'income') {
@@ -106,6 +129,49 @@ TransactionSummaryKind? parseImportKind(String? raw, BigInt amount) {
   if (amount < BigInt.zero) return TransactionSummaryKind.expense;
   if (amount > BigInt.zero) return TransactionSummaryKind.income;
   return null;
+}
+
+String postedRowKey({
+  required DateTime occurredAt,
+  required BigInt amountMinor,
+  required TransactionSummaryKind kind,
+  required String description,
+}) {
+  final local = occurredAt.toLocal();
+  final month = local.month.toString().padLeft(2, '0');
+  final day = local.day.toString().padLeft(2, '0');
+  return '${local.year}-$month-$day|${kind.name}|$amountMinor|${description.trim()}';
+}
+
+bool importDraftMatchesExisting(
+  ImportDraft draft,
+  TransactionSummary existing,
+) {
+  return postedRowKey(
+        occurredAt: draft.occurredAt,
+        amountMinor: draft.amountMinor,
+        kind: draft.kind,
+        description: draft.description,
+      ) ==
+      postedRowKey(
+        occurredAt: existing.occurredAt,
+        amountMinor: existing.amountMinor,
+        kind: existing.kind,
+        description: existing.description ?? '',
+      );
+}
+
+void markDuplicateImportDrafts({
+  required List<ImportDraft> drafts,
+  required Iterable<TransactionSummary> existing,
+}) {
+  for (final draft in drafts) {
+    final duplicate = existing.any(
+      (row) => importDraftMatchesExisting(draft, row),
+    );
+    draft.duplicate = duplicate;
+    if (duplicate) draft.selected = false;
+  }
 }
 
 class CsvBillParser {
@@ -122,43 +188,62 @@ class CsvBillParser {
     if (lines.isEmpty) return const [];
 
     var headerIndex = 0;
+    String delimiter = ',';
+    Map<String, int>? header;
     for (var i = 0; i < lines.length; i++) {
-      if (_headerMap(splitCsvLine(lines[i])) != null) {
+      final detected = _detectHeader(lines[i]);
+      if (detected != null) {
         headerIndex = i;
+        delimiter = detected.$1;
+        header = detected.$2;
         break;
       }
     }
-    final header = _headerMap(splitCsvLine(lines[headerIndex]));
     if (header == null) return const [];
 
     final drafts = <ImportDraft>[];
     for (final line in lines.skip(headerIndex + 1)) {
-      final cols = splitCsvLine(line);
+      final cols = splitCsvLine(line, delimiter: delimiter);
       if (cols.every((col) => col.isEmpty)) continue;
       String read(String key) {
-        final index = header[key];
+        final index = header![key];
         if (index == null || index >= cols.length) return '';
         return cols[index];
       }
 
+      if (isSkippedImportStatus(read('status'))) continue;
       final amount = parseImportAmountMinor(read('amount'));
       if (amount == null) continue;
       final kind = parseImportKind(read('direction'), amount.abs());
       if (kind == null) continue;
       final occurredAt = parseImportDate(read('date'));
       if (occurredAt == null) continue;
-      final description = read('description');
+      final description = [
+        read('description'),
+        read('counterparty'),
+        read('category'),
+      ].firstWhere((value) => value.isNotEmpty, orElse: () => '');
       drafts.add(
         ImportDraft(
           occurredAt: occurredAt,
           kind: kind,
           amountMinor: amount.abs(),
-          description: description.isEmpty ? read('category') : description,
+          description: description,
           rawCategory: read('category').isEmpty ? null : read('category'),
+          counterparty:
+              read('counterparty').isEmpty ? null : read('counterparty'),
         ),
       );
     }
     return drafts;
+  }
+
+  (String, Map<String, int>)? _detectHeader(String line) {
+    for (final delimiter in const [',', '\t', ';']) {
+      final map = _headerMap(splitCsvLine(line, delimiter: delimiter));
+      if (map != null) return (delimiter, map);
+    }
+    return null;
   }
 
   Map<String, int>? _headerMap(List<String> cells) {
@@ -192,6 +277,7 @@ class CsvBillParser {
     }
     if (name.contains('金额') || value == 'amount') return 'amount';
     if (name.contains('商品说明') ||
+        name.contains('商品名称') ||
         name.contains('商品') ||
         name.contains('备注') ||
         name.contains('说明') ||
@@ -199,10 +285,20 @@ class CsvBillParser {
         value == 'note') {
       return 'description';
     }
+    if (name.contains('交易对方') ||
+        value == 'counterparty' ||
+        value == 'payee') {
+      return 'counterparty';
+    }
     if (name.contains('交易分类') ||
         name.contains('分类') ||
         value == 'category') {
       return 'category';
+    }
+    if (name.contains('交易状态') ||
+        name.contains('当前状态') ||
+        value == 'status') {
+      return 'status';
     }
     return null;
   }

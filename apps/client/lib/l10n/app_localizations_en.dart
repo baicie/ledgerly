@@ -1319,11 +1319,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appLock => 'App lock';
 
   @override
-  String get appLockSubtitle => 'Protect opening the app with a PIN';
+  String get appLockSubtitle =>
+      'Protect opening the app with a PIN or biometrics';
 
   @override
   String get appLockBody =>
-      'When enabled, a PIN is required after a cold start and when returning to the app.';
+      'When enabled, unlock is required after a cold start and when returning to the app. PIN always works; biometrics are optional.';
 
   @override
   String get enableAppLock => 'Enable app lock';
@@ -1356,6 +1357,34 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appLockedTitle => 'Locked';
 
   @override
+  String get unlockWithBiometrics => 'Unlock with biometrics';
+
+  @override
+  String get useBiometrics => 'Unlock with biometrics';
+
+  @override
+  String get useBiometricsSubtitle =>
+      'Try fingerprint or face first; PIN remains the fallback';
+
+  @override
+  String get biometricsUnavailable =>
+      'Biometrics are not available on this device';
+
+  @override
+  String get importSelectAll => 'Select all';
+
+  @override
+  String get importSelectNone => 'Select none';
+
+  @override
+  String get importDuplicateHint =>
+      'Already in the ledger for the same day, amount, and note. Unchecked.';
+
+  @override
+  String get importHelp =>
+      'Supports Alipay and WeChat CSV exports (UTF-8 or GBK). Refunds and closed rows are skipped. Rows are posted only after you confirm.';
+
+  @override
   String get importCsv => 'Import bills';
 
   @override
@@ -1385,10 +1414,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get importNothing => 'Nothing to import';
 
   @override
-  String get importHelp =>
-      'Review amounts and categories first. Rows are posted only after you confirm.';
-
-  @override
   String get saveCsvFile => 'Save / share';
 
   @override
@@ -1407,7 +1432,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get recurringLocalHelp =>
-      'Posts on a fixed day each month. Stored only on this device.';
+      'Posts on day 1–31 each month; if that date does not exist, it posts on the last day. Stored only on this device. Duplicates are skipped.';
 
   @override
   String get recurringSubtitle => 'Automatic monthly posting';
@@ -1420,10 +1445,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get attachmentsSubtitle => 'Stored on this device only';
 
   @override
-  String get addAttachment => 'Add attachment';
+  String get addAttachment => 'Add file';
+
+  @override
+  String get addImage => 'Add photo';
 
   @override
   String get noAttachments => 'No attachments yet';
+
+  @override
+  String get monthBudgetProgress => 'This month\'s budgets';
+
+  @override
+  String get lastDayOfMonthHint =>
+      'If the month has fewer days, post on the last day';
 
   @override
   String get deleteBudget => 'Delete budget';

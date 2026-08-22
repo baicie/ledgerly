@@ -17,21 +17,32 @@ class RecurringDate {
     );
   }
 
+  static int daysInMonth(int year, int month) {
+    return DateTime(year, month + 1, 0).day;
+  }
+
+  static int clampDay(int year, int month, int dayOfMonth) {
+    final wanted = dayOfMonth.clamp(1, 31);
+    final last = daysInMonth(year, month);
+    return wanted > last ? last : wanted;
+  }
+
   static String nextMonthlyDate({
     required DateTime from,
     required int dayOfMonth,
   }) {
-    final day = dayOfMonth.clamp(1, 28);
+    final wanted = dayOfMonth.clamp(1, 31);
     var year = from.year;
     var month = from.month;
-    if (from.day > day) {
+    final thisMonthDay = clampDay(year, month, wanted);
+    if (from.day > thisMonthDay) {
       month += 1;
       if (month > 12) {
         month = 1;
         year += 1;
       }
     }
-    return format(DateTime(year, month, day));
+    return format(DateTime(year, month, clampDay(year, month, wanted)));
   }
 
   static String advanceOneMonth(String current, int dayOfMonth) {
@@ -42,7 +53,7 @@ class RecurringDate {
       month = 1;
       year += 1;
     }
-    return format(DateTime(year, month, dayOfMonth.clamp(1, 28)));
+    return format(DateTime(year, month, clampDay(year, month, dayOfMonth)));
   }
 
   static bool isDue(String nextRunDate, DateTime now) {
