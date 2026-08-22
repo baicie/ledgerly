@@ -225,6 +225,8 @@ jobs:
           ## Ledgerly ${{ github.ref_name }}
 
           ### Client (this release)
+          - Localize the client UI with Chinese as the default and fallback; English when the system language is English.
+          - Show daily spend insights inside today's feed group. Monthly insights live on the reports page, with a feed shortcut to open them.
           - Generate daily and previous-month spend insights with a user-provided DeepSeek or OpenCode key. Ledger slices stay on-device and never go through Ledgerly's server.
           - Configure provider, API key, base URL, and model in Settings. Insights are cached locally and are not synced.
           - OpenCode uses \`https://opencode.ai/zen/go/v1\`. Flutter Web cannot call that gateway due to CORS; use the Android app.
