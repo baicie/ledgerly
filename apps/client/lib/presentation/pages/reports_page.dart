@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../ai/insight_period.dart';
 import '../../data/ledger_repository.dart';
+import '../ai_providers.dart';
 import '../design/ledgerly_theme.dart';
 import '../providers.dart';
+import '../widgets/ai_insight_card.dart';
 import '../widgets/ledgerly_finance.dart';
 import '../widgets/ledgerly_layout.dart';
 import '../widgets/ledgerly_summary_card.dart';
@@ -99,6 +103,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
               loading: () => const _ReportPlaceholder(height: 220),
               error: (error, _) => _ReportError(error: error),
             ),
+            ..._reportInsightSlivers(context, ref, month),
             transactions.when(
               data: (items) {
                 final rows = _aggregateIncome(items);
@@ -163,14 +168,62 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
   }
 
   void _changeMonth(DateTime month, int offset) {
-    ref.read(selectedMonthProvider.notifier).state =
-        DateTime(month.year, month.month + offset);
+    ref.read(selectedMonthProvider.notifier).state = DateTime(
+      month.year,
+      month.month + offset,
+    );
     _loadRemote();
   }
 
-  List<CategoryAmount> _aggregateIncome(
-    List<TransactionSummary> transactions,
+  List<Widget> _reportInsightSlivers(
+    BuildContext context,
+    WidgetRef ref,
+    DateTime month,
   ) {
+    final now = DateTime.now();
+    final isCurrentMonth = month.year == now.year && month.month == now.month;
+    final monthly = ref.watch(selectedMonthAiInsightProvider);
+    final today = isCurrentMonth ? ref.watch(todayAiInsightProvider) : null;
+    return [
+      if (today != null)
+        today.when(
+          skipLoadingOnReload: true,
+          data: (view) => SliverPadding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            sliver: SliverToBoxAdapter(
+              child: AiInsightCard(
+                view: view,
+                onConfigure: () => context.go('/settings/ai'),
+                onGenerate: view.canGenerate
+                    ? () => regenerateAiInsight(ref, InsightPeriod.daily(now))
+                    : null,
+              ),
+            ),
+          ),
+          loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
+          error: (error, _) => _ReportError(error: error),
+        ),
+      monthly.when(
+        skipLoadingOnReload: true,
+        data: (view) => SliverPadding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          sliver: SliverToBoxAdapter(
+            child: AiInsightCard(
+              view: view,
+              onConfigure: () => context.go('/settings/ai'),
+              onGenerate: view.canGenerate
+                  ? () => regenerateAiInsight(ref, InsightPeriod.monthOf(month))
+                  : null,
+            ),
+          ),
+        ),
+        loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
+        error: (error, _) => _ReportError(error: error),
+      ),
+    ];
+  }
+
+  List<CategoryAmount> _aggregateIncome(List<TransactionSummary> transactions) {
     final amounts = <String, BigInt>{};
     final counts = <String, int>{};
     for (final transaction in transactions) {
@@ -292,8 +345,10 @@ class _RemoteSummary extends StatelessWidget {
     return LedgerlySection(
       title: '云端校验',
       child: error != null
-          ? Text(error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error))
+          ? Text(
+              error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            )
           : Text(
               '服务端净额 ${data?['netMinor'] ?? '--'} · ${data?['baseCurrency'] ?? 'CNY'}',
               style: Theme.of(context).textTheme.bodyMedium,

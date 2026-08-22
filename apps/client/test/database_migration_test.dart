@@ -4,10 +4,11 @@ import 'package:ledgerly_client/data/database.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 void main() {
-  test('v3 migration physically removes legacy token columns and values',
-      () async {
-    final underlying = sqlite3.openInMemory();
-    underlying.execute('''
+  test(
+    'v3 migration physically removes legacy token columns and values',
+    () async {
+      final underlying = sqlite3.openInMemory();
+      underlying.execute('''
       CREATE TABLE sync_states (
         book_id TEXT NOT NULL PRIMARY KEY,
         device_id TEXT NOT NULL,
@@ -34,28 +35,39 @@ void main() {
       );
       PRAGMA user_version = 3;
     ''');
-    final db = AppDatabase.forTesting(NativeDatabase.opened(underlying));
-    addTearDown(db.close);
+      final db = AppDatabase.forTesting(NativeDatabase.opened(underlying));
+      addTearDown(db.close);
 
-    final state = await db.select(db.syncStates).getSingle();
-    final columns =
-        await db.customSelect("PRAGMA table_info('sync_states')").get();
-    final schema = await db
-        .customSelect(
-          "SELECT sql FROM sqlite_master WHERE type='table' AND name='sync_states'",
-        )
-        .getSingle();
+      final state = await db.select(db.syncStates).getSingle();
+      final columns = await db
+          .customSelect("PRAGMA table_info('sync_states')")
+          .get();
+      final schema = await db
+          .customSelect(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='sync_states'",
+          )
+          .getSingle();
 
-    expect(state.cursor, 42);
-    expect(state.remoteBookId, 'book-remote');
-    expect(columns.map((row) => row.read<String>('name')),
-        isNot(contains('access_token')));
-    expect(columns.map((row) => row.read<String>('name')),
-        isNot(contains('refresh_token')));
-    expect(schema.read<String>('sql'), isNot(contains('legacy-access-secret')));
-    expect(
-        schema.read<String>('sql'), isNot(contains('legacy-refresh-secret')));
-  });
+      expect(state.cursor, 42);
+      expect(state.remoteBookId, 'book-remote');
+      expect(
+        columns.map((row) => row.read<String>('name')),
+        isNot(contains('access_token')),
+      );
+      expect(
+        columns.map((row) => row.read<String>('name')),
+        isNot(contains('refresh_token')),
+      );
+      expect(
+        schema.read<String>('sql'),
+        isNot(contains('legacy-access-secret')),
+      );
+      expect(
+        schema.read<String>('sql'),
+        isNot(contains('legacy-refresh-secret')),
+      );
+    },
+  );
 
   test('v4 migration adds nullable category parent account ids', () async {
     final underlying = sqlite3.openInMemory();
@@ -75,13 +87,56 @@ void main() {
     addTearDown(db.close);
 
     final account = await db.select(db.accounts).getSingle();
-    final columns =
-        await db.customSelect("PRAGMA table_info('accounts')").get();
+    final columns = await db
+        .customSelect("PRAGMA table_info('accounts')")
+        .get();
 
     expect(account.parentAccountId, isNull);
     expect(
       columns.map((row) => row.read<String>('name')),
       contains('parent_account_id'),
+    );
+  });
+
+  test('v5 migration creates local ai_insights cache table', () async {
+    final underlying = sqlite3.openInMemory();
+    underlying.execute('''
+      CREATE TABLE accounts (
+        id TEXT NOT NULL PRIMARY KEY,
+        book_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL,
+        currency_code TEXT NOT NULL,
+        parent_account_id TEXT
+      );
+      PRAGMA user_version = 5;
+    ''');
+    final db = AppDatabase.forTesting(NativeDatabase.opened(underlying));
+    addTearDown(db.close);
+
+    final tables = await db
+        .customSelect(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='ai_insights'",
+        )
+        .get();
+    final columns = await db
+        .customSelect("PRAGMA table_info('ai_insights')")
+        .get();
+
+    expect(tables, isNotEmpty);
+    expect(
+      columns.map((row) => row.read<String>('name')),
+      containsAll([
+        'id',
+        'book_id',
+        'kind',
+        'period_key',
+        'input_hash',
+        'status',
+        'body_json',
+        'prompt_tokens',
+        'completion_tokens',
+      ]),
     );
   });
 }

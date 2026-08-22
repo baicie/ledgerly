@@ -7,10 +7,7 @@ void main() {
   test('local mode bypasses authentication and preserves safe deep links', () {
     expect(authRedirect(const AuthState.local(), '/startup'), '/feed');
     expect(
-      authRedirect(
-        const AuthState.local(),
-        '/startup?from=%2Freports',
-      ),
+      authRedirect(const AuthState.local(), '/startup?from=%2Freports'),
       '/reports',
     );
     expect(authRedirect(const AuthState.local(), '/settings'), isNull);
@@ -18,6 +15,7 @@ void main() {
       authRedirect(const AuthState.local(), '/settings/categories'),
       isNull,
     );
+    expect(authRedirect(const AuthState.local(), '/settings/ai'), isNull);
     expect(authRedirect(const AuthState.local(), '/auth'), '/feed');
   });
 
@@ -42,10 +40,7 @@ void main() {
         reason: path,
       );
     }
-    expect(
-      authRedirect(const AuthState.local(), '/settings/export'),
-      isNull,
-    );
+    expect(authRedirect(const AuthState.local(), '/settings/export'), isNull);
   });
 
   test('route guard covers restore, signed-out, and authenticated states', () {
@@ -56,10 +51,7 @@ void main() {
     final signedOut = authRedirect(const AuthState.signedOut(), '/settings');
     expect(Uri.parse(signedOut!).path, '/auth');
     expect(Uri.parse(signedOut).queryParameters['from'], '/settings');
-    expect(
-      authRedirect(const AuthState.signedOut(), '/auth'),
-      isNull,
-    );
+    expect(authRedirect(const AuthState.signedOut(), '/auth'), isNull);
     expect(
       authRedirect(
         const AuthState.authenticated(
