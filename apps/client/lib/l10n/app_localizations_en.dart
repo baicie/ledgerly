@@ -423,6 +423,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get goConfigure => 'Set up';
 
   @override
+  String get insightExpand => 'Show insight';
+
+  @override
+  String get insightCollapse => 'Hide insight';
+
+  @override
   String get regenerate => 'Regenerate';
 
   @override
@@ -1294,4 +1300,152 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get bookBoundToOtherAccount =>
       'This local book is bound to another account. Sync stopped.';
+
+  @override
+  String get searchTransactionsHint =>
+      'Search notes, categories, accounts, or amounts';
+
+  @override
+  String get noSearchResults => 'No matching activity';
+
+  @override
+  String get noSearchResultsMessage =>
+      'Try another keyword, or clear the search';
+
+  @override
+  String get securitySection => 'Security';
+
+  @override
+  String get appLock => 'App lock';
+
+  @override
+  String get appLockSubtitle => 'Protect opening the app with a PIN';
+
+  @override
+  String get appLockBody =>
+      'When enabled, a PIN is required after a cold start and when returning to the app.';
+
+  @override
+  String get enableAppLock => 'Enable app lock';
+
+  @override
+  String get disableAppLock => 'Turn off app lock';
+
+  @override
+  String get appLockPin => 'PIN';
+
+  @override
+  String get appLockPinConfirm => 'Confirm PIN';
+
+  @override
+  String get appLockPinHint => '4 to 8 digits';
+
+  @override
+  String get unlock => 'Unlock';
+
+  @override
+  String get wrongPin => 'Incorrect PIN';
+
+  @override
+  String get pinMismatch => 'The PINs do not match';
+
+  @override
+  String get invalidPin => 'Enter 4 to 8 digits';
+
+  @override
+  String get appLockedTitle => 'Locked';
+
+  @override
+  String get importCsv => 'Import bills';
+
+  @override
+  String get importCsvSubtitle =>
+      'Import from Alipay, WeChat, or an exported CSV';
+
+  @override
+  String get importCsvTitle => 'Import bills';
+
+  @override
+  String get pickCsv => 'Choose a CSV file';
+
+  @override
+  String get importConfirm => 'Confirm import';
+
+  @override
+  String importSelectedCount(int count) {
+    return 'Import $count rows';
+  }
+
+  @override
+  String importedCount(int count) {
+    return 'Imported $count rows';
+  }
+
+  @override
+  String get importNothing => 'Nothing to import';
+
+  @override
+  String get importHelp =>
+      'Review amounts and categories first. Rows are posted only after you confirm.';
+
+  @override
+  String get saveCsvFile => 'Save / share';
+
+  @override
+  String get csvSaved => 'File exported';
+
+  @override
+  String get allExpensesBudgetName => 'All expenses budget';
+
+  @override
+  String get dayOfMonth => 'Day of month';
+
+  @override
+  String nextRunDate(String date) {
+    return 'Next posting $date';
+  }
+
+  @override
+  String get recurringLocalHelp =>
+      'Posts on a fixed day each month. Stored only on this device.';
+
+  @override
+  String get recurringSubtitle => 'Automatic monthly posting';
+
+  @override
+  String get attachmentsLocalHelp =>
+      'Attachments stay on this device and are not synced.';
+
+  @override
+  String get attachmentsSubtitle => 'Stored on this device only';
+
+  @override
+  String get addAttachment => 'Add attachment';
+
+  @override
+  String get noAttachments => 'No attachments yet';
+
+  @override
+  String get deleteBudget => 'Delete budget';
+
+  @override
+  String get pauseRule => 'Pause';
+
+  @override
+  String get resumeRule => 'Resume';
+
+  @override
+  String get deleteRule => 'Delete rule';
+
+  @override
+  String get kindLabel => 'Type';
+
+  @override
+  String get kindExpense => 'Expense';
+
+  @override
+  String get kindIncome => 'Income';
+
+  @override
+  String get fundingAccount => 'Funding account';
 }

@@ -225,6 +225,10 @@ jobs:
           ## Ledgerly ${{ github.ref_name }}
 
           ### Client (this release)
+          - Collapse AI insight cards by default so the feed stays scannable; expand to configure or regenerate.
+          - Search the selected month by note, category, account, or amount, expanding matching days.
+          - Optional PIN app lock after a cold start or when returning from the background.
+          - Local budgets, monthly recurring rules, CSV import/export, and on-device attachments that never enter sync JSON.
           - Localize the client UI with Chinese as the default and fallback; English when the system language is English.
           - Show daily spend insights inside today's feed group. Monthly insights live on the reports page, with a feed shortcut to open them.
           - Generate daily and previous-month spend insights with a user-provided DeepSeek or OpenCode key. Ledger slices stay on-device and never go through Ledgerly's server.

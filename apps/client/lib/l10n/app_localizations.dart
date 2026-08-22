@@ -848,6 +848,18 @@ abstract class AppLocalizations {
   /// **'去配置'**
   String get goConfigure;
 
+  /// No description provided for @insightExpand.
+  ///
+  /// In zh, this message translates to:
+  /// **'展开分析'**
+  String get insightExpand;
+
+  /// No description provided for @insightCollapse.
+  ///
+  /// In zh, this message translates to:
+  /// **'收起分析'**
+  String get insightCollapse;
+
   /// No description provided for @regenerate.
   ///
   /// In zh, this message translates to:
@@ -2389,6 +2401,276 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'本地账本已绑定到其他账户，已停止同步。'**
   String get bookBoundToOtherAccount;
+
+  /// No description provided for @searchTransactionsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索备注、分类、账户或金额'**
+  String get searchTransactionsHint;
+
+  /// No description provided for @noSearchResults.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有匹配的流水'**
+  String get noSearchResults;
+
+  /// No description provided for @noSearchResultsMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'试试其他关键字，或清空搜索'**
+  String get noSearchResultsMessage;
+
+  /// No description provided for @securitySection.
+  ///
+  /// In zh, this message translates to:
+  /// **'安全'**
+  String get securitySection;
+
+  /// No description provided for @appLock.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用锁'**
+  String get appLock;
+
+  /// No description provided for @appLockSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'用 PIN 保护打开应用'**
+  String get appLockSubtitle;
+
+  /// No description provided for @appLockBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'启用后，冷启动和回到前台需要输入 PIN。'**
+  String get appLockBody;
+
+  /// No description provided for @enableAppLock.
+  ///
+  /// In zh, this message translates to:
+  /// **'启用应用锁'**
+  String get enableAppLock;
+
+  /// No description provided for @disableAppLock.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭应用锁'**
+  String get disableAppLock;
+
+  /// No description provided for @appLockPin.
+  ///
+  /// In zh, this message translates to:
+  /// **'PIN'**
+  String get appLockPin;
+
+  /// No description provided for @appLockPinConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认 PIN'**
+  String get appLockPinConfirm;
+
+  /// No description provided for @appLockPinHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'4 到 8 位数字'**
+  String get appLockPinHint;
+
+  /// No description provided for @unlock.
+  ///
+  /// In zh, this message translates to:
+  /// **'解锁'**
+  String get unlock;
+
+  /// No description provided for @wrongPin.
+  ///
+  /// In zh, this message translates to:
+  /// **'PIN 不正确'**
+  String get wrongPin;
+
+  /// No description provided for @pinMismatch.
+  ///
+  /// In zh, this message translates to:
+  /// **'两次 PIN 不一致'**
+  String get pinMismatch;
+
+  /// No description provided for @invalidPin.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入 4 到 8 位数字'**
+  String get invalidPin;
+
+  /// No description provided for @appLockedTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'已锁定'**
+  String get appLockedTitle;
+
+  /// No description provided for @importCsv.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入账单'**
+  String get importCsv;
+
+  /// No description provided for @importCsvSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'从支付宝、微信或导出的 CSV 导入'**
+  String get importCsvSubtitle;
+
+  /// No description provided for @importCsvTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入账单'**
+  String get importCsvTitle;
+
+  /// No description provided for @pickCsv.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择 CSV 文件'**
+  String get pickCsv;
+
+  /// No description provided for @importConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认入账'**
+  String get importConfirm;
+
+  /// No description provided for @importSelectedCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'将导入 {count} 笔'**
+  String importSelectedCount(int count);
+
+  /// No description provided for @importedCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'已导入 {count} 笔'**
+  String importedCount(int count);
+
+  /// No description provided for @importNothing.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有可导入的记录'**
+  String get importNothing;
+
+  /// No description provided for @importHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入前请核对金额和分类，确认后才会写入账本。'**
+  String get importHelp;
+
+  /// No description provided for @saveCsvFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存 / 分享'**
+  String get saveCsvFile;
+
+  /// No description provided for @csvSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'已导出文件'**
+  String get csvSaved;
+
+  /// No description provided for @allExpensesBudgetName.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部支出预算'**
+  String get allExpensesBudgetName;
+
+  /// No description provided for @dayOfMonth.
+  ///
+  /// In zh, this message translates to:
+  /// **'每月几号'**
+  String get dayOfMonth;
+
+  /// No description provided for @nextRunDate.
+  ///
+  /// In zh, this message translates to:
+  /// **'下次入账 {date}'**
+  String nextRunDate(String date);
+
+  /// No description provided for @recurringLocalHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'每月固定日期自动记账，只保存在本机。'**
+  String get recurringLocalHelp;
+
+  /// No description provided for @recurringSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'每月固定日期自动记账'**
+  String get recurringSubtitle;
+
+  /// No description provided for @attachmentsLocalHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'附件只保存在本机，不会同步到服务器。'**
+  String get attachmentsLocalHelp;
+
+  /// No description provided for @attachmentsSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'只保存在本机，不同步'**
+  String get attachmentsSubtitle;
+
+  /// No description provided for @addAttachment.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加附件'**
+  String get addAttachment;
+
+  /// No description provided for @noAttachments.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有附件'**
+  String get noAttachments;
+
+  /// No description provided for @deleteBudget.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除预算'**
+  String get deleteBudget;
+
+  /// No description provided for @pauseRule.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂停'**
+  String get pauseRule;
+
+  /// No description provided for @resumeRule.
+  ///
+  /// In zh, this message translates to:
+  /// **'启用'**
+  String get resumeRule;
+
+  /// No description provided for @deleteRule.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除规则'**
+  String get deleteRule;
+
+  /// No description provided for @kindLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'类型'**
+  String get kindLabel;
+
+  /// No description provided for @kindExpense.
+  ///
+  /// In zh, this message translates to:
+  /// **'支出'**
+  String get kindExpense;
+
+  /// No description provided for @kindIncome.
+  ///
+  /// In zh, this message translates to:
+  /// **'收入'**
+  String get kindIncome;
+
+  /// No description provided for @fundingAccount.
+  ///
+  /// In zh, this message translates to:
+  /// **'资金账户'**
+  String get fundingAccount;
 }
 
 class _AppLocalizationsDelegate

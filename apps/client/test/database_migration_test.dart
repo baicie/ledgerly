@@ -136,4 +136,35 @@ void main() {
       ]),
     );
   });
+
+  test('v6 migration creates local daily-tool tables', () async {
+    final underlying = sqlite3.openInMemory();
+    underlying.execute('''
+      CREATE TABLE accounts (
+        id TEXT NOT NULL PRIMARY KEY,
+        book_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL,
+        currency_code TEXT NOT NULL,
+        parent_account_id TEXT
+      );
+      PRAGMA user_version = 6;
+    ''');
+    final db = AppDatabase.forTesting(NativeDatabase.opened(underlying));
+    addTearDown(db.close);
+
+    final tables = await db
+        .customSelect(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('local_budgets', 'local_recurring_rules', 'local_attachments')",
+        )
+        .get();
+    expect(
+      tables.map((row) => row.read<String>('name')),
+      containsAll([
+        'local_budgets',
+        'local_recurring_rules',
+        'local_attachments',
+      ]),
+    );
+  });
 }

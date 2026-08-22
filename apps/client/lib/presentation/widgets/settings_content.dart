@@ -15,7 +15,11 @@ class SettingsContent extends StatelessWidget {
     required this.onConflicts,
     required this.onExport,
     required this.onCategories,
+    this.onImport,
     this.onBudgets,
+    this.onRecurring,
+    this.onAttachments,
+    this.onLock,
     required this.onAi,
     required this.onLogout,
   });
@@ -29,7 +33,11 @@ class SettingsContent extends StatelessWidget {
   final VoidCallback? onConflicts;
   final VoidCallback onExport;
   final VoidCallback onCategories;
+  final VoidCallback? onImport;
   final VoidCallback? onBudgets;
+  final VoidCallback? onRecurring;
+  final VoidCallback? onAttachments;
+  final VoidCallback? onLock;
   final VoidCallback onAi;
   final VoidCallback? onLogout;
 
@@ -94,6 +102,13 @@ class SettingsContent extends StatelessWidget {
                   l10n.exportCsvSubtitle,
                   onExport,
                 ),
+                if (onImport != null)
+                  _routeTile(
+                    Icons.file_upload_outlined,
+                    l10n.importCsv,
+                    l10n.importCsvSubtitle,
+                    onImport!,
+                  ),
               ],
             ),
           ),
@@ -117,10 +132,41 @@ class SettingsContent extends StatelessWidget {
                     l10n.budgetTargetsSubtitle,
                     onBudgets!,
                   ),
+                if (onRecurring != null)
+                  _routeTile(
+                    Icons.repeat_rounded,
+                    l10n.recurring,
+                    l10n.recurringSubtitle,
+                    onRecurring!,
+                  ),
+                if (onAttachments != null)
+                  _routeTile(
+                    Icons.attachment_outlined,
+                    l10n.attachmentsUpload,
+                    l10n.attachmentsSubtitle,
+                    onAttachments!,
+                  ),
               ],
             ),
           ),
         ),
+        if (onLock != null)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            sliver: SliverToBoxAdapter(
+              child: _SettingsGroup(
+                title: l10n.securitySection,
+                children: [
+                  _routeTile(
+                    Icons.lock_outline_rounded,
+                    l10n.appLock,
+                    l10n.appLockSubtitle,
+                    onLock!,
+                  ),
+                ],
+              ),
+            ),
+          ),
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
           sliver: SliverToBoxAdapter(

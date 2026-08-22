@@ -57,7 +57,9 @@ jobs:
             test/l10n \
             test/widget_test.dart \
             test/offline_ledger_test.dart \
-            test/database_migration_test.dart
+            test/database_migration_test.dart \
+            test/presentation \
+            test/application
         working-directory: apps/client
 
       - name: Build Flutter web release

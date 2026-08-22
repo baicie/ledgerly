@@ -1,7 +1,7 @@
 name: ledgerly_client
 description: Ledgerly Flutter client (local-first).
 publish_to: none
-version: 0.0.14+14
+version: 0.0.15+15
 resolution: workspace
 
 environment:
@@ -30,6 +30,8 @@ dependencies:
     path: ../../packages/ledger_domain
   ledger_sync:
     path: ../../packages/ledger_sync
+  file_picker: ^12.0.0
+  share_plus: ^13.3.0
 
 dev_dependencies:
   flutter_test:

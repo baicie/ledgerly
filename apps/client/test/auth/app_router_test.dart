@@ -30,9 +30,6 @@ void main() {
       '/settings/subscription',
       '/settings/fx',
       '/settings/family',
-      '/settings/budgets',
-      '/settings/recurring',
-      '/settings/attachments',
     ]) {
       expect(
         authRedirect(const AuthState.local(), path),
@@ -41,6 +38,11 @@ void main() {
       );
     }
     expect(authRedirect(const AuthState.local(), '/settings/export'), isNull);
+    expect(authRedirect(const AuthState.local(), '/settings/budgets'), isNull);
+    expect(authRedirect(const AuthState.local(), '/settings/recurring'), isNull);
+    expect(authRedirect(const AuthState.local(), '/settings/attachments'), isNull);
+    expect(authRedirect(const AuthState.local(), '/settings/import'), isNull);
+    expect(authRedirect(const AuthState.local(), '/settings/lock'), isNull);
   });
 
   test('route guard covers restore, signed-out, and authenticated states', () {

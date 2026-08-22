@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../ai/insight_period.dart';
+import '../../application/feed_search.dart';
 import '../../l10n/l10n.dart';
 import '../ai_providers.dart';
 import '../quick_entry.dart';
@@ -11,12 +12,20 @@ import '../widgets/ai_insight_card.dart';
 import '../widgets/feed_transaction_list.dart';
 import '../widgets/ledgerly_layout.dart';
 import '../widgets/ledgerly_summary_card.dart';
+import 'attachments_page.dart';
 
-class FeedPage extends ConsumerWidget {
+class FeedPage extends ConsumerStatefulWidget {
   const FeedPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FeedPage> createState() => _FeedPageState();
+}
+
+class _FeedPageState extends ConsumerState<FeedPage> {
+  var _query = '';
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = l10nOf(context);
     final month = ref.watch(selectedMonthProvider);
     final transactions = ref.watch(monthTransactionsProvider);
@@ -40,6 +49,19 @@ class FeedPage extends ConsumerWidget {
                 month: month,
                 onPrevious: () => _changeMonth(ref, month, -1),
                 onNext: () => _changeMonth(ref, month, 1),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              sliver: SliverToBoxAdapter(
+                child: TextField(
+                  key: const Key('feed-search'),
+                  onChanged: (value) => setState(() => _query = value),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search),
+                    hintText: l10n.searchTransactionsHint,
+                  ),
+                ),
               ),
             ),
             summary.when(
@@ -78,15 +100,31 @@ class FeedPage extends ConsumerWidget {
             ),
             transactions.when(
               skipLoadingOnReload: true,
-              data: (items) => FeedTransactionList(
-                transactions: items,
-                todayInsight: isCurrentMonth ? const _TodayAiInsight() : null,
-                orphanTodayInsight: isCurrentMonth && configured,
-                onOpen: (transaction) =>
-                    openQuickEntry(context, transaction: transaction),
-                onDelete: (transaction) =>
-                    _deleteTransaction(ref, transaction.id),
-              ),
+              data: (items) {
+                final filtered = filterFeedTransactions(items, _query, l10n);
+                final searching = _query.trim().isNotEmpty;
+                return FeedTransactionList(
+                  transactions: filtered,
+                  expandAll: searching,
+                  emptyTitle:
+                      searching ? l10n.noSearchResults : l10n.emptyMonthTitle,
+                  emptyMessage: searching
+                      ? l10n.noSearchResultsMessage
+                      : l10n.emptyMonthMessage,
+                  todayInsight:
+                      isCurrentMonth ? const _TodayAiInsight() : null,
+                  orphanTodayInsight: isCurrentMonth && configured && !searching,
+                  onOpen: (transaction) =>
+                      openQuickEntry(context, transaction: transaction),
+                  onDelete: (transaction) =>
+                      _deleteTransaction(ref, transaction.id),
+                  onAttach: (transaction) => showTransactionAttachmentsSheet(
+                    context: context,
+                    ref: ref,
+                    transaction: transaction,
+                  ),
+                );
+              },
               loading: () => const _FeedLoading(),
               error: (error, _) => _FeedError(error: error),
             ),
@@ -105,11 +143,7 @@ class FeedPage extends ConsumerWidget {
 
   Future<void> _deleteTransaction(WidgetRef ref, String id) async {
     await ref.read(ledgerAppServiceProvider).deleteTransaction(id);
-    ref.invalidate(monthTransactionsProvider);
-    ref.invalidate(transactionListProvider);
-    ref.invalidate(accountBalancesProvider);
-    ref.invalidate(categoryReportProvider);
-    ref.invalidate(monthlyLedgerSummaryProvider);
+    invalidateLedgerViews(ref);
     ref.invalidate(todayAiInsightProvider);
     ref.invalidate(selectedMonthAiInsightProvider);
   }

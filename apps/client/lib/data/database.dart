@@ -32,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   static const aiInsightsTableDdl = '''
 CREATE TABLE IF NOT EXISTS ai_insights (
@@ -54,11 +54,53 @@ CREATE TABLE IF NOT EXISTS ai_insights (
 );
 ''';
 
+  static const localBudgetsTableDdl = '''
+CREATE TABLE IF NOT EXISTS local_budgets (
+  id TEXT NOT NULL PRIMARY KEY,
+  book_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  amount_minor TEXT NOT NULL,
+  category_account_id TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+''';
+
+  static const localRecurringTableDdl = '''
+CREATE TABLE IF NOT EXISTS local_recurring_rules (
+  id TEXT NOT NULL PRIMARY KEY,
+  book_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  amount_minor TEXT NOT NULL,
+  category_account_id TEXT NOT NULL,
+  account_id TEXT NOT NULL,
+  day_of_month INTEGER NOT NULL,
+  next_run_date TEXT NOT NULL,
+  active INTEGER NOT NULL,
+  created_at INTEGER NOT NULL
+);
+''';
+
+  static const localAttachmentsTableDdl = '''
+CREATE TABLE IF NOT EXISTS local_attachments (
+  id TEXT NOT NULL PRIMARY KEY,
+  book_id TEXT NOT NULL,
+  transaction_id TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  mime TEXT NOT NULL,
+  relative_path TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+''';
+
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
           await m.createAll();
           await customStatement(aiInsightsTableDdl);
+          await customStatement(localBudgetsTableDdl);
+          await customStatement(localRecurringTableDdl);
+          await customStatement(localAttachmentsTableDdl);
         },
         onUpgrade: (m, from, to) async {
           if (from < 2) {
@@ -78,6 +120,11 @@ CREATE TABLE IF NOT EXISTS ai_insights (
           }
           if (from < 6) {
             await customStatement(aiInsightsTableDdl);
+          }
+          if (from < 7) {
+            await customStatement(localBudgetsTableDdl);
+            await customStatement(localRecurringTableDdl);
+            await customStatement(localAttachmentsTableDdl);
           }
         },
       );

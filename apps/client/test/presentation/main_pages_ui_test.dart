@@ -46,7 +46,7 @@ void main() {
   });
 
   testWidgets('settings group headings keep a card edge inset', (tester) async {
-    tester.view.physicalSize = const Size(390, 844);
+    tester.view.physicalSize = const Size(390, 1600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -63,7 +63,12 @@ void main() {
             onSync: null,
             onConflicts: null,
             onExport: () {},
+            onImport: () {},
             onCategories: () {},
+            onBudgets: () {},
+            onRecurring: () {},
+            onAttachments: () {},
+            onLock: () {},
             onAi: () {},
             onLogout: null,
           ),
@@ -77,13 +82,13 @@ void main() {
     expect(find.text('AI 消费总结'), findsOneWidget);
     expect(find.text('同步中心'), findsNothing);
     expect(find.text('冲突处理'), findsNothing);
-    expect(find.text('应用锁'), findsNothing);
+    expect(find.text('应用锁'), findsOneWidget);
     expect(find.text('订阅权益'), findsNothing);
     expect(find.text('汇率'), findsNothing);
     expect(find.text('家庭共享'), findsNothing);
-    expect(find.text('预算'), findsNothing);
-    expect(find.text('周期记账'), findsNothing);
-    expect(find.text('附件'), findsNothing);
+    expect(find.text('预算目标'), findsOneWidget);
+    expect(find.text('周期记账'), findsOneWidget);
+    expect(find.text('附件上传'), findsOneWidget);
   });
 
   testWidgets('remote settings exposes the budget target entry', (
@@ -153,11 +158,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('本月收支统计'), findsOneWidget);
+    expect(find.textContaining('AI 月报'), findsOneWidget);
+    expect(find.textContaining('AI 日分析'), findsNothing);
+    expect(find.textContaining('所选月份的消费月报'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('ai-insight-toggle')));
+    await tester.pumpAndSettle();
     expect(find.textContaining('配置模型供应商和 API Key'), findsWidgets);
     expect(find.textContaining('所选月份的消费月报'), findsOneWidget);
     expect(find.textContaining('当天流水'), findsNothing);
-    expect(find.textContaining('AI 月报'), findsOneWidget);
-    expect(find.textContaining('AI 日分析'), findsNothing);
 
     await tester.scrollUntilVisible(find.text('收入来源'), 300);
     await tester.pump();

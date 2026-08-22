@@ -294,6 +294,8 @@
     }
   },
   "goConfigure": "去配置",
+  "insightExpand": "展开分析",
+  "insightCollapse": "收起分析",
   "regenerate": "重新生成",
   "generate": "生成",
   "insightUnconfiguredDaily": "配置模型供应商和 API Key 后，可在当天流水里自动生成每日消费总结。当前接入的文本模型不支持语音转文字。",
@@ -761,5 +763,71 @@
   "revisionHistory": "历史版本",
   "syncReady": "就绪",
   "syncError": "出错",
-  "bookBoundToOtherAccount": "本地账本已绑定到其他账户，已停止同步。"
+  "bookBoundToOtherAccount": "本地账本已绑定到其他账户，已停止同步。",
+  "searchTransactionsHint": "搜索备注、分类、账户或金额",
+  "noSearchResults": "没有匹配的流水",
+  "noSearchResultsMessage": "试试其他关键字，或清空搜索",
+  "securitySection": "安全",
+  "appLock": "应用锁",
+  "appLockSubtitle": "用 PIN 保护打开应用",
+  "appLockBody": "启用后，冷启动和回到前台需要输入 PIN。",
+  "enableAppLock": "启用应用锁",
+  "disableAppLock": "关闭应用锁",
+  "appLockPin": "PIN",
+  "appLockPinConfirm": "确认 PIN",
+  "appLockPinHint": "4 到 8 位数字",
+  "unlock": "解锁",
+  "wrongPin": "PIN 不正确",
+  "pinMismatch": "两次 PIN 不一致",
+  "invalidPin": "请输入 4 到 8 位数字",
+  "appLockedTitle": "已锁定",
+  "importCsv": "导入账单",
+  "importCsvSubtitle": "从支付宝、微信或导出的 CSV 导入",
+  "importCsvTitle": "导入账单",
+  "pickCsv": "选择 CSV 文件",
+  "importConfirm": "确认入账",
+  "importSelectedCount": "将导入 {count} 笔",
+  "@importSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importedCount": "已导入 {count} 笔",
+  "@importedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importNothing": "没有可导入的记录",
+  "importHelp": "导入前请核对金额和分类，确认后才会写入账本。",
+  "saveCsvFile": "保存 / 分享",
+  "csvSaved": "已导出文件",
+  "allExpensesBudgetName": "全部支出预算",
+  "dayOfMonth": "每月几号",
+  "nextRunDate": "下次入账 {date}",
+  "@nextRunDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "recurringLocalHelp": "每月固定日期自动记账，只保存在本机。",
+  "recurringSubtitle": "每月固定日期自动记账",
+  "attachmentsLocalHelp": "附件只保存在本机，不会同步到服务器。",
+  "attachmentsSubtitle": "只保存在本机，不同步",
+  "addAttachment": "添加附件",
+  "noAttachments": "还没有附件",
+  "deleteBudget": "删除预算",
+  "pauseRule": "暂停",
+  "resumeRule": "启用",
+  "deleteRule": "删除规则",
+  "kindLabel": "类型",
+  "kindExpense": "支出",
+  "kindIncome": "收入",
+  "fundingAccount": "资金账户"
 }
