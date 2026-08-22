@@ -184,8 +184,8 @@ async fn refresh(
     State(state): State<AppState>,
     jar: CookieJar,
     Json(req): Json<RefreshRequest>,
-) -> Result<(CookieJar, TokenResponseHeaders, Json<TokenResponse>), Response> {
-    let cookie_mode = uses_cookie_session(req.session_mode).map_err(IntoResponse::into_response)?;
+) -> Result<(CookieJar, TokenResponseHeaders, Json<TokenResponse>), RefreshError> {
+    let cookie_mode = uses_cookie_session(req.session_mode).map_err(RefreshError::from)?;
     let refresh_token = if cookie_mode {
         if req.refresh_token.is_some() {
             return Err(ApiError::new(
@@ -193,12 +193,12 @@ async fn refresh(
                 "MIXED_REFRESH_CREDENTIALS",
                 "cookie sessions cannot include refreshToken",
             )
-            .into_response());
+            .into());
         }
         match jar.get(REFRESH_COOKIE_NAME) {
             Some(cookie) => cookie.value().to_owned(),
             None => {
-                return Err(refresh_error_response(
+                return Err(RefreshError::from(refresh_error_response(
                     jar,
                     &state,
                     true,
@@ -207,7 +207,7 @@ async fn refresh(
                         "INVALID_REFRESH",
                         "refresh invalid",
                     ),
-                ));
+                )));
             }
         }
     } else {
@@ -219,12 +219,12 @@ async fn refresh(
                     "MISSING_REFRESH_CREDENTIAL",
                     "refreshToken or cookie session is required",
                 )
-                .into_response());
+                .into());
             }
         }
     };
     if !valid_refresh_token(&refresh_token) {
-        return Err(refresh_error_response(
+        return Err(RefreshError::from(refresh_error_response(
             jar,
             &state,
             cookie_mode,
@@ -233,12 +233,17 @@ async fn refresh(
                 "INVALID_REFRESH",
                 "refresh invalid",
             ),
-        ));
+        )));
     }
     let hash = hash_token(&refresh_token);
-    let mut tokens = rotate_refresh_token(&state, &hash)
-        .await
-        .map_err(|error| refresh_error_response(jar.clone(), &state, cookie_mode, error))?;
+    let mut tokens = rotate_refresh_token(&state, &hash).await.map_err(|error| {
+        RefreshError::from(refresh_error_response(
+            jar.clone(),
+            &state,
+            cookie_mode,
+            error,
+        ))
+    })?;
     let jar = finish_refresh(jar, &state, cookie_mode, &mut tokens);
     Ok((jar, token_response_headers(), Json(tokens)))
 }
@@ -393,6 +398,26 @@ fn refresh_error_response(
         return (clear_refresh_cookie(jar, state), error).into_response();
     }
     error.into_response()
+}
+
+struct RefreshError(Box<Response>);
+
+impl IntoResponse for RefreshError {
+    fn into_response(self) -> Response {
+        *self.0
+    }
+}
+
+impl From<ApiError> for RefreshError {
+    fn from(error: ApiError) -> Self {
+        Self(Box::new(error.into_response()))
+    }
+}
+
+impl From<Response> for RefreshError {
+    fn from(response: Response) -> Self {
+        Self(Box::new(response))
+    }
 }
 
 async fn issue_tokens(
