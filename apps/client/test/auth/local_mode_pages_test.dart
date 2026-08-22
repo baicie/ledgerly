@@ -3,20 +3,24 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ledgerly_client/ai/ai_settings_store.dart';
 import 'package:ledgerly_client/data/ledger_repository.dart';
+import 'package:ledgerly_client/presentation/ai_providers.dart';
 import 'package:ledgerly_client/presentation/pages/feed_page.dart';
 import 'package:ledgerly_client/presentation/pages/reports_page.dart';
 import 'package:ledgerly_client/presentation/pages/sync_center_page.dart';
 import 'package:ledgerly_client/presentation/providers.dart';
 
 void main() {
-  testWidgets('local feed opens an existing transaction for editing',
-      (tester) async {
+  testWidgets('local feed opens an existing transaction for editing', (
+    tester,
+  ) async {
     final occurredAt = DateTime.utc(2026, 8, 4);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           apiEndpointProvider.overrideWithValue(null),
+          aiSettingsStoreProvider.overrideWithValue(MemoryAiSettingsStore()),
           monthTransactionsProvider.overrideWith(
             (ref) async => [
               TransactionSummary(
@@ -45,89 +49,90 @@ void main() {
     await tester.pumpAndSettle();
 
     final transactionTile = tester.widget<ListTile>(
-      find.ancestor(
-        of: find.text('午餐'),
-        matching: find.byType(ListTile),
-      ),
+      find.ancestor(of: find.text('午餐'), matching: find.byType(ListTile)),
     );
     expect(transactionTile.onTap, isNotNull);
     expect(find.text('-¥12.00'), findsNWidgets(2));
   });
 
   testWidgets(
-      'local feed keeps its header and previous data while changing month',
-      (tester) async {
-    final occurredAt = DateTime.utc(2026, 8, 4);
-    final nextTransactions = Completer<List<TransactionSummary>>();
-    final nextSummary = Completer<MonthlyLedgerSummary>();
+    'local feed keeps its header and previous data while changing month',
+    (tester) async {
+      final occurredAt = DateTime.utc(2026, 8, 4);
+      final nextTransactions = Completer<List<TransactionSummary>>();
+      final nextSummary = Completer<MonthlyLedgerSummary>();
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          apiEndpointProvider.overrideWithValue(null),
-          selectedMonthProvider.overrideWith((ref) => DateTime(2026, 8)),
-          monthTransactionsProvider.overrideWith((ref) async {
-            final month = ref.watch(selectedMonthProvider);
-            if (month.month == 9) return nextTransactions.future;
-            return [
-              TransactionSummary(
-                id: 'tx-1',
-                occurredAt: occurredAt,
-                description: '午餐',
-                entryCount: 2,
-              ),
-            ];
-          }),
-          monthlyLedgerSummaryProvider.overrideWith((ref) async {
-            final month = ref.watch(selectedMonthProvider);
-            if (month.month == 9) return nextSummary.future;
-            return MonthlyLedgerSummary(
-              incomeMinor: BigInt.zero,
-              expenseMinor: BigInt.from(3500),
-              transactionCount: 1,
-            );
-          }),
-        ],
-        child: const MaterialApp(home: FeedPage()),
-      ),
-    );
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            apiEndpointProvider.overrideWithValue(null),
+            aiSettingsStoreProvider.overrideWithValue(MemoryAiSettingsStore()),
+            selectedMonthProvider.overrideWith((ref) => DateTime(2026, 8)),
+            monthTransactionsProvider.overrideWith((ref) async {
+              final month = ref.watch(selectedMonthProvider);
+              if (month.month == 9) return nextTransactions.future;
+              return [
+                TransactionSummary(
+                  id: 'tx-1',
+                  occurredAt: occurredAt,
+                  description: '午餐',
+                  entryCount: 2,
+                ),
+              ];
+            }),
+            monthlyLedgerSummaryProvider.overrideWith((ref) async {
+              final month = ref.watch(selectedMonthProvider);
+              if (month.month == 9) return nextSummary.future;
+              return MonthlyLedgerSummary(
+                incomeMinor: BigInt.zero,
+                expenseMinor: BigInt.from(3500),
+                transactionCount: 1,
+              );
+            }),
+          ],
+          child: const MaterialApp(home: FeedPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('全部流水'), findsOneWidget);
-    expect(find.text(_dateLabel(occurredAt)), findsOneWidget);
-    expect(find.text('午餐'), findsNothing);
+      expect(find.text('全部流水'), findsOneWidget);
+      expect(find.text(_dateLabel(occurredAt)), findsOneWidget);
+      expect(find.text('午餐'), findsNothing);
 
-    await tester.tap(find.text(_dateLabel(occurredAt)));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text(_dateLabel(occurredAt)));
+      await tester.pumpAndSettle();
 
-    expect(find.text('午餐'), findsOneWidget);
+      expect(find.text('午餐'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('下个月'));
-    await tester.pump();
+      await tester.tap(find.byTooltip('下个月'));
+      await tester.pump();
 
-    expect(find.text('全部流水'), findsOneWidget);
-    expect(find.text('2026年 9月'), findsOneWidget);
-    expect(find.text('午餐'), findsOneWidget);
+      expect(find.text('全部流水'), findsOneWidget);
+      expect(find.text('2026年 9月'), findsOneWidget);
+      expect(find.text('午餐'), findsOneWidget);
 
-    nextTransactions.complete([]);
-    nextSummary.complete(
-      MonthlyLedgerSummary(
-        incomeMinor: BigInt.zero,
-        expenseMinor: BigInt.zero,
-        transactionCount: 0,
-      ),
-    );
-    await tester.pumpAndSettle();
-  });
+      nextTransactions.complete([]);
+      nextSummary.complete(
+        MonthlyLedgerSummary(
+          incomeMinor: BigInt.zero,
+          expenseMinor: BigInt.zero,
+          transactionCount: 0,
+        ),
+      );
+      await tester.pumpAndSettle();
+    },
+  );
 
-  testWidgets('local reports never read the remote API provider',
-      (tester) async {
+  testWidgets('local reports never read the remote API provider', (
+    tester,
+  ) async {
     var remoteApiRead = false;
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           apiEndpointProvider.overrideWithValue(null),
+          aiSettingsStoreProvider.overrideWithValue(MemoryAiSettingsStore()),
           categoryReportProvider.overrideWith((ref) async => []),
           syncApiProvider.overrideWith((ref) {
             remoteApiRead = true;
@@ -144,8 +149,9 @@ void main() {
     expect(find.text('服务端汇总（plus）'), findsNothing);
   });
 
-  testWidgets('local sync center never exposes or reads remote sync',
-      (tester) async {
+  testWidgets('local sync center never exposes or reads remote sync', (
+    tester,
+  ) async {
     var remoteSyncRead = false;
 
     await tester.pumpWidget(
@@ -153,11 +159,8 @@ void main() {
         overrides: [
           apiEndpointProvider.overrideWithValue(null),
           syncStatusProvider.overrideWith(
-            (ref) async => SyncStatusView(
-              label: '就绪',
-              cursor: 0,
-              pendingCount: 2,
-            ),
+            (ref) async =>
+                SyncStatusView(label: '就绪', cursor: 0, pendingCount: 2),
           ),
           syncServiceProvider.overrideWith((ref) {
             remoteSyncRead = true;

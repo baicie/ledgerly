@@ -25,6 +25,7 @@
 | [018](./018-release-compatibility.md) | 发布与兼容策略 | Accepted |
 | [019](./019-backend-stack-supersession.md) | 后端栈以 Rust 为准 | Accepted |
 | [020](./020-two-level-categories.md) | 用 Account 自引用表达两级收支分类 | Accepted |
+| [021](./021-client-side-ai-insights.md) | 客户端 BYOK 调用模型生成消费总结 | Accepted |
 
 ## 后端（ADR-BE）
 

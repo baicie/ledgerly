@@ -15,6 +15,7 @@ class SettingsContent extends StatelessWidget {
     required this.onExport,
     required this.onCategories,
     this.onBudgets,
+    required this.onAi,
     required this.onLogout,
   });
 
@@ -28,6 +29,7 @@ class SettingsContent extends StatelessWidget {
   final VoidCallback onExport;
   final VoidCallback onCategories;
   final VoidCallback? onBudgets;
+  final VoidCallback onAi;
   final VoidCallback? onLogout;
 
   @override
@@ -69,12 +71,7 @@ class SettingsContent extends StatelessWidget {
                   onTap: onChangeEndpoint,
                 ),
                 if (onSync != null)
-                  _routeTile(
-                    Icons.sync_rounded,
-                    '同步中心',
-                    '查看待同步与最近状态',
-                    onSync!,
-                  ),
+                  _routeTile(Icons.sync_rounded, '同步中心', '查看待同步与最近状态', onSync!),
                 if (onConflicts != null)
                   _routeTile(
                     Icons.rule_folder_outlined,
@@ -111,6 +108,22 @@ class SettingsContent extends StatelessWidget {
                     '设置每月支出上限与进度',
                     onBudgets!,
                   ),
+              ],
+            ),
+          ),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          sliver: SliverToBoxAdapter(
+            child: _SettingsGroup(
+              title: '智能分析',
+              children: [
+                _routeTile(
+                  Icons.auto_awesome_outlined,
+                  'AI 消费总结',
+                  'DeepSeek 密钥、模型与自动分析',
+                  onAi,
+                ),
               ],
             ),
           ),

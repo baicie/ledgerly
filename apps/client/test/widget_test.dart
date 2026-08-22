@@ -37,6 +37,7 @@ void main() {
     expect(find.byKey(const Key('settings-logout')), findsNothing);
     expect(find.text('同步中心'), findsNothing);
     expect(find.text('冲突处理'), findsNothing);
+    expect(find.text('AI 消费总结'), findsOneWidget);
   });
 
   testWidgets('renders settings navigation', (tester) async {
@@ -118,8 +119,9 @@ void main() {
     expect(controller.state.status, AuthStatus.signedOut);
   });
 
-  testWidgets('changing API logs out before persisting the new origin',
-      (tester) async {
+  testWidgets('changing API logs out before persisting the new origin', (
+    tester,
+  ) async {
     final events = <String>[];
     final gateway = _LoggingAuthGateway(events)
       ..restoreResult = const AuthSession(bookId: 'book-1', plan: 'free');
@@ -167,8 +169,9 @@ void main() {
     expect(endpointController.state.endpoint?.baseUrl, 'https://two.example');
   });
 
-  testWidgets('clearing API logs out before persisting local mode',
-      (tester) async {
+  testWidgets('clearing API logs out before persisting local mode', (
+    tester,
+  ) async {
     final events = <String>[];
     final gateway = _LoggingAuthGateway(events)
       ..restoreResult = const AuthSession(bookId: 'book-1', plan: 'free');
@@ -202,10 +205,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('settings-api-edit')));
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('api-endpoint-input')),
-      '',
-    );
+    await tester.enterText(find.byKey(const Key('api-endpoint-input')), '');
     await tester.tap(find.byKey(const Key('api-endpoint-save')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('settings-api-confirm')));
@@ -219,9 +219,7 @@ void main() {
 
 Future<ApiEndpointController> _endpointController() async {
   final controller = ApiEndpointController(
-    store: MemoryApiEndpointStore(
-      initialValue: 'https://api.ledgerly.example',
-    ),
+    store: MemoryApiEndpointStore(initialValue: 'https://api.ledgerly.example'),
     buildDefault: '',
     isRelease: true,
     isWeb: false,
@@ -244,7 +242,7 @@ final class _LoggingAuthGateway extends FakeAuthGateway {
 
 final class _LoggingEndpointStore extends MemoryApiEndpointStore {
   _LoggingEndpointStore(this.events)
-      : super(initialValue: 'https://one.example');
+    : super(initialValue: 'https://one.example');
 
   final List<String> events;
 

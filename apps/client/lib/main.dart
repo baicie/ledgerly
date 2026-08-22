@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'config/api_endpoint.dart';
 import 'config/api_endpoint_controller.dart';
 import 'config/platform_api_endpoint_store.dart';
+import 'presentation/ai_providers.dart';
 import 'presentation/design/ledgerly_theme.dart';
 import 'presentation/pages/api_endpoint_setup_page.dart';
 import 'presentation/providers.dart';
@@ -95,12 +96,14 @@ class LedgerlyApp extends ConsumerStatefulWidget {
   ConsumerState<LedgerlyApp> createState() => _LedgerlyAppState();
 }
 
-class _LedgerlyAppState extends ConsumerState<LedgerlyApp> {
+class _LedgerlyAppState extends ConsumerState<LedgerlyApp>
+    with WidgetsBindingObserver {
   late final GoRouter _router;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _router = createAppRouter(
       ref.read(authControllerProvider),
       ref.read(apiEndpointControllerProvider),
@@ -109,8 +112,18 @@ class _LedgerlyAppState extends ConsumerState<LedgerlyApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _router.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    ref.invalidate(aiInsightBootstrapProvider);
+    ref.invalidate(todayAiInsightProvider);
+    ref.invalidate(previousMonthHighlightProvider);
+    ref.invalidate(selectedMonthAiInsightProvider);
   }
 
   @override
@@ -141,9 +154,7 @@ class _EndpointLoadingApp extends StatelessWidget {
       supportedLocales: _ledgerlySupportedLocales,
       home: const Scaffold(
         body: Center(
-          child: CircularProgressIndicator(
-            key: Key('api-endpoint-loading'),
-          ),
+          child: CircularProgressIndicator(key: Key('api-endpoint-loading')),
         ),
       ),
     );

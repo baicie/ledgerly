@@ -38,8 +38,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           switchesToLocal
               ? '改为仅本地存储？'
               : switchesFromLocal
-                  ? '连接 API 服务？'
-                  : '切换 API 服务？',
+              ? '连接 API 服务？'
+              : '切换 API 服务？',
         ),
         content: Text(
           switchesToLocal ? '远端登录会退出，本机账本数据会保留。' : '连接后需要登录服务，本机账本数据会保留。',
@@ -70,9 +70,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       await endpointController.save(selected);
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('API 设置保存失败，仍保持原存储模式。')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('API 设置保存失败，仍保持原存储模式。')));
       }
     } finally {
       if (mounted) {
@@ -126,6 +126,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           onExport: () => context.go('/settings/export'),
           onCategories: () => context.go('/settings/categories'),
           onBudgets: isLocal ? null : () => context.go('/settings/budgets'),
+          onAi: () => context.go('/settings/ai'),
           onLogout: _loggingOut || _changingEndpoint ? null : _confirmLogout,
         ),
       ),

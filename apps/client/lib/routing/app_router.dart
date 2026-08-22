@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../auth/auth_controller.dart';
 import '../config/api_endpoint_controller.dart';
 import '../presentation/pages/accounts_page.dart';
+import '../presentation/pages/ai_settings_page.dart';
 import '../presentation/pages/attachments_page.dart';
 import '../presentation/pages/auth_page.dart';
 import '../presentation/pages/budgets_page.dart';
@@ -175,6 +176,10 @@ GoRouter createAppRouter(
                   GoRoute(
                     path: 'categories',
                     builder: (context, state) => const CategoriesPage(),
+                  ),
+                  GoRoute(
+                    path: 'ai',
+                    builder: (context, state) => const AiSettingsPage(),
                   ),
                   GoRoute(
                     path: 'subscription',

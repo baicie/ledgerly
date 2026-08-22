@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ledgerly_client/data/ledger_repository.dart';
+import 'package:ledgerly_client/ai/ai_settings_store.dart';
+import 'package:ledgerly_client/presentation/ai_providers.dart';
 import 'package:ledgerly_client/presentation/pages/accounts_page.dart';
 import 'package:ledgerly_client/presentation/pages/reports_page.dart';
 import 'package:ledgerly_client/presentation/providers.dart';
 import 'package:ledgerly_client/presentation/widgets/settings_content.dart';
 
 void main() {
-  testWidgets('accounts page shows localized asset accounts and net worth',
-      (tester) async {
+  testWidgets('accounts page shows localized asset accounts and net worth', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -61,6 +64,7 @@ void main() {
             onConflicts: null,
             onExport: () {},
             onCategories: () {},
+            onAi: () {},
             onLogout: null,
           ),
         ),
@@ -70,6 +74,7 @@ void main() {
 
     expect(_cardInset(tester, '数据与同步'), 20);
     expect(find.text('分类管理'), findsOneWidget);
+    expect(find.text('AI 消费总结'), findsOneWidget);
     expect(find.text('同步中心'), findsNothing);
     expect(find.text('冲突处理'), findsNothing);
     expect(find.text('应用锁'), findsNothing);
@@ -81,8 +86,9 @@ void main() {
     expect(find.text('附件'), findsNothing);
   });
 
-  testWidgets('remote settings exposes the budget target entry',
-      (tester) async {
+  testWidgets('remote settings exposes the budget target entry', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -97,6 +103,7 @@ void main() {
             onExport: () {},
             onCategories: () {},
             onBudgets: () {},
+            onAi: () {},
             onLogout: () {},
           ),
         ),
@@ -107,12 +114,14 @@ void main() {
     expect(find.text('预算目标'), findsOneWidget);
   });
 
-  testWidgets('reports page presents monthly income and expense sections',
-      (tester) async {
+  testWidgets('reports page presents monthly income and expense sections', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           apiEndpointProvider.overrideWithValue(null),
+          aiSettingsStoreProvider.overrideWithValue(MemoryAiSettingsStore()),
           monthTransactionsProvider.overrideWith(
             (ref) async => [
               TransactionSummary(
@@ -144,6 +153,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('本月收支统计'), findsOneWidget);
+    expect(find.textContaining('配置 DeepSeek API Key'), findsWidgets);
+
+    await tester.scrollUntilVisible(find.text('收入来源'), 300);
+    await tester.pump();
     expect(find.text('收入来源'), findsOneWidget);
     expect(find.text('工资收入'), findsOneWidget);
 
