@@ -3,14 +3,17 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../application/csv_text.dart';
 import 'user_file_port.dart';
 
 class PluginUserFilePort implements UserFilePort {
   const PluginUserFilePort();
 
   @override
-  Future<PickedBinaryFile?> pickBinaryFile() async {
-    final file = await FilePicker.pickFile();
+  Future<PickedBinaryFile?> pickBinaryFile({bool imagesOnly = false}) async {
+    final file = await FilePicker.pickFile(
+      type: imagesOnly ? FileType.image : FileType.any,
+    );
     if (file == null) return null;
     return PickedBinaryFile(
       name: file.name,
@@ -26,7 +29,7 @@ class PluginUserFilePort implements UserFilePort {
       allowedExtensions: const ['csv', 'txt'],
     );
     if (file == null) return null;
-    return _decodeText(await file.readAsBytes());
+    return decodeBillCsvBytes(await file.readAsBytes());
   }
 
   @override
@@ -47,16 +50,6 @@ class PluginUserFilePort implements UserFilePort {
         fileNameOverrides: [fileName],
       ),
     );
-  }
-
-  String _decodeText(List<int> bytes) {
-    if (bytes.length >= 3 &&
-        bytes[0] == 0xEF &&
-        bytes[1] == 0xBB &&
-        bytes[2] == 0xBF) {
-      return utf8.decode(bytes.sublist(3));
-    }
-    return utf8.decode(bytes);
   }
 
   String _extension(String name) {

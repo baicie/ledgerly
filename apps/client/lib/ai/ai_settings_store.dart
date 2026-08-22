@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/l10n.dart';
+import '../platform/secure_storage.dart';
 import 'ai_models.dart';
 
 abstract interface class AiSettingsStore {
@@ -32,13 +33,7 @@ class PlatformAiSettingsStore implements AiSettingsStore {
   PlatformAiSettingsStore({
     FlutterSecureStorage? secureStorage,
     Future<SharedPreferences>? preferences,
-  })  : _secureStorage = secureStorage ??
-            const FlutterSecureStorage(
-              aOptions: AndroidOptions(migrateWithBackup: true),
-              iOptions: IOSOptions(
-                accessibility: KeychainAccessibility.first_unlock_this_device,
-              ),
-            ),
+  })  : _secureStorage = secureStorage ?? ledgerSecureStorage,
         _preferences = preferences ?? SharedPreferences.getInstance();
 
   static const apiKeyStorageKey = 'ledgerly.ai.api_key.v1';

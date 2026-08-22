@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -60,12 +62,31 @@ class _AppLockScrim extends ConsumerStatefulWidget {
 class _AppLockScrimState extends ConsumerState<_AppLockScrim> {
   final _pin = TextEditingController();
   var _busy = false;
+  var _triedBiometric = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_tryBiometric());
+    });
+  }
 
   @override
   void dispose() {
     _pin.dispose();
     super.dispose();
+  }
+
+  Future<void> _tryBiometric() async {
+    if (_triedBiometric || !mounted) return;
+    _triedBiometric = true;
+    final lock = ref.read(appLockControllerProvider);
+    if (!lock.biometricEnabled) return;
+    await lock.unlockWithBiometrics(
+      reason: l10nOf(context).unlockWithBiometrics,
+    );
   }
 
   Future<void> _unlock() async {
@@ -85,6 +106,7 @@ class _AppLockScrimState extends ConsumerState<_AppLockScrim> {
   @override
   Widget build(BuildContext context) {
     final l10n = l10nOf(context);
+    final lock = ref.watch(appLockControllerProvider);
     return Material(
       color: LedgerlyColors.canvas.withValues(alpha: 0.97),
       child: SafeArea(
@@ -112,7 +134,7 @@ class _AppLockScrimState extends ConsumerState<_AppLockScrim> {
                       enabled: !_busy,
                       keyboardType: TextInputType.number,
                       maxLength: 8,
-                      autofocus: true,
+                      autofocus: !lock.biometricEnabled,
                       onSubmitted: (_) => _unlock(),
                       decoration: InputDecoration(
                         labelText: l10n.appLockPin,
@@ -127,6 +149,19 @@ class _AppLockScrimState extends ConsumerState<_AppLockScrim> {
                       onPressed: _busy ? null : _unlock,
                       child: Text(l10n.unlock),
                     ),
+                    if (lock.biometricEnabled) ...[
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        key: const Key('app-lock-biometric'),
+                        onPressed: _busy
+                            ? null
+                            : () => lock.unlockWithBiometrics(
+                                  reason: l10n.unlockWithBiometrics,
+                                ),
+                        icon: const Icon(Icons.fingerprint),
+                        label: Text(l10n.unlockWithBiometrics),
+                      ),
+                    ],
                   ],
                 ),
               ),

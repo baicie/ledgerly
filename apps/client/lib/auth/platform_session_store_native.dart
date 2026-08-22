@@ -1,6 +1,7 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 
+import '../platform/secure_storage.dart';
 import 'session_store.dart';
 
 SessionStore createSessionStore(String apiOrigin) {
@@ -13,13 +14,7 @@ SessionStore createSessionStore(String apiOrigin) {
 
 final class FlutterSecureSessionKeyValueStore implements SessionKeyValueStore {
   FlutterSecureSessionKeyValueStore({FlutterSecureStorage? storage})
-      : _storage = storage ??
-            const FlutterSecureStorage(
-              aOptions: AndroidOptions(migrateWithBackup: true),
-              iOptions: IOSOptions(
-                accessibility: KeychainAccessibility.first_unlock_this_device,
-              ),
-            );
+      : _storage = storage ?? ledgerSecureStorage;
 
   final FlutterSecureStorage _storage;
 

@@ -2435,13 +2435,13 @@ abstract class AppLocalizations {
   /// No description provided for @appLockSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'用 PIN 保护打开应用'**
+  /// **'用 PIN 或生物识别保护打开应用'**
   String get appLockSubtitle;
 
   /// No description provided for @appLockBody.
   ///
   /// In zh, this message translates to:
-  /// **'启用后，冷启动和回到前台需要输入 PIN。'**
+  /// **'启用后，冷启动和回到前台需要解锁。PIN 始终可用；可再打开指纹或面容。'**
   String get appLockBody;
 
   /// No description provided for @enableAppLock.
@@ -2504,6 +2504,54 @@ abstract class AppLocalizations {
   /// **'已锁定'**
   String get appLockedTitle;
 
+  /// No description provided for @unlockWithBiometrics.
+  ///
+  /// In zh, this message translates to:
+  /// **'用指纹或面容解锁'**
+  String get unlockWithBiometrics;
+
+  /// No description provided for @useBiometrics.
+  ///
+  /// In zh, this message translates to:
+  /// **'生物识别解锁'**
+  String get useBiometrics;
+
+  /// No description provided for @useBiometricsSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开应用时优先用指纹或面容，失败再输入 PIN'**
+  String get useBiometricsSubtitle;
+
+  /// No description provided for @biometricsUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'这台设备没有可用的生物识别'**
+  String get biometricsUnavailable;
+
+  /// No description provided for @importSelectAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全选'**
+  String get importSelectAll;
+
+  /// No description provided for @importSelectNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'全不选'**
+  String get importSelectNone;
+
+  /// No description provided for @importDuplicateHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'账本里已有同日同额同备注，已取消勾选'**
+  String get importDuplicateHint;
+
+  /// No description provided for @importHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'支持支付宝、微信导出的 CSV（UTF-8 或 GBK）。退款和关闭单会跳过。确认后才会写入账本。'**
+  String get importHelp;
+
   /// No description provided for @importCsv.
   ///
   /// In zh, this message translates to:
@@ -2552,12 +2600,6 @@ abstract class AppLocalizations {
   /// **'没有可导入的记录'**
   String get importNothing;
 
-  /// No description provided for @importHelp.
-  ///
-  /// In zh, this message translates to:
-  /// **'导入前请核对金额和分类，确认后才会写入账本。'**
-  String get importHelp;
-
   /// No description provided for @saveCsvFile.
   ///
   /// In zh, this message translates to:
@@ -2591,7 +2633,7 @@ abstract class AppLocalizations {
   /// No description provided for @recurringLocalHelp.
   ///
   /// In zh, this message translates to:
-  /// **'每月固定日期自动记账，只保存在本机。'**
+  /// **'每月 1 到 31 日自动记账；没有那天就记在月末。只保存在本机，重复的不会再记一笔。'**
   String get recurringLocalHelp;
 
   /// No description provided for @recurringSubtitle.
@@ -2615,14 +2657,32 @@ abstract class AppLocalizations {
   /// No description provided for @addAttachment.
   ///
   /// In zh, this message translates to:
-  /// **'添加附件'**
+  /// **'添加文件'**
   String get addAttachment;
+
+  /// No description provided for @addImage.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加图片'**
+  String get addImage;
 
   /// No description provided for @noAttachments.
   ///
   /// In zh, this message translates to:
   /// **'还没有附件'**
   String get noAttachments;
+
+  /// No description provided for @monthBudgetProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'本月预算'**
+  String get monthBudgetProgress;
+
+  /// No description provided for @lastDayOfMonthHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'该月没有这天则记在月末'**
+  String get lastDayOfMonthHint;
 
   /// No description provided for @deleteBudget.
   ///

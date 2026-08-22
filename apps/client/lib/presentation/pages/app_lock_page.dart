@@ -17,7 +17,19 @@ class _AppLockPageState extends ConsumerState<AppLockPage> {
   final _pin = TextEditingController();
   final _confirm = TextEditingController();
   var _busy = false;
+  var _bioAvailable = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBiometrics();
+  }
+
+  Future<void> _loadBiometrics() async {
+    final available = await ref.read(appLockControllerProvider).canUseBiometrics;
+    if (mounted) setState(() => _bioAvailable = available);
+  }
 
   @override
   void dispose() {
@@ -91,6 +103,23 @@ class _AppLockPageState extends ConsumerState<AppLockPage> {
                     value: lock.enabled,
                     onChanged: null,
                   ),
+                  if (lock.enabled)
+                    SwitchListTile(
+                      key: const Key('app-lock-biometric-toggle'),
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(l10n.useBiometrics),
+                      subtitle: Text(
+                        _bioAvailable
+                            ? l10n.useBiometricsSubtitle
+                            : l10n.biometricsUnavailable,
+                      ),
+                      value: lock.biometricEnabled,
+                      onChanged: !_bioAvailable || _busy
+                          ? null
+                          : (value) => ref
+                              .read(appLockControllerProvider)
+                              .setBiometricEnabled(value),
+                    ),
                   TextField(
                     key: const Key('app-lock-settings-pin'),
                     controller: _pin,

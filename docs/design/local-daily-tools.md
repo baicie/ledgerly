@@ -32,6 +32,8 @@
 
 不在本期：语音记账、拍照识别、家庭联合分析、生物识别。
 
+后续打磨见 [daily-tools-0.0.16.md](./daily-tools-0.0.16.md)（导入/周期/报表预算/选图、生物识别、minSdk 24）。
+
 ## Architecture
 
 ```text

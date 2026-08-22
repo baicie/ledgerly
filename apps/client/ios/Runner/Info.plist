@@ -31,6 +31,8 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Unlock Ledgerly with Face ID after you enable app lock.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Connect to the Ledgerly service configured on your local network.</string>
 	<key>UIApplicationSceneManifest</key>

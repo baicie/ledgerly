@@ -20,7 +20,7 @@ class _RecurringPageState extends ConsumerState<RecurringPage> {
   late final TextEditingController _name;
   final _amount = TextEditingController();
   var _kind = 'expense';
-  var _dayOfMonth = DateTime.now().day.clamp(1, 28);
+  var _dayOfMonth = DateTime.now().day.clamp(1, 31);
   String? _categoryId;
   String? _accountId;
   var _busy = false;
@@ -190,9 +190,12 @@ class _RecurringPageState extends ConsumerState<RecurringPage> {
                   const SizedBox(height: 12),
                   DropdownButtonFormField<int>(
                     initialValue: _dayOfMonth,
-                    decoration: InputDecoration(labelText: l10n.dayOfMonth),
+                    decoration: InputDecoration(
+                      labelText: l10n.dayOfMonth,
+                      helperText: l10n.lastDayOfMonthHint,
+                    ),
                     items: [
-                      for (var day = 1; day <= 28; day++)
+                      for (var day = 1; day <= 31; day++)
                         DropdownMenuItem(value: day, child: Text('$day')),
                     ],
                     onChanged: (value) {

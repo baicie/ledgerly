@@ -105,6 +105,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
               loading: () => const _ReportPlaceholder(height: 220),
               error: (error, _) => _ReportError(error: error),
             ),
+            ..._budgetSlivers(context, l10n),
             ..._reportInsightSlivers(context, ref, month),
             transactions.when(
               data: (items) {
@@ -167,6 +168,32 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
         ),
       ),
     );
+  }
+
+  List<Widget> _budgetSlivers(BuildContext context, AppLocalizations l10n) {
+    final budgets = ref.watch(localMonthBudgetProgressProvider);
+    return [
+      budgets.when(
+        data: (items) {
+          if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+          return SliverPadding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            sliver: SliverToBoxAdapter(
+              child: LedgerlySection(
+                title: l10n.monthBudgetProgress,
+                child: Column(
+                  children: [
+                    for (final item in items) _ReportBudgetRow(progress: item),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+        loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
+        error: (error, stackTrace) => const SliverToBoxAdapter(child: SizedBox.shrink()),
+      ),
+    ];
   }
 
   void _changeMonth(DateTime month, int offset) {
@@ -344,6 +371,58 @@ class _RemoteSummary extends StatelessWidget {
               ),
               style: Theme.of(context).textTheme.bodyMedium,
             ),
+    );
+  }
+}
+
+class _ReportBudgetRow extends StatelessWidget {
+  const _ReportBudgetRow({required this.progress});
+
+  final LocalBudgetProgress progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
+    final limit = progress.budget.amountMinor;
+    final spent = progress.spent;
+    final over = spent > limit && limit > BigInt.zero;
+    final value = limit == BigInt.zero
+        ? 0.0
+        : (spent.toDouble() / limit.toDouble()).clamp(0.0, 1.0);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  progress.budget.name,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              Text(
+                '${formatDisplayMinor(spent)} / ${formatDisplayMinor(limit)}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: over ? LedgerlyColors.income : null,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          LinearProgressIndicator(
+            value: value,
+            color: over ? LedgerlyColors.income : LedgerlyColors.brand,
+            backgroundColor: LedgerlyColors.divider,
+          ),
+          if (over)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(l10n.overBudget),
+            ),
+        ],
+      ),
     );
   }
 }

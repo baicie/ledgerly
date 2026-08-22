@@ -30,7 +30,11 @@ class _ImportPageState extends ConsumerState<ImportPage> {
     try {
       final csv = await ref.read(userFilePortProvider).pickCsvText();
       if (csv == null) return;
+      final repo = ref.read(ledgerRepositoryProvider);
+      await repo.seedIfEmpty();
       final drafts = _parser.parse(csv);
+      final existing = await repo.watchSummariesSync(defaultBookId);
+      markDuplicateImportDrafts(drafts: drafts, existing: existing);
       setState(() {
         _drafts = drafts;
         _message = drafts.isEmpty ? l10nOf(context).importNothing : null;
@@ -40,6 +44,14 @@ class _ImportPageState extends ConsumerState<ImportPage> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  void _selectAll(bool selected) {
+    setState(() {
+      for (final draft in _drafts) {
+        draft.selected = selected && !draft.duplicate;
+      }
+    });
   }
 
   Future<void> _commit() async {
@@ -54,7 +66,8 @@ class _ImportPageState extends ConsumerState<ImportPage> {
     });
     try {
       final l10n = l10nOf(context);
-      final expenses = await ref.read(categoryAccountsProvider('expense').future);
+      final expenses =
+          await ref.read(categoryAccountsProvider('expense').future);
       final incomes = await ref.read(categoryAccountsProvider('income').future);
       final categories = [
         for (final row in expenses)
@@ -111,8 +124,7 @@ class _ImportPageState extends ConsumerState<ImportPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = l10nOf(context);
-    final selectedCount =
-        _drafts.where((draft) => draft.selected).length;
+    final selectedCount = _drafts.where((draft) => draft.selected).length;
     return Scaffold(
       appBar: AppBar(title: Text(l10n.importCsvTitle)),
       body: SafeArea(
@@ -134,7 +146,19 @@ class _ImportPageState extends ConsumerState<ImportPage> {
             ],
             if (_drafts.isNotEmpty) ...[
               const SizedBox(height: 16),
-              Text(l10n.importSelectedCount(selectedCount)),
+              Row(
+                children: [
+                  Expanded(child: Text(l10n.importSelectedCount(selectedCount))),
+                  TextButton(
+                    onPressed: _busy ? null : () => _selectAll(true),
+                    child: Text(l10n.importSelectAll),
+                  ),
+                  TextButton(
+                    onPressed: _busy ? null : () => _selectAll(false),
+                    child: Text(l10n.importSelectNone),
+                  ),
+                ],
+              ),
               const SizedBox(height: 8),
               for (var index = 0; index < _drafts.length; index++)
                 CheckboxListTile(
@@ -153,8 +177,23 @@ class _ImportPageState extends ConsumerState<ImportPage> {
                         : _drafts[index].description,
                   ),
                   subtitle: Text(
-                    '${_drafts[index].occurredAt.toLocal().toIso8601String().split('T').first} · ${formatDisplayMinor(_drafts[index].amountMinor)}',
+                    [
+                      _drafts[index].kind == TransactionSummaryKind.income
+                          ? l10n.kindIncome
+                          : l10n.kindExpense,
+                      _drafts[index]
+                          .occurredAt
+                          .toLocal()
+                          .toIso8601String()
+                          .split('T')
+                          .first,
+                      formatDisplayMinor(_drafts[index].amountMinor),
+                      if (_drafts[index].rawCategory != null)
+                        _drafts[index].rawCategory!,
+                      if (_drafts[index].duplicate) l10n.importDuplicateHint,
+                    ].join(' · '),
                   ),
+                  isThreeLine: _drafts[index].duplicate,
                 ),
               const SizedBox(height: 8),
               FilledButton(
