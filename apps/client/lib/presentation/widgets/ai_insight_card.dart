@@ -65,7 +65,7 @@ class AiInsightCard extends StatelessWidget {
     switch (view.status) {
       case AiInsightStatus.unconfigured:
         return Text(
-          '配置 DeepSeek API Key 后，可自动生成每日消费总结，并在新月补齐上月月报。默认模型不支持语音转文字。',
+          '配置模型供应商和 API Key 后，可自动生成每日消费总结，并在新月补齐上月月报。当前接入的文本模型不支持语音转文字。',
           style: Theme.of(context).textTheme.bodyMedium,
         );
       case AiInsightStatus.empty:
@@ -90,8 +90,8 @@ class AiInsightCard extends StatelessWidget {
                 child: Text(
                   '账目已更新，可重新生成。',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: LedgerlyColors.warning,
-                  ),
+                        color: LedgerlyColors.warning,
+                      ),
                 ),
               ),
             Text(

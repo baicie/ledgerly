@@ -121,7 +121,7 @@ class SettingsContent extends StatelessWidget {
                 _routeTile(
                   Icons.auto_awesome_outlined,
                   'AI 消费总结',
-                  'DeepSeek 密钥、模型与自动分析',
+                  '供应商、密钥、模型与自动分析',
                   onAi,
                 ),
               ],

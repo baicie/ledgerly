@@ -2,53 +2,123 @@ enum InsightKind { daily, monthly }
 
 enum AiInsightStatus { unconfigured, empty, ready, error }
 
+enum AiProviderKind {
+  deepseek,
+  opencode,
+  custom;
+
+  String get label => switch (this) {
+        deepseek => 'DeepSeek',
+        opencode => 'OpenCode',
+        custom => '自定义兼容接口',
+      };
+
+  String get defaultBaseUrl => switch (this) {
+        deepseek => 'https://api.deepseek.com',
+        opencode => 'https://opencode.ai/zen/go/v1',
+        custom => '',
+      };
+
+  /// Models that speak OpenAI Chat Completions. GPT/Claude on OpenCode Zen
+  /// use other protocols and are left out of this preset list.
+  List<String> get presetModels => switch (this) {
+        deepseek => const ['deepseek-v4-flash', 'deepseek-v4-pro'],
+        opencode => const [
+            'deepseek-v4-flash',
+            'deepseek-v4-pro',
+            'glm-5.2',
+            'minimax-m2.5',
+            'kimi-k2.5',
+            'big-pickle',
+          ],
+        custom => const [],
+      };
+
+  String get usageHint => switch (this) {
+        deepseek => '余额请到 DeepSeek 控制台查看。',
+        opencode => '密钥和余额请到 OpenCode 控制台查看。网页浏览器无法直连该接口（无 CORS），请在 App 中使用。',
+        custom => '用量请到你使用的供应商控制台查看。',
+      };
+
+  static AiProviderKind? tryParse(String? raw) {
+    for (final kind in AiProviderKind.values) {
+      if (kind.name == raw) return kind;
+    }
+    return null;
+  }
+
+  static AiProviderKind infer({required String baseUrl}) {
+    final value = baseUrl.trim().toLowerCase();
+    if (value.contains('opencode.ai')) return opencode;
+    if (value.contains('deepseek') || value.isEmpty) return deepseek;
+    return custom;
+  }
+}
+
 class AiSettings {
   const AiSettings({
     required this.apiKey,
     required this.baseUrl,
     required this.model,
     required this.autoGenerate,
+    this.provider = AiProviderKind.deepseek,
   });
 
   static const defaultBaseUrl = 'https://api.deepseek.com';
   static const defaultModel = 'deepseek-v4-flash';
   static const promptVersion = 'spend-insight.v1';
-  static const presetModels = ['deepseek-v4-flash', 'deepseek-v4-pro'];
 
   static const unset = AiSettings(
     apiKey: '',
     baseUrl: defaultBaseUrl,
     model: defaultModel,
     autoGenerate: true,
+    provider: AiProviderKind.deepseek,
   );
 
   final String apiKey;
   final String baseUrl;
   final String model;
   final bool autoGenerate;
+  final AiProviderKind provider;
 
   bool get isConfigured => apiKey.trim().isNotEmpty;
 
+  List<String> get presetModels => provider.presetModels;
+
   bool get usesDeepSeekThinking {
-    final modelName = model.toLowerCase();
-    final url = baseUrl.toLowerCase();
-    return modelName.contains('deepseek') || url.contains('deepseek');
+    final host = origin.host.toLowerCase();
+    return host == 'api.deepseek.com' || host.endsWith('.deepseek.com');
   }
 
   Uri get origin {
     return Uri.parse(normalizedBaseUrl);
   }
 
+  String get fallbackBaseUrl {
+    final fallback = provider.defaultBaseUrl;
+    return fallback.isEmpty ? defaultBaseUrl : fallback;
+  }
+
   String get normalizedBaseUrl {
     final value = baseUrl.trim();
-    if (value.isEmpty) return defaultBaseUrl;
+    if (value.isEmpty) return fallbackBaseUrl;
     return value.endsWith('/') ? value.substring(0, value.length - 1) : value;
   }
 
-  static String? validateBaseUrl(String raw) {
-    final value = raw.trim().isEmpty ? defaultBaseUrl : raw.trim();
+  static String? validateBaseUrl(
+    String raw, {
+    AiProviderKind provider = AiProviderKind.deepseek,
+  }) {
+    final fallback = provider.defaultBaseUrl.isEmpty
+        ? defaultBaseUrl
+        : provider.defaultBaseUrl;
+    final value = raw.trim().isEmpty
+        ? (provider == AiProviderKind.custom ? '' : fallback)
+        : raw.trim();
     final uri = Uri.tryParse(value);
-    if (uri == null ||
+    if (value.isEmpty ||
+        uri == null ||
         !uri.hasScheme ||
         !uri.hasAuthority ||
         !const {'http', 'https'}.contains(uri.scheme.toLowerCase())) {
@@ -60,17 +130,29 @@ class AiSettings {
     return null;
   }
 
+  AiSettings withProvider(AiProviderKind next) {
+    if (next == provider) return this;
+    final nextUrl =
+        next == AiProviderKind.custom ? normalizedBaseUrl : next.defaultBaseUrl;
+    final nextModel = next.presetModels.contains(model)
+        ? model
+        : (next.presetModels.isNotEmpty ? next.presetModels.first : model);
+    return copyWith(provider: next, baseUrl: nextUrl, model: nextModel);
+  }
+
   AiSettings copyWith({
     String? apiKey,
     String? baseUrl,
     String? model,
     bool? autoGenerate,
+    AiProviderKind? provider,
   }) {
     return AiSettings(
       apiKey: apiKey ?? this.apiKey,
       baseUrl: baseUrl ?? this.baseUrl,
       model: model ?? this.model,
       autoGenerate: autoGenerate ?? this.autoGenerate,
+      provider: provider ?? this.provider,
     );
   }
 }
@@ -129,7 +211,7 @@ class AiInsightView {
   });
 
   const AiInsightView.unconfigured({required InsightKind kind})
-    : this(status: AiInsightStatus.unconfigured, kind: kind);
+      : this(status: AiInsightStatus.unconfigured, kind: kind);
 
   final AiInsightStatus status;
   final InsightKind kind;

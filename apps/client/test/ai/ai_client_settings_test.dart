@@ -22,8 +22,30 @@ void main() {
     expect(store.value.apiKey, 'sk-test');
     expect(store.value.baseUrl, 'https://api.deepseek.com');
     expect(store.value.autoGenerate, isFalse);
+    expect(store.value.provider, AiProviderKind.deepseek);
     expect(AiSettings.validateBaseUrl('not-a-url'), isNotNull);
     expect(AiSettings.validateBaseUrl('https://api.deepseek.com'), isNull);
+    expect(
+      AiSettings.validateBaseUrl('', provider: AiProviderKind.custom),
+      isNotNull,
+    );
+    expect(
+      AiProviderKind.infer(baseUrl: 'https://opencode.ai/zen/go/v1'),
+      AiProviderKind.opencode,
+    );
+    expect(
+      AiSettings.unset.withProvider(AiProviderKind.opencode).baseUrl,
+      'https://opencode.ai/zen/go/v1',
+    );
+    expect(
+      const AiSettings(
+        apiKey: '',
+        baseUrl: 'https://api.deepseek.com',
+        model: 'deepseek-v4-flash',
+        autoGenerate: true,
+      ).withProvider(AiProviderKind.opencode).model,
+      'deepseek-v4-flash',
+    );
   });
 
   test('deepseek requests disable thinking and map 401', () async {
@@ -56,7 +78,7 @@ void main() {
       ),
     );
 
-    final client = DeepSeekChatClient(dio: dio);
+    final client = OpenAiCompatibleChatClient(dio: dio);
     const settings = AiSettings(
       apiKey: 'sk-test',
       baseUrl: 'https://api.deepseek.com',
@@ -98,7 +120,7 @@ void main() {
         },
       ),
     );
-    await DeepSeekChatClient(dio: other).complete(
+    await OpenAiCompatibleChatClient(dio: other).complete(
       const AiChatRequest(
         settings: AiSettings(
           apiKey: 'sk-test',
@@ -110,6 +132,51 @@ void main() {
         userPrompt: 'user',
       ),
     );
+    expect(body!.containsKey('thinking'), isFalse);
+  });
+
+  test('opencode zen uses v1 chat completions without thinking', () async {
+    String? path;
+    Map<String, dynamic>? body;
+    final dio = Dio();
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          path = options.uri.path;
+          body = Map<String, dynamic>.from(options.data as Map);
+          handler.resolve(
+            Response(
+              requestOptions: options,
+              statusCode: 200,
+              data: {
+                'choices': [
+                  {
+                    'message': {'content': '{"headline":"ok"}'},
+                  },
+                ],
+              },
+            ),
+          );
+        },
+      ),
+    );
+
+    await OpenAiCompatibleChatClient(dio: dio).complete(
+      const AiChatRequest(
+        settings: AiSettings(
+          apiKey: 'zen-key',
+          baseUrl: 'https://opencode.ai/zen/go/v1',
+          model: 'deepseek-v4-flash',
+          autoGenerate: true,
+          provider: AiProviderKind.opencode,
+        ),
+        systemPrompt: 'sys',
+        userPrompt: 'user',
+      ),
+    );
+
+    expect(path, '/zen/go/v1/chat/completions');
+    expect(body?['model'], 'deepseek-v4-flash');
     expect(body!.containsKey('thinking'), isFalse);
   });
 
@@ -130,7 +197,7 @@ void main() {
     );
 
     expect(
-      () => DeepSeekChatClient(dio: dio).ping(
+      () => OpenAiCompatibleChatClient(dio: dio).ping(
         const AiSettings(
           apiKey: 'bad',
           baseUrl: 'https://api.deepseek.com',
@@ -145,6 +212,20 @@ void main() {
           contains('API Key 无效'),
         ),
       ),
+    );
+  });
+
+  test('cors failures explain the browser limitation', () {
+    expect(
+      describeAiError(
+        DioException(
+          requestOptions: RequestOptions(path: '/models'),
+          type: DioExceptionType.connectionError,
+          message:
+              'XMLHttpRequest blocked by CORS: No Access-Control-Allow-Origin',
+        ),
+      ),
+      contains('浏览器拦截了跨域请求'),
     );
   });
 }

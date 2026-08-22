@@ -17,6 +17,7 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
   final _keyController = TextEditingController();
   final _baseUrlController = TextEditingController();
   final _modelController = TextEditingController();
+  var _provider = AiProviderKind.deepseek;
   var _autoGenerate = true;
   var _obscureKey = true;
   var _saving = false;
@@ -38,6 +39,7 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
     _keyController.text = settings.apiKey;
     _baseUrlController.text = settings.baseUrl;
     _modelController.text = settings.model;
+    _provider = settings.provider;
     _autoGenerate = settings.autoGenerate;
     _loaded = true;
   }
@@ -48,11 +50,25 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
       baseUrl: _baseUrlController.text,
       model: _modelController.text,
       autoGenerate: _autoGenerate,
+      provider: _provider,
     );
   }
 
+  void _selectProvider(AiProviderKind? value) {
+    if (value == null) return;
+    final next = _draft().withProvider(value);
+    setState(() {
+      _provider = next.provider;
+      _baseUrlController.text = next.baseUrl;
+      _modelController.text = next.model;
+    });
+  }
+
   Future<void> _save() async {
-    final urlError = AiSettings.validateBaseUrl(_baseUrlController.text);
+    final urlError = AiSettings.validateBaseUrl(
+      _baseUrlController.text,
+      provider: _provider,
+    );
     if (urlError != null) {
       setState(() {
         _message = urlError;
@@ -83,7 +99,10 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
   }
 
   Future<void> _test() async {
-    final urlError = AiSettings.validateBaseUrl(_baseUrlController.text);
+    final urlError = AiSettings.validateBaseUrl(
+      _baseUrlController.text,
+      provider: _provider,
+    );
     if (urlError != null) {
       setState(() {
         _message = urlError;
@@ -126,6 +145,8 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
     if (controller.loaded) {
       _hydrate(controller.settings);
     }
+    final presets = _provider.presetModels;
+    final usingCustomModel = !presets.contains(_modelController.text);
 
     return Scaffold(
       appBar: AppBar(title: const Text('智能分析')),
@@ -140,6 +161,20 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
                   title: '模型服务',
                   child: Column(
                     children: [
+                      DropdownButtonFormField<AiProviderKind>(
+                        key: Key('ai-settings-provider-${_provider.name}'),
+                        initialValue: _provider,
+                        decoration: const InputDecoration(labelText: '供应商'),
+                        items: [
+                          for (final kind in AiProviderKind.values)
+                            DropdownMenuItem(
+                              value: kind,
+                              child: Text(kind.label),
+                            ),
+                        ],
+                        onChanged: _selectProvider,
+                      ),
+                      const SizedBox(height: 12),
                       TextField(
                         key: const Key('ai-settings-api-key'),
                         controller: _keyController,
@@ -164,25 +199,23 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
                         key: const Key('ai-settings-base-url'),
                         controller: _baseUrlController,
                         keyboardType: TextInputType.url,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Base URL',
-                          hintText: AiSettings.defaultBaseUrl,
+                          hintText: _provider.defaultBaseUrl.isEmpty
+                              ? 'https://api.example.com/v1'
+                              : _provider.defaultBaseUrl,
                         ),
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
                         key: Key(
-                          'ai-settings-model-preset-${_modelController.text}',
+                          'ai-settings-model-preset-${_provider.name}-${_modelController.text}',
                         ),
                         initialValue:
-                            AiSettings.presetModels.contains(
-                              _modelController.text,
-                            )
-                            ? _modelController.text
-                            : 'custom',
+                            usingCustomModel ? 'custom' : _modelController.text,
                         decoration: const InputDecoration(labelText: '模型'),
                         items: [
-                          for (final model in AiSettings.presetModels)
+                          for (final model in presets)
                             DropdownMenuItem(value: model, child: Text(model)),
                           const DropdownMenuItem(
                             value: 'custom',
@@ -193,9 +226,7 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
                           if (value == null) return;
                           setState(() {
                             if (value == 'custom') {
-                              if (AiSettings.presetModels.contains(
-                                _modelController.text,
-                              )) {
+                              if (presets.contains(_modelController.text)) {
                                 _modelController.text = '';
                               }
                             } else {
@@ -204,9 +235,7 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
                           });
                         },
                       ),
-                      if (!AiSettings.presetModels.contains(
-                        _modelController.text,
-                      )) ...[
+                      if (usingCustomModel) ...[
                         const SizedBox(height: 12),
                         TextField(
                           key: const Key('ai-settings-model-custom'),
@@ -257,10 +286,7 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
                 child: LedgerlySection(
                   title: '能力与用量',
                   child: Text(
-                    '默认模型 deepseek-v4-flash 是文本模型，不能语音转文字。'
-                    '分析会把分类、金额和备注发送到你配置的端点。\n'
-                    '第一期不做累计用量看板，余额请到 DeepSeek 控制台查看；'
-                    '分析卡片会显示最近一次调用的 token。',
+                    _capabilityCopy(),
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ),
@@ -285,5 +311,17 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
         ),
       ),
     );
+  }
+
+  String _capabilityCopy() {
+    final protocol = '当前走 OpenAI 兼容的 Chat Completions。分析模型不能语音转文字。'
+        '分析会把分类、金额和备注发送到你配置的端点。';
+    final opencode = _provider == AiProviderKind.opencode
+        ? 'OpenCode 使用 Zen Go 网关 https://opencode.ai/zen/go/v1。'
+            '网页浏览器会拦截跨域请求，测试连接在网页里会失败；请保存后用 App。'
+            '预设仅包含 Chat Completions 模型，GPT / Claude 本期不接。'
+        : '';
+    return '$protocol$opencode\n第一期不做累计用量看板，${_provider.usageHint}'
+        '分析卡片会显示最近一次调用的 token。';
   }
 }

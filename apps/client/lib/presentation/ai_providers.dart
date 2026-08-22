@@ -16,15 +16,15 @@ final aiSettingsStoreProvider = Provider<AiSettingsStore>((ref) {
 
 final aiSettingsControllerProvider =
     ChangeNotifierProvider<AiSettingsController>((ref) {
-      final controller = AiSettingsController(
-        store: ref.watch(aiSettingsStoreProvider),
-      );
-      unawaited(controller.load());
-      return controller;
-    });
+  final controller = AiSettingsController(
+    store: ref.watch(aiSettingsStoreProvider),
+  );
+  unawaited(controller.load());
+  return controller;
+});
 
 final aiChatClientProvider = Provider<AiChatClient>((ref) {
-  return DeepSeekChatClient();
+  return OpenAiCompatibleChatClient();
 });
 
 final insightRepositoryProvider = Provider<InsightRepository>((ref) {
