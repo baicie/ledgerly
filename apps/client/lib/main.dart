@@ -13,6 +13,7 @@ import 'presentation/ai_providers.dart';
 import 'presentation/design/ledgerly_theme.dart';
 import 'presentation/pages/api_endpoint_setup_page.dart';
 import 'presentation/providers.dart';
+import 'presentation/widgets/app_lock_gate.dart';
 import 'routing/app_router.dart';
 
 void main() {
@@ -116,14 +117,22 @@ class _LedgerlyAppState extends ConsumerState<LedgerlyApp>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) return;
-    ref.invalidate(aiInsightBootstrapProvider);
-    ref.invalidate(todayAiInsightProvider);
-    ref.invalidate(selectedMonthAiInsightProvider);
+    if (state == AppLifecycleState.resumed) {
+      ref.invalidate(aiInsightBootstrapProvider);
+      ref.invalidate(todayAiInsightProvider);
+      ref.invalidate(selectedMonthAiInsightProvider);
+      ref.invalidate(recurringCatchUpProvider);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(recurringCatchUpProvider);
+    ref.listen(recurringCatchUpProvider, (previous, next) {
+      next.whenData((posted) {
+        if (posted > 0) invalidateLedgerViews(ref);
+      });
+    });
     return MaterialApp.router(
       title: 'Ledgerly',
       debugShowCheckedModeBanner: false,
@@ -131,6 +140,9 @@ class _LedgerlyAppState extends ConsumerState<LedgerlyApp>
       localeResolutionCallback: L10n.resolve,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
+      builder: (context, child) {
+        return AppLockGate(child: child ?? const SizedBox.shrink());
+      },
       routerConfig: _router,
     );
   }

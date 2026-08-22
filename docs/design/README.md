@@ -16,5 +16,6 @@
 | [0.0.4-optional-api-local-mode.md](./0.0.4-optional-api-local-mode.md) | 0.0.4 可选 API 与纯本地模式 |
 | [ai-spend-insights.md](./ai-spend-insights.md) | 客户端 BYOK 消费总结（DeepSeek / OpenCode） |
 | [client-i18n.md](./client-i18n.md) | 客户端国际化（默认中文） |
+| [local-daily-tools.md](./local-daily-tools.md) | 搜索、应用锁、本地预算/周期/导入/附件 |
 
 状态：文档在对应阶段分支创建并完善；基线阶段仅保留本索引。

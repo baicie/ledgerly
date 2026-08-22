@@ -80,9 +80,13 @@ void main() {
       ),
     );
 
-    expect(find.textContaining('不支持语音转文字'), findsOneWidget);
+    expect(find.textContaining('不支持语音转文字'), findsNothing);
     await tester.tap(find.byKey(const Key('ai-insight-configure')));
     expect(configured, isTrue);
+
+    await tester.tap(find.byKey(const Key('ai-insight-toggle')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('不支持语音转文字'), findsOneWidget);
   });
 
   testWidgets('monthly unconfigured card explains reports placement',
@@ -97,11 +101,15 @@ void main() {
       ),
     );
 
+    expect(find.textContaining('所选月份的消费月报'), findsNothing);
+    await tester.tap(find.byKey(const Key('ai-insight-toggle')));
+    await tester.pumpAndSettle();
     expect(find.textContaining('所选月份的消费月报'), findsOneWidget);
     expect(find.textContaining('当天流水'), findsNothing);
   });
 
-  testWidgets('ready insight card shows usage tokens', (tester) async {
+  testWidgets('ready insight card stays collapsed until expanded',
+      (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
@@ -123,6 +131,11 @@ void main() {
     );
 
     expect(find.text('上月餐饮偏高'), findsOneWidget);
+    expect(find.text('· 外卖 12 次'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('ai-insight-toggle')));
+    await tester.pumpAndSettle();
+
     expect(find.text('· 外卖 12 次'), findsOneWidget);
     expect(
       find.text('deepseek-v4-flash · 入 120 / 出 40 tokens'),

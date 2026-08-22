@@ -4,6 +4,7 @@ import '../auth/auth_controller.dart';
 import '../config/api_endpoint_controller.dart';
 import '../presentation/pages/accounts_page.dart';
 import '../presentation/pages/ai_settings_page.dart';
+import '../presentation/pages/app_lock_page.dart';
 import '../presentation/pages/attachments_page.dart';
 import '../presentation/pages/auth_page.dart';
 import '../presentation/pages/budgets_page.dart';
@@ -13,6 +14,7 @@ import '../presentation/pages/export_page.dart';
 import '../presentation/pages/family_invite_page.dart';
 import '../presentation/pages/feed_page.dart';
 import '../presentation/pages/fx_rates_page.dart';
+import '../presentation/pages/import_page.dart';
 import '../presentation/pages/recurring_page.dart';
 import '../presentation/pages/reports_page.dart';
 import '../presentation/pages/settings_page.dart';
@@ -62,9 +64,6 @@ String? _localModeRedirect(String path) {
     '/settings/subscription',
     '/settings/fx',
     '/settings/family',
-    '/settings/budgets',
-    '/settings/recurring',
-    '/settings/attachments',
   }.contains(path)) {
     return '/settings';
   }
@@ -180,6 +179,14 @@ GoRouter createAppRouter(
                   GoRoute(
                     path: 'ai',
                     builder: (context, state) => const AiSettingsPage(),
+                  ),
+                  GoRoute(
+                    path: 'lock',
+                    builder: (context, state) => const AppLockPage(),
+                  ),
+                  GoRoute(
+                    path: 'import',
+                    builder: (context, state) => const ImportPage(),
                   ),
                   GoRoute(
                     path: 'subscription',

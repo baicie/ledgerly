@@ -422,6 +422,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get goConfigure => '去配置';
 
   @override
+  String get insightExpand => '展开分析';
+
+  @override
+  String get insightCollapse => '收起分析';
+
+  @override
   String get regenerate => '重新生成';
 
   @override
@@ -1253,4 +1259,145 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get bookBoundToOtherAccount => '本地账本已绑定到其他账户，已停止同步。';
+
+  @override
+  String get searchTransactionsHint => '搜索备注、分类、账户或金额';
+
+  @override
+  String get noSearchResults => '没有匹配的流水';
+
+  @override
+  String get noSearchResultsMessage => '试试其他关键字，或清空搜索';
+
+  @override
+  String get securitySection => '安全';
+
+  @override
+  String get appLock => '应用锁';
+
+  @override
+  String get appLockSubtitle => '用 PIN 保护打开应用';
+
+  @override
+  String get appLockBody => '启用后，冷启动和回到前台需要输入 PIN。';
+
+  @override
+  String get enableAppLock => '启用应用锁';
+
+  @override
+  String get disableAppLock => '关闭应用锁';
+
+  @override
+  String get appLockPin => 'PIN';
+
+  @override
+  String get appLockPinConfirm => '确认 PIN';
+
+  @override
+  String get appLockPinHint => '4 到 8 位数字';
+
+  @override
+  String get unlock => '解锁';
+
+  @override
+  String get wrongPin => 'PIN 不正确';
+
+  @override
+  String get pinMismatch => '两次 PIN 不一致';
+
+  @override
+  String get invalidPin => '请输入 4 到 8 位数字';
+
+  @override
+  String get appLockedTitle => '已锁定';
+
+  @override
+  String get importCsv => '导入账单';
+
+  @override
+  String get importCsvSubtitle => '从支付宝、微信或导出的 CSV 导入';
+
+  @override
+  String get importCsvTitle => '导入账单';
+
+  @override
+  String get pickCsv => '选择 CSV 文件';
+
+  @override
+  String get importConfirm => '确认入账';
+
+  @override
+  String importSelectedCount(int count) {
+    return '将导入 $count 笔';
+  }
+
+  @override
+  String importedCount(int count) {
+    return '已导入 $count 笔';
+  }
+
+  @override
+  String get importNothing => '没有可导入的记录';
+
+  @override
+  String get importHelp => '导入前请核对金额和分类，确认后才会写入账本。';
+
+  @override
+  String get saveCsvFile => '保存 / 分享';
+
+  @override
+  String get csvSaved => '已导出文件';
+
+  @override
+  String get allExpensesBudgetName => '全部支出预算';
+
+  @override
+  String get dayOfMonth => '每月几号';
+
+  @override
+  String nextRunDate(String date) {
+    return '下次入账 $date';
+  }
+
+  @override
+  String get recurringLocalHelp => '每月固定日期自动记账，只保存在本机。';
+
+  @override
+  String get recurringSubtitle => '每月固定日期自动记账';
+
+  @override
+  String get attachmentsLocalHelp => '附件只保存在本机，不会同步到服务器。';
+
+  @override
+  String get attachmentsSubtitle => '只保存在本机，不同步';
+
+  @override
+  String get addAttachment => '添加附件';
+
+  @override
+  String get noAttachments => '还没有附件';
+
+  @override
+  String get deleteBudget => '删除预算';
+
+  @override
+  String get pauseRule => '暂停';
+
+  @override
+  String get resumeRule => '启用';
+
+  @override
+  String get deleteRule => '删除规则';
+
+  @override
+  String get kindLabel => '类型';
+
+  @override
+  String get kindExpense => '支出';
+
+  @override
+  String get kindIncome => '收入';
+
+  @override
+  String get fundingAccount => '资金账户';
 }

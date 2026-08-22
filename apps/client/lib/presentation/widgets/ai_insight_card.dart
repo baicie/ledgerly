@@ -5,7 +5,7 @@ import '../../l10n/l10n.dart';
 import '../design/ledgerly_theme.dart';
 import 'ledgerly_layout.dart';
 
-class AiInsightCard extends StatelessWidget {
+class AiInsightCard extends StatefulWidget {
   const AiInsightCard({
     super.key,
     required this.view,
@@ -13,6 +13,7 @@ class AiInsightCard extends StatelessWidget {
     this.onGenerate,
     this.busy = false,
     this.embedded = false,
+    this.initiallyExpanded = false,
   });
 
   final AiInsightView view;
@@ -20,50 +21,92 @@ class AiInsightCard extends StatelessWidget {
   final VoidCallback? onGenerate;
   final bool busy;
   final bool embedded;
+  final bool initiallyExpanded;
+
+  @override
+  State<AiInsightCard> createState() => _AiInsightCardState();
+}
+
+class _AiInsightCardState extends State<AiInsightCard> {
+  late bool _expanded = widget.initiallyExpanded;
+
+  AiInsightView get view => widget.view;
 
   @override
   Widget build(BuildContext context) {
     final l10n = l10nOf(context);
-    final body = busy
-        ? const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Center(
-              child: SizedBox.square(
-                dimension: 22,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
-          )
-        : _body(context, l10n);
-    if (embedded) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _header(context, l10n),
+        if (_expanded)
+          Padding(
+            padding: widget.embedded
+                ? const EdgeInsets.fromLTRB(16, 0, 16, 12)
+                : const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: widget.busy
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Center(
+                      child: SizedBox.square(
+                        dimension: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  )
+                : _body(context, l10n),
+          ),
+      ],
+    );
+    if (widget.embedded) return content;
+    return LedgerlySection(padding: EdgeInsets.zero, child: content);
+  }
+
+  Widget _header(BuildContext context, AppLocalizations l10n) {
+    final preview = _expanded ? null : _collapsedPreview(l10n);
+    final trailing = _trailing(l10n);
+    return InkWell(
+      onTap: _toggle,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
+        child: Row(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
                     _title(l10n),
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                ),
-                if (_trailing(l10n) != null) _trailing(l10n)!,
-              ],
+                  if (preview != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      preview,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ],
+              ),
             ),
-            const SizedBox(height: 8),
-            body,
+            if (trailing != null) trailing,
+            IconButton(
+              key: const Key('ai-insight-toggle'),
+              tooltip: _expanded ? l10n.insightCollapse : l10n.insightExpand,
+              onPressed: _toggle,
+              icon: Icon(
+                _expanded ? Icons.expand_less : Icons.expand_more,
+              ),
+            ),
           ],
         ),
-      );
-    }
-    return LedgerlySection(
-      title: _title(l10n),
-      trailing: _trailing(l10n),
-      child: body,
+      ),
     );
   }
+
+  void _toggle() => setState(() => _expanded = !_expanded);
 
   String _title(AppLocalizations l10n) {
     final kind = insightKindLabel(l10n, view.kind.name);
@@ -77,18 +120,34 @@ class AiInsightCard extends StatelessWidget {
     return l10n.aiInsightTitleWithPeriod(kind, label);
   }
 
+  String? _collapsedPreview(AppLocalizations l10n) {
+    switch (view.status) {
+      case AiInsightStatus.unconfigured:
+        return null;
+      case AiInsightStatus.empty:
+        if (view.generatedAt == null) return l10n.insightNotGenerated;
+        return view.kind == InsightKind.daily
+            ? l10n.insightEmptyDaily
+            : l10n.insightEmptyMonthly;
+      case AiInsightStatus.error:
+        return view.errorMessage ?? view.headline ?? l10n.insightFailed;
+      case AiInsightStatus.ready:
+        return view.headline ?? l10n.insightFallbackHeadline;
+    }
+  }
+
   Widget? _trailing(AppLocalizations l10n) {
     if (view.status == AiInsightStatus.unconfigured) {
       return TextButton(
         key: const Key('ai-insight-configure'),
-        onPressed: onConfigure,
+        onPressed: widget.onConfigure,
         child: Text(l10n.goConfigure),
       );
     }
-    if (onGenerate == null) return null;
+    if (widget.onGenerate == null) return null;
     return TextButton(
       key: const Key('ai-insight-generate'),
-      onPressed: busy ? null : onGenerate,
+      onPressed: widget.busy ? null : widget.onGenerate,
       child: Text(
         view.status == AiInsightStatus.ready ? l10n.regenerate : l10n.generate,
       ),

@@ -12,6 +12,11 @@ import 'support/fake_auth_gateway.dart';
 
 void main() {
   testWidgets('local mode hides remote-only settings', (tester) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final auth = AuthController.local();
     final endpointController = ApiEndpointController(
       store: MemoryApiEndpointStore(),

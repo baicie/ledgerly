@@ -3,7 +3,10 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../application/ledger_app_service.dart';
+import '../application/ledger_csv.dart';
+import '../application/recurring_scheduler.dart';
 import '../application/sync_service.dart';
+import '../auth/app_lock_store.dart';
 import '../auth/auth_repository.dart';
 import '../auth/auth_controller.dart';
 import '../auth/platform_session_store.dart';
@@ -12,10 +15,17 @@ import '../config/api_endpoint.dart';
 import '../config/api_endpoint_controller.dart';
 import '../data/database.dart';
 import '../data/ledger_repository.dart';
+import '../data/local_attachment_repository.dart';
+import '../data/local_budget_repository.dart';
+import '../data/local_recurring_repository.dart';
 import '../data/sync_api.dart';
 import '../domain/ids.dart';
 import '../domain/default_categories.dart';
 import '../l10n/l10n.dart';
+import '../platform/attachment_store.dart';
+import '../platform/attachment_store_factory.dart';
+import '../platform/user_file_port.dart';
+import '../platform/user_file_port_impl.dart';
 
 final databaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
@@ -68,6 +78,60 @@ final ledgerRepositoryProvider = Provider<LedgerRepository>((ref) {
 
 final ledgerAppServiceProvider = Provider<LedgerAppService>((ref) {
   return LedgerAppService(ref.watch(ledgerRepositoryProvider));
+});
+
+final appLockStoreProvider = Provider<AppLockStore>((ref) {
+  return createPlatformAppLockStore();
+});
+
+final appLockControllerProvider =
+    ChangeNotifierProvider<AppLockController>((ref) {
+  final controller = AppLockController(store: ref.watch(appLockStoreProvider));
+  unawaited(controller.load());
+  return controller;
+});
+
+final userFilePortProvider = Provider<UserFilePort>((ref) {
+  return createPlatformUserFilePort();
+});
+
+final attachmentStoreProvider = Provider<AttachmentStore>((ref) {
+  return createPlatformAttachmentStore();
+});
+
+final localBudgetRepositoryProvider = Provider<LocalBudgetRepository>((ref) {
+  return LocalBudgetRepository(ref.watch(databaseProvider));
+});
+
+final localRecurringRepositoryProvider =
+    Provider<LocalRecurringRepository>((ref) {
+  return LocalRecurringRepository(ref.watch(databaseProvider));
+});
+
+final localAttachmentRepositoryProvider =
+    Provider<LocalAttachmentRepository>((ref) {
+  return LocalAttachmentRepository(ref.watch(databaseProvider));
+});
+
+final recurringSchedulerProvider = Provider<RecurringScheduler>((ref) {
+  return RecurringScheduler(
+    rules: ref.watch(localRecurringRepositoryProvider),
+    ledger: ref.watch(ledgerAppServiceProvider),
+  );
+});
+
+final recurringCatchUpProvider = FutureProvider<int>((ref) async {
+  await ref.watch(ledgerRepositoryProvider).seedIfEmpty();
+  return ref.read(recurringSchedulerProvider).catchUp();
+});
+
+final localAttachmentsProvider =
+    FutureProvider<List<LocalAttachmentRecord>>((ref) async {
+  await ref.watch(ledgerRepositoryProvider).seedIfEmpty();
+  await ref.watch(transactionListProvider.future);
+  return ref
+      .read(localAttachmentRepositoryProvider)
+      .list(bookId: defaultBookId);
 });
 
 final syncApiProvider = Provider<SyncApi>((ref) {
@@ -341,14 +405,19 @@ final exportCsvProvider = FutureProvider<String>((ref) async {
   final repo = ref.watch(ledgerRepositoryProvider);
   await repo.seedIfEmpty();
   final txs = await repo.watchSummariesSync(defaultBookId);
-  final buf = StringBuffer('id,occurred_at,description,entry_count\n');
-  for (final tx in txs) {
-    buf.writeln(
-      '${tx.id},${tx.occurredAt.toIso8601String()},"${tx.description ?? ''}",${tx.entryCount}',
-    );
-  }
-  return buf.toString();
+  return buildLedgerCsv(txs, l10n: L10n.current);
 });
+
+void invalidateLedgerViews(WidgetRef ref) {
+  ref.invalidate(monthTransactionsProvider);
+  ref.invalidate(transactionListProvider);
+  ref.invalidate(accountBalancesProvider);
+  ref.invalidate(categoryReportProvider);
+  ref.invalidate(monthlyLedgerSummaryProvider);
+  ref.invalidate(exportCsvProvider);
+  ref.invalidate(localAttachmentsProvider);
+  ref.invalidate(recurringCatchUpProvider);
+}
 
 String formatMinor(BigInt minor) {
   final negative = minor.isNegative;

@@ -174,12 +174,35 @@ void main() {
 
     expect(find.text('Historical coffee'), findsNothing);
   });
+
+  testWidgets('search expands historical days so matches are visible',
+      (tester) async {
+    final historicalDay = _dayOffsetFromToday(-2);
+
+    await tester.pumpWidget(
+      _feed(
+        [
+          _datedSummary(
+            id: 'historical-coffee',
+            occurredAt: historicalDay,
+            description: 'Historical coffee',
+            kind: TransactionSummaryKind.expense,
+            amountMinor: 3200,
+          ),
+        ],
+        expandAll: true,
+      ),
+    );
+
+    expect(find.text('Historical coffee'), findsOneWidget);
+  });
 }
 
 Widget _feed(
   List<TransactionSummary> transactions, {
   Widget? todayInsight,
   bool orphanTodayInsight = true,
+  bool expandAll = false,
 }) {
   return MaterialApp(
     home: Scaffold(
@@ -189,6 +212,7 @@ Widget _feed(
             transactions: transactions,
             todayInsight: todayInsight,
             orphanTodayInsight: orphanTodayInsight,
+            expandAll: expandAll,
             onOpen: (_) {},
             onDelete: (_) {},
           ),

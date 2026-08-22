@@ -30,6 +30,10 @@ class FeedTransactionList extends StatelessWidget {
     required this.onDelete,
     this.todayInsight,
     this.orphanTodayInsight = true,
+    this.expandAll = false,
+    this.emptyTitle,
+    this.emptyMessage,
+    this.onAttach,
   });
 
   final List<TransactionSummary> transactions;
@@ -39,6 +43,10 @@ class FeedTransactionList extends StatelessWidget {
 
   /// Pin [todayInsight] above the list when today has no transactions.
   final bool orphanTodayInsight;
+  final bool expandAll;
+  final String? emptyTitle;
+  final String? emptyMessage;
+  final ValueChanged<TransactionSummary>? onAttach;
 
   @override
   Widget build(BuildContext context) {
@@ -57,8 +65,8 @@ class FeedTransactionList extends StatelessWidget {
               ),
             LedgerlyEmptyState(
               icon: Icons.receipt_long_outlined,
-              title: l10n.emptyMonthTitle,
-              message: l10n.emptyMonthMessage,
+              title: emptyTitle ?? l10n.emptyMonthTitle,
+              message: emptyMessage ?? l10n.emptyMonthMessage,
             ),
           ],
         ),
@@ -97,10 +105,10 @@ class FeedTransactionList extends StatelessWidget {
           child: LedgerlySection(
             padding: EdgeInsets.zero,
             child: ExpansionTile(
-              key: PageStorageKey<String>(
-                'feed-day-${day.year}-${day.month}-${day.day}',
+              key: ValueKey(
+                'feed-day-${day.year}-${day.month}-${day.day}-$expandAll',
               ),
-              initiallyExpanded: isToday,
+              initiallyExpanded: isToday || expandAll,
               tilePadding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
               childrenPadding: EdgeInsets.zero,
               shape: const Border(),
@@ -156,6 +164,9 @@ class FeedTransactionList extends StatelessWidget {
                         ? null
                         : () => onOpen(items[itemIndex]),
                     onDelete: () => onDelete(items[itemIndex]),
+                    onAttach: onAttach == null
+                        ? null
+                        : () => onAttach!(items[itemIndex]),
                   ),
                 ],
               ],
@@ -185,11 +196,13 @@ class _TransactionTile extends StatelessWidget {
     required this.transaction,
     required this.onTap,
     required this.onDelete,
+    this.onAttach,
   });
 
   final TransactionSummary transaction;
   final VoidCallback? onTap;
   final VoidCallback onDelete;
+  final VoidCallback? onAttach;
 
   @override
   Widget build(BuildContext context) {
@@ -233,6 +246,13 @@ class _TransactionTile extends StatelessWidget {
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
+          if (onAttach != null)
+            IconButton(
+              tooltip: l10n.addAttachment,
+              onPressed: onAttach,
+              icon: const Icon(Icons.attach_file, size: 20),
+              color: LedgerlyColors.muted,
+            ),
           IconButton(
             tooltip: l10n.deleteTransaction,
             onPressed: onDelete,

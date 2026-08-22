@@ -294,6 +294,8 @@
     }
   },
   "goConfigure": "Set up",
+  "insightExpand": "Show insight",
+  "insightCollapse": "Hide insight",
   "regenerate": "Regenerate",
   "generate": "Generate",
   "insightUnconfiguredDaily": "After you add a provider and API key, a daily spend summary appears in today’s activity. The current text models cannot transcribe speech.",
@@ -761,5 +763,71 @@
   "revisionHistory": "History",
   "syncReady": "Ready",
   "syncError": "Error",
-  "bookBoundToOtherAccount": "This local book is bound to another account. Sync stopped."
+  "bookBoundToOtherAccount": "This local book is bound to another account. Sync stopped.",
+  "searchTransactionsHint": "Search notes, categories, accounts, or amounts",
+  "noSearchResults": "No matching activity",
+  "noSearchResultsMessage": "Try another keyword, or clear the search",
+  "securitySection": "Security",
+  "appLock": "App lock",
+  "appLockSubtitle": "Protect opening the app with a PIN",
+  "appLockBody": "When enabled, a PIN is required after a cold start and when returning to the app.",
+  "enableAppLock": "Enable app lock",
+  "disableAppLock": "Turn off app lock",
+  "appLockPin": "PIN",
+  "appLockPinConfirm": "Confirm PIN",
+  "appLockPinHint": "4 to 8 digits",
+  "unlock": "Unlock",
+  "wrongPin": "Incorrect PIN",
+  "pinMismatch": "The PINs do not match",
+  "invalidPin": "Enter 4 to 8 digits",
+  "appLockedTitle": "Locked",
+  "importCsv": "Import bills",
+  "importCsvSubtitle": "Import from Alipay, WeChat, or an exported CSV",
+  "importCsvTitle": "Import bills",
+  "pickCsv": "Choose a CSV file",
+  "importConfirm": "Confirm import",
+  "importSelectedCount": "Import {count} rows",
+  "@importSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importedCount": "Imported {count} rows",
+  "@importedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importNothing": "Nothing to import",
+  "importHelp": "Review amounts and categories first. Rows are posted only after you confirm.",
+  "saveCsvFile": "Save / share",
+  "csvSaved": "File exported",
+  "allExpensesBudgetName": "All expenses budget",
+  "dayOfMonth": "Day of month",
+  "nextRunDate": "Next posting {date}",
+  "@nextRunDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "recurringLocalHelp": "Posts on a fixed day each month. Stored only on this device.",
+  "recurringSubtitle": "Automatic monthly posting",
+  "attachmentsLocalHelp": "Attachments stay on this device and are not synced.",
+  "attachmentsSubtitle": "Stored on this device only",
+  "addAttachment": "Add attachment",
+  "noAttachments": "No attachments yet",
+  "deleteBudget": "Delete budget",
+  "pauseRule": "Pause",
+  "resumeRule": "Resume",
+  "deleteRule": "Delete rule",
+  "kindLabel": "Type",
+  "kindExpense": "Expense",
+  "kindIncome": "Income",
+  "fundingAccount": "Funding account"
 }

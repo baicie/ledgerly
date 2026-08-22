@@ -1,25 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../application/amount_parse.dart';
+import '../../data/local_budget_repository.dart';
+import '../../domain/ids.dart';
 import '../../l10n/l10n.dart';
 import '../design/ledgerly_theme.dart';
 import '../providers.dart';
 import '../widgets/ledgerly_finance.dart';
 import '../widgets/ledgerly_layout.dart';
 
-BigInt? parseBudgetAmountMinor(String raw) {
-  final value = raw.trim().replaceAll(',', '');
-  if (!RegExp(r'^\d+(\.\d{1,2})?$').hasMatch(value)) return null;
-  final parts = value.split('.');
-  final yuan = BigInt.tryParse(parts[0]);
-  if (yuan == null) return null;
-  final cents = parts.length == 1
-      ? BigInt.zero
-      : BigInt.tryParse(parts[1].padRight(2, '0'));
-  if (cents == null) return null;
-  final amount = yuan * BigInt.from(100) + cents;
-  return amount > BigInt.zero ? amount : null;
-}
+BigInt? parseBudgetAmountMinor(String raw) => parsePositiveAmountMinor(raw);
 
 class BudgetsPage extends ConsumerStatefulWidget {
   const BudgetsPage({super.key});
@@ -47,6 +38,10 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
   Future<void> _load() async {
     if (mounted) setState(() => _busy = true);
     try {
+      if (ref.read(apiEndpointProvider) == null) {
+        await _loadLocal();
+        return;
+      }
       final bookId = await _remoteBookId();
       if (bookId == null) {
         if (mounted) {
@@ -67,6 +62,40 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
     }
   }
 
+  Future<void> _loadLocal() async {
+    final records =
+        await ref.read(localBudgetRepositoryProvider).list(defaultBookId);
+    final transactions = await ref.read(monthTransactionsProvider.future);
+    final categories =
+        await ref.read(categoryAccountsProvider('expense').future);
+    final parentById = {
+      for (final category in categories) category.id: category.parentAccountId,
+    };
+    final list = [
+      for (final record in records)
+        () {
+          final spent = spentForBudget(
+            budget: record,
+            transactions: transactions,
+            parentById: parentById,
+          );
+          return <String, dynamic>{
+            'id': record.id,
+            'name': record.name,
+            'amountMinor': record.amountMinor.toString(),
+            'categoryAccountId': record.categoryAccountId,
+            'spentMinor': spent.toString(),
+            'remainingMinor': (record.amountMinor - spent).toString(),
+          };
+        }(),
+    ];
+    if (!mounted) return;
+    setState(() {
+      _budgets = list;
+      _message = null;
+    });
+  }
+
   Future<void> _openCreateSheet(List<CategoryAccountRow> categories) async {
     if (categories.isEmpty) {
       setState(() => _message = L10n.current.createExpenseCategoryFirst);
@@ -79,6 +108,7 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
       builder: (context) => _BudgetEditor(
         categories: categories,
         initialCategoryId: _lastCategoryId,
+        allowAllExpenses: ref.read(apiEndpointProvider) == null,
       ),
     );
     if (draft == null || !mounted) return;
@@ -92,6 +122,16 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
       _message = null;
     });
     try {
+      if (ref.read(apiEndpointProvider) == null) {
+        await ref.read(localBudgetRepositoryProvider).insert(
+              bookId: defaultBookId,
+              name: draft.name,
+              amountMinor: draft.amountMinor,
+              categoryAccountId: draft.categoryId,
+            );
+        await _load();
+        return;
+      }
       final bookId = await _remoteBookId();
       if (bookId == null) {
         setState(() => _message = L10n.current.notSignedInCreateBudget);
@@ -254,6 +294,12 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
                                         _budgets[index],
                                         categories,
                                       ),
+                                      onDelete: ref.watch(apiEndpointProvider) ==
+                                              null
+                                          ? () => _deleteLocal(
+                                                '${_budgets[index]['id']}',
+                                              )
+                                          : null,
                                     ),
                                   ],
                                 ],
@@ -276,6 +322,11 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
     }
     return (limit, spent);
   }
+
+  Future<void> _deleteLocal(String id) async {
+    await ref.read(localBudgetRepositoryProvider).delete(id);
+    await _load();
+  }
 }
 
 class _BudgetDraft {
@@ -294,10 +345,12 @@ class _BudgetEditor extends StatefulWidget {
   const _BudgetEditor({
     required this.categories,
     this.initialCategoryId,
+    this.allowAllExpenses = false,
   });
 
   final List<CategoryAccountRow> categories;
   final String? initialCategoryId;
+  final bool allowAllExpenses;
 
   @override
   State<_BudgetEditor> createState() => _BudgetEditorState();
@@ -309,10 +362,13 @@ class _BudgetEditorState extends State<_BudgetEditor> {
   late String _categoryId;
   String? _error;
 
-  CategoryAccountRow get _category => widget.categories.firstWhere(
-        (category) => category.id == _categoryId,
-        orElse: () => widget.categories.first,
-      );
+  CategoryAccountRow? get _category {
+    if (_categoryId.isEmpty) return null;
+    for (final category in widget.categories) {
+      if (category.id == _categoryId) return category;
+    }
+    return widget.categories.isEmpty ? null : widget.categories.first;
+  }
 
   String _categoryDisplayName(
     AppLocalizations l10n,
@@ -329,7 +385,10 @@ class _BudgetEditorState extends State<_BudgetEditor> {
     return localizedLedgerName(l10n, category.name);
   }
 
-  String _defaultName(AppLocalizations l10n, CategoryAccountRow category) {
+  String _defaultName(AppLocalizations l10n, CategoryAccountRow? category) {
+    if (category == null || _categoryId.isEmpty) {
+      return l10n.allExpensesBudgetName;
+    }
     return l10n.budgetDefaultName(localizedLedgerName(l10n, category.name));
   }
 
@@ -400,6 +459,11 @@ class _BudgetEditorState extends State<_BudgetEditor> {
               prefixIcon: const Icon(Icons.category_outlined),
             ),
             items: [
+              if (widget.allowAllExpenses)
+                DropdownMenuItem(
+                  value: '',
+                  child: Text(l10n.allExpenses),
+                ),
               for (final category in widget.categories)
                 DropdownMenuItem(
                   value: category.id,
@@ -509,10 +573,15 @@ class _BudgetSummary extends StatelessWidget {
 }
 
 class _BudgetTile extends StatelessWidget {
-  const _BudgetTile({required this.budget, required this.categoryLabel});
+  const _BudgetTile({
+    required this.budget,
+    required this.categoryLabel,
+    this.onDelete,
+  });
 
   final Map<String, dynamic> budget;
   final String categoryLabel;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -562,6 +631,12 @@ class _BudgetTile extends StatelessWidget {
                 formatDisplayMinor(limit),
                 style: Theme.of(context).textTheme.titleMedium,
               ),
+              if (onDelete != null)
+                IconButton(
+                  tooltip: l10n.deleteBudget,
+                  onPressed: onDelete,
+                  icon: const Icon(Icons.delete_outline, size: 20),
+                ),
             ],
           ),
           const SizedBox(height: 12),
