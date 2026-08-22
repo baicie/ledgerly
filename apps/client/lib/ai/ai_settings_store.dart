@@ -14,7 +14,7 @@ abstract interface class AiSettingsStore {
 
 class MemoryAiSettingsStore implements AiSettingsStore {
   MemoryAiSettingsStore({AiSettings? initial})
-    : value = initial ?? AiSettings.unset;
+      : value = initial ?? AiSettings.unset;
 
   AiSettings value;
 
@@ -31,15 +31,14 @@ class PlatformAiSettingsStore implements AiSettingsStore {
   PlatformAiSettingsStore({
     FlutterSecureStorage? secureStorage,
     Future<SharedPreferences>? preferences,
-  }) : _secureStorage =
-           secureStorage ??
-           const FlutterSecureStorage(
-             aOptions: AndroidOptions(migrateWithBackup: true),
-             iOptions: IOSOptions(
-               accessibility: KeychainAccessibility.first_unlock_this_device,
-             ),
-           ),
-       _preferences = preferences ?? SharedPreferences.getInstance();
+  })  : _secureStorage = secureStorage ??
+            const FlutterSecureStorage(
+              aOptions: AndroidOptions(migrateWithBackup: true),
+              iOptions: IOSOptions(
+                accessibility: KeychainAccessibility.first_unlock_this_device,
+              ),
+            ),
+        _preferences = preferences ?? SharedPreferences.getInstance();
 
   static const apiKeyStorageKey = 'ledgerly.ai.api_key.v1';
   static const configPreferenceKey = 'ledgerly.ai.config.v1';
@@ -69,17 +68,20 @@ class PlatformAiSettingsStore implements AiSettingsStore {
       }
     } catch (_) {}
 
+    final baseUrl = (config['baseUrl'] as String?)?.trim().isNotEmpty == true
+        ? config['baseUrl'] as String
+        : AiSettings.defaultBaseUrl;
     return AiSettings(
       apiKey: apiKey,
-      baseUrl: (config['baseUrl'] as String?)?.trim().isNotEmpty == true
-          ? config['baseUrl'] as String
-          : AiSettings.defaultBaseUrl,
+      baseUrl: baseUrl,
       model: (config['model'] as String?)?.trim().isNotEmpty == true
           ? config['model'] as String
           : AiSettings.defaultModel,
       autoGenerate: config['autoGenerate'] is bool
           ? config['autoGenerate'] as bool
           : true,
+      provider: AiProviderKind.tryParse(config['provider'] as String?) ??
+          AiProviderKind.infer(baseUrl: baseUrl),
     );
   }
 
@@ -98,6 +100,7 @@ class PlatformAiSettingsStore implements AiSettingsStore {
     final written = await (await _preferences).setString(
       configPreferenceKey,
       jsonEncode({
+        'provider': settings.provider.name,
         'baseUrl': settings.normalizedBaseUrl,
         'model': settings.model.trim().isEmpty
             ? AiSettings.defaultModel
@@ -141,8 +144,11 @@ class AiSettingsController extends ChangeNotifier {
       apiKey: settings.apiKey.trim(),
       baseUrl: settings.normalizedBaseUrl,
       model: settings.model.trim().isEmpty
-          ? AiSettings.defaultModel
+          ? (settings.presetModels.isNotEmpty
+              ? settings.presetModels.first
+              : AiSettings.defaultModel)
           : settings.model.trim(),
+      provider: settings.provider,
     );
     await _store.write(normalized);
     if (_disposed) return;

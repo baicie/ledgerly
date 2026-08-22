@@ -153,7 +153,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('本月收支统计'), findsOneWidget);
-    expect(find.textContaining('配置 DeepSeek API Key'), findsWidgets);
+    expect(find.textContaining('配置模型供应商和 API Key'), findsWidgets);
 
     await tester.scrollUntilVisible(find.text('收入来源'), 300);
     await tester.pump();

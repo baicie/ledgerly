@@ -36,6 +36,19 @@ void main() {
 
     expect(find.textContaining('不能语音转文字'), findsOneWidget);
     expect(find.textContaining('第一期不做累计用量'), findsOneWidget);
+    expect(find.text('DeepSeek'), findsWidgets);
+
+    await tester.tap(find.byKey(const Key('ai-settings-provider-deepseek')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('OpenCode').last);
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('ai-settings-base-url')))
+          .controller
+          ?.text,
+      'https://opencode.ai/zen/go/v1',
+    );
 
     await tester.enterText(
       find.byKey(const Key('ai-settings-api-key')),
@@ -49,6 +62,8 @@ void main() {
     await tester.tap(find.byKey(const Key('ai-settings-save')));
     await tester.pumpAndSettle();
     expect(store.value.apiKey, 'sk-live');
+    expect(store.value.provider, AiProviderKind.opencode);
+    expect(store.value.baseUrl, 'https://opencode.ai/zen/go/v1');
     expect(store.value.model, 'deepseek-v4-flash');
   });
 
@@ -65,7 +80,7 @@ void main() {
       ),
     );
 
-    expect(find.textContaining('默认模型不支持语音转文字'), findsOneWidget);
+    expect(find.textContaining('不支持语音转文字'), findsOneWidget);
     await tester.tap(find.byKey(const Key('ai-insight-configure')));
     expect(configured, isTrue);
   });

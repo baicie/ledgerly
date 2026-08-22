@@ -12,7 +12,7 @@
 1. **每日消费总结**（本地日历日）
 2. **上月消费总结**（进入新月后补齐，产品语义是「每月 1 号给出」）
 
-默认模型为 DeepSeek V4 Flash（`deepseek-v4-flash`）。设置页可改 Key、Base URL、模型，并说明用量与语音能力边界。
+默认模型为 DeepSeek V4 Flash（`deepseek-v4-flash`）。设置页可选供应商（DeepSeek / OpenCode / 自定义兼容接口），并配置 Key、Base URL、模型，说明用量与语音能力边界。
 
 成功标准：未配置密钥时应用完整可用；配置后打开流水/报表即可看到当日分析，且新月第一次打开会生成上月月报；密钥只留在本机；账本不同步分析结果。
 
@@ -29,9 +29,10 @@
 1. 「ds v4 flush」= DeepSeek V4 Flash，OpenAI 兼容 Chat Completions。
 2. 「给出」总结指应用内卡片，不是系统推送。移动端无法可靠在 00:01 后台唤醒，因此采用 **打开/回到前台时补齐到期分析**。
 3. 用户自备 Key（BYOK）。Ledgerly 服务端不代理模型请求、不保存 Key、不接收分析用账本切片。纯本地模式同样可用。
-4. 第一期不做累计用量看板；卡片可展示最近一次调用的 token。余额请看 DeepSeek 控制台。
+4. 第一期不做累计用量看板；卡片可展示最近一次调用的 token。余额请看所选供应商控制台（DeepSeek 或 OpenCode Zen）。
 5. 分析是设备本地缓存，不进入 Mutation / Change Log。
-6. Flutter Web 直连 `api.deepseek.com` 可能被浏览器 CORS 拦住。设置允许自定义兼容端点；失败时给出明确文案。
+6. Flutter Web 直连官方域名可能被浏览器 CORS 拦住。设置允许自定义兼容端点；失败时给出明确文案。
+7. OpenCode 走 Zen Go 网关（`https://opencode.ai/zen/go/v1`）。预设只包含 Chat Completions 模型；GPT / Claude 走 `/responses` 或 `/messages`，本期不接。该网关无 CORS，**Flutter Web 无法直连**；请用 iOS / Android / 桌面客户端。
 
 ## Product contract
 
@@ -41,13 +42,14 @@
 
 | 项 | 规则 |
 |----|------|
+| 供应商 | DeepSeek（默认）、OpenCode、自定义兼容接口。切换时填入该供应商默认 Base URL；若当前模型仍在新预设中则保留 |
 | API Key | 必填才会调用模型；Native 进安全存储，Web 尽力加密存储 |
-| Base URL | 默认 `https://api.deepseek.com`，须为 http(s) origin |
-| 模型 | 默认 `deepseek-v4-flash`；可选 `deepseek-v4-pro`；可填自定义 ID |
+| Base URL | DeepSeek 默认 `https://api.deepseek.com`；OpenCode 默认 `https://opencode.ai/zen/go/v1`；须为 http(s) origin |
+| 模型 | 默认 `deepseek-v4-flash`。DeepSeek：`flash` / `pro`。OpenCode：另含 `glm-5.2`、`minimax-m2.5`、`kimi-k2.5`、`big-pickle` 等 Completions 模型。可填自定义 ID |
 | 自动分析 | 默认开启。关闭后只保留缓存，需用户点「生成」 |
 | 测试连接 | `GET {base}/models`，不发送账本 |
 | 用量 | 说明第一期无累计统计；卡片可显示最近 token |
-| 能力说明 | 写明默认模型无语音转写；分析会把分类、金额、备注发到用户配置的端点 |
+| 能力说明 | 写明当前文本模型无语音转写；分析会把分类、金额、备注发到用户配置的端点 |
 
 ### 每日分析
 
@@ -83,7 +85,7 @@ Presentation (设置 / 卡片)
 
 - UI 仍只从本地 Drift 读账本；模型输入由本地交易投影而来。
 - 新 Dio 客户端，**不**复用带 Cookie / Bearer 的账本 API 客户端。
-- DeepSeek V4 默认 thinking=on。对本任务关闭 thinking：请求体带 `"thinking": {"type": "disabled"}`（仅当模型或 URL 含 `deepseek`）。
+- DeepSeek 官方接口默认 thinking=on。对本任务关闭 thinking：请求体带 `"thinking": {"type": "disabled"}`（仅当请求打到 `*.deepseek.com`）。OpenCode Zen 即使选用 DeepSeek 模型也不附加该字段，避免网关按严格 OpenAI schema 拒收。
 
 ## Data
 
@@ -178,11 +180,12 @@ apps/client/test/ai/
 
 | 风险 | 处理 |
 |------|------|
-| 浏览器 CORS | 文案 + 自定义 Base URL |
+| 浏览器 CORS | OpenCode / 多数官方接口无 CORS。网页端给出明确文案，保存仍可用；真正调用请用 App。自定义 Base URL 可指向带 CORS 的网关。 |
 | 把过多明细发给模型 | 月报截断 + 备注截断 |
 | thinking 费用 | 默认 disabled |
 | Web 安全存储弱于 Keychain | 文档说明；Key 仍不进普通业务表 |
-| 自定义兼容端点不认 `thinking` | 仅 DeepSeek 端点附加该字段 |
+| 自定义兼容端点不认 `thinking` | 仅官方 DeepSeek 主机附加该字段 |
+| OpenCode 上的 GPT/Claude | 不进预设；用户若手填 ID 仍走 Completions，可能失败 |
 
 ## Out of scope
 

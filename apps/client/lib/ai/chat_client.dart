@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import 'ai_models.dart';
 
@@ -8,8 +9,12 @@ abstract interface class AiChatClient {
   Future<void> ping(AiSettings settings);
 }
 
-class DeepSeekChatClient implements AiChatClient {
-  DeepSeekChatClient({Dio? dio}) : _dio = dio ?? Dio();
+class OpenAiCompatibleChatClient implements AiChatClient {
+  OpenAiCompatibleChatClient({Dio? dio})
+      : _dio = dio ??
+            Dio(
+              BaseOptions(connectTimeout: const Duration(seconds: 15)),
+            );
 
   final Dio _dio;
 
@@ -33,7 +38,7 @@ class DeepSeekChatClient implements AiChatClient {
           if (settings.usesDeepSeekThinking)
             'thinking': const {'type': 'disabled'},
         },
-        options: Options(
+        options: _requestOptions(
           headers: {
             'Authorization': 'Bearer ${settings.apiKey.trim()}',
             'Content-Type': 'application/json',
@@ -60,9 +65,8 @@ class DeepSeekChatClient implements AiChatClient {
       return AiChatResult(
         text: text,
         promptTokens: usage is Map ? _asInt(usage['prompt_tokens']) : null,
-        completionTokens: usage is Map
-            ? _asInt(usage['completion_tokens'])
-            : null,
+        completionTokens:
+            usage is Map ? _asInt(usage['completion_tokens']) : null,
       );
     } on AiChatException {
       rethrow;
@@ -79,9 +83,8 @@ class DeepSeekChatClient implements AiChatClient {
     try {
       await _dio.get<dynamic>(
         '${settings.normalizedBaseUrl}/models',
-        options: Options(
+        options: _requestOptions(
           headers: {'Authorization': 'Bearer ${settings.apiKey.trim()}'},
-          sendTimeout: const Duration(seconds: 10),
           receiveTimeout: const Duration(seconds: 15),
         ),
       );
@@ -92,6 +95,19 @@ class DeepSeekChatClient implements AiChatClient {
       );
     }
   }
+}
+
+Options _requestOptions({
+  required Map<String, String> headers,
+  required Duration receiveTimeout,
+  Duration? sendTimeout,
+}) {
+  return Options(
+    headers: headers,
+    // Dio web forbids sendTimeout unless the request has a body.
+    sendTimeout: kIsWeb ? null : sendTimeout,
+    receiveTimeout: receiveTimeout,
+  );
 }
 
 class AiChatException implements Exception {
@@ -109,9 +125,14 @@ String describeAiError(DioException error) {
   if (status == 401) return 'API Key 无效，请检查设置。';
   if (status == 402) return '模型账户余额不足。';
   if (status == 429) return '请求过于频繁，请稍后再试。';
+  if (_looksLikeCors(error)) {
+    return '浏览器拦截了跨域请求。OpenCode 官方接口不允许网页直连，请保存后在 App 中使用，或改用带 CORS 的兼容网关。';
+  }
   if (error.type == DioExceptionType.connectionError ||
       error.type == DioExceptionType.unknown) {
-    return '无法连接模型服务。Web 端可能受浏览器跨域限制，请改用 App 或兼容端点。';
+    return kIsWeb
+        ? '无法连接模型服务。网页端可能被跨域拦截，请改用 App 或兼容端点。'
+        : '无法连接模型服务，请检查网络和 Base URL。';
   }
   if (error.type == DioExceptionType.receiveTimeout ||
       error.type == DioExceptionType.sendTimeout ||
@@ -119,6 +140,13 @@ String describeAiError(DioException error) {
     return '模型服务超时，请稍后重试。';
   }
   return '模型调用失败${status == null ? '' : '（$status）'}。';
+}
+
+bool _looksLikeCors(DioException error) {
+  final text = '${error.message} ${error.error}'.toLowerCase();
+  return text.contains('cors') ||
+      text.contains('xmlhttprequest') ||
+      text.contains('access-control-allow-origin');
 }
 
 int? _asInt(Object? value) {

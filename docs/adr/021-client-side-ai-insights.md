@@ -6,7 +6,7 @@
 
 ## 决策
 
-AI 消费总结在 **Flutter 客户端** 调用用户配置的 OpenAI 兼容接口。默认模型 `deepseek-v4-flash`。API Key 由用户提供并存储在本机。Ledgerly 服务端不转发 Prompt、不保管模型密钥。
+AI 消费总结在 **Flutter 客户端** 调用用户配置的 OpenAI 兼容接口。默认供应商 DeepSeek、默认模型 `deepseek-v4-flash`。可选 OpenCode（`https://opencode.ai/zen/go/v1`）或其它兼容端点。API Key 由用户提供并存储在本机。Ledgerly 服务端不转发 Prompt、不保管模型密钥。
 
 分析结果写入本地 SQLite 表 `ai_insights`（schema v6 用显式 DDL 创建，不注册进 Drift 生成 schema，避免误入同步协议），作为可丢弃缓存。
 
