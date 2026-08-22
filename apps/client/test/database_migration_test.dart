@@ -39,9 +39,8 @@ void main() {
       addTearDown(db.close);
 
       final state = await db.select(db.syncStates).getSingle();
-      final columns = await db
-          .customSelect("PRAGMA table_info('sync_states')")
-          .get();
+      final columns =
+          await db.customSelect("PRAGMA table_info('sync_states')").get();
       final schema = await db
           .customSelect(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='sync_states'",
@@ -87,9 +86,8 @@ void main() {
     addTearDown(db.close);
 
     final account = await db.select(db.accounts).getSingle();
-    final columns = await db
-        .customSelect("PRAGMA table_info('accounts')")
-        .get();
+    final columns =
+        await db.customSelect("PRAGMA table_info('accounts')").get();
 
     expect(account.parentAccountId, isNull);
     expect(
@@ -119,9 +117,8 @@ void main() {
           "SELECT name FROM sqlite_master WHERE type='table' AND name='ai_insights'",
         )
         .get();
-    final columns = await db
-        .customSelect("PRAGMA table_info('ai_insights')")
-        .get();
+    final columns =
+        await db.customSelect("PRAGMA table_info('ai_insights')").get();
 
     expect(tables, isNotEmpty);
     expect(

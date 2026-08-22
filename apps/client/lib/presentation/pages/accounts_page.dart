@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../design/ledgerly_theme.dart';
+import '../../l10n/l10n.dart';
 import '../providers.dart';
 import '../widgets/ledgerly_finance.dart';
 import '../widgets/ledgerly_layout.dart';
@@ -12,6 +13,7 @@ class AccountsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = l10nOf(context);
     final balances = ref.watch(accountBalancesProvider);
     return Scaffold(
       body: SafeArea(
@@ -28,11 +30,11 @@ class AccountsPage extends ConsumerWidget {
               slivers: [
                 SliverToBoxAdapter(
                   child: LedgerlyPageHeader(
-                    title: '资产账户',
-                    subtitle: '${assetRows.length} 个账户 · 人民币 CNY',
+                    title: l10n.assetAccounts,
+                    subtitle: l10n.accountsSubtitle(assetRows.length),
                     actions: [
                       IconButton(
-                        tooltip: '新建账户',
+                        tooltip: l10n.newAccount,
                         onPressed: () => _createAccount(context, ref),
                         icon: const Icon(Icons.add_circle_outline),
                       ),
@@ -43,8 +45,8 @@ class AccountsPage extends ConsumerWidget {
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
                   sliver: SliverToBoxAdapter(
                     child: LedgerlySummaryCard(
-                      title: '标准账本',
-                      balanceLabel: '净资产',
+                      title: l10n.standardLedger,
+                      balanceLabel: l10n.netWorth,
                       balanceMinor: netWorth,
                       incomeMinor: BigInt.zero,
                       expenseMinor: BigInt.zero,
@@ -56,18 +58,18 @@ class AccountsPage extends ConsumerWidget {
                   padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                   sliver: SliverToBoxAdapter(
                     child: LedgerlySection(
-                      title: '账户明细',
+                      title: l10n.accountDetails,
                       trailing: Text(
-                        '合计 ${formatDisplayMinor(netWorth)}',
+                        l10n.totalWithAmount(formatDisplayMinor(netWorth)),
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       padding: const EdgeInsets.fromLTRB(0, 16, 0, 4),
                       headerPadding: const EdgeInsets.symmetric(horizontal: 16),
                       child: assetRows.isEmpty
-                          ? const LedgerlyEmptyState(
+                          ? LedgerlyEmptyState(
                               icon: Icons.account_balance_wallet_outlined,
-                              title: '还没有资产账户',
-                              message: '新建现金、银行卡或其他资产账户。',
+                              title: l10n.noAssetAccounts,
+                              message: l10n.noAssetAccountsHint,
                             )
                           : Column(
                               children: [
@@ -87,31 +89,33 @@ class AccountsPage extends ConsumerWidget {
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Center(child: Text('账户加载失败：$error')),
+          error: (error, _) =>
+              Center(child: Text(l10n.accountsLoadFailed('$error'))),
         ),
       ),
     );
   }
 
   Future<void> _createAccount(BuildContext context, WidgetRef ref) async {
-    final name = TextEditingController(text: '新账户');
+    final l10n = l10nOf(context);
+    final name = TextEditingController(text: l10n.newAccountName);
     final created = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('新建资产账户'),
+        title: Text(l10n.newAssetAccount),
         content: TextField(
           controller: name,
           autofocus: true,
-          decoration: const InputDecoration(labelText: '账户名称'),
+          decoration: InputDecoration(labelText: l10n.accountName),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('创建'),
+            child: Text(l10n.create),
           ),
         ],
       ),
@@ -144,8 +148,12 @@ class _AccountTile extends StatelessWidget {
         icon: ledgerIconFor(row.name),
         color: color,
       ),
-      title: Text(localizedLedgerName(row.name)),
-      subtitle: Text(row.type == 'liability' ? '负债账户' : '资产账户'),
+      title: Text(localizedLedgerName(l10nOf(context), row.name)),
+      subtitle: Text(
+        row.type == 'liability'
+            ? l10nOf(context).liabilityAccount
+            : l10nOf(context).assetAccount,
+      ),
       trailing: Text(
         formatDisplayMinor(row.balance),
         style: Theme.of(context).textTheme.titleMedium?.copyWith(

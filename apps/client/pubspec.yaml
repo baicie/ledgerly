@@ -12,6 +12,7 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  intl: any
   cupertino_icons: ^1.0.8
   flutter_riverpod: ^2.6.1
   riverpod: ^2.6.1
@@ -39,4 +40,5 @@ dev_dependencies:
   sqlite3: ^3.5.0
 
 flutter:
+  generate: true
   uses-material-design: true

@@ -1,5 +1,6 @@
 import '../data/ledger_repository.dart';
 import '../domain/ids.dart';
+import '../l10n/l10n.dart';
 import 'ai_models.dart';
 import 'chat_client.dart';
 import 'insight_parser.dart';
@@ -86,7 +87,9 @@ class InsightService {
         model: settings.model,
         promptVersion: AiSettings.promptVersion,
         generatedAt: DateTime.now().toUtc(),
-        headline: period.kind == InsightKind.daily ? '当日暂无消费' : '当月暂无消费',
+        headline: period.kind == InsightKind.daily
+            ? L10n.current.insightEmptyDaily
+            : L10n.current.insightEmptyMonthly,
         content: const AiInsightContent(
           headline: '',
           highlights: [],
@@ -162,7 +165,7 @@ class InsightService {
         kind: period.kind,
         periodKey: period.key,
         periodLabel: period.label,
-        headline: '尚未生成分析',
+        headline: L10n.current.insightNotGenerated,
       );
     }
     return AiInsightView(

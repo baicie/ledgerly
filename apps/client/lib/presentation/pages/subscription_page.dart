@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/l10n.dart';
 import '../providers.dart';
 
 class SubscriptionPage extends ConsumerStatefulWidget {
@@ -37,7 +38,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
       final res = await ref.read(syncApiProvider).devUpgrade(plan: plan);
       setState(() {
         _plan = '${res['plan']}';
-        _message = '已升级';
+        _message = L10n.current.upgraded;
       });
     } catch (e) {
       setState(() => _message = e.toString());
@@ -46,27 +47,28 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('订阅权益')),
+      appBar: AppBar(title: Text(l10n.subscription)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          ListTile(title: const Text('当前方案'), subtitle: Text(_plan)),
+          ListTile(title: Text(l10n.currentPlan), subtitle: Text(_plan)),
           if (_message != null) Text(_message!),
           const Divider(),
           FilledButton(
             onPressed: () => _upgrade('plus'),
-            child: const Text('开发升级 Plus（附件/高级报表）'),
+            child: Text(l10n.devUpgradePlus),
           ),
           const SizedBox(height: 8),
           FilledButton(
             onPressed: () => _upgrade('family'),
-            child: const Text('开发升级 Family（邀请）'),
+            child: Text(l10n.devUpgradeFamily),
           ),
           const SizedBox(height: 8),
           OutlinedButton(
             onPressed: () => _upgrade('free'),
-            child: const Text('降回 Free'),
+            child: Text(l10n.downgradeFree),
           ),
         ],
       ),

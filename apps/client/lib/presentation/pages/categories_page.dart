@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/ledger_repository.dart';
+import '../../l10n/l10n.dart';
 import '../design/ledgerly_theme.dart';
 import '../providers.dart';
 import '../widgets/ledgerly_finance.dart';
@@ -17,8 +18,6 @@ class CategoriesPage extends ConsumerStatefulWidget {
 
 class _CategoriesPageState extends ConsumerState<CategoriesPage> {
   var _type = 'expense';
-
-  String get _typeLabel => _type == 'income' ? '收入' : '支出';
 
   Future<void> _openEditor({
     CategoryAccountRow? category,
@@ -40,14 +39,16 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
+    final typeLabel = _type == 'income' ? l10n.income : l10n.expense;
     final categories = ref.watch(categoryAccountsProvider(_type));
     return Scaffold(
       appBar: AppBar(
-        title: const Text('分类管理'),
+        title: Text(l10n.categoryManagement),
         actions: [
           IconButton(
             key: const Key('category-add'),
-            tooltip: '新建分类',
+            tooltip: l10n.newCategory,
             onPressed: _addCategory,
             icon: const Icon(Icons.add_circle_outline_rounded),
           ),
@@ -64,22 +65,22 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
                 child: SizedBox(
                   width: double.infinity,
                   child: SegmentedButton<String>(
-                    segments: const [
+                    segments: [
                       ButtonSegment(
                         value: 'expense',
                         label: Text(
-                          '支出',
-                          key: Key('category-type-expense'),
+                          l10n.expense,
+                          key: const Key('category-type-expense'),
                         ),
-                        icon: Icon(Icons.arrow_upward_rounded),
+                        icon: const Icon(Icons.arrow_upward_rounded),
                       ),
                       ButtonSegment(
                         value: 'income',
                         label: Text(
-                          '收入',
-                          key: Key('category-type-income'),
+                          l10n.income,
+                          key: const Key('category-type-income'),
                         ),
-                        icon: Icon(Icons.arrow_downward_rounded),
+                        icon: const Icon(Icons.arrow_downward_rounded),
                       ),
                     ],
                     selected: {_type},
@@ -107,9 +108,12 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
                   padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                   sliver: SliverToBoxAdapter(
                     child: LedgerlySection(
-                      title: '$_typeLabel分类',
+                      title: l10n.categoryTypeHeading(typeLabel),
                       trailing: Text(
-                        '${roots.length} 个一级 · $secondLevelCount 个二级',
+                        l10n.categoryLevelCounts(
+                          roots.length,
+                          secondLevelCount,
+                        ),
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       padding: const EdgeInsets.fromLTRB(0, 16, 0, 4),
@@ -117,12 +121,12 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
                       child: rows.isEmpty
                           ? LedgerlyEmptyState(
                               icon: Icons.category_outlined,
-                              title: '还没有$_typeLabel分类',
-                              message: '新建一级分类后即可继续添加二级分类。',
+                              title: l10n.noCategoriesOfType(typeLabel),
+                              message: l10n.noCategoriesHint,
                               action: FilledButton.icon(
                                 onPressed: _addCategory,
                                 icon: const Icon(Icons.add_rounded),
-                                label: const Text('新建分类'),
+                                label: Text(l10n.newCategory),
                               ),
                             )
                           : Column(
@@ -174,13 +178,13 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
                           color: LedgerlyColors.income,
                         ),
                         const SizedBox(height: 8),
-                        const Text('分类加载失败'),
+                        Text(l10n.categoriesLoadFailed),
                         const SizedBox(height: 12),
                         OutlinedButton.icon(
                           onPressed: () =>
                               ref.invalidate(categoryAccountsProvider(_type)),
                           icon: const Icon(Icons.refresh_rounded),
-                          label: const Text('重试'),
+                          label: Text(l10n.retry),
                         ),
                       ],
                     ),
@@ -212,6 +216,8 @@ class _CategoryGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
+    final name = localizedLedgerName(l10n, category.name);
     final kind = category.type == 'income'
         ? TransactionSummaryKind.income
         : TransactionSummaryKind.expense;
@@ -229,25 +235,27 @@ class _CategoryGroup extends StatelessWidget {
               color: color,
             ),
             title: Text(
-              localizedLedgerName(category.name),
+              name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
             subtitle: Text(
-              children.isEmpty ? '暂无二级分类' : '${children.length} 个二级分类',
+              children.isEmpty
+                  ? l10n.noSecondLevelCategories
+                  : l10n.secondLevelCount(children.length),
             ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
                   key: Key('category-add-child-${category.id}'),
-                  tooltip: '在${localizedLedgerName(category.name)}下新增二级分类',
+                  tooltip: l10n.addChildCategoryUnder(name),
                   onPressed: onAddChild,
                   icon: const Icon(Icons.add_rounded),
                 ),
                 IconButton(
                   key: Key('edit-category-${category.id}'),
-                  tooltip: '编辑${localizedLedgerName(category.name)}',
+                  tooltip: l10n.editNamedCategory(name),
                   onPressed: onEdit,
                   icon: const Icon(Icons.edit_outlined),
                 ),
@@ -278,6 +286,8 @@ class _SecondLevelCategoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
+    final name = localizedLedgerName(l10n, category.name);
     final kind = category.type == 'income'
         ? TransactionSummaryKind.income
         : TransactionSummaryKind.expense;
@@ -291,14 +301,14 @@ class _SecondLevelCategoryTile extends StatelessWidget {
         size: 34,
       ),
       title: Text(
-        localizedLedgerName(category.name),
+        name,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      subtitle: const Text('二级分类'),
+      subtitle: Text(l10n.secondLevelCategory),
       trailing: IconButton(
         key: Key('edit-category-${category.id}'),
-        tooltip: '编辑${localizedLedgerName(category.name)}',
+        tooltip: l10n.editNamedCategory(name),
         onPressed: onEdit,
         icon: const Icon(Icons.edit_outlined),
       ),

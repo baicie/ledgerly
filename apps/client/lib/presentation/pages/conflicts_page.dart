@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/ledger_repository.dart';
+import '../../l10n/l10n.dart';
 import '../providers.dart';
 
 class ConflictsPage extends ConsumerWidget {
@@ -9,13 +10,14 @@ class ConflictsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = l10nOf(context);
     final conflicts = ref.watch(conflictsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('冲突处理')),
+      appBar: AppBar(title: Text(l10n.conflicts)),
       body: conflicts.when(
         data: (items) {
           if (items.isEmpty) {
-            return const Center(child: Text('当前无冲突'));
+            return Center(child: Text(l10n.noConflicts));
           }
           return ListView.builder(
             itemCount: items.length,
@@ -24,14 +26,19 @@ class ConflictsPage extends ConsumerWidget {
               return ListTile(
                 title: Text(c.entityId),
                 subtitle: Text(
-                  '${c.reason} · 远端版本 ${c.remoteVersion?.toString() ?? '未知'}',
+                  l10n.conflictSubtitle(
+                    c.reason,
+                    c.remoteVersion?.toString() ?? l10n.unknown,
+                  ),
                 ),
                 trailing: Wrap(
                   spacing: 4,
                   children: [
                     TextButton.icon(
                       onPressed: () async {
-                        await ref.read(ledgerRepositoryProvider).resolveConflict(
+                        await ref
+                            .read(ledgerRepositoryProvider)
+                            .resolveConflict(
                               c.id,
                               resolution: ConflictResolution.useRemote,
                             );
@@ -39,11 +46,13 @@ class ConflictsPage extends ConsumerWidget {
                         ref.invalidate(syncStatusProvider);
                       },
                       icon: const Icon(Icons.cloud_done_outlined),
-                      label: const Text('采用远端'),
+                      label: Text(l10n.useRemote),
                     ),
                     FilledButton.icon(
                       onPressed: () async {
-                        await ref.read(ledgerRepositoryProvider).resolveConflict(
+                        await ref
+                            .read(ledgerRepositoryProvider)
+                            .resolveConflict(
                               c.id,
                               resolution: ConflictResolution.keepLocal,
                             );
@@ -51,7 +60,7 @@ class ConflictsPage extends ConsumerWidget {
                         ref.invalidate(syncStatusProvider);
                       },
                       icon: const Icon(Icons.replay_outlined),
-                      label: const Text('保留本地'),
+                      label: Text(l10n.keepLocal),
                     ),
                   ],
                 ),

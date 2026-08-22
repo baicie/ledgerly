@@ -4,6 +4,7 @@ import '../data/database.dart';
 import '../data/ledger_repository.dart';
 import '../domain/default_categories.dart';
 import '../domain/ids.dart';
+import '../l10n/l10n.dart';
 
 class LedgerAppService {
   LedgerAppService(this._repo);
@@ -250,7 +251,7 @@ class LedgerAppService {
     }
     if (category == null ||
         (category.type != 'expense' && category.type != 'income')) {
-      throw const CategoryValidationException('分类不存在');
+      throw CategoryValidationException(L10n.current.categoryNotFound);
     }
 
     await updateCategory(
@@ -275,7 +276,7 @@ class LedgerAppService {
     }
     if (category == null ||
         (category.type != 'expense' && category.type != 'income')) {
-      throw const CategoryValidationException('分类不存在');
+      throw CategoryValidationException(L10n.current.categoryNotFound);
     }
 
     _validateCategoryParent(
@@ -286,7 +287,8 @@ class LedgerAppService {
     );
     if (parentCategoryId != null &&
         accounts.any((account) => account.parentAccountId == category!.id)) {
-      throw const CategoryValidationException('包含二级分类的一级分类不能改为二级');
+      throw CategoryValidationException(
+          L10n.current.cannotNestRootWithChildren);
     }
 
     final normalizedName = _normalizeCategoryName(name);
@@ -306,17 +308,17 @@ class LedgerAppService {
   String _normalizeCategoryName(String name) {
     final normalized = name.trim();
     if (normalized.isEmpty) {
-      throw const CategoryValidationException('请输入分类名称');
+      throw CategoryValidationException(L10n.current.enterCategoryName);
     }
     if (normalized.length > 24) {
-      throw const CategoryValidationException('分类名称不能超过 24 个字符');
+      throw CategoryValidationException(L10n.current.categoryNameTooLong);
     }
     return normalized;
   }
 
   void _validateCategoryType(String type) {
     if (type != 'expense' && type != 'income') {
-      throw const CategoryValidationException('分类类型无效');
+      throw CategoryValidationException(L10n.current.invalidCategoryType);
     }
   }
 
@@ -328,7 +330,7 @@ class LedgerAppService {
   }) {
     if (parentCategoryId == null) return;
     if (parentCategoryId == categoryId) {
-      throw const CategoryValidationException('分类不能作为自己的上级分类');
+      throw CategoryValidationException(L10n.current.categoryCannotBeOwnParent);
     }
 
     Account? parent;
@@ -341,10 +343,10 @@ class LedgerAppService {
     if (parent == null ||
         parent.type != categoryType ||
         (parent.type != 'expense' && parent.type != 'income')) {
-      throw const CategoryValidationException('请选择同类型的一级分类');
+      throw CategoryValidationException(L10n.current.chooseSameTypeParent);
     }
     if (parent.parentAccountId != null) {
-      throw const CategoryValidationException('分类最多只能分为两级');
+      throw CategoryValidationException(L10n.current.categoryMaxTwoLevels);
     }
   }
 
@@ -363,7 +365,7 @@ class LedgerAppService {
           _categoryComparisonKey(account.name) == normalizedName,
     );
     if (duplicate) {
-      throw const CategoryValidationException('同类型下已存在该分类');
+      throw CategoryValidationException(L10n.current.duplicateCategoryName);
     }
   }
 

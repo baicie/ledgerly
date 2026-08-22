@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/l10n.dart';
 import '../providers.dart';
 
 class SyncCenterPage extends ConsumerWidget {
@@ -8,10 +9,11 @@ class SyncCenterPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = l10nOf(context);
     final status = ref.watch(syncStatusProvider);
     final isLocal = ref.watch(apiEndpointProvider) == null;
     return Scaffold(
-      appBar: AppBar(title: const Text('同步中心')),
+      appBar: AppBar(title: Text(l10n.syncCenter)),
       body: status.when(
         data: (s) => Padding(
           padding: const EdgeInsets.all(16),
@@ -20,16 +22,17 @@ class SyncCenterPage extends ConsumerWidget {
             children: [
               if (isLocal) ...[
                 Text(
-                  '仅本地存储',
+                  l10n.localOnlyStorage,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 8),
               ],
-              Text('状态：${s.label}'),
-              Text('游标：${s.cursor}'),
-              Text('待推送：${s.pendingCount}'),
-              if (s.remoteBookId != null) Text('远端账本：${s.remoteBookId}'),
-              if (s.lastError != null) Text('错误：${s.lastError}'),
+              Text(l10n.statusLabel(s.label)),
+              Text(l10n.cursorLabel(s.cursor)),
+              Text(l10n.pendingLabel(s.pendingCount)),
+              if (s.remoteBookId != null)
+                Text(l10n.remoteBookLabel(s.remoteBookId!)),
+              if (s.lastError != null) Text(l10n.errorLabel(s.lastError!)),
               if (!isLocal) ...[
                 const SizedBox(height: 16),
                 FilledButton(
@@ -47,14 +50,14 @@ class SyncCenterPage extends ConsumerWidget {
                         SnackBar(
                           content: Text(
                             result.ok
-                                ? '同步成功 cursor=${result.cursor}'
-                                : '同步失败：${result.message}',
+                                ? l10n.syncSuccess(result.cursor)
+                                : l10n.syncFailed(result.message),
                           ),
                         ),
                       );
                     }
                   },
-                  child: const Text('立即同步'),
+                  child: Text(l10n.syncNow),
                 ),
               ],
             ],

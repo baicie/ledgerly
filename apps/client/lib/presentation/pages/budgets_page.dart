@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/l10n.dart';
 import '../design/ledgerly_theme.dart';
 import '../providers.dart';
 import '../widgets/ledgerly_finance.dart';
@@ -48,7 +49,9 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
     try {
       final bookId = await _remoteBookId();
       if (bookId == null) {
-        if (mounted) setState(() => _message = '尚未登录同步，无法加载预算目标');
+        if (mounted) {
+          setState(() => _message = L10n.current.notSignedInBudgets);
+        }
         return;
       }
       final list = await ref.read(syncApiProvider).listBudgets(bookId: bookId);
@@ -66,7 +69,7 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
 
   Future<void> _openCreateSheet(List<CategoryAccountRow> categories) async {
     if (categories.isEmpty) {
-      setState(() => _message = '请先创建一个支出分类，再设置预算目标');
+      setState(() => _message = L10n.current.createExpenseCategoryFirst);
       return;
     }
     final draft = await showModalBottomSheet<_BudgetDraft>(
@@ -91,7 +94,7 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
     try {
       final bookId = await _remoteBookId();
       if (bookId == null) {
-        setState(() => _message = '尚未登录同步，无法创建预算目标');
+        setState(() => _message = L10n.current.notSignedInCreateBudget);
         return;
       }
       await ref.read(syncApiProvider).createBudget(
@@ -115,45 +118,48 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
   }
 
   String _categoryLabel(
+    AppLocalizations l10n,
     Map<String, dynamic> budget,
     List<CategoryAccountRow> categories,
   ) {
     final remoteId = budget['categoryAccountId']?.toString();
-    if (remoteId == null || remoteId.isEmpty) return '全部支出';
+    if (remoteId == null || remoteId.isEmpty) return l10n.allExpenses;
     final key = remoteId.split(':').last;
     for (final category in categories) {
       if (category.id.split(':').last == key) {
-        return _categoryDisplayName(category, categories);
+        return _categoryDisplayName(l10n, category, categories);
       }
     }
-    return '支出分类';
+    return l10n.expenseCategory;
   }
 
   String _categoryDisplayName(
+    AppLocalizations l10n,
     CategoryAccountRow category,
     List<CategoryAccountRow> categories,
   ) {
     if (category.parentAccountId == null) {
-      return localizedLedgerName(category.name);
+      return localizedLedgerName(l10n, category.name);
     }
     for (final parent in categories) {
       if (parent.id == category.parentAccountId) {
-        return '${localizedLedgerName(parent.name)} / ${localizedLedgerName(category.name)}';
+        return '${localizedLedgerName(l10n, parent.name)} / ${localizedLedgerName(l10n, category.name)}';
       }
     }
-    return localizedLedgerName(category.name);
+    return localizedLedgerName(l10n, category.name);
   }
 
   String _friendlyError(Object error) {
     final text = error.toString();
     if (text.contains('SocketException') || text.contains('connection')) {
-      return '无法连接服务，请检查网络后重试';
+      return L10n.current.cannotReachService;
     }
-    return '预算目标加载失败，请稍后重试';
+    return L10n.current.budgetsLoadFailed;
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
     final categoriesState = ref.watch(categoryAccountsProvider('expense'));
     final categories =
         categoriesState.valueOrNull ?? const <CategoryAccountRow>[];
@@ -161,15 +167,15 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('预算目标'),
+        title: Text(l10n.budgetTargets),
         actions: [
           IconButton(
-            tooltip: '刷新预算目标',
+            tooltip: l10n.refreshBudgets,
             onPressed: _busy ? null : _load,
             icon: const Icon(Icons.refresh_rounded),
           ),
           IconButton(
-            tooltip: '新增预算目标',
+            tooltip: l10n.addBudget,
             onPressed: _busy ? null : () => _openCreateSheet(categories),
             icon: const Icon(Icons.add_rounded),
           ),
@@ -204,8 +210,8 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
                     ? LedgerlySection(
                         child: LedgerlyEmptyState(
                           icon: Icons.flag_outlined,
-                          title: '还没有预算目标',
-                          message: '为支出分类设定每月上限，随时掌握进度。',
+                          title: l10n.noBudgets,
+                          message: l10n.noBudgetsHint,
                           action: categoriesState.isLoading
                               ? const SizedBox.square(
                                   dimension: 24,
@@ -215,14 +221,14 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
                               : FilledButton.icon(
                                   onPressed: () => _openCreateSheet(categories),
                                   icon: const Icon(Icons.add_rounded),
-                                  label: const Text('设置第一个目标'),
+                                  label: Text(l10n.setFirstBudget),
                                 ),
                         ),
                       )
                     : LedgerlySection(
-                        title: '本月目标',
+                        title: l10n.thisMonthTargets,
                         trailing: Text(
-                          '${_budgets.length} 项',
+                          l10n.itemCount(_budgets.length),
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                         padding: const EdgeInsets.fromLTRB(0, 14, 0, 0),
@@ -244,6 +250,7 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
                                     _BudgetTile(
                                       budget: _budgets[index],
                                       categoryLabel: _categoryLabel(
+                                        l10n,
                                         _budgets[index],
                                         categories,
                                       ),
@@ -307,16 +314,23 @@ class _BudgetEditorState extends State<_BudgetEditor> {
         orElse: () => widget.categories.first,
       );
 
-  String _categoryDisplayName(CategoryAccountRow category) {
+  String _categoryDisplayName(
+    AppLocalizations l10n,
+    CategoryAccountRow category,
+  ) {
     if (category.parentAccountId == null) {
-      return localizedLedgerName(category.name);
+      return localizedLedgerName(l10n, category.name);
     }
     for (final parent in widget.categories) {
       if (parent.id == category.parentAccountId) {
-        return '${localizedLedgerName(parent.name)} / ${localizedLedgerName(category.name)}';
+        return '${localizedLedgerName(l10n, parent.name)} / ${localizedLedgerName(l10n, category.name)}';
       }
     }
-    return localizedLedgerName(category.name);
+    return localizedLedgerName(l10n, category.name);
+  }
+
+  String _defaultName(AppLocalizations l10n, CategoryAccountRow category) {
+    return l10n.budgetDefaultName(localizedLedgerName(l10n, category.name));
   }
 
   @override
@@ -325,8 +339,9 @@ class _BudgetEditorState extends State<_BudgetEditor> {
     _categoryId = widget.categories.any((c) => c.id == widget.initialCategoryId)
         ? widget.initialCategoryId!
         : widget.categories.first.id;
-    _name =
-        TextEditingController(text: '本月${localizedLedgerName(_category.name)}');
+    _name = TextEditingController(
+      text: _defaultName(L10n.current, _category),
+    );
     _amount = TextEditingController();
   }
 
@@ -338,13 +353,14 @@ class _BudgetEditorState extends State<_BudgetEditor> {
   }
 
   void _submit() {
+    final l10n = l10nOf(context);
     final amount = parseBudgetAmountMinor(_amount.text);
     if (amount == null) {
-      setState(() => _error = '请输入大于 0 且最多两位小数的金额');
+      setState(() => _error = l10n.enterPositiveDecimalAmount);
       return;
     }
     final name = _name.text.trim().isEmpty
-        ? '本月${localizedLedgerName(_category.name)}'
+        ? _defaultName(l10n, _category)
         : _name.text.trim();
     Navigator.of(context).pop(
       _BudgetDraft(name: name, amountMinor: amount, categoryId: _categoryId),
@@ -353,6 +369,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 12, 20, bottomInset + 20),
@@ -363,11 +380,13 @@ class _BudgetEditorState extends State<_BudgetEditor> {
           Row(
             children: [
               Expanded(
-                child: Text('设置预算目标',
-                    style: Theme.of(context).textTheme.titleLarge),
+                child: Text(
+                  l10n.setBudgetTarget,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
               ),
               IconButton(
-                tooltip: '关闭',
+                tooltip: l10n.close,
                 onPressed: () => Navigator.pop(context),
                 icon: const Icon(Icons.close_rounded),
               ),
@@ -376,23 +395,24 @@ class _BudgetEditorState extends State<_BudgetEditor> {
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             initialValue: _categoryId,
-            decoration: const InputDecoration(
-              labelText: '支出分类',
-              prefixIcon: Icon(Icons.category_outlined),
+            decoration: InputDecoration(
+              labelText: l10n.expenseCategory,
+              prefixIcon: const Icon(Icons.category_outlined),
             ),
             items: [
               for (final category in widget.categories)
                 DropdownMenuItem(
                   value: category.id,
-                  child: Text(_categoryDisplayName(category)),
+                  child: Text(_categoryDisplayName(l10n, category)),
                 ),
             ],
             onChanged: (value) {
               if (value == null) return;
+              final previousDefault = _defaultName(l10n, _category);
               setState(() {
                 _categoryId = value;
-                if (_name.text.isEmpty || _name.text.startsWith('本月')) {
-                  _name.text = '本月${localizedLedgerName(_category.name)}';
+                if (_name.text.isEmpty || _name.text == previousDefault) {
+                  _name.text = _defaultName(l10n, _category);
                 }
               });
             },
@@ -401,9 +421,9 @@ class _BudgetEditorState extends State<_BudgetEditor> {
           TextField(
             controller: _name,
             textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: '目标名称',
-              prefixIcon: Icon(Icons.edit_outlined),
+            decoration: InputDecoration(
+              labelText: l10n.targetName,
+              prefixIcon: const Icon(Icons.edit_outlined),
             ),
           ),
           const SizedBox(height: 12),
@@ -414,7 +434,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => _submit(),
             decoration: InputDecoration(
-              labelText: '每月金额',
+              labelText: l10n.monthlyAmount,
               prefixText: '¥ ',
               prefixIcon: const Icon(Icons.flag_outlined),
               errorText: _error,
@@ -424,7 +444,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
           FilledButton.icon(
             onPressed: _submit,
             icon: const Icon(Icons.check_rounded),
-            label: const Text('保存目标'),
+            label: Text(l10n.saveTarget),
           ),
         ],
       ),
@@ -440,14 +460,15 @@ class _BudgetSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
     final progress = totalLimit == BigInt.zero
         ? 0.0
         : (totalSpent.toDouble() / totalLimit.toDouble()).clamp(0.0, 1.0);
     final over = totalSpent > totalLimit;
     return LedgerlySection(
-      title: '本月总目标',
+      title: l10n.monthTotalTarget,
       trailing: Text(
-        over ? '已超出' : '${(progress * 100).round()}%',
+        over ? l10n.overBudget : '${(progress * 100).round()}%',
         style: TextStyle(
           color: over ? LedgerlyColors.income : LedgerlyColors.brand,
           fontWeight: FontWeight.w700,
@@ -495,6 +516,7 @@ class _BudgetTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
     final limit = BigInt.tryParse('${budget['amountMinor']}') ?? BigInt.zero;
     final spent =
         BigInt.tryParse('${budget['spentMinor'] ?? '0'}') ?? BigInt.zero;
@@ -524,13 +546,13 @@ class _BudgetTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${budget['name'] ?? '预算目标'}',
+                      '${budget['name'] ?? l10n.budgetTarget}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     Text(
-                      '每月 · $categoryLabel',
+                      l10n.monthlyWithCategory(categoryLabel),
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ],
@@ -554,14 +576,14 @@ class _BudgetTile extends StatelessWidget {
           Row(
             children: [
               Text(
-                '已用 ${formatDisplayMinor(spent)}',
+                l10n.spentAmount(formatDisplayMinor(spent)),
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const Spacer(),
               Text(
                 over
-                    ? '超出 ${formatDisplayMinor(spent - limit)}'
-                    : '剩余 ${formatDisplayMinor(remaining)}',
+                    ? l10n.overByAmount(formatDisplayMinor(spent - limit))
+                    : l10n.remainingAmount(formatDisplayMinor(remaining)),
                 style: TextStyle(
                   color: over ? LedgerlyColors.income : LedgerlyColors.muted,
                   fontSize: 14,
@@ -596,7 +618,7 @@ class _ErrorBanner extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(child: Text(message)),
             IconButton(
-              tooltip: '重试',
+              tooltip: l10nOf(context).retry,
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded),
             ),

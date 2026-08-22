@@ -56,29 +56,29 @@ CREATE TABLE IF NOT EXISTS ai_insights (
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-    onCreate: (m) async {
-      await m.createAll();
-      await customStatement(aiInsightsTableDdl);
-    },
-    onUpgrade: (m, from, to) async {
-      if (from < 2) {
-        await m.addColumn(transactions, transactions.deletedAt);
-        await m.createTable(pendingMutations);
-        await m.createTable(syncStates);
-        await m.createTable(syncConflicts);
-      }
-      if (from < 3) {
-        await m.addColumn(syncStates, syncStates.remoteBookId);
-      }
-      if (from < 4) {
-        await m.alterTable(TableMigration(syncStates));
-      }
-      if (from < 5) {
-        await m.addColumn(accounts, accounts.parentAccountId);
-      }
-      if (from < 6) {
-        await customStatement(aiInsightsTableDdl);
-      }
-    },
-  );
+        onCreate: (m) async {
+          await m.createAll();
+          await customStatement(aiInsightsTableDdl);
+        },
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.addColumn(transactions, transactions.deletedAt);
+            await m.createTable(pendingMutations);
+            await m.createTable(syncStates);
+            await m.createTable(syncConflicts);
+          }
+          if (from < 3) {
+            await m.addColumn(syncStates, syncStates.remoteBookId);
+          }
+          if (from < 4) {
+            await m.alterTable(TableMigration(syncStates));
+          }
+          if (from < 5) {
+            await m.addColumn(accounts, accounts.parentAccountId);
+          }
+          if (from < 6) {
+            await customStatement(aiInsightsTableDdl);
+          }
+        },
+      );
 }

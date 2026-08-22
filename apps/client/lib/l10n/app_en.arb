@@ -1,0 +1,765 @@
+{
+  "@@locale": "en",
+  "appTitle": "Ledgerly",
+  "cancel": "Cancel",
+  "confirm": "Confirm",
+  "close": "Close",
+  "save": "Save",
+  "saving": "Saving",
+  "savingEllipsis": "Saving…",
+  "retry": "Retry",
+  "create": "Create",
+  "unknown": "Unknown",
+  "show": "Show",
+  "hide": "Hide",
+  "processing": "Working…",
+  "navFeed": "Feed",
+  "navAssets": "Assets",
+  "navReports": "Reports",
+  "navMe": "Me",
+  "addTransaction": "Add",
+  "monthPickerLabel": "{year}-{month}",
+  "@monthPickerLabel": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      },
+      "month": {
+        "type": "int"
+      }
+    }
+  },
+  "previousMonth": "Previous month",
+  "nextMonth": "Next month",
+  "weekdayMon": "Mon",
+  "weekdayTue": "Tue",
+  "weekdayWed": "Wed",
+  "weekdayThu": "Thu",
+  "weekdayFri": "Fri",
+  "weekdaySat": "Sat",
+  "weekdaySun": "Sun",
+  "feedDayLabel": "{weekday}, {month}/{day}",
+  "@feedDayLabel": {
+    "placeholders": {
+      "month": {
+        "type": "int"
+      },
+      "day": {
+        "type": "int"
+      },
+      "weekday": {
+        "type": "String"
+      }
+    }
+  },
+  "fullDateLabel": "{year}-{month}-{day}",
+  "@fullDateLabel": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      },
+      "month": {
+        "type": "int"
+      },
+      "day": {
+        "type": "int"
+      }
+    }
+  },
+  "insightDailyDate": "{year}-{month}-{day}",
+  "@insightDailyDate": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      },
+      "month": {
+        "type": "int"
+      },
+      "day": {
+        "type": "int"
+      }
+    }
+  },
+  "insightMonthlyDate": "{year}-{month}",
+  "@insightMonthlyDate": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      },
+      "month": {
+        "type": "int"
+      }
+    }
+  },
+  "trendChartLabel": "Daily income and expense trend for {year}-{month}",
+  "@trendChartLabel": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      },
+      "month": {
+        "type": "int"
+      }
+    }
+  },
+  "uncategorized": "Uncategorized",
+  "accountCash": "Cash",
+  "accountBank": "Bank",
+  "accountTransfer": "Transfer",
+  "accountOther": "Other",
+  "categoryFood": "Food",
+  "categoryMeals": "Meals",
+  "categoryDrinksSnacks": "Drinks & snacks",
+  "categoryTransport": "Transport",
+  "categoryPublicTransport": "Public transport",
+  "categoryTaxi": "Taxi",
+  "categoryCarExpenses": "Car",
+  "categoryShopping": "Shopping",
+  "categoryDailyEssentials": "Essentials",
+  "categoryClothing": "Clothing",
+  "categoryElectronics": "Electronics",
+  "categoryHousing": "Housing",
+  "categoryRentMortgage": "Rent & mortgage",
+  "categoryUtilities": "Utilities",
+  "categoryPropertyServices": "Property",
+  "categoryLeisure": "Leisure",
+  "categoryEntertainment": "Entertainment",
+  "categoryFitness": "Fitness",
+  "categoryTravel": "Travel",
+  "categoryHealthcare": "Healthcare",
+  "categoryMedicalCare": "Medical care",
+  "categoryMedicine": "Medicine",
+  "categoryEducation": "Education",
+  "categoryBooks": "Books",
+  "categoryCourses": "Courses",
+  "categoryOtherExpense": "Other expense",
+  "categorySalary": "Salary",
+  "categoryBaseSalary": "Base salary",
+  "categoryBonus": "Bonus",
+  "categorySideIncome": "Side income",
+  "categoryFreelance": "Freelance",
+  "categoryBusinessIncome": "Business",
+  "categoryInvestmentIncome": "Investments",
+  "categoryInterest": "Interest",
+  "categoryDividends": "Dividends",
+  "categoryOtherIncome": "Other income",
+  "assetAccounts": "Asset accounts",
+  "accountsSubtitle": "{count} accounts · CNY",
+  "@accountsSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "newAccount": "New account",
+  "standardLedger": "Standard book",
+  "netWorth": "Net worth",
+  "accountDetails": "Accounts",
+  "totalWithAmount": "Total {amount}",
+  "@totalWithAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "noAssetAccounts": "No asset accounts yet",
+  "noAssetAccountsHint": "Add cash, bank, or other asset accounts.",
+  "accountsLoadFailed": "Could not load accounts: {error}",
+  "@accountsLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "newAccountName": "New account",
+  "newAssetAccount": "New asset account",
+  "accountName": "Account name",
+  "liabilityAccount": "Liability",
+  "assetAccount": "Asset",
+  "allTransactions": "All activity",
+  "monthlyFeedStats": "This month",
+  "feedLoadFailed": "Could not load activity: {error}",
+  "@feedLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "insightLoadFailed": "Could not load insight: {error}",
+  "@insightLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "emptyMonthTitle": "No activity this month",
+  "emptyMonthMessage": "Tap + to add the first entry.",
+  "dayNet": "Day net",
+  "deleteTransaction": "Delete",
+  "monthlyInsightEntryTitle": "Monthly insight",
+  "monthlyInsightEntrySubtitle": "Open Reports to see this month’s AI summary",
+  "reportsTitle": "Reports",
+  "localShort": "Local",
+  "syncedShort": "Synced",
+  "refreshRemoteSummary": "Refresh server summary",
+  "monthlyFlowStats": "This month",
+  "incomeSources": "Income",
+  "noIncomeThisMonth": "No income this month",
+  "expenseBreakdown": "Expenses",
+  "noExpenseThisMonth": "No expenses this month",
+  "monthlyTrend": "Trend",
+  "transactionCountLabel": "{count} entries",
+  "@transactionCountLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "rankingTrailing": "{count} · {amount}",
+  "@rankingTrailing": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "cloudCheck": "Cloud check",
+  "remoteNet": "Server net {net} · {currency}",
+  "@remoteNet": {
+    "placeholders": {
+      "net": {
+        "type": "String"
+      },
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "reportsLoadFailed": "Could not load reports: {error}",
+  "@reportsLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "thisMonthBalance": "Balance",
+  "incomeAmount": "In {amount}",
+  "@incomeAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseAmount": "Out {amount}",
+  "@expenseAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "income": "Income",
+  "expense": "Expense",
+  "transfer": "Transfer",
+  "insightKindDaily": "Daily",
+  "insightKindMonthly": "Monthly",
+  "aiInsightTitleWithPeriod": "AI {kind} · {period}",
+  "@aiInsightTitleWithPeriod": {
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      },
+      "period": {
+        "type": "String"
+      }
+    }
+  },
+  "aiInsightTitleKindOnly": "AI {kind}",
+  "@aiInsightTitleKindOnly": {
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      }
+    }
+  },
+  "goConfigure": "Set up",
+  "regenerate": "Regenerate",
+  "generate": "Generate",
+  "insightUnconfiguredDaily": "After you add a provider and API key, a daily spend summary appears in today’s activity. The current text models cannot transcribe speech.",
+  "insightUnconfiguredMonthly": "After you add a provider and API key, a monthly spend report is generated for the selected month, and last month is filled in when a new month starts. The current text models cannot transcribe speech.",
+  "insightNotGenerated": "Insight not generated yet",
+  "insightEmptyDaily": "No spending today",
+  "insightEmptyMonthly": "No spending this month",
+  "insightEmptyNoModel": "No activity, so the model was not called.",
+  "insightFailed": "Insight failed",
+  "insightStale": "Entries changed. You can regenerate.",
+  "insightFallbackHeadline": "Spend summary",
+  "tokenUsage": "{model} · in {prompt} / out {completion} tokens",
+  "@tokenUsage": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      },
+      "prompt": {
+        "type": "String"
+      },
+      "completion": {
+        "type": "String"
+      }
+    }
+  },
+  "aiSettingsTitle": "Insights",
+  "modelService": "Model",
+  "provider": "Provider",
+  "aiProviderCustom": "Compatible API",
+  "model": "Model",
+  "custom": "Custom",
+  "customModelId": "Custom model ID",
+  "autoGenerateInsights": "Generate automatically",
+  "autoGenerateInsightsSubtitle": "Fill in today, yesterday, and last month when you open the app",
+  "testingConnection": "Testing…",
+  "testConnection": "Test connection",
+  "capabilitiesAndUsage": "Capabilities and usage",
+  "aiSavedLocally": "Saved. The key stays on this device and is not synced with the ledger service.",
+  "saveFailed": "Could not save: {error}",
+  "@saveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "enterApiKeyFirst": "Enter an API key first.",
+  "connectionSuccess": "Connected.",
+  "aiCapabilityProtocol": "Requests use OpenAI-compatible Chat Completions. Insight models cannot transcribe speech. Category, amount, and notes are sent to the endpoint you configure.",
+  "aiCapabilityOpencode": "OpenCode uses the Zen Go gateway https://opencode.ai/zen/go/v1. Browsers block cross-origin requests, so Test connection fails on web; save the key and use the app. Presets only include Chat Completions models. GPT / Claude are out of scope for now.",
+  "aiCapabilityUsage": "There is no cumulative usage dashboard in this release. {hint}The insight card shows tokens from the latest call.",
+  "@aiCapabilityUsage": {
+    "placeholders": {
+      "hint": {
+        "type": "String"
+      }
+    }
+  },
+  "aiUsageHintDeepseek": "Check your balance in the DeepSeek console. ",
+  "aiUsageHintOpencode": "Check your key and balance in the OpenCode console. Browsers cannot call this API (no CORS); use the app. ",
+  "aiUsageHintCustom": "Check usage in your provider console. ",
+  "invalidHttpUrl": "Enter an http(s) URL",
+  "urlMustNotIncludeCredentials": "The URL must not include credentials",
+  "cannotSaveApiKey": "Could not save the API key.",
+  "cannotSaveModelSettings": "Could not save model settings.",
+  "modelReturnedEmpty": "The model returned no usable content.",
+  "invalidApiKey": "The API key is invalid. Check Settings.",
+  "modelBalanceLow": "The model account is out of credit.",
+  "tooManyRequests": "Too many requests. Try again later.",
+  "corsBlockedOpencode": "The browser blocked a cross-origin request. The official OpenCode API does not allow web calls. Save the key and use the app, or switch to a CORS-enabled compatible gateway.",
+  "cannotReachModelWeb": "Could not reach the model service. The browser may be blocking the request; use the app or a compatible endpoint.",
+  "cannotReachModel": "Could not reach the model service. Check the network and Base URL.",
+  "modelTimeout": "The model service timed out. Try again later.",
+  "modelCallFailed": "The model call failed.",
+  "modelCallFailedWithStatus": "The model call failed ({status}).",
+  "@modelCallFailedWithStatus": {
+    "placeholders": {
+      "status": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsTitle": "Settings",
+  "settingsSubtitleLocal": "Local mode · data stays on this device",
+  "settingsSubtitleRemote": "Connected · the book syncs automatically",
+  "dataAndSync": "Data and sync",
+  "apiService": "API",
+  "syncCenter": "Sync",
+  "syncCenterSubtitle": "Pending changes and recent status",
+  "conflicts": "Conflicts",
+  "exportCsv": "Export CSV",
+  "exportCsvSubtitle": "Back up this book",
+  "ledgerSection": "Book",
+  "categoryManagement": "Categories",
+  "categoryManagementSubtitle": "Expense and income categories",
+  "budgetTargets": "Budgets",
+  "budgetTargetsSubtitle": "Monthly spending limits",
+  "smartInsights": "Insights",
+  "aiSpendInsights": "AI spend insights",
+  "aiSpendInsightsSubtitle": "Provider, key, model, and auto-generate",
+  "accountSection": "Account",
+  "logOut": "Log out",
+  "switchToLocalTitle": "Switch to local-only storage?",
+  "connectApiTitle": "Connect to the API?",
+  "switchApiTitle": "Switch API?",
+  "switchToLocalBody": "You will be signed out of the remote account. Local book data is kept.",
+  "connectApiBody": "You will need to sign in. Local book data is kept.",
+  "localOnlyStorage": "Local only",
+  "confirmConnect": "Connect",
+  "apiSettingsSaveFailed": "Could not save API settings. The current storage mode is unchanged.",
+  "confirmLogoutTitle": "Log out?",
+  "confirmLogoutBody": "Local book data is kept. You can continue after you sign in again.",
+  "endpointUnsetLocal": "Not set (local only)",
+  "login": "Sign in",
+  "register": "Register",
+  "email": "Email",
+  "emailTooLong": "Email must be at most 254 characters",
+  "invalidEmail": "Enter a valid email",
+  "displayName": "Name",
+  "enterDisplayName": "Enter a name",
+  "displayNameTooLong": "Name must be at most 80 characters",
+  "password": "Password",
+  "showPassword": "Show password",
+  "hidePassword": "Hide password",
+  "passwordTooShort": "Password must be at least 8 characters",
+  "passwordTooLong": "Password must be at most 128 characters",
+  "registerAndContinue": "Register and continue",
+  "changeApiService": "Change API",
+  "apiAddressSaveFailed": "Could not save the API address. Try again later.",
+  "restoreSessionFailed": "Could not restore the session.",
+  "restoreSessionFailedRetry": "Could not restore the session. Try again later.",
+  "loginFailedRetry": "Could not sign in. Try again later.",
+  "registerFailedRetry": "Could not register. Try again later.",
+  "logoutRemoteRevokeFailed": "Signed out on this device, but the server session could not be revoked.",
+  "sessionExpired": "Your session expired. Sign in again.",
+  "invalidCredentials": "Email or password is incorrect.",
+  "emailTaken": "That email is already registered.",
+  "weakPassword": "Password must be 8–128 characters.",
+  "cannotReachServer": "Could not reach the server. Check the network and try again.",
+  "cannotReadSavedApi": "Could not read the saved API address. Set it again.",
+  "apiEndpointSetupTitle": "API setup",
+  "apiEndpointSetupSubtitle": "Optional. Leave empty to stay local-only.",
+  "apiAddressOptional": "API address (optional)",
+  "apiAddressHelper": "Native apps accept LAN IPs. Leave empty for local-only storage.",
+  "saveSettings": "Save",
+  "requireHttpsLanOk": "Use HTTPS. Native clients also accept LAN IP addresses.",
+  "webReleaseHttps443": "The web release only supports the default HTTPS port (443).",
+  "apiOriginOnly": "Enter an API origin without path, query, or credentials.",
+  "enterApiAddress": "Enter an API address",
+  "invalidHttpApiAddress": "Enter a valid HTTP(S) API address",
+  "newCategory": "New category",
+  "categoryTypeHeading": "{type} categories",
+  "@categoryTypeHeading": {
+    "placeholders": {
+      "type": {
+        "type": "String"
+      }
+    }
+  },
+  "categoryLevelCounts": "{roots} top-level · {seconds} second-level",
+  "@categoryLevelCounts": {
+    "placeholders": {
+      "roots": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "noCategoriesOfType": "No {type} categories yet",
+  "@noCategoriesOfType": {
+    "placeholders": {
+      "type": {
+        "type": "String"
+      }
+    }
+  },
+  "noCategoriesHint": "Add a top-level category, then add second-level ones.",
+  "categoriesLoadFailed": "Could not load categories",
+  "noSecondLevelCategories": "No second-level categories",
+  "secondLevelCount": "{count} second-level categories",
+  "@secondLevelCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "addChildCategoryUnder": "Add a second-level category under {name}",
+  "@addChildCategoryUnder": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "editNamedCategory": "Edit {name}",
+  "@editNamedCategory": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "secondLevelCategory": "Second level",
+  "firstLevelCategory": "Top level",
+  "needParentCategoryFirst": "Create a top-level category of this type first",
+  "categorySaveFailed": "Could not save the category. Try again later.",
+  "editCategory": "Edit category",
+  "categoryInfo": "Category",
+  "categoryName": "Name",
+  "flowType": "Type",
+  "categoryLevel": "Level",
+  "parentCategory": "Parent",
+  "categoryHasChildrenKeepRoot": "This category has children, so it stays top-level.",
+  "categoryNotFound": "Category not found",
+  "cannotNestRootWithChildren": "A top-level category with children cannot become second-level",
+  "enterCategoryName": "Enter a category name",
+  "categoryNameTooLong": "Category name must be at most 24 characters",
+  "invalidCategoryType": "Invalid category type",
+  "categoryCannotBeOwnParent": "A category cannot be its own parent",
+  "chooseSameTypeParent": "Choose a top-level category of the same type",
+  "categoryMaxTwoLevels": "Categories can only have two levels",
+  "duplicateCategoryName": "A category with this name already exists",
+  "editTransaction": "Edit entry",
+  "date": "Date",
+  "category": "Category",
+  "fromAccount": "From",
+  "account": "Account",
+  "toAccount": "To",
+  "noteOptional": "Add a note (optional)",
+  "expenseAmountLabel": "Expense",
+  "incomeAmountLabel": "Income",
+  "transferAmountLabel": "Transfer",
+  "updateExpense": "Update expense",
+  "saveExpense": "Save expense",
+  "updateIncome": "Update income",
+  "saveIncome": "Save income",
+  "updateTransfer": "Update transfer",
+  "saveTransfer": "Save transfer",
+  "pickIncomeCategory": "Choose income category",
+  "pickExpenseCategory": "Choose expense category",
+  "pickDate": "Choose date",
+  "ok": "OK",
+  "pickFromAccount": "Choose source account",
+  "pickAccount": "Choose account",
+  "pickToAccount": "Choose destination account",
+  "enterPositiveAmount": "Enter an amount greater than 0",
+  "missingCategoryOrAccount": "This book has no usable category or account",
+  "transferAccountsMustDiffer": "Source and destination must be different",
+  "finishEditing": "Done",
+  "editCategoryAction": "Edit categories",
+  "noCategories": "No categories",
+  "noAccounts": "No accounts",
+  "addCategory": "Add category",
+  "parentSecondLevel": "{parent} · second level",
+  "@parentSecondLevel": {
+    "placeholders": {
+      "parent": {
+        "type": "String"
+      }
+    }
+  },
+  "editNamed": "Edit {name}",
+  "@editNamed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "selectNamed": "Select {name}",
+  "@selectNamed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "backspace": "Backspace",
+  "decimalPoint": "Decimal",
+  "notSignedInBudgets": "Sign in to load budgets",
+  "createExpenseCategoryFirst": "Create an expense category before setting a budget",
+  "notSignedInCreateBudget": "Sign in to create a budget",
+  "allExpenses": "All expenses",
+  "expenseCategory": "Expense category",
+  "cannotReachService": "Could not reach the service. Check the network and try again.",
+  "budgetsLoadFailed": "Could not load budgets. Try again later.",
+  "refreshBudgets": "Refresh budgets",
+  "addBudget": "Add budget",
+  "noBudgets": "No budgets yet",
+  "noBudgetsHint": "Set a monthly cap for an expense category.",
+  "setFirstBudget": "Set the first budget",
+  "thisMonthTargets": "This month",
+  "itemCount": "{count} items",
+  "@itemCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "budgetDefaultName": "{name} this month",
+  "@budgetDefaultName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "enterPositiveDecimalAmount": "Enter an amount greater than 0 with up to 2 decimals",
+  "setBudgetTarget": "Set budget",
+  "thisMonth": "This month",
+  "targetName": "Name",
+  "monthlyAmount": "Monthly amount",
+  "saveTarget": "Save",
+  "monthTotalTarget": "Monthly total",
+  "overBudget": "Over",
+  "budgetTarget": "Budget",
+  "monthlyWithCategory": "Monthly · {category}",
+  "@monthlyWithCategory": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "spentAmount": "Spent {amount}",
+  "@spentAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "overByAmount": "Over by {amount}",
+  "@overByAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "remainingAmount": "Left {amount}",
+  "@remainingAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "notSignedInSync": "Not signed in",
+  "attachmentsUpload": "Attachments",
+  "attachmentsHelp": "HMAC signed upload to local object storage: create session → PUT → complete.",
+  "uploading": "Uploading…",
+  "uploadDemoFile": "Upload demo file",
+  "noConflicts": "No conflicts",
+  "conflictSubtitle": "{reason} · remote version {version}",
+  "@conflictSubtitle": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      },
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "useRemote": "Use remote",
+  "keepLocal": "Keep local",
+  "copiedToClipboard": "Copied to clipboard",
+  "copyCsv": "Copy CSV",
+  "notSignedInInvites": "Sign in to load invites",
+  "familySharing": "Family",
+  "inviteEmail": "Invite email",
+  "sendInvite": "Send invite",
+  "sentInvites": "Sent invites",
+  "inviteRoleToken": "Role {role} · token {token}",
+  "@inviteRoleToken": {
+    "placeholders": {
+      "role": {
+        "type": "String"
+      },
+      "token": {
+        "type": "String"
+      }
+    }
+  },
+  "fxRates": "FX rates",
+  "quoteCurrencyVsCny": "Quote currency (vs CNY)",
+  "exchangeRate": "Rate",
+  "monthlyRent": "Monthly rent",
+  "createdWillPostSoon": "Created. The worker should post it within about a minute.",
+  "createdWillPostTomorrow": "Created. The worker will post it from tomorrow.",
+  "recurring": "Recurring",
+  "ruleName": "Rule name",
+  "amountYuan": "Amount (yuan)",
+  "runNow": "Run now",
+  "createRule": "Create rule",
+  "upgraded": "Upgraded",
+  "subscription": "Subscription",
+  "currentPlan": "Current plan",
+  "devUpgradePlus": "Dev upgrade Plus (attachments / advanced reports)",
+  "devUpgradeFamily": "Dev upgrade Family (invites)",
+  "downgradeFree": "Downgrade to Free",
+  "statusLabel": "Status: {label}",
+  "@statusLabel": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "cursorLabel": "Cursor: {cursor}",
+  "@cursorLabel": {
+    "placeholders": {
+      "cursor": {
+        "type": "int"
+      }
+    }
+  },
+  "pendingLabel": "Pending: {count}",
+  "@pendingLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "remoteBookLabel": "Remote book: {id}",
+  "@remoteBookLabel": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "errorLabel": "Error: {error}",
+  "@errorLabel": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "syncSuccess": "Synced, cursor={cursor}",
+  "@syncSuccess": {
+    "placeholders": {
+      "cursor": {
+        "type": "int"
+      }
+    }
+  },
+  "syncFailed": "Sync failed: {message}",
+  "@syncFailed": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "syncNow": "Sync now",
+  "noRemoteBook": "No remote book",
+  "revisionHistory": "History",
+  "syncReady": "Ready",
+  "syncError": "Error",
+  "bookBoundToOtherAccount": "This local book is bound to another account. Sync stopped."
+}

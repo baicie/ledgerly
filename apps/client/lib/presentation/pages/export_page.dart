@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/l10n.dart';
 import '../providers.dart';
 
 class ExportPage extends ConsumerWidget {
@@ -9,9 +10,10 @@ class ExportPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = l10nOf(context);
     final csv = ref.watch(exportCsvProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('导出 CSV')),
+      appBar: AppBar(title: Text(l10n.exportCsv)),
       body: csv.when(
         data: (text) => Padding(
           padding: const EdgeInsets.all(16),
@@ -27,11 +29,11 @@ class ExportPage extends ConsumerWidget {
                   await Clipboard.setData(ClipboardData(text: text));
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('已复制到剪贴板')),
+                      SnackBar(content: Text(l10n.copiedToClipboard)),
                     );
                   }
                 },
-                child: const Text('复制 CSV'),
+                child: Text(l10n.copyCsv),
               ),
             ],
           ),

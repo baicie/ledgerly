@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/l10n.dart';
 import '../providers.dart';
 
 class FamilyInvitePage extends ConsumerStatefulWidget {
@@ -37,7 +38,7 @@ class _FamilyInvitePageState extends ConsumerState<FamilyInvitePage> {
     try {
       final bookId = await _remoteBookId();
       if (bookId == null) {
-        setState(() => _message = '尚未登录同步，无法加载邀请');
+        setState(() => _message = L10n.current.notSignedInInvites);
         return;
       }
       final list = await ref.read(syncApiProvider).listInvites(bookId: bookId);
@@ -72,8 +73,9 @@ class _FamilyInvitePageState extends ConsumerState<FamilyInvitePage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('家庭共享')),
+      appBar: AppBar(title: Text(l10n.familySharing)),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -81,22 +83,23 @@ class _FamilyInvitePageState extends ConsumerState<FamilyInvitePage> {
           children: [
             TextField(
               controller: _email,
-              decoration: const InputDecoration(
-                labelText: '邀请邮箱',
+              decoration: InputDecoration(
+                labelText: l10n.inviteEmail,
                 hintText: 'member@example.com',
               ),
             ),
             const SizedBox(height: 8),
             FilledButton(
               onPressed: _busy ? null : _invite,
-              child: Text(_busy ? '处理中…' : '发送邀请'),
+              child: Text(_busy ? l10n.processing : l10n.sendInvite),
             ),
             if (_message != null) ...[
               const SizedBox(height: 8),
               Text(_message!, style: const TextStyle(color: Colors.red)),
             ],
             const SizedBox(height: 16),
-            Text('已发出邀请', style: Theme.of(context).textTheme.titleMedium),
+            Text(l10n.sentInvites,
+                style: Theme.of(context).textTheme.titleMedium),
             Expanded(
               child: ListView.builder(
                 itemCount: _invites.length,
@@ -104,7 +107,9 @@ class _FamilyInvitePageState extends ConsumerState<FamilyInvitePage> {
                   final inv = _invites[i];
                   return ListTile(
                     title: Text('${inv['email']}'),
-                    subtitle: Text('角色 ${inv['role']} · token ${inv['token']}'),
+                    subtitle: Text(
+                      l10n.inviteRoleToken('${inv['role']}', '${inv['token']}'),
+                    ),
                   );
                 },
               ),

@@ -85,6 +85,22 @@ void main() {
     expect(configured, isTrue);
   });
 
+  testWidgets('monthly unconfigured card explains reports placement',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: AiInsightCard(
+            view: AiInsightView.unconfigured(kind: InsightKind.monthly),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.textContaining('所选月份的消费月报'), findsOneWidget);
+    expect(find.textContaining('当天流水'), findsNothing);
+  });
+
   testWidgets('ready insight card shows usage tokens', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(

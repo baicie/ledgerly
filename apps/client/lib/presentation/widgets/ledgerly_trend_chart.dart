@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../data/ledger_repository.dart';
+import '../../l10n/l10n.dart';
 import '../design/ledgerly_theme.dart';
 
 class LedgerlyTrendChart extends StatelessWidget {
@@ -17,8 +18,9 @@ class LedgerlyTrendChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
     return Semantics(
-      label: '${month.year}年${month.month}月每日收支趋势图',
+      label: l10n.trendChartLabel(month.year, month.month),
       image: true,
       child: Column(
         children: [
@@ -30,12 +32,12 @@ class LedgerlyTrendChart extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          const Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _LegendDot(color: LedgerlyColors.income, label: '收入'),
-              SizedBox(width: 20),
-              _LegendDot(color: LedgerlyColors.chartTeal, label: '支出'),
+              _LegendDot(color: LedgerlyColors.income, label: l10n.income),
+              const SizedBox(width: 20),
+              _LegendDot(color: LedgerlyColors.chartTeal, label: l10n.expense),
             ],
           ),
         ],

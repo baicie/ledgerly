@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/l10n.dart';
 import '../providers.dart';
 
 class TransactionRevisionsPage extends ConsumerStatefulWidget {
@@ -35,7 +36,7 @@ class _TransactionRevisionsPageState
       await sync.syncNow();
       final bookId = ref.read(authRepositoryProvider).currentSession?.bookId;
       if (bookId == null) {
-        setState(() => _error = '无远端账本');
+        setState(() => _error = L10n.current.noRemoteBook);
         return;
       }
       final rows = await ref.read(syncApiProvider).listRevisions(
@@ -53,7 +54,7 @@ class _TransactionRevisionsPageState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('历史版本')),
+      appBar: AppBar(title: Text(l10nOf(context).revisionHistory)),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null

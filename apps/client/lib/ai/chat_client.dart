@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import '../l10n/l10n.dart';
 import 'ai_models.dart';
 
 abstract interface class AiChatClient {
@@ -59,7 +60,7 @@ class OpenAiCompatibleChatClient implements AiChatClient {
         }
       }
       if (text.trim().isEmpty) {
-        throw const AiChatException('模型没有返回可用内容。');
+        throw AiChatException(L10n.current.modelReturnedEmpty);
       }
       final usage = data['usage'];
       return AiChatResult(
@@ -121,25 +122,26 @@ class AiChatException implements Exception {
 }
 
 String describeAiError(DioException error) {
+  final l10n = L10n.current;
   final status = error.response?.statusCode;
-  if (status == 401) return 'API Key 无效，请检查设置。';
-  if (status == 402) return '模型账户余额不足。';
-  if (status == 429) return '请求过于频繁，请稍后再试。';
+  if (status == 401) return l10n.invalidApiKey;
+  if (status == 402) return l10n.modelBalanceLow;
+  if (status == 429) return l10n.tooManyRequests;
   if (_looksLikeCors(error)) {
-    return '浏览器拦截了跨域请求。OpenCode 官方接口不允许网页直连，请保存后在 App 中使用，或改用带 CORS 的兼容网关。';
+    return l10n.corsBlockedOpencode;
   }
   if (error.type == DioExceptionType.connectionError ||
       error.type == DioExceptionType.unknown) {
-    return kIsWeb
-        ? '无法连接模型服务。网页端可能被跨域拦截，请改用 App 或兼容端点。'
-        : '无法连接模型服务，请检查网络和 Base URL。';
+    return kIsWeb ? l10n.cannotReachModelWeb : l10n.cannotReachModel;
   }
   if (error.type == DioExceptionType.receiveTimeout ||
       error.type == DioExceptionType.sendTimeout ||
       error.type == DioExceptionType.connectionTimeout) {
-    return '模型服务超时，请稍后重试。';
+    return l10n.modelTimeout;
   }
-  return '模型调用失败${status == null ? '' : '（$status）'}。';
+  return status == null
+      ? l10n.modelCallFailed
+      : l10n.modelCallFailedWithStatus(status);
 }
 
 bool _looksLikeCors(DioException error) {

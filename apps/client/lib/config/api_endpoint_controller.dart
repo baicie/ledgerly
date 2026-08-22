@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 
+import '../l10n/l10n.dart';
 import 'api_endpoint.dart';
+import 'api_endpoint_messages.dart';
 
 abstract interface class ApiEndpointStore {
   Future<String?> read();
@@ -66,8 +68,8 @@ class ApiEndpointController extends ChangeNotifier {
       persisted = await _store.read();
     } catch (_) {
       _setState(
-        const ApiEndpointState.needsConfiguration(
-          message: '无法读取已保存的 API 地址，请重新设置。',
+        ApiEndpointState.needsConfiguration(
+          message: L10n.current.cannotReadSavedApi,
         ),
       );
       return;
@@ -91,7 +93,9 @@ class ApiEndpointController extends ChangeNotifier {
       _setState(ApiEndpointState.ready(endpoint));
     } on FormatException catch (error) {
       _setState(
-        ApiEndpointState.needsConfiguration(message: error.message),
+        ApiEndpointState.needsConfiguration(
+          message: apiEndpointErrorText(error),
+        ),
       );
     }
   }

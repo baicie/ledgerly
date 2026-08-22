@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/l10n.dart';
 import '../design/ledgerly_theme.dart';
 import 'ledgerly_finance.dart';
 
@@ -10,12 +11,12 @@ class LedgerlySummaryCard extends StatelessWidget {
     required this.balanceMinor,
     required this.incomeMinor,
     required this.expenseMinor,
-    this.balanceLabel = '本月结余',
+    this.balanceLabel,
     this.showFlow = true,
   });
 
   final String title;
-  final String balanceLabel;
+  final String? balanceLabel;
   final BigInt balanceMinor;
   final BigInt incomeMinor;
   final BigInt expenseMinor;
@@ -23,6 +24,8 @@ class LedgerlySummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
+    final resolvedBalanceLabel = balanceLabel ?? l10n.thisMonthBalance;
     return LayoutBuilder(
       builder: (context, constraints) {
         final height = (constraints.maxWidth / 2.15).clamp(176.0, 220.0);
@@ -49,7 +52,7 @@ class LedgerlySummaryCard extends StatelessWidget {
                       ),
                       const Spacer(),
                       Text(
-                        balanceLabel,
+                        resolvedBalanceLabel,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: Colors.white.withValues(alpha: 0.82),
                             ),
@@ -76,14 +79,18 @@ class LedgerlySummaryCard extends StatelessWidget {
                           runSpacing: 4,
                           children: [
                             Text(
-                              '收入 ${formatDisplayMinor(incomeMinor, symbol: false)}',
+                              l10n.incomeAmount(
+                                formatDisplayMinor(incomeMinor, symbol: false),
+                              ),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 14,
                               ),
                             ),
                             Text(
-                              '支出 ${formatDisplayMinor(expenseMinor, symbol: false)}',
+                              l10n.expenseAmount(
+                                formatDisplayMinor(expenseMinor, symbol: false),
+                              ),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 14,

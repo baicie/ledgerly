@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../data/ledger_repository.dart';
+import '../../l10n/l10n.dart';
 import '../design/ledgerly_theme.dart';
 import 'ledgerly_finance.dart';
 import 'ledgerly_layout.dart';
@@ -27,20 +28,39 @@ class FeedTransactionList extends StatelessWidget {
     required this.transactions,
     required this.onOpen,
     required this.onDelete,
+    this.todayInsight,
+    this.orphanTodayInsight = true,
   });
 
   final List<TransactionSummary> transactions;
   final ValueChanged<TransactionSummary> onOpen;
   final ValueChanged<TransactionSummary> onDelete;
+  final Widget? todayInsight;
+
+  /// Pin [todayInsight] above the list when today has no transactions.
+  final bool orphanTodayInsight;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
     if (transactions.isEmpty) {
-      return const SliverToBoxAdapter(
-        child: LedgerlyEmptyState(
-          icon: Icons.receipt_long_outlined,
-          title: '这个月还没有流水',
-          message: '点击底部的 +，记下第一笔收支。',
+      return SliverToBoxAdapter(
+        child: Column(
+          children: [
+            if (todayInsight != null && orphanTodayInsight)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                child: LedgerlySection(
+                  padding: EdgeInsets.zero,
+                  child: todayInsight!,
+                ),
+              ),
+            LedgerlyEmptyState(
+              icon: Icons.receipt_long_outlined,
+              title: l10n.emptyMonthTitle,
+              message: l10n.emptyMonthMessage,
+            ),
+          ],
         ),
       );
     }
@@ -51,12 +71,27 @@ class FeedTransactionList extends StatelessWidget {
       final day = DateTime(local.year, local.month, local.day);
       groups.putIfAbsent(day, () => []).add(transaction);
     }
+    final today = DateUtils.dateOnly(DateTime.now());
+    final days = groups.keys.toList();
+    final hasToday = days.any((day) => DateUtils.isSameDay(day, today));
+    final showOrphanToday =
+        todayInsight != null && orphanTodayInsight && !hasToday;
 
     return SliverList.builder(
-      itemCount: groups.length,
+      itemCount: days.length + (showOrphanToday ? 1 : 0),
       itemBuilder: (context, index) {
-        final day = groups.keys.elementAt(index);
+        if (showOrphanToday && index == 0) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: LedgerlySection(
+              padding: EdgeInsets.zero,
+              child: todayInsight!,
+            ),
+          );
+        }
+        final day = days[showOrphanToday ? index - 1 : index];
         final items = groups[day]!;
+        final isToday = DateUtils.isSameDay(day, today);
         return Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
           child: LedgerlySection(
@@ -65,7 +100,7 @@ class FeedTransactionList extends StatelessWidget {
               key: PageStorageKey<String>(
                 'feed-day-${day.year}-${day.month}-${day.day}',
               ),
-              initiallyExpanded: DateUtils.isSameDay(day, DateTime.now()),
+              initiallyExpanded: isToday,
               tilePadding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
               childrenPadding: EdgeInsets.zero,
               shape: const Border(),
@@ -74,7 +109,11 @@ class FeedTransactionList extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      _dateLabel(day),
+                      l10n.feedDayLabel(
+                        day.month,
+                        day.day,
+                        weekdayLabel(l10n, day.weekday),
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium,
@@ -82,7 +121,7 @@ class FeedTransactionList extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '当日净额',
+                    l10n.dayNet,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(width: 8),
@@ -104,10 +143,12 @@ class FeedTransactionList extends StatelessWidget {
                 ],
               ),
               children: [
+                if (isToday && todayInsight != null) todayInsight!,
                 for (var itemIndex = 0;
                     itemIndex < items.length;
                     itemIndex++) ...[
-                  if (itemIndex > 0) const Divider(indent: 70, endIndent: 16),
+                  if (itemIndex > 0 || (isToday && todayInsight != null))
+                    const Divider(indent: 70, endIndent: 16),
                   _TransactionTile(
                     transaction: items[itemIndex],
                     onTap: items[itemIndex].kind ==
@@ -123,11 +164,6 @@ class FeedTransactionList extends StatelessWidget {
         );
       },
     );
-  }
-
-  String _dateLabel(DateTime date) {
-    const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-    return '${date.month}月${date.day}日 ${weekdays[date.weekday - 1]}';
   }
 
   String _dailyNetLabel(List<TransactionSummary> transactions) {
@@ -157,12 +193,13 @@ class _TransactionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
     final color = ledgerColorFor(
       transaction.categoryName,
       kind: transaction.kind,
     );
-    final category = localizedLedgerName(transaction.categoryName);
-    final account = localizedLedgerName(transaction.accountName);
+    final category = localizedLedgerName(l10n, transaction.categoryName);
+    final account = localizedLedgerName(l10n, transaction.accountName);
     final localTime = transaction.occurredAt.toLocal();
 
     return ListTile(
@@ -197,7 +234,7 @@ class _TransactionTile extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: '删除流水',
+            tooltip: l10n.deleteTransaction,
             onPressed: onDelete,
             icon: const Icon(Icons.delete_outline, size: 20),
             color: LedgerlyColors.muted,

@@ -54,6 +54,7 @@ jobs:
           flutter test \
             test/auth \
             test/ai \
+            test/l10n \
             test/widget_test.dart \
             test/offline_ledger_test.dart \
             test/database_migration_test.dart

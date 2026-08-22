@@ -58,11 +58,12 @@ InsightSnapshot buildInsightSnapshot({
   const detailLimit = 80;
   final truncated = relevant.length > detailLimit;
   final details = truncated
-      ? (List<TransactionSummary>.from(relevant)..sort(
+      ? (List<TransactionSummary>.from(relevant)
+            ..sort(
               (left, right) => right.amountMinor.compareTo(left.amountMinor),
             ))
-            .take(detailLimit)
-            .toList()
+          .take(detailLimit)
+          .toList()
       : relevant;
 
   final payload = <String, Object?>{

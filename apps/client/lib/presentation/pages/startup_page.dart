@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../auth/auth_controller.dart';
 import '../../config/api_endpoint_controller.dart';
+import '../../l10n/l10n.dart';
 import '../api_endpoint_editor.dart';
 
 class StartupPage extends StatefulWidget {
@@ -37,7 +38,7 @@ class _StartupPageState extends State<StartupPage> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('API 地址保存失败，请稍后重试。')),
+          SnackBar(content: Text(l10nOf(context).apiAddressSaveFailed)),
         );
       }
     } finally {
@@ -55,6 +56,7 @@ class _StartupPageState extends State<StartupPage> {
         widget.endpointController,
       ]),
       builder: (context, _) {
+        final l10n = l10nOf(context);
         final failure = widget.controller.state.status == AuthStatus.failure;
         final endpoint = widget.endpointController.state.endpoint;
         return Scaffold(
@@ -82,7 +84,8 @@ class _StartupPageState extends State<StartupPage> {
                       const SizedBox(height: 20),
                       if (failure) ...[
                         Text(
-                          widget.controller.state.message ?? '会话恢复失败。',
+                          widget.controller.state.message ??
+                              l10n.restoreSessionFailed,
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 12),
@@ -99,7 +102,7 @@ class _StartupPageState extends State<StartupPage> {
                             ),
                             IconButton(
                               key: const Key('startup-api-edit'),
-                              tooltip: '更换 API 服务',
+                              tooltip: l10n.changeApiService,
                               onPressed:
                                   _editingEndpoint ? null : _editEndpoint,
                               icon: const Icon(Icons.edit_outlined),
@@ -112,7 +115,7 @@ class _StartupPageState extends State<StartupPage> {
                               ? null
                               : widget.controller.restore,
                           icon: const Icon(Icons.refresh),
-                          label: const Text('重试'),
+                          label: Text(l10n.retry),
                         ),
                       ] else
                         const CircularProgressIndicator(),

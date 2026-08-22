@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../config/api_endpoint_controller.dart';
+import '../config/api_endpoint_messages.dart';
+import '../l10n/l10n.dart';
 
 Future<String?> showApiEndpointEditorDialog({
   required BuildContext context,
@@ -51,14 +53,14 @@ class _ApiEndpointEditorDialogState extends State<_ApiEndpointEditorDialog> {
       final endpoint = widget.controller.validate(_inputController.text);
       Navigator.pop(context, endpoint?.baseUrl ?? '');
     } catch (error) {
-      setState(() => _errorText = apiEndpointErrorText(error));
+      setState(() => _errorText = apiEndpointErrorText(error, l10nOf(context)));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('API 服务'),
+      title: Text(l10nOf(context).apiService),
       content: SizedBox(
         width: 440,
         child: TextField(
@@ -70,9 +72,9 @@ class _ApiEndpointEditorDialogState extends State<_ApiEndpointEditorDialog> {
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _submit(),
           decoration: InputDecoration(
-            labelText: 'API 地址（选填）',
+            labelText: l10nOf(context).apiAddressOptional,
             hintText: '192.168.1.10:8080',
-            helperText: '原生端支持局域网 IP；留空则仅本地存储',
+            helperText: l10nOf(context).apiAddressHelper,
             helperMaxLines: 2,
             prefixIcon: const Icon(Icons.dns_outlined),
             border: const OutlineInputBorder(),
@@ -83,34 +85,15 @@ class _ApiEndpointEditorDialogState extends State<_ApiEndpointEditorDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(l10nOf(context).cancel),
         ),
         FilledButton.icon(
           key: const Key('api-endpoint-save'),
           onPressed: _submit,
           icon: const Icon(Icons.check),
-          label: const Text('确认'),
+          label: Text(l10nOf(context).confirm),
         ),
       ],
     );
   }
-}
-
-String apiEndpointErrorText(Object error) {
-  if (error is FormatException) {
-    final message = error.message;
-    if (message.contains('Release builds require')) {
-      return '请使用 HTTPS；原生客户端也支持局域网 IP 地址';
-    }
-    if (message.contains('default HTTPS port')) {
-      return 'Web 正式版本仅支持 HTTPS 默认端口（443）';
-    }
-    if (message.contains('origin without')) {
-      return '请输入不含路径、查询或凭据的 API 根地址';
-    }
-    if (message.contains('required')) {
-      return '请输入 API 地址';
-    }
-  }
-  return '请输入有效的 HTTP(S) API 地址';
 }

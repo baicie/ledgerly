@@ -15,6 +15,7 @@ import '../data/ledger_repository.dart';
 import '../data/sync_api.dart';
 import '../domain/ids.dart';
 import '../domain/default_categories.dart';
+import '../l10n/l10n.dart';
 
 final databaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
@@ -297,7 +298,9 @@ final syncStatusProvider = FutureProvider<SyncStatusView>((ref) async {
   final state = await repo.syncState(defaultBookId);
   final pending = await repo.listPending(defaultBookId);
   return SyncStatusView(
-    label: state?.lastError == null ? '就绪' : '出错',
+    label: state?.lastError == null
+        ? L10n.current.syncReady
+        : L10n.current.syncError,
     cursor: state?.cursor ?? 0,
     pendingCount: pending.length,
     lastError: state?.lastError,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/l10n.dart';
 import 'ledgerly_layout.dart';
 
 class SettingsContent extends StatelessWidget {
@@ -34,19 +35,22 @@ class SettingsContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
     return LedgerlyContent(
       slivers: [
         SliverToBoxAdapter(
           child: LedgerlyPageHeader(
-            title: '设置',
-            subtitle: isLocal ? '本地模式 · 数据保存在当前设备' : '已连接服务 · 自动同步账本数据',
+            title: l10n.settingsTitle,
+            subtitle: isLocal
+                ? l10n.settingsSubtitleLocal
+                : l10n.settingsSubtitleRemote,
           ),
         ),
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
           sliver: SliverToBoxAdapter(
             child: _SettingsGroup(
-              title: '数据与同步',
+              title: l10n.dataAndSync,
               children: [
                 ListTile(
                   key: const Key('settings-api-edit'),
@@ -55,7 +59,7 @@ class SettingsContent extends StatelessWidget {
                         ? Icons.cloud_off_outlined
                         : Icons.cloud_done_outlined,
                   ),
-                  title: const Text('API 服务'),
+                  title: Text(l10n.apiService),
                   subtitle: Text(
                     endpointLabel,
                     maxLines: 1,
@@ -71,18 +75,23 @@ class SettingsContent extends StatelessWidget {
                   onTap: onChangeEndpoint,
                 ),
                 if (onSync != null)
-                  _routeTile(Icons.sync_rounded, '同步中心', '查看待同步与最近状态', onSync!),
+                  _routeTile(
+                    Icons.sync_rounded,
+                    l10n.syncCenter,
+                    l10n.syncCenterSubtitle,
+                    onSync!,
+                  ),
                 if (onConflicts != null)
                   _routeTile(
                     Icons.rule_folder_outlined,
-                    '冲突处理',
+                    l10n.conflicts,
                     null,
                     onConflicts!,
                   ),
                 _routeTile(
                   Icons.file_download_outlined,
-                  '导出 CSV',
-                  '备份当前账本数据',
+                  l10n.exportCsv,
+                  l10n.exportCsvSubtitle,
                   onExport,
                 ),
               ],
@@ -93,19 +102,19 @@ class SettingsContent extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
           sliver: SliverToBoxAdapter(
             child: _SettingsGroup(
-              title: '账本',
+              title: l10n.ledgerSection,
               children: [
                 _routeTile(
                   Icons.category_outlined,
-                  '分类管理',
-                  '维护支出与收入分类',
+                  l10n.categoryManagement,
+                  l10n.categoryManagementSubtitle,
                   onCategories,
                 ),
                 if (onBudgets != null)
                   _routeTile(
                     Icons.flag_outlined,
-                    '预算目标',
-                    '设置每月支出上限与进度',
+                    l10n.budgetTargets,
+                    l10n.budgetTargetsSubtitle,
                     onBudgets!,
                   ),
               ],
@@ -116,12 +125,12 @@ class SettingsContent extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
           sliver: SliverToBoxAdapter(
             child: _SettingsGroup(
-              title: '智能分析',
+              title: l10n.smartInsights,
               children: [
                 _routeTile(
                   Icons.auto_awesome_outlined,
-                  'AI 消费总结',
-                  '供应商、密钥、模型与自动分析',
+                  l10n.aiSpendInsights,
+                  l10n.aiSpendInsightsSubtitle,
                   onAi,
                 ),
               ],
@@ -133,7 +142,7 @@ class SettingsContent extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             sliver: SliverToBoxAdapter(
               child: _SettingsGroup(
-                title: '账户',
+                title: l10n.accountSection,
                 children: [
                   ListTile(
                     key: const Key('settings-logout'),
@@ -147,7 +156,7 @@ class SettingsContent extends StatelessWidget {
                             color: Theme.of(context).colorScheme.error,
                           ),
                     title: Text(
-                      '退出登录',
+                      l10n.logOut,
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.error,
                       ),

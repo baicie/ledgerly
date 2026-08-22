@@ -96,6 +96,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('全部流水'), findsOneWidget);
+      expect(find.text('每月分析'), findsOneWidget);
       expect(find.text(_dateLabel(occurredAt)), findsOneWidget);
       expect(find.text('午餐'), findsNothing);
 

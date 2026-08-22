@@ -1,21 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../data/ledger_repository.dart';
-import '../../domain/default_categories.dart';
 import '../design/ledgerly_theme.dart';
-
-String localizedLedgerName(String? name) {
-  if (name == null || name.isEmpty) return '未分类';
-  final defaultName = localizedDefaultCategoryName(name);
-  if (defaultName != null) return defaultName;
-  return switch (name) {
-    'Cash' => '现金',
-    'Bank' => '银行卡',
-    'Transfer' => '账户转账',
-    'Other' => '其他',
-    final value => value,
-  };
-}
 
 String formatDisplayMinor(BigInt minor, {bool symbol = true}) {
   final negative = minor.isNegative;

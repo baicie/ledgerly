@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../api_endpoint_editor.dart';
 import '../providers.dart';
 import '../widgets/settings_content.dart';
+import '../../l10n/l10n.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -31,23 +32,24 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final switchesToLocal = selected.isEmpty;
     final switchesFromLocal = activeEndpoint == null;
 
+    final l10n = l10nOf(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
           switchesToLocal
-              ? '改为仅本地存储？'
+              ? l10n.switchToLocalTitle
               : switchesFromLocal
-              ? '连接 API 服务？'
-              : '切换 API 服务？',
+                  ? l10n.connectApiTitle
+                  : l10n.switchApiTitle,
         ),
         content: Text(
-          switchesToLocal ? '远端登录会退出，本机账本数据会保留。' : '连接后需要登录服务，本机账本数据会保留。',
+          switchesToLocal ? l10n.switchToLocalBody : l10n.connectApiBody,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(l10n.cancel),
           ),
           FilledButton.icon(
             key: const Key('settings-api-confirm'),
@@ -55,7 +57,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             icon: Icon(
               switchesToLocal ? Icons.cloud_off_outlined : Icons.swap_horiz,
             ),
-            label: Text(switchesToLocal ? '仅本地存储' : '确认连接'),
+            label: Text(
+              switchesToLocal ? l10n.localOnlyStorage : l10n.confirmConnect,
+            ),
           ),
         ],
       ),
@@ -72,7 +76,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('API 设置保存失败，仍保持原存储模式。')));
+        ).showSnackBar(
+            SnackBar(content: Text(l10nOf(context).apiSettingsSaveFailed)));
       }
     } finally {
       if (mounted) {
@@ -82,20 +87,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Future<void> _confirmLogout() async {
+    final l10n = l10nOf(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('确认退出登录？'),
-        content: const Text('本机账本数据会保留，下次登录后可继续使用。'),
+        title: Text(l10n.confirmLogoutTitle),
+        content: Text(l10n.confirmLogoutBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(l10n.cancel),
           ),
           FilledButton.icon(
             onPressed: () => Navigator.pop(context, true),
             icon: const Icon(Icons.logout),
-            label: const Text('退出登录'),
+            label: Text(l10n.logOut),
           ),
         ],
       ),
@@ -117,7 +123,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       body: SafeArea(
         child: SettingsContent(
           isLocal: isLocal,
-          endpointLabel: endpoint?.baseUrl ?? '未设置（仅本地存储）',
+          endpointLabel:
+              endpoint?.baseUrl ?? l10nOf(context).endpointUnsetLocal,
           loggingOut: _loggingOut,
           changingEndpoint: _changingEndpoint,
           onChangeEndpoint: _changingEndpoint ? null : _changeEndpoint,

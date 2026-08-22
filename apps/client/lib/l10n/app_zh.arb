@@ -1,0 +1,765 @@
+{
+  "@@locale": "zh",
+  "appTitle": "Ledgerly",
+  "cancel": "取消",
+  "confirm": "确认",
+  "close": "关闭",
+  "save": "保存",
+  "saving": "保存中",
+  "savingEllipsis": "保存中…",
+  "retry": "重试",
+  "create": "创建",
+  "unknown": "未知",
+  "show": "显示",
+  "hide": "隐藏",
+  "processing": "处理中…",
+  "navFeed": "流水",
+  "navAssets": "资产",
+  "navReports": "报表",
+  "navMe": "我的",
+  "addTransaction": "记一笔",
+  "monthPickerLabel": "{year}年 {month}月",
+  "@monthPickerLabel": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      },
+      "month": {
+        "type": "int"
+      }
+    }
+  },
+  "previousMonth": "上个月",
+  "nextMonth": "下个月",
+  "weekdayMon": "周一",
+  "weekdayTue": "周二",
+  "weekdayWed": "周三",
+  "weekdayThu": "周四",
+  "weekdayFri": "周五",
+  "weekdaySat": "周六",
+  "weekdaySun": "周日",
+  "feedDayLabel": "{month}月{day}日 {weekday}",
+  "@feedDayLabel": {
+    "placeholders": {
+      "month": {
+        "type": "int"
+      },
+      "day": {
+        "type": "int"
+      },
+      "weekday": {
+        "type": "String"
+      }
+    }
+  },
+  "fullDateLabel": "{year}年{month}月{day}日",
+  "@fullDateLabel": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      },
+      "month": {
+        "type": "int"
+      },
+      "day": {
+        "type": "int"
+      }
+    }
+  },
+  "insightDailyDate": "{year}年{month}月{day}日",
+  "@insightDailyDate": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      },
+      "month": {
+        "type": "int"
+      },
+      "day": {
+        "type": "int"
+      }
+    }
+  },
+  "insightMonthlyDate": "{year}年{month}月",
+  "@insightMonthlyDate": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      },
+      "month": {
+        "type": "int"
+      }
+    }
+  },
+  "trendChartLabel": "{year}年{month}月每日收支趋势图",
+  "@trendChartLabel": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      },
+      "month": {
+        "type": "int"
+      }
+    }
+  },
+  "uncategorized": "未分类",
+  "accountCash": "现金",
+  "accountBank": "银行卡",
+  "accountTransfer": "账户转账",
+  "accountOther": "其他",
+  "categoryFood": "餐饮",
+  "categoryMeals": "日常用餐",
+  "categoryDrinksSnacks": "饮品零食",
+  "categoryTransport": "交通",
+  "categoryPublicTransport": "公交地铁",
+  "categoryTaxi": "网约车",
+  "categoryCarExpenses": "驾车养车",
+  "categoryShopping": "购物",
+  "categoryDailyEssentials": "日用百货",
+  "categoryClothing": "服饰美妆",
+  "categoryElectronics": "数码电器",
+  "categoryHousing": "居住",
+  "categoryRentMortgage": "房租房贷",
+  "categoryUtilities": "水电燃气",
+  "categoryPropertyServices": "物业家政",
+  "categoryLeisure": "休闲",
+  "categoryEntertainment": "娱乐",
+  "categoryFitness": "运动健身",
+  "categoryTravel": "旅行",
+  "categoryHealthcare": "医疗健康",
+  "categoryMedicalCare": "看病就医",
+  "categoryMedicine": "药品保健",
+  "categoryEducation": "学习",
+  "categoryBooks": "书籍",
+  "categoryCourses": "课程培训",
+  "categoryOtherExpense": "其他支出",
+  "categorySalary": "工资收入",
+  "categoryBaseSalary": "基本工资",
+  "categoryBonus": "奖金",
+  "categorySideIncome": "副业收入",
+  "categoryFreelance": "自由职业",
+  "categoryBusinessIncome": "经营收入",
+  "categoryInvestmentIncome": "投资收益",
+  "categoryInterest": "利息",
+  "categoryDividends": "分红",
+  "categoryOtherIncome": "其他收入",
+  "assetAccounts": "资产账户",
+  "accountsSubtitle": "{count} 个账户 · 人民币 CNY",
+  "@accountsSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "newAccount": "新建账户",
+  "standardLedger": "标准账本",
+  "netWorth": "净资产",
+  "accountDetails": "账户明细",
+  "totalWithAmount": "合计 {amount}",
+  "@totalWithAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "noAssetAccounts": "还没有资产账户",
+  "noAssetAccountsHint": "新建现金、银行卡或其他资产账户。",
+  "accountsLoadFailed": "账户加载失败：{error}",
+  "@accountsLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "newAccountName": "新账户",
+  "newAssetAccount": "新建资产账户",
+  "accountName": "账户名称",
+  "liabilityAccount": "负债账户",
+  "assetAccount": "资产账户",
+  "allTransactions": "全部流水",
+  "monthlyFeedStats": "本月流水统计",
+  "feedLoadFailed": "流水加载失败：{error}",
+  "@feedLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "insightLoadFailed": "分析加载失败：{error}",
+  "@insightLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "emptyMonthTitle": "这个月还没有流水",
+  "emptyMonthMessage": "点击底部的 +，记下第一笔收支。",
+  "dayNet": "当日净额",
+  "deleteTransaction": "删除流水",
+  "monthlyInsightEntryTitle": "每月分析",
+  "monthlyInsightEntrySubtitle": "在报表页查看所选月份的 AI 月报",
+  "reportsTitle": "报表",
+  "localShort": "本地",
+  "syncedShort": "已同步",
+  "refreshRemoteSummary": "刷新服务端汇总",
+  "monthlyFlowStats": "本月收支统计",
+  "incomeSources": "收入来源",
+  "noIncomeThisMonth": "本月暂无收入",
+  "expenseBreakdown": "支出分布",
+  "noExpenseThisMonth": "本月暂无支出",
+  "monthlyTrend": "月度趋势",
+  "transactionCountLabel": "{count} 笔",
+  "@transactionCountLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "rankingTrailing": "{count} 笔 · {amount}",
+  "@rankingTrailing": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "cloudCheck": "云端校验",
+  "remoteNet": "服务端净额 {net} · {currency}",
+  "@remoteNet": {
+    "placeholders": {
+      "net": {
+        "type": "String"
+      },
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "reportsLoadFailed": "报表加载失败：{error}",
+  "@reportsLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "thisMonthBalance": "本月结余",
+  "incomeAmount": "收入 {amount}",
+  "@incomeAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseAmount": "支出 {amount}",
+  "@expenseAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "income": "收入",
+  "expense": "支出",
+  "transfer": "转账",
+  "insightKindDaily": "日分析",
+  "insightKindMonthly": "月报",
+  "aiInsightTitleWithPeriod": "AI {kind} · {period}",
+  "@aiInsightTitleWithPeriod": {
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      },
+      "period": {
+        "type": "String"
+      }
+    }
+  },
+  "aiInsightTitleKindOnly": "AI {kind}",
+  "@aiInsightTitleKindOnly": {
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      }
+    }
+  },
+  "goConfigure": "去配置",
+  "regenerate": "重新生成",
+  "generate": "生成",
+  "insightUnconfiguredDaily": "配置模型供应商和 API Key 后，可在当天流水里自动生成每日消费总结。当前接入的文本模型不支持语音转文字。",
+  "insightUnconfiguredMonthly": "配置模型供应商和 API Key 后，可自动生成所选月份的消费月报，并在新月补齐上月月报。当前接入的文本模型不支持语音转文字。",
+  "insightNotGenerated": "尚未生成分析",
+  "insightEmptyDaily": "当日暂无消费",
+  "insightEmptyMonthly": "当月暂无消费",
+  "insightEmptyNoModel": "暂无消费，未调用模型。",
+  "insightFailed": "分析失败",
+  "insightStale": "账目已更新，可重新生成。",
+  "insightFallbackHeadline": "消费总结",
+  "tokenUsage": "{model} · 入 {prompt} / 出 {completion} tokens",
+  "@tokenUsage": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      },
+      "prompt": {
+        "type": "String"
+      },
+      "completion": {
+        "type": "String"
+      }
+    }
+  },
+  "aiSettingsTitle": "智能分析",
+  "modelService": "模型服务",
+  "provider": "供应商",
+  "aiProviderCustom": "自定义兼容接口",
+  "model": "模型",
+  "custom": "自定义",
+  "customModelId": "自定义模型 ID",
+  "autoGenerateInsights": "自动生成分析",
+  "autoGenerateInsightsSubtitle": "打开应用时补齐今日、昨日和上月总结",
+  "testingConnection": "测试中…",
+  "testConnection": "测试连接",
+  "capabilitiesAndUsage": "能力与用量",
+  "aiSavedLocally": "已保存。密钥只留在本机，不会同步到账本服务。",
+  "saveFailed": "保存失败：{error}",
+  "@saveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "enterApiKeyFirst": "请先填写 API Key。",
+  "connectionSuccess": "连接成功。",
+  "aiCapabilityProtocol": "当前走 OpenAI 兼容的 Chat Completions。分析模型不能语音转文字。分析会把分类、金额和备注发送到你配置的端点。",
+  "aiCapabilityOpencode": "OpenCode 使用 Zen Go 网关 https://opencode.ai/zen/go/v1。网页浏览器会拦截跨域请求，测试连接在网页里会失败；请保存后用 App。预设仅包含 Chat Completions 模型，GPT / Claude 本期不接。",
+  "aiCapabilityUsage": "第一期不做累计用量看板，{hint}分析卡片会显示最近一次调用的 token。",
+  "@aiCapabilityUsage": {
+    "placeholders": {
+      "hint": {
+        "type": "String"
+      }
+    }
+  },
+  "aiUsageHintDeepseek": "余额请到 DeepSeek 控制台查看。",
+  "aiUsageHintOpencode": "密钥和余额请到 OpenCode 控制台查看。网页浏览器无法直连该接口（无 CORS），请在 App 中使用。",
+  "aiUsageHintCustom": "用量请到你使用的供应商控制台查看。",
+  "invalidHttpUrl": "请输入 http(s) 地址",
+  "urlMustNotIncludeCredentials": "地址不能包含账号密码",
+  "cannotSaveApiKey": "无法保存 API Key。",
+  "cannotSaveModelSettings": "无法保存模型设置。",
+  "modelReturnedEmpty": "模型没有返回可用内容。",
+  "invalidApiKey": "API Key 无效，请检查设置。",
+  "modelBalanceLow": "模型账户余额不足。",
+  "tooManyRequests": "请求过于频繁，请稍后再试。",
+  "corsBlockedOpencode": "浏览器拦截了跨域请求。OpenCode 官方接口不允许网页直连，请保存后在 App 中使用，或改用带 CORS 的兼容网关。",
+  "cannotReachModelWeb": "无法连接模型服务。网页端可能被跨域拦截，请改用 App 或兼容端点。",
+  "cannotReachModel": "无法连接模型服务，请检查网络和 Base URL。",
+  "modelTimeout": "模型服务超时，请稍后重试。",
+  "modelCallFailed": "模型调用失败。",
+  "modelCallFailedWithStatus": "模型调用失败（{status}）。",
+  "@modelCallFailedWithStatus": {
+    "placeholders": {
+      "status": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsTitle": "设置",
+  "settingsSubtitleLocal": "本地模式 · 数据保存在当前设备",
+  "settingsSubtitleRemote": "已连接服务 · 自动同步账本数据",
+  "dataAndSync": "数据与同步",
+  "apiService": "API 服务",
+  "syncCenter": "同步中心",
+  "syncCenterSubtitle": "查看待同步与最近状态",
+  "conflicts": "冲突处理",
+  "exportCsv": "导出 CSV",
+  "exportCsvSubtitle": "备份当前账本数据",
+  "ledgerSection": "账本",
+  "categoryManagement": "分类管理",
+  "categoryManagementSubtitle": "维护支出与收入分类",
+  "budgetTargets": "预算目标",
+  "budgetTargetsSubtitle": "设置每月支出上限与进度",
+  "smartInsights": "智能分析",
+  "aiSpendInsights": "AI 消费总结",
+  "aiSpendInsightsSubtitle": "供应商、密钥、模型与自动分析",
+  "accountSection": "账户",
+  "logOut": "退出登录",
+  "switchToLocalTitle": "改为仅本地存储？",
+  "connectApiTitle": "连接 API 服务？",
+  "switchApiTitle": "切换 API 服务？",
+  "switchToLocalBody": "远端登录会退出，本机账本数据会保留。",
+  "connectApiBody": "连接后需要登录服务，本机账本数据会保留。",
+  "localOnlyStorage": "仅本地存储",
+  "confirmConnect": "确认连接",
+  "apiSettingsSaveFailed": "API 设置保存失败，仍保持原存储模式。",
+  "confirmLogoutTitle": "确认退出登录？",
+  "confirmLogoutBody": "本机账本数据会保留，下次登录后可继续使用。",
+  "endpointUnsetLocal": "未设置（仅本地存储）",
+  "login": "登录",
+  "register": "注册",
+  "email": "邮箱",
+  "emailTooLong": "邮箱不能超过 254 个字符",
+  "invalidEmail": "请输入有效邮箱",
+  "displayName": "称呼",
+  "enterDisplayName": "请输入称呼",
+  "displayNameTooLong": "称呼不能超过 80 个字符",
+  "password": "密码",
+  "showPassword": "显示密码",
+  "hidePassword": "隐藏密码",
+  "passwordTooShort": "密码至少 8 位",
+  "passwordTooLong": "密码不能超过 128 位",
+  "registerAndContinue": "注册并继续",
+  "changeApiService": "更换 API 服务",
+  "apiAddressSaveFailed": "API 地址保存失败，请稍后重试。",
+  "restoreSessionFailed": "会话恢复失败。",
+  "restoreSessionFailedRetry": "恢复会话失败，请稍后重试。",
+  "loginFailedRetry": "登录失败，请稍后重试。",
+  "registerFailedRetry": "注册失败，请稍后重试。",
+  "logoutRemoteRevokeFailed": "已清除本机登录状态，但服务器会话撤销失败。",
+  "sessionExpired": "登录状态已失效，请重新登录。",
+  "invalidCredentials": "邮箱或密码错误。",
+  "emailTaken": "该邮箱已注册。",
+  "weakPassword": "密码需为 8–128 位。",
+  "cannotReachServer": "无法连接服务器，请检查网络后重试。",
+  "cannotReadSavedApi": "无法读取已保存的 API 地址，请重新设置。",
+  "apiEndpointSetupTitle": "API 服务配置",
+  "apiEndpointSetupSubtitle": "地址选填，留空时仅在本机存储",
+  "apiAddressOptional": "API 地址（选填）",
+  "apiAddressHelper": "原生端支持局域网 IP；留空则仅本地存储",
+  "saveSettings": "保存设置",
+  "requireHttpsLanOk": "请使用 HTTPS；原生客户端也支持局域网 IP 地址",
+  "webReleaseHttps443": "Web 正式版本仅支持 HTTPS 默认端口（443）",
+  "apiOriginOnly": "请输入不含路径、查询或凭据的 API 根地址",
+  "enterApiAddress": "请输入 API 地址",
+  "invalidHttpApiAddress": "请输入有效的 HTTP(S) API 地址",
+  "newCategory": "新建分类",
+  "categoryTypeHeading": "{type}分类",
+  "@categoryTypeHeading": {
+    "placeholders": {
+      "type": {
+        "type": "String"
+      }
+    }
+  },
+  "categoryLevelCounts": "{roots} 个一级 · {seconds} 个二级",
+  "@categoryLevelCounts": {
+    "placeholders": {
+      "roots": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "noCategoriesOfType": "还没有{type}分类",
+  "@noCategoriesOfType": {
+    "placeholders": {
+      "type": {
+        "type": "String"
+      }
+    }
+  },
+  "noCategoriesHint": "新建一级分类后即可继续添加二级分类。",
+  "categoriesLoadFailed": "分类加载失败",
+  "noSecondLevelCategories": "暂无二级分类",
+  "secondLevelCount": "{count} 个二级分类",
+  "@secondLevelCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "addChildCategoryUnder": "在{name}下新增二级分类",
+  "@addChildCategoryUnder": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "editNamedCategory": "编辑{name}",
+  "@editNamedCategory": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "secondLevelCategory": "二级分类",
+  "firstLevelCategory": "一级分类",
+  "needParentCategoryFirst": "请先新建一个同类型的一级分类",
+  "categorySaveFailed": "分类保存失败，请稍后重试",
+  "editCategory": "编辑分类",
+  "categoryInfo": "分类信息",
+  "categoryName": "分类名称",
+  "flowType": "收支类型",
+  "categoryLevel": "分类级别",
+  "parentCategory": "上级分类",
+  "categoryHasChildrenKeepRoot": "该分类包含二级分类，级别保持为一级。",
+  "categoryNotFound": "分类不存在",
+  "cannotNestRootWithChildren": "包含二级分类的一级分类不能改为二级",
+  "enterCategoryName": "请输入分类名称",
+  "categoryNameTooLong": "分类名称不能超过 24 个字符",
+  "invalidCategoryType": "分类类型无效",
+  "categoryCannotBeOwnParent": "分类不能作为自己的上级分类",
+  "chooseSameTypeParent": "请选择同类型的一级分类",
+  "categoryMaxTwoLevels": "分类最多只能分为两级",
+  "duplicateCategoryName": "同类型下已存在该分类",
+  "editTransaction": "编辑流水",
+  "date": "日期",
+  "category": "分类",
+  "fromAccount": "转出账户",
+  "account": "账户",
+  "toAccount": "转入账户",
+  "noteOptional": "添加备注（可选）",
+  "expenseAmountLabel": "支出金额",
+  "incomeAmountLabel": "收入金额",
+  "transferAmountLabel": "转账金额",
+  "updateExpense": "更新支出",
+  "saveExpense": "保存支出",
+  "updateIncome": "更新收入",
+  "saveIncome": "保存收入",
+  "updateTransfer": "更新转账",
+  "saveTransfer": "保存转账",
+  "pickIncomeCategory": "选择收入分类",
+  "pickExpenseCategory": "选择支出分类",
+  "pickDate": "选择日期",
+  "ok": "确定",
+  "pickFromAccount": "选择转出账户",
+  "pickAccount": "选择账户",
+  "pickToAccount": "选择转入账户",
+  "enterPositiveAmount": "请输入大于 0 的金额",
+  "missingCategoryOrAccount": "当前账本缺少可用的分类或账户",
+  "transferAccountsMustDiffer": "转出账户和转入账户不能相同",
+  "finishEditing": "完成编辑",
+  "editCategoryAction": "编辑分类",
+  "noCategories": "暂无分类",
+  "noAccounts": "暂无可用账户",
+  "addCategory": "新增分类",
+  "parentSecondLevel": "{parent} · 二级分类",
+  "@parentSecondLevel": {
+    "placeholders": {
+      "parent": {
+        "type": "String"
+      }
+    }
+  },
+  "editNamed": "编辑{name}",
+  "@editNamed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "selectNamed": "选择{name}",
+  "@selectNamed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "backspace": "退格",
+  "decimalPoint": "小数点",
+  "notSignedInBudgets": "尚未登录同步，无法加载预算目标",
+  "createExpenseCategoryFirst": "请先创建一个支出分类，再设置预算目标",
+  "notSignedInCreateBudget": "尚未登录同步，无法创建预算目标",
+  "allExpenses": "全部支出",
+  "expenseCategory": "支出分类",
+  "cannotReachService": "无法连接服务，请检查网络后重试",
+  "budgetsLoadFailed": "预算目标加载失败，请稍后重试",
+  "refreshBudgets": "刷新预算目标",
+  "addBudget": "新增预算目标",
+  "noBudgets": "还没有预算目标",
+  "noBudgetsHint": "为支出分类设定每月上限，随时掌握进度。",
+  "setFirstBudget": "设置第一个目标",
+  "thisMonthTargets": "本月目标",
+  "itemCount": "{count} 项",
+  "@itemCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "budgetDefaultName": "本月{name}",
+  "@budgetDefaultName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "enterPositiveDecimalAmount": "请输入大于 0 且最多两位小数的金额",
+  "setBudgetTarget": "设置预算目标",
+  "thisMonth": "本月",
+  "targetName": "目标名称",
+  "monthlyAmount": "每月金额",
+  "saveTarget": "保存目标",
+  "monthTotalTarget": "本月总目标",
+  "overBudget": "已超出",
+  "budgetTarget": "预算目标",
+  "monthlyWithCategory": "每月 · {category}",
+  "@monthlyWithCategory": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "spentAmount": "已用 {amount}",
+  "@spentAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "overByAmount": "超出 {amount}",
+  "@overByAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "remainingAmount": "剩余 {amount}",
+  "@remainingAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "notSignedInSync": "尚未登录同步",
+  "attachmentsUpload": "附件上传",
+  "attachmentsHelp": "HMAC 签名直传本地对象存储：创建会话 → PUT → complete。",
+  "uploading": "上传中…",
+  "uploadDemoFile": "上传演示文件",
+  "noConflicts": "当前无冲突",
+  "conflictSubtitle": "{reason} · 远端版本 {version}",
+  "@conflictSubtitle": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      },
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "useRemote": "采用远端",
+  "keepLocal": "保留本地",
+  "copiedToClipboard": "已复制到剪贴板",
+  "copyCsv": "复制 CSV",
+  "notSignedInInvites": "尚未登录同步，无法加载邀请",
+  "familySharing": "家庭共享",
+  "inviteEmail": "邀请邮箱",
+  "sendInvite": "发送邀请",
+  "sentInvites": "已发出邀请",
+  "inviteRoleToken": "角色 {role} · token {token}",
+  "@inviteRoleToken": {
+    "placeholders": {
+      "role": {
+        "type": "String"
+      },
+      "token": {
+        "type": "String"
+      }
+    }
+  },
+  "fxRates": "汇率",
+  "quoteCurrencyVsCny": "报价币（相对 CNY）",
+  "exchangeRate": "汇率",
+  "monthlyRent": "每月房租",
+  "createdWillPostSoon": "已创建，Worker 约 1 分钟内入账",
+  "createdWillPostTomorrow": "已创建，明日起由 Worker 入账",
+  "recurring": "周期记账",
+  "ruleName": "规则名称",
+  "amountYuan": "金额（元）",
+  "runNow": "立即调度（runNow）",
+  "createRule": "创建规则",
+  "upgraded": "已升级",
+  "subscription": "订阅权益",
+  "currentPlan": "当前方案",
+  "devUpgradePlus": "开发升级 Plus（附件/高级报表）",
+  "devUpgradeFamily": "开发升级 Family（邀请）",
+  "downgradeFree": "降回 Free",
+  "statusLabel": "状态：{label}",
+  "@statusLabel": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "cursorLabel": "游标：{cursor}",
+  "@cursorLabel": {
+    "placeholders": {
+      "cursor": {
+        "type": "int"
+      }
+    }
+  },
+  "pendingLabel": "待推送：{count}",
+  "@pendingLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "remoteBookLabel": "远端账本：{id}",
+  "@remoteBookLabel": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "errorLabel": "错误：{error}",
+  "@errorLabel": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "syncSuccess": "同步成功 cursor={cursor}",
+  "@syncSuccess": {
+    "placeholders": {
+      "cursor": {
+        "type": "int"
+      }
+    }
+  },
+  "syncFailed": "同步失败：{message}",
+  "@syncFailed": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "syncNow": "立即同步",
+  "noRemoteBook": "无远端账本",
+  "revisionHistory": "历史版本",
+  "syncReady": "就绪",
+  "syncError": "出错",
+  "bookBoundToOtherAccount": "本地账本已绑定到其他账户，已停止同步。"
+}

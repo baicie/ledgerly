@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../ai/insight_period.dart';
+import '../../l10n/l10n.dart';
 import '../ai_providers.dart';
 import '../quick_entry.dart';
 import '../providers.dart';
@@ -16,15 +17,23 @@ class FeedPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = l10nOf(context);
     final month = ref.watch(selectedMonthProvider);
     final transactions = ref.watch(monthTransactionsProvider);
     final summary = ref.watch(monthlyLedgerSummaryProvider);
+    final now = DateTime.now();
+    final isCurrentMonth = month.year == now.year && month.month == now.month;
+    final configured =
+        ref.watch(aiSettingsControllerProvider).settings.isConfigured;
     return Scaffold(
       body: SafeArea(
         child: LedgerlyContent(
           slivers: [
-            const SliverToBoxAdapter(
-              child: LedgerlyPageHeader(title: '全部流水', subtitle: '标准账本'),
+            SliverToBoxAdapter(
+              child: LedgerlyPageHeader(
+                title: l10n.allTransactions,
+                subtitle: l10n.standardLedger,
+              ),
             ),
             SliverToBoxAdapter(
               child: LedgerlyMonthPicker(
@@ -39,7 +48,7 @@ class FeedPage extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
                 sliver: SliverToBoxAdapter(
                   child: LedgerlySummaryCard(
-                    title: '本月流水统计',
+                    title: l10n.monthlyFeedStats,
                     balanceMinor: totals.balanceMinor,
                     incomeMinor: totals.incomeMinor,
                     expenseMinor: totals.expenseMinor,
@@ -49,11 +58,30 @@ class FeedPage extends ConsumerWidget {
               loading: () => const _FeedLoading(),
               error: (error, _) => _FeedError(error: error),
             ),
-            ..._insightSlivers(context, ref),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              sliver: SliverToBoxAdapter(
+                child: LedgerlySection(
+                  padding: EdgeInsets.zero,
+                  child: ListTile(
+                    key: const Key('feed-monthly-insight-entry'),
+                    dense: true,
+                    visualDensity: VisualDensity.compact,
+                    leading: const Icon(Icons.auto_awesome_outlined),
+                    title: Text(l10n.monthlyInsightEntryTitle),
+                    subtitle: Text(l10n.monthlyInsightEntrySubtitle),
+                    trailing: const Icon(Icons.chevron_right, size: 20),
+                    onTap: () => context.go('/reports'),
+                  ),
+                ),
+              ),
+            ),
             transactions.when(
               skipLoadingOnReload: true,
               data: (items) => FeedTransactionList(
                 transactions: items,
+                todayInsight: isCurrentMonth ? const _TodayAiInsight() : null,
+                orphanTodayInsight: isCurrentMonth && configured,
                 onOpen: (transaction) =>
                     openQuickEntry(context, transaction: transaction),
                 onDelete: (transaction) =>
@@ -83,65 +111,36 @@ class FeedPage extends ConsumerWidget {
     ref.invalidate(categoryReportProvider);
     ref.invalidate(monthlyLedgerSummaryProvider);
     ref.invalidate(todayAiInsightProvider);
-    ref.invalidate(previousMonthHighlightProvider);
     ref.invalidate(selectedMonthAiInsightProvider);
   }
 }
 
-List<Widget> _insightSlivers(BuildContext context, WidgetRef ref) {
-  final today = ref.watch(todayAiInsightProvider);
-  final previous = ref.watch(previousMonthHighlightProvider);
-  return [
-    previous.maybeWhen(
+class _TodayAiInsight extends ConsumerWidget {
+  const _TodayAiInsight();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final today = ref.watch(todayAiInsightProvider);
+    return today.when(
       skipLoadingOnReload: true,
-      data: (view) {
-        if (view == null) {
-          return const SliverToBoxAdapter(child: SizedBox.shrink());
-        }
-        return SliverPadding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-          sliver: SliverToBoxAdapter(
-            child: AiInsightCard(
-              view: view,
-              onConfigure: () => context.go('/settings/ai'),
-              onGenerate: view.canGenerate
-                  ? () => regenerateAiInsight(
-                      ref,
-                      InsightPeriod.previousMonth(DateTime.now()),
-                    )
-                  : null,
-            ),
-          ),
-        );
-      },
-      orElse: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
-    ),
-    today.when(
-      skipLoadingOnReload: true,
-      data: (view) => SliverPadding(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        sliver: SliverToBoxAdapter(
-          child: AiInsightCard(
-            view: view,
-            onConfigure: () => context.go('/settings/ai'),
-            onGenerate: view.canGenerate
-                ? () => regenerateAiInsight(
-                    ref,
-                    InsightPeriod.daily(DateTime.now()),
-                  )
-                : null,
-          ),
-        ),
+      data: (view) => AiInsightCard(
+        view: view,
+        embedded: true,
+        onConfigure: () => context.go('/settings/ai'),
+        onGenerate: view.canGenerate
+            ? () => regenerateAiInsight(
+                  ref,
+                  InsightPeriod.daily(DateTime.now()),
+                )
+            : null,
       ),
-      loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
-      error: (error, _) => SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-          child: Text('分析加载失败：$error'),
-        ),
+      loading: () => const SizedBox.shrink(),
+      error: (error, _) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: Text(l10nOf(context).insightLoadFailed('$error')),
       ),
-    ),
-  ];
+    );
+  }
 }
 
 class _FeedError extends StatelessWidget {
@@ -154,7 +153,7 @@ class _FeedError extends StatelessWidget {
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: Center(child: Text('流水加载失败：$error')),
+        child: Center(child: Text(l10nOf(context).feedLoadFailed('$error'))),
       ),
     );
   }

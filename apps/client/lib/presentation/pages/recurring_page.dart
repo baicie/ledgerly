@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/ids.dart';
+import '../../l10n/l10n.dart';
 import '../providers.dart';
 
 class RecurringPage extends ConsumerStatefulWidget {
@@ -12,7 +13,7 @@ class RecurringPage extends ConsumerStatefulWidget {
 }
 
 class _RecurringPageState extends ConsumerState<RecurringPage> {
-  final _name = TextEditingController(text: '每月房租');
+  late final TextEditingController _name;
   final _amount = TextEditingController(text: '3000.00');
   var _busy = false;
   var _runNow = true;
@@ -22,6 +23,7 @@ class _RecurringPageState extends ConsumerState<RecurringPage> {
   @override
   void initState() {
     super.initState();
+    _name = TextEditingController(text: L10n.current.monthlyRent);
     _load();
   }
 
@@ -41,7 +43,7 @@ class _RecurringPageState extends ConsumerState<RecurringPage> {
     try {
       final bookId = await _remoteBookId();
       if (bookId == null) {
-        setState(() => _message = '尚未登录同步');
+        setState(() => _message = L10n.current.notSignedInSync);
         return;
       }
       final list =
@@ -69,31 +71,33 @@ class _RecurringPageState extends ConsumerState<RecurringPage> {
           : 0;
       final minor = yuan * 100 + cents;
       await ref.read(syncApiProvider).createRecurring(
-            bookId: bookId,
-            name: _name.text.trim(),
-            runNow: _runNow,
-            payload: {
-              'description': _name.text.trim(),
-              'entries': [
-                {
-                  'accountId': accountKeyFood(bookId),
-                  'amountMinor': '$minor',
-                  'currency': 'CNY',
-                },
-                {
-                  'accountId': accountKeyCash(bookId),
-                  'amountMinor': '-$minor',
-                  'currency': 'CNY',
-                },
-              ],
+        bookId: bookId,
+        name: _name.text.trim(),
+        runNow: _runNow,
+        payload: {
+          'description': _name.text.trim(),
+          'entries': [
+            {
+              'accountId': accountKeyFood(bookId),
+              'amountMinor': '$minor',
+              'currency': 'CNY',
             },
-          );
+            {
+              'accountId': accountKeyCash(bookId),
+              'amountMinor': '-$minor',
+              'currency': 'CNY',
+            },
+          ],
+        },
+      );
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              _runNow ? '已创建，Worker 约 1 分钟内入账' : '已创建，明日起由 Worker 入账',
+              _runNow
+                  ? l10nOf(context).createdWillPostSoon
+                  : l10nOf(context).createdWillPostTomorrow,
             ),
           ),
         );
@@ -107,8 +111,9 @@ class _RecurringPageState extends ConsumerState<RecurringPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('周期记账')),
+      appBar: AppBar(title: Text(l10n.recurring)),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -116,23 +121,23 @@ class _RecurringPageState extends ConsumerState<RecurringPage> {
           children: [
             TextField(
               controller: _name,
-              decoration: const InputDecoration(labelText: '规则名称'),
+              decoration: InputDecoration(labelText: l10n.ruleName),
             ),
             TextField(
               controller: _amount,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: '金额（元）'),
+              decoration: InputDecoration(labelText: l10n.amountYuan),
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('立即调度（runNow）'),
+              title: Text(l10n.runNow),
               value: _runNow,
               onChanged: (v) => setState(() => _runNow = v),
             ),
             FilledButton(
               onPressed: _busy ? null : _create,
-              child: Text(_busy ? '处理中…' : '创建规则'),
+              child: Text(_busy ? l10n.processing : l10n.createRule),
             ),
             if (_message != null) ...[
               const SizedBox(height: 8),
