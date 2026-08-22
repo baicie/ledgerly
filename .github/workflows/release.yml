@@ -225,6 +225,9 @@ jobs:
           ## Ledgerly ${{ github.ref_name }}
 
           ### Client (this release)
+          - Generate daily and previous-month spend insights with a user-provided DeepSeek or OpenCode key. Ledger slices stay on-device and never go through Ledgerly's server.
+          - Configure provider, API key, base URL, and model in Settings. Insights are cached locally and are not synced.
+          - OpenCode uses \`https://opencode.ai/zen/go/v1\`. Flutter Web cannot call that gateway due to CORS; use the Android app.
           - Choose any transaction date when creating or editing expense, income, and transfer entries, making forgotten entries easy to backfill.
           - Preserve business dates across local storage and device sync, with monthly lists and reports following local calendar boundaries.
           - API service is optional; without one Ledgerly stays local-only and makes no authentication or sync requests.
