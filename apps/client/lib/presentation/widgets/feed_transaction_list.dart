@@ -28,7 +28,8 @@ class FeedTransactionList extends StatelessWidget {
     required this.transactions,
     required this.onOpen,
     required this.onDelete,
-    this.todayInsight,
+    this.dayInsight,
+    this.showDayInsightBadge,
     this.orphanTodayInsight = true,
     this.expandAll = false,
     this.emptyTitle,
@@ -39,9 +40,10 @@ class FeedTransactionList extends StatelessWidget {
   final List<TransactionSummary> transactions;
   final ValueChanged<TransactionSummary> onOpen;
   final ValueChanged<TransactionSummary> onDelete;
-  final Widget? todayInsight;
+  final Widget? Function(DateTime day)? dayInsight;
+  final bool Function(DateTime day)? showDayInsightBadge;
 
-  /// Pin [todayInsight] above the list when today has no transactions.
+  /// Pin today's [dayInsight] above the list when today has no transactions.
   final bool orphanTodayInsight;
   final bool expandAll;
   final String? emptyTitle;
@@ -55,12 +57,13 @@ class FeedTransactionList extends StatelessWidget {
       return SliverToBoxAdapter(
         child: Column(
           children: [
-            if (todayInsight != null && orphanTodayInsight)
+            if (dayInsight != null && orphanTodayInsight)
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                 child: LedgerlySection(
                   padding: EdgeInsets.zero,
-                  child: todayInsight!,
+                  child: dayInsight!(DateUtils.dateOnly(DateTime.now())) ??
+                      const SizedBox.shrink(),
                 ),
               ),
             LedgerlyEmptyState(
@@ -83,7 +86,7 @@ class FeedTransactionList extends StatelessWidget {
     final days = groups.keys.toList();
     final hasToday = days.any((day) => DateUtils.isSameDay(day, today));
     final showOrphanToday =
-        todayInsight != null && orphanTodayInsight && !hasToday;
+        dayInsight != null && orphanTodayInsight && !hasToday;
 
     return SliverList.builder(
       itemCount: days.length + (showOrphanToday ? 1 : 0),
@@ -93,13 +96,15 @@ class FeedTransactionList extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             child: LedgerlySection(
               padding: EdgeInsets.zero,
-              child: todayInsight!,
+              child: dayInsight!(today) ?? const SizedBox.shrink(),
             ),
           );
         }
         final day = days[showOrphanToday ? index - 1 : index];
         final items = groups[day]!;
         final isToday = DateUtils.isSameDay(day, today);
+        final insight = dayInsight?.call(day);
+        final marked = showDayInsightBadge?.call(day) ?? false;
         return Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
           child: LedgerlySection(
@@ -115,6 +120,14 @@ class FeedTransactionList extends StatelessWidget {
               collapsedShape: const Border(),
               title: Row(
                 children: [
+                  if (marked) ...[
+                    const Icon(
+                      Icons.auto_awesome,
+                      size: 16,
+                      color: LedgerlyColors.brand,
+                    ),
+                    const SizedBox(width: 6),
+                  ],
                   Expanded(
                     child: Text(
                       l10n.feedDayLabel(
@@ -151,11 +164,11 @@ class FeedTransactionList extends StatelessWidget {
                 ],
               ),
               children: [
-                if (isToday && todayInsight != null) todayInsight!,
+                if (insight != null) insight,
                 for (var itemIndex = 0;
                     itemIndex < items.length;
                     itemIndex++) ...[
-                  if (itemIndex > 0 || (isToday && todayInsight != null))
+                  if (itemIndex > 0 || insight != null)
                     const Divider(indent: 70, endIndent: 16),
                   _TransactionTile(
                     transaction: items[itemIndex],

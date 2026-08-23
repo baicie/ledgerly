@@ -225,6 +225,10 @@ jobs:
           ## Ledgerly ${{ github.ref_name }}
 
           ### Client (this release)
+          - Daily insights now appear on historical days in the feed, not just today. Older days generate on demand; today, yesterday, and last month still auto-fill.
+          - Choose a built-in system prompt (balanced, frugal, review, concise) or write your own. Custom prompts still return JSON.
+          - Generating an insight shows a progress bar, spinner, and status copy immediately, including when the card was collapsed.
+          - Android builds use compileSdk 37 so \`flutter_secure_storage\` 11 can package a release APK.
           - Unlock with fingerprint or Face ID after a PIN is set; PIN remains the fallback. Web stays PIN-only.
           - Import Alipay/WeChat CSVs in UTF-8 or GBK, including tab-separated exports; skip refunds/closed rows; uncheck duplicates already in the ledger.
           - Recurring rules accept day 1–31 and post on the last day when the month is shorter; catch-up will not double-post the same row.

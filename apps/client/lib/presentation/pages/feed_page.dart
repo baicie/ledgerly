@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../ai/ai_models.dart';
 import '../../ai/insight_period.dart';
 import '../../application/feed_search.dart';
 import '../../l10n/l10n.dart';
@@ -111,9 +112,10 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                   emptyMessage: searching
                       ? l10n.noSearchResultsMessage
                       : l10n.emptyMonthMessage,
-                  todayInsight:
-                      isCurrentMonth ? const _TodayAiInsight() : null,
-                  orphanTodayInsight: isCurrentMonth && configured && !searching,
+                  dayInsight: (day) => _DayAiInsight(day: day),
+                  showDayInsightBadge: (day) => _dayHasReadyInsight(ref, day),
+                  orphanTodayInsight:
+                      isCurrentMonth && configured && !searching,
                   onOpen: (transaction) =>
                       openQuickEntry(context, transaction: transaction),
                   onDelete: (transaction) =>
@@ -145,36 +147,64 @@ class _FeedPageState extends ConsumerState<FeedPage> {
     await ref.read(ledgerAppServiceProvider).deleteTransaction(id);
     invalidateLedgerViews(ref);
     ref.invalidate(todayAiInsightProvider);
+    ref.invalidate(monthDailyAiInsightsProvider);
     ref.invalidate(selectedMonthAiInsightProvider);
   }
 }
 
-class _TodayAiInsight extends ConsumerWidget {
-  const _TodayAiInsight();
+class _DayAiInsight extends ConsumerWidget {
+  const _DayAiInsight({required this.day});
+
+  final DateTime day;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final today = ref.watch(todayAiInsightProvider);
-    return today.when(
+    final period = InsightPeriod.daily(day);
+    final today = DateUtils.dateOnly(DateTime.now());
+    final isToday = DateUtils.isSameDay(day, today);
+    final views = ref.watch(monthDailyAiInsightsProvider);
+    return views.when(
       skipLoadingOnReload: true,
-      data: (view) => AiInsightCard(
-        view: view,
-        embedded: true,
-        onConfigure: () => context.go('/settings/ai'),
-        onGenerate: view.canGenerate
-            ? () => regenerateAiInsight(
-                  ref,
-                  InsightPeriod.daily(DateTime.now()),
-                )
-            : null,
-      ),
-      loading: () => const SizedBox.shrink(),
+      data: (items) {
+        final view = items[period.key];
+        if (view == null) return const SizedBox.shrink();
+        if (view.status == AiInsightStatus.unconfigured && !isToday) {
+          return const SizedBox.shrink();
+        }
+        return AiInsightCard(
+          view: view,
+          embedded: true,
+          busy: isInsightGenerating(ref, period),
+          onConfigure: () => context.go('/settings/ai'),
+          onGenerate:
+              view.canGenerate ? () => regenerateAiInsight(ref, period) : null,
+        );
+      },
+      loading: () {
+        if (!isToday) return const SizedBox.shrink();
+        return AiInsightCard(
+          view: AiInsightView(
+            status: AiInsightStatus.empty,
+            kind: InsightKind.daily,
+            periodKey: period.key,
+            periodLabel: period.label,
+          ),
+          embedded: true,
+          busy: true,
+        );
+      },
       error: (error, _) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
         child: Text(l10nOf(context).insightLoadFailed('$error')),
       ),
     );
   }
+}
+
+bool _dayHasReadyInsight(WidgetRef ref, DateTime day) {
+  final views = ref.watch(monthDailyAiInsightsProvider).asData?.value;
+  final view = views?[InsightPeriod.daily(day).key];
+  return view?.status == AiInsightStatus.ready;
 }
 
 class _FeedError extends StatelessWidget {

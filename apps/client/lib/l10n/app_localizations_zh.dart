@@ -435,7 +435,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get insightUnconfiguredDaily =>
-      '配置模型供应商和 API Key 后，可在当天流水里自动生成每日消费总结。当前接入的文本模型不支持语音转文字。';
+      '配置模型供应商和 API Key 后，可在流水里生成每日消费总结。当天和昨天会自动补齐，往日需点生成。当前接入的文本模型不支持语音转文字。';
 
   @override
   String get insightUnconfiguredMonthly =>
@@ -443,6 +443,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get insightNotGenerated => '尚未生成分析';
+
+  @override
+  String get insightGenerating => '正在生成分析…';
 
   @override
   String get insightEmptyDaily => '当日暂无消费';
@@ -492,7 +495,46 @@ class AppLocalizationsZh extends AppLocalizations {
   String get autoGenerateInsights => '自动生成分析';
 
   @override
-  String get autoGenerateInsightsSubtitle => '打开应用时补齐今日、昨日和上月总结';
+  String get autoGenerateInsightsSubtitle => '打开应用时补齐今日、昨日和上月总结。往日流水需点生成。';
+
+  @override
+  String get aiPromptPreset => '系统提示词';
+
+  @override
+  String get aiPromptPresetBalanced => '均衡总结';
+
+  @override
+  String get aiPromptPresetFrugal => '节约教练';
+
+  @override
+  String get aiPromptPresetReview => '复盘助手';
+
+  @override
+  String get aiPromptPresetConcise => '极简结论';
+
+  @override
+  String get aiPromptPresetCustom => '自定义';
+
+  @override
+  String get aiPromptPresetBalancedSubtitle => '总结结构、异常大额，并给一句可执行建议。';
+
+  @override
+  String get aiPromptPresetFrugalSubtitle => '优先找可砍或可延后的支出，语气直接。';
+
+  @override
+  String get aiPromptPresetReviewSubtitle => '先事实后判断，标出占比最高和最异常的一笔。';
+
+  @override
+  String get aiPromptPresetConciseSubtitle => '标题更短，只保留最重要的三条事实和一条建议。';
+
+  @override
+  String get aiPromptPresetCustomSubtitle => '使用你自己的系统提示词。仍会要求模型只输出 JSON。';
+
+  @override
+  String get aiCustomSystemPrompt => '自定义系统提示词';
+
+  @override
+  String get aiCustomSystemPromptHint => '例如：用更口语的方式总结消费，并提醒是否超出日常节奏。';
 
   @override
   String get testingConnection => '测试中…';
@@ -637,7 +679,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiSpendInsights => 'AI 消费总结';
 
   @override
-  String get aiSpendInsightsSubtitle => '供应商、密钥、模型与自动分析';
+  String get aiSpendInsightsSubtitle => '供应商、密钥、模型、提示词与自动分析';
 
   @override
   String get accountSection => '账户';

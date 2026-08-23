@@ -72,7 +72,7 @@ class InsightService {
     final stale = stored != null && stored.inputHash != snapshot.hash;
     if (!force &&
         stored != null &&
-        stored.promptVersion == AiSettings.promptVersion &&
+        stored.promptVersion == settings.resolvedPromptVersion &&
         stored.inputHash == snapshot.hash) {
       return _toView(period, stored, snapshot.hash);
     }
@@ -85,7 +85,7 @@ class InsightService {
         status: AiInsightStatus.empty,
         inputHash: snapshot.hash,
         model: settings.model,
-        promptVersion: AiSettings.promptVersion,
+        promptVersion: settings.resolvedPromptVersion,
         generatedAt: DateTime.now().toUtc(),
         headline: period.kind == InsightKind.daily
             ? L10n.current.insightEmptyDaily
@@ -104,7 +104,7 @@ class InsightService {
       final result = await _chat.complete(
         AiChatRequest(
           settings: settings,
-          systemPrompt: insightSystemPrompt,
+          systemPrompt: resolveInsightSystemPrompt(settings),
           userPrompt: buildInsightUserPrompt(snapshot),
         ),
       );
@@ -116,7 +116,7 @@ class InsightService {
         status: AiInsightStatus.ready,
         inputHash: snapshot.hash,
         model: settings.model,
-        promptVersion: AiSettings.promptVersion,
+        promptVersion: settings.resolvedPromptVersion,
         generatedAt: DateTime.now().toUtc(),
         headline: parsed.headline,
         content: parsed,
@@ -133,7 +133,7 @@ class InsightService {
         status: AiInsightStatus.error,
         inputHash: snapshot.hash,
         model: settings.model,
-        promptVersion: AiSettings.promptVersion,
+        promptVersion: settings.resolvedPromptVersion,
         generatedAt: DateTime.now().toUtc(),
         errorMessage: error.toString(),
         headline: error.toString(),
@@ -141,6 +141,52 @@ class InsightService {
       await _insights.upsert(failed);
       return _toView(period, failed, snapshot.hash, stale: stale);
     }
+  }
+
+  Future<Map<String, AiInsightView>> loadDailyViews({
+    required DateTime month,
+    required List<TransactionSummary> transactions,
+    required AiSettings settings,
+    DateTime? now,
+  }) async {
+    final clock = (now ?? DateTime.now()).toLocal();
+    final grouped = <String, List<TransactionSummary>>{};
+    for (final transaction in transactions) {
+      final period = InsightPeriod.daily(transaction.occurredAt);
+      grouped.putIfAbsent(period.key, () => []).add(transaction);
+    }
+    final isCurrentMonth =
+        month.year == clock.year && month.month == clock.month;
+    if (isCurrentMonth) {
+      grouped.putIfAbsent(InsightPeriod.daily(clock).key, () => []);
+    }
+
+    final prefix =
+        '${month.year.toString().padLeft(4, '0')}-${month.month.toString().padLeft(2, '0')}';
+    final stored = settings.isConfigured
+        ? await _insights.listDaily(_bookId, prefix)
+        : const <StoredInsight>[];
+    final byKey = {for (final item in stored) item.period.key: item};
+
+    final views = <String, AiInsightView>{};
+    for (final key in grouped.keys) {
+      final period = InsightPeriod.daily(DateTime.parse(key));
+      if (!settings.isConfigured) {
+        views[key] = AiInsightView(
+          status: AiInsightStatus.unconfigured,
+          kind: InsightKind.daily,
+          periodKey: period.key,
+          periodLabel: period.label,
+        );
+        continue;
+      }
+      final snapshot = buildInsightSnapshot(
+        period: period,
+        transactions: grouped[key] ?? const [],
+      );
+      views[key] = _toView(period, byKey[key], snapshot.hash);
+    }
+    return views;
   }
 
   Future<InsightSnapshot> _snapshot(InsightPeriod period) async {

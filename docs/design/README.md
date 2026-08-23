@@ -18,5 +18,6 @@
 | [client-i18n.md](./client-i18n.md) | 客户端国际化（默认中文） |
 | [local-daily-tools.md](./local-daily-tools.md) | 搜索、应用锁、本地预算/周期/导入/附件 |
 | [daily-tools-0.0.16.md](./daily-tools-0.0.16.md) | 导入/周期/预算/附件打磨、生物识别、minSdk 24 |
+| [insights-0.0.17.md](./insights-0.0.17.md) | 历史日报、内置提示词、生成动效、compileSdk 37 |
 
 状态：文档在对应阶段分支创建并完善；基线阶段仅保留本索引。

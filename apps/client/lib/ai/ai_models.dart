@@ -4,6 +4,37 @@ enum InsightKind { daily, monthly }
 
 enum AiInsightStatus { unconfigured, empty, ready, error }
 
+enum AiPromptPreset {
+  balanced,
+  frugal,
+  review,
+  concise,
+  custom;
+
+  String get label => switch (this) {
+        balanced => L10n.current.aiPromptPresetBalanced,
+        frugal => L10n.current.aiPromptPresetFrugal,
+        review => L10n.current.aiPromptPresetReview,
+        concise => L10n.current.aiPromptPresetConcise,
+        custom => L10n.current.aiPromptPresetCustom,
+      };
+
+  String get subtitle => switch (this) {
+        balanced => L10n.current.aiPromptPresetBalancedSubtitle,
+        frugal => L10n.current.aiPromptPresetFrugalSubtitle,
+        review => L10n.current.aiPromptPresetReviewSubtitle,
+        concise => L10n.current.aiPromptPresetConciseSubtitle,
+        custom => L10n.current.aiPromptPresetCustomSubtitle,
+      };
+
+  static AiPromptPreset tryParse(String? raw) {
+    for (final preset in AiPromptPreset.values) {
+      if (preset.name == raw) return preset;
+    }
+    return balanced;
+  }
+}
+
 enum AiProviderKind {
   deepseek,
   opencode,
@@ -64,11 +95,13 @@ class AiSettings {
     required this.model,
     required this.autoGenerate,
     this.provider = AiProviderKind.deepseek,
+    this.promptPreset = AiPromptPreset.balanced,
+    this.customSystemPrompt = '',
   });
 
   static const defaultBaseUrl = 'https://api.deepseek.com';
   static const defaultModel = 'deepseek-v4-flash';
-  static const promptVersion = 'spend-insight.v1';
+  static const promptVersionPrefix = 'spend-insight.v2';
 
   static const unset = AiSettings(
     apiKey: '',
@@ -83,8 +116,17 @@ class AiSettings {
   final String model;
   final bool autoGenerate;
   final AiProviderKind provider;
+  final AiPromptPreset promptPreset;
+  final String customSystemPrompt;
 
   bool get isConfigured => apiKey.trim().isNotEmpty;
+
+  String get resolvedPromptVersion {
+    if (promptPreset == AiPromptPreset.custom) {
+      return '$promptVersionPrefix:custom:${fnv1aHex(customSystemPrompt.trim())}';
+    }
+    return '$promptVersionPrefix:${promptPreset.name}';
+  }
 
   List<String> get presetModels => provider.presetModels;
 
@@ -148,6 +190,8 @@ class AiSettings {
     String? model,
     bool? autoGenerate,
     AiProviderKind? provider,
+    AiPromptPreset? promptPreset,
+    String? customSystemPrompt,
   }) {
     return AiSettings(
       apiKey: apiKey ?? this.apiKey,
@@ -155,8 +199,19 @@ class AiSettings {
       model: model ?? this.model,
       autoGenerate: autoGenerate ?? this.autoGenerate,
       provider: provider ?? this.provider,
+      promptPreset: promptPreset ?? this.promptPreset,
+      customSystemPrompt: customSystemPrompt ?? this.customSystemPrompt,
     );
   }
+}
+
+String fnv1aHex(String value) {
+  var hash = 2166136261;
+  for (final code in value.codeUnits) {
+    hash ^= code;
+    hash = (hash * 16777619) & 0xffffffff;
+  }
+  return hash.toRadixString(16).padLeft(8, '0');
 }
 
 class AiChatRequest {

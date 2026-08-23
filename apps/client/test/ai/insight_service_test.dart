@@ -113,4 +113,49 @@ void main() {
     );
     expect(chat.requests, isEmpty);
   });
+
+  test('loads cached historical daily views without calling the model',
+      () async {
+    await app.createExpense(
+      expenseAccountId: accountKeyFood(defaultBookId),
+      fundingAccountId: accountKeyCash(defaultBookId),
+      amountMinor: BigInt.from(1800),
+      description: '历史午餐',
+      occurredAt: DateTime(2026, 7, 15, 12),
+    );
+    final period = InsightPeriod.daily(DateTime(2026, 7, 15, 12));
+    await service.ensure(period, settings: configured);
+    expect(chat.requests, hasLength(1));
+
+    final views = await service.loadDailyViews(
+      month: DateTime(2026, 7, 1),
+      transactions: await ledger.watchSummariesSync(
+        defaultBookId,
+        monthStart: InsightPeriod.monthOf(DateTime(2026, 7, 1)).start,
+        monthEnd: InsightPeriod.monthOf(DateTime(2026, 7, 1)).end,
+      ),
+      settings: configured,
+      now: DateTime(2026, 8, 1, 10),
+    );
+    expect(views['2026-07-15']?.status, AiInsightStatus.ready);
+    expect(views['2026-07-15']?.headline, '餐饮占比较高');
+    expect(chat.requests, hasLength(1));
+  });
+
+  test('uses the selected system prompt when generating', () async {
+    await app.createExpense(
+      expenseAccountId: accountKeyFood(defaultBookId),
+      fundingAccountId: accountKeyCash(defaultBookId),
+      amountMinor: BigInt.from(900),
+      description: '咖啡',
+      occurredAt: DateTime(2026, 8, 22, 9),
+    );
+    final period = InsightPeriod.daily(DateTime(2026, 8, 22, 10));
+    await service.ensure(
+      period,
+      settings: configured.copyWith(promptPreset: AiPromptPreset.frugal),
+    );
+    expect(chat.requests, hasLength(1));
+    expect(chat.requests.single.systemPrompt, contains('偏节约'));
+  });
 }

@@ -57,6 +57,24 @@ class InsightRepository {
     return row == null ? null : _fromRow(row);
   }
 
+  Future<List<StoredInsight>> listDaily(
+      String bookId, String monthPrefix) async {
+    final rows = await _db.customSelect(
+      '''
+SELECT * FROM ai_insights
+WHERE book_id = ? AND kind = ? AND period_key LIKE ?
+ORDER BY period_key DESC
+''',
+      variables: [
+        Variable<String>(bookId),
+        Variable<String>(InsightKind.daily.name),
+        Variable<String>('$monthPrefix-%'),
+      ],
+      readsFrom: {},
+    ).get();
+    return [for (final row in rows) _fromRow(row)];
+  }
+
   Future<void> upsert(StoredInsight insight) async {
     final headline = insight.status == AiInsightStatus.error
         ? insight.errorMessage

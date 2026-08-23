@@ -23,6 +23,7 @@ void main() {
     expect(store.value.baseUrl, 'https://api.deepseek.com');
     expect(store.value.autoGenerate, isFalse);
     expect(store.value.provider, AiProviderKind.deepseek);
+    expect(store.value.promptPreset, AiPromptPreset.balanced);
     expect(AiSettings.validateBaseUrl('not-a-url'), isNotNull);
     expect(AiSettings.validateBaseUrl('https://api.deepseek.com'), isNull);
     expect(
