@@ -18,7 +18,9 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
   final _keyController = TextEditingController();
   final _baseUrlController = TextEditingController();
   final _modelController = TextEditingController();
+  final _customPromptController = TextEditingController();
   var _provider = AiProviderKind.deepseek;
+  var _promptPreset = AiPromptPreset.balanced;
   var _autoGenerate = true;
   var _obscureKey = true;
   var _saving = false;
@@ -32,6 +34,7 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
     _keyController.dispose();
     _baseUrlController.dispose();
     _modelController.dispose();
+    _customPromptController.dispose();
     super.dispose();
   }
 
@@ -40,7 +43,9 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
     _keyController.text = settings.apiKey;
     _baseUrlController.text = settings.baseUrl;
     _modelController.text = settings.model;
+    _customPromptController.text = settings.customSystemPrompt;
     _provider = settings.provider;
+    _promptPreset = settings.promptPreset;
     _autoGenerate = settings.autoGenerate;
     _loaded = true;
   }
@@ -52,6 +57,8 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
       model: _modelController.text,
       autoGenerate: _autoGenerate,
       provider: _provider,
+      promptPreset: _promptPreset,
+      customSystemPrompt: _customPromptController.text,
     );
   }
 
@@ -248,6 +255,49 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage> {
                           decoration: InputDecoration(
                             labelText: l10nOf(context).customModelId,
                             hintText: AiSettings.defaultModel,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<AiPromptPreset>(
+                        key: Key(
+                          'ai-settings-prompt-preset-${_promptPreset.name}',
+                        ),
+                        initialValue: _promptPreset,
+                        decoration: InputDecoration(
+                          labelText: l10nOf(context).aiPromptPreset,
+                        ),
+                        items: [
+                          for (final preset in AiPromptPreset.values)
+                            DropdownMenuItem(
+                              value: preset,
+                              child: Text(preset.label),
+                            ),
+                        ],
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() => _promptPreset = value);
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          _promptPreset.subtitle,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                      if (_promptPreset == AiPromptPreset.custom) ...[
+                        const SizedBox(height: 12),
+                        TextField(
+                          key: const Key('ai-settings-custom-prompt'),
+                          controller: _customPromptController,
+                          minLines: 4,
+                          maxLines: 8,
+                          decoration: InputDecoration(
+                            labelText: l10nOf(context).aiCustomSystemPrompt,
+                            hintText: l10nOf(context).aiCustomSystemPromptHint,
+                            alignLabelWithHint: true,
                           ),
                         ),
                       ],

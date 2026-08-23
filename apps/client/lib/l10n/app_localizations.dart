@@ -875,7 +875,7 @@ abstract class AppLocalizations {
   /// No description provided for @insightUnconfiguredDaily.
   ///
   /// In zh, this message translates to:
-  /// **'配置模型供应商和 API Key 后，可在当天流水里自动生成每日消费总结。当前接入的文本模型不支持语音转文字。'**
+  /// **'配置模型供应商和 API Key 后，可在流水里生成每日消费总结。当天和昨天会自动补齐，往日需点生成。当前接入的文本模型不支持语音转文字。'**
   String get insightUnconfiguredDaily;
 
   /// No description provided for @insightUnconfiguredMonthly.
@@ -889,6 +889,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'尚未生成分析'**
   String get insightNotGenerated;
+
+  /// No description provided for @insightGenerating.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在生成分析…'**
+  String get insightGenerating;
 
   /// No description provided for @insightEmptyDaily.
   ///
@@ -983,8 +989,86 @@ abstract class AppLocalizations {
   /// No description provided for @autoGenerateInsightsSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'打开应用时补齐今日、昨日和上月总结'**
+  /// **'打开应用时补齐今日、昨日和上月总结。往日流水需点生成。'**
   String get autoGenerateInsightsSubtitle;
+
+  /// No description provided for @aiPromptPreset.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统提示词'**
+  String get aiPromptPreset;
+
+  /// No description provided for @aiPromptPresetBalanced.
+  ///
+  /// In zh, this message translates to:
+  /// **'均衡总结'**
+  String get aiPromptPresetBalanced;
+
+  /// No description provided for @aiPromptPresetFrugal.
+  ///
+  /// In zh, this message translates to:
+  /// **'节约教练'**
+  String get aiPromptPresetFrugal;
+
+  /// No description provided for @aiPromptPresetReview.
+  ///
+  /// In zh, this message translates to:
+  /// **'复盘助手'**
+  String get aiPromptPresetReview;
+
+  /// No description provided for @aiPromptPresetConcise.
+  ///
+  /// In zh, this message translates to:
+  /// **'极简结论'**
+  String get aiPromptPresetConcise;
+
+  /// No description provided for @aiPromptPresetCustom.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义'**
+  String get aiPromptPresetCustom;
+
+  /// No description provided for @aiPromptPresetBalancedSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'总结结构、异常大额，并给一句可执行建议。'**
+  String get aiPromptPresetBalancedSubtitle;
+
+  /// No description provided for @aiPromptPresetFrugalSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'优先找可砍或可延后的支出，语气直接。'**
+  String get aiPromptPresetFrugalSubtitle;
+
+  /// No description provided for @aiPromptPresetReviewSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'先事实后判断，标出占比最高和最异常的一笔。'**
+  String get aiPromptPresetReviewSubtitle;
+
+  /// No description provided for @aiPromptPresetConciseSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'标题更短，只保留最重要的三条事实和一条建议。'**
+  String get aiPromptPresetConciseSubtitle;
+
+  /// No description provided for @aiPromptPresetCustomSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用你自己的系统提示词。仍会要求模型只输出 JSON。'**
+  String get aiPromptPresetCustomSubtitle;
+
+  /// No description provided for @aiCustomSystemPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义系统提示词'**
+  String get aiCustomSystemPrompt;
+
+  /// No description provided for @aiCustomSystemPromptHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'例如：用更口语的方式总结消费，并提醒是否超出日常节奏。'**
+  String get aiCustomSystemPromptHint;
 
   /// No description provided for @testingConnection.
   ///
@@ -1253,7 +1337,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiSpendInsightsSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'供应商、密钥、模型与自动分析'**
+  /// **'供应商、密钥、模型、提示词与自动分析'**
   String get aiSpendInsightsSubtitle;
 
   /// No description provided for @accountSection.

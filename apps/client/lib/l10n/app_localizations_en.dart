@@ -436,7 +436,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get insightUnconfiguredDaily =>
-      'After you add a provider and API key, a daily spend summary appears in today’s activity. The current text models cannot transcribe speech.';
+      'After you add a provider and API key, daily spend summaries appear in each day’s activity. Today and yesterday fill in automatically; older days wait until you tap Generate. The current text models cannot transcribe speech.';
 
   @override
   String get insightUnconfiguredMonthly =>
@@ -444,6 +444,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get insightNotGenerated => 'Insight not generated yet';
+
+  @override
+  String get insightGenerating => 'Generating insight…';
 
   @override
   String get insightEmptyDaily => 'No spending today';
@@ -494,7 +497,52 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get autoGenerateInsightsSubtitle =>
-      'Fill in today, yesterday, and last month when you open the app';
+      'Fill in today, yesterday, and last month when you open the app. Older days wait until you tap Generate.';
+
+  @override
+  String get aiPromptPreset => 'System prompt';
+
+  @override
+  String get aiPromptPresetBalanced => 'Balanced summary';
+
+  @override
+  String get aiPromptPresetFrugal => 'Frugal coach';
+
+  @override
+  String get aiPromptPresetReview => 'Review assistant';
+
+  @override
+  String get aiPromptPresetConcise => 'Concise take';
+
+  @override
+  String get aiPromptPresetCustom => 'Custom';
+
+  @override
+  String get aiPromptPresetBalancedSubtitle =>
+      'Summarize the mix, flag large amounts, and give one next action.';
+
+  @override
+  String get aiPromptPresetFrugalSubtitle =>
+      'Look first for spending you can cut or postpone.';
+
+  @override
+  String get aiPromptPresetReviewSubtitle =>
+      'Facts first, then judgment. Call out the biggest and oddest item.';
+
+  @override
+  String get aiPromptPresetConciseSubtitle =>
+      'Shorter headline, three facts, one suggestion.';
+
+  @override
+  String get aiPromptPresetCustomSubtitle =>
+      'Use your own system prompt. The model still has to return JSON.';
+
+  @override
+  String get aiCustomSystemPrompt => 'Custom system prompt';
+
+  @override
+  String get aiCustomSystemPromptHint =>
+      'For example: summarize spending in a casual tone and say whether the day looks off-pace.';
 
   @override
   String get testingConnection => 'Testing…';
@@ -646,7 +694,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiSpendInsightsSubtitle =>
-      'Provider, key, model, and auto-generate';
+      'Provider, key, model, prompt, and auto-generate';
 
   @override
   String get accountSection => 'Account';

@@ -67,6 +67,31 @@ void main() {
       expect(buildInsightUserPrompt(snapshot), contains('每日消费总结'));
     });
 
+    test('resolves built-in and custom system prompts with json contract', () {
+      const balanced = AiSettings(
+        apiKey: 'sk',
+        baseUrl: 'https://api.deepseek.com',
+        model: 'deepseek-v4-flash',
+        autoGenerate: true,
+      );
+      expect(resolveInsightSystemPrompt(balanced), contains('总结消费结构'));
+      expect(resolveInsightSystemPrompt(balanced), contains('必须只输出 JSON'));
+
+      final frugal = balanced.copyWith(promptPreset: AiPromptPreset.frugal);
+      expect(resolveInsightSystemPrompt(frugal), contains('偏节约'));
+      expect(frugal.resolvedPromptVersion, 'spend-insight.v2:frugal');
+
+      final custom = balanced.copyWith(
+        promptPreset: AiPromptPreset.custom,
+        customSystemPrompt: '只点评咖啡支出。',
+      );
+      final prompt = resolveInsightSystemPrompt(custom);
+      expect(prompt, contains('只点评咖啡支出。'));
+      expect(prompt, contains('必须只输出 JSON'));
+      expect(
+          custom.resolvedPromptVersion, startsWith('spend-insight.v2:custom:'));
+    });
+
     test('parses json even when wrapped in markdown', () {
       final parsed = parseInsightContent(
         '```json\n{"headline":"餐饮偏高","highlights":["午餐 32 元"],"advice":["可带饭"]}\n```',

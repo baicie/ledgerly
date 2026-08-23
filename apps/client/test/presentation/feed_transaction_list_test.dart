@@ -90,7 +90,7 @@ void main() {
             amountMinor: 1800,
           ),
         ],
-        todayInsight: const Text('TODAY_INSIGHT'),
+        dayInsight: (_) => const Text('TODAY_INSIGHT'),
       ),
     );
 
@@ -113,7 +113,7 @@ void main() {
             amountMinor: 10000,
           ),
         ],
-        todayInsight: const Text('TODAY_INSIGHT'),
+        dayInsight: (_) => const Text('TODAY_INSIGHT'),
       ),
     );
 
@@ -135,13 +135,46 @@ void main() {
             amountMinor: 10000,
           ),
         ],
-        todayInsight: const Text('TODAY_INSIGHT'),
+        dayInsight: (_) => const Text('TODAY_INSIGHT'),
         orphanTodayInsight: false,
       ),
     );
 
     expect(find.text('TODAY_INSIGHT'), findsNothing);
     expect(find.text(_dateLabel(historicalDay)), findsOneWidget);
+  });
+
+  testWidgets('historical day insight appears after expanding the group',
+      (tester) async {
+    final historicalDay = _dayOffsetFromToday(-2);
+
+    await tester.pumpWidget(
+      _feed(
+        [
+          _datedSummary(
+            id: 'historical-income',
+            occurredAt: historicalDay,
+            description: 'Historical income',
+            kind: TransactionSummaryKind.income,
+            amountMinor: 10000,
+          ),
+        ],
+        dayInsight: (day) => Text('INSIGHT_${day.month}_${day.day}'),
+        orphanTodayInsight: false,
+      ),
+    );
+
+    expect(find.text('INSIGHT_${historicalDay.month}_${historicalDay.day}'),
+        findsNothing);
+
+    await tester.tap(find.text(_dateLabel(historicalDay)));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('INSIGHT_${historicalDay.month}_${historicalDay.day}'),
+      findsOneWidget,
+    );
+    expect(find.text('Historical income'), findsOneWidget);
   });
 
   testWidgets('tapping a historical day toggles its transactions',
@@ -200,7 +233,7 @@ void main() {
 
 Widget _feed(
   List<TransactionSummary> transactions, {
-  Widget? todayInsight,
+  Widget? Function(DateTime day)? dayInsight,
   bool orphanTodayInsight = true,
   bool expandAll = false,
 }) {
@@ -210,7 +243,7 @@ Widget _feed(
         slivers: [
           FeedTransactionList(
             transactions: transactions,
-            todayInsight: todayInsight,
+            dayInsight: dayInsight,
             orphanTodayInsight: orphanTodayInsight,
             expandAll: expandAll,
             onOpen: (_) {},

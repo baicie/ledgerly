@@ -120,6 +120,7 @@ class _LedgerlyAppState extends ConsumerState<LedgerlyApp>
     if (state == AppLifecycleState.resumed) {
       ref.invalidate(aiInsightBootstrapProvider);
       ref.invalidate(todayAiInsightProvider);
+      ref.invalidate(monthDailyAiInsightsProvider);
       ref.invalidate(selectedMonthAiInsightProvider);
       ref.invalidate(recurringCatchUpProvider);
     }

@@ -43,6 +43,9 @@ final insightSchedulerProvider = Provider<InsightScheduler>((ref) {
   return InsightScheduler(ref.watch(insightServiceProvider));
 });
 
+final generatingInsightKeysProvider =
+    StateProvider<Set<String>>((ref) => const {});
+
 final aiInsightBootstrapProvider = FutureProvider<void>((ref) async {
   final settings = ref.watch(aiSettingsControllerProvider).settings;
   if (!settings.isConfigured) return;
@@ -62,28 +65,60 @@ final todayAiInsightProvider = FutureProvider<AiInsightView>((ref) async {
       .load(InsightPeriod.daily(DateTime.now()), settings: settings);
 });
 
+final monthDailyAiInsightsProvider =
+    FutureProvider<Map<String, AiInsightView>>((ref) async {
+  ref.watch(aiInsightBootstrapProvider);
+  final settings = ref.watch(aiSettingsControllerProvider).settings;
+  final month = ref.watch(selectedMonthProvider);
+  final transactions = await ref.watch(monthTransactionsProvider.future);
+  return ref.read(insightServiceProvider).loadDailyViews(
+        month: month,
+        transactions: transactions,
+        settings: settings,
+      );
+});
+
 final selectedMonthAiInsightProvider = FutureProvider<AiInsightView>((
   ref,
 ) async {
+  ref.watch(aiInsightBootstrapProvider);
   final settings = ref.watch(aiSettingsControllerProvider).settings;
   final period = InsightPeriod.monthOf(ref.watch(selectedMonthProvider));
   if (!settings.isConfigured) {
     return AiInsightView.unconfigured(kind: period.kind);
   }
-  await ref.watch(aiInsightBootstrapProvider.future);
   return ref.read(insightServiceProvider).load(period, settings: settings);
 });
+
+bool isInsightGenerating(WidgetRef ref, InsightPeriod period) {
+  if (ref.watch(generatingInsightKeysProvider).contains(period.key)) {
+    return true;
+  }
+  final settings = ref.watch(aiSettingsControllerProvider).settings;
+  if (!settings.isConfigured || !settings.autoGenerate) return false;
+  final bootstrap = ref.watch(aiInsightBootstrapProvider);
+  if (!bootstrap.isLoading) return false;
+  return InsightPeriod.duePeriods(DateTime.now())
+      .any((item) => item.key == period.key);
+}
 
 Future<void> regenerateAiInsight(
   WidgetRef ref,
   InsightPeriod period, {
   bool force = true,
 }) async {
-  final settings = ref.read(aiSettingsControllerProvider).settings;
-  await ref
-      .read(insightServiceProvider)
-      .ensure(period, settings: settings, force: force);
-  ref.invalidate(aiInsightBootstrapProvider);
-  ref.invalidate(todayAiInsightProvider);
-  ref.invalidate(selectedMonthAiInsightProvider);
+  final notifier = ref.read(generatingInsightKeysProvider.notifier);
+  notifier.update((keys) => {...keys, period.key});
+  try {
+    final settings = ref.read(aiSettingsControllerProvider).settings;
+    await ref
+        .read(insightServiceProvider)
+        .ensure(period, settings: settings, force: force);
+    ref.invalidate(aiInsightBootstrapProvider);
+    ref.invalidate(todayAiInsightProvider);
+    ref.invalidate(monthDailyAiInsightsProvider);
+    ref.invalidate(selectedMonthAiInsightProvider);
+  } finally {
+    notifier.update((keys) => {...keys}..remove(period.key));
+  }
 }

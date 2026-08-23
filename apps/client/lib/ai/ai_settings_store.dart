@@ -78,6 +78,8 @@ class PlatformAiSettingsStore implements AiSettingsStore {
           : true,
       provider: AiProviderKind.tryParse(config['provider'] as String?) ??
           AiProviderKind.infer(baseUrl: baseUrl),
+      promptPreset: AiPromptPreset.tryParse(config['promptPreset'] as String?),
+      customSystemPrompt: (config['customSystemPrompt'] as String?) ?? '',
     );
   }
 
@@ -102,6 +104,8 @@ class PlatformAiSettingsStore implements AiSettingsStore {
             ? AiSettings.defaultModel
             : settings.model.trim(),
         'autoGenerate': settings.autoGenerate,
+        'promptPreset': settings.promptPreset.name,
+        'customSystemPrompt': settings.customSystemPrompt,
       }),
     );
     if (!written) {
@@ -145,6 +149,8 @@ class AiSettingsController extends ChangeNotifier {
               : AiSettings.defaultModel)
           : settings.model.trim(),
       provider: settings.provider,
+      promptPreset: settings.promptPreset,
+      customSystemPrompt: settings.customSystemPrompt.trim(),
     );
     await _store.write(normalized);
     if (_disposed) return;

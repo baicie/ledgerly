@@ -28,9 +28,17 @@ class AiInsightCard extends StatefulWidget {
 }
 
 class _AiInsightCardState extends State<AiInsightCard> {
-  late bool _expanded = widget.initiallyExpanded;
+  late bool _expanded = widget.initiallyExpanded || widget.busy;
 
   AiInsightView get view => widget.view;
+
+  @override
+  void didUpdateWidget(covariant AiInsightCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.busy && !oldWidget.busy && !_expanded) {
+      _expanded = true;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,21 +47,18 @@ class _AiInsightCardState extends State<AiInsightCard> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _header(context, l10n),
+        if (widget.busy)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 0),
+            child: LinearProgressIndicator(minHeight: 2),
+          ),
         if (_expanded)
           Padding(
             padding: widget.embedded
                 ? const EdgeInsets.fromLTRB(16, 0, 16, 12)
                 : const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: widget.busy
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                    child: Center(
-                      child: SizedBox.square(
-                        dimension: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    ),
-                  )
+                ? const _InsightGeneratingIndicator()
                 : _body(context, l10n),
           ),
       ],
@@ -121,6 +126,7 @@ class _AiInsightCardState extends State<AiInsightCard> {
   }
 
   String? _collapsedPreview(AppLocalizations l10n) {
+    if (widget.busy) return l10n.insightGenerating;
     switch (view.status) {
       case AiInsightStatus.unconfigured:
         return null;
@@ -144,10 +150,19 @@ class _AiInsightCardState extends State<AiInsightCard> {
         child: Text(l10n.goConfigure),
       );
     }
-    if (widget.onGenerate == null) return null;
+    if (widget.onGenerate == null && !widget.busy) return null;
+    if (widget.busy) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 12),
+        child: SizedBox.square(
+          dimension: 18,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
     return TextButton(
       key: const Key('ai-insight-generate'),
-      onPressed: widget.busy ? null : widget.onGenerate,
+      onPressed: widget.onGenerate,
       child: Text(
         view.status == AiInsightStatus.ready ? l10n.regenerate : l10n.generate,
       ),
@@ -229,5 +244,52 @@ class _AiInsightCardState extends State<AiInsightCard> {
     final completion = view.completionTokens;
     if (prompt == null && completion == null) return model;
     return l10n.tokenUsage(model, '${prompt ?? '-'}', '${completion ?? '-'}');
+  }
+}
+
+class _InsightGeneratingIndicator extends StatefulWidget {
+  const _InsightGeneratingIndicator();
+
+  @override
+  State<_InsightGeneratingIndicator> createState() =>
+      _InsightGeneratingIndicatorState();
+}
+
+class _InsightGeneratingIndicatorState
+    extends State<_InsightGeneratingIndicator>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
+    return FadeTransition(
+      opacity: Tween<double>(begin: 0.45, end: 1).animate(_controller),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          children: [
+            const SizedBox.square(
+              dimension: 22,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              l10n.insightGenerating,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

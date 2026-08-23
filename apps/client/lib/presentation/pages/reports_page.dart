@@ -175,7 +175,9 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     return [
       budgets.when(
         data: (items) {
-          if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+          if (items.isEmpty) {
+            return const SliverToBoxAdapter(child: SizedBox.shrink());
+          }
           return SliverPadding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             sliver: SliverToBoxAdapter(
@@ -191,7 +193,8 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
           );
         },
         loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
-        error: (error, stackTrace) => const SliverToBoxAdapter(child: SizedBox.shrink()),
+        error: (error, stackTrace) =>
+            const SliverToBoxAdapter(child: SizedBox.shrink()),
       ),
     ];
   }
@@ -218,6 +221,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
           sliver: SliverToBoxAdapter(
             child: AiInsightCard(
               view: view,
+              busy: isInsightGenerating(ref, InsightPeriod.monthOf(month)),
               onConfigure: () => context.go('/settings/ai'),
               onGenerate: view.canGenerate
                   ? () => regenerateAiInsight(ref, InsightPeriod.monthOf(month))

@@ -38,7 +38,7 @@ if (releaseTaskRequested) {
 
 android {
     namespace = "app.ledgerly.ledgerly_client"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

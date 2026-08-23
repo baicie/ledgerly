@@ -142,4 +142,69 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('busy insight card shows progress while collapsed',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: AiInsightCard(
+            view: AiInsightView(
+              status: AiInsightStatus.empty,
+              kind: InsightKind.daily,
+              periodKey: '2026-08-21',
+              periodLabel: '2026年8月21日',
+            ),
+            busy: true,
+            onGenerate: _noop,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('正在生成分析…'), findsWidgets);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsWidgets);
+    expect(find.byKey(const Key('ai-insight-generate')), findsNothing);
+  });
+
+  testWidgets('settings page saves a built-in system prompt', (tester) async {
+    final store = MemoryAiSettingsStore();
+    final chat = FakeAiChatClient();
+    final controller = AiSettingsController(store: store);
+    await controller.load();
+
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          aiSettingsStoreProvider.overrideWithValue(store),
+          aiSettingsControllerProvider.overrideWith((ref) => controller),
+          aiChatClientProvider.overrideWithValue(chat),
+        ],
+        child: const MaterialApp(home: AiSettingsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester
+        .tap(find.byKey(const Key('ai-settings-prompt-preset-balanced')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('节约教练').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('ai-settings-api-key')),
+      'sk-live',
+    );
+    await tester.tap(find.byKey(const Key('ai-settings-save')));
+    await tester.pumpAndSettle();
+    expect(store.value.promptPreset, AiPromptPreset.frugal);
+  });
 }
+
+void _noop() {}
