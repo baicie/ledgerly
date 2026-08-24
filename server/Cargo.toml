@@ -50,7 +50,7 @@ sha2 = "0.10"
 hex = "0.4"
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "migrate", "uuid", "time", "json"] }
 base64 = "0.23"
-ed25519-dalek = { version = "2", features = ["rand_core", "pkcs8", "pem"] }
+ed25519-dalek = { version = "3", features = ["rand_core", "pkcs8", "pem"] }
 hmac = "0.12"
 subtle = "2"
 futures-util = "0.3"
