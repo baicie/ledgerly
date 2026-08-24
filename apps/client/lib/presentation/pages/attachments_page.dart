@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/ledger_repository.dart';
 import '../../data/local_attachment_repository.dart';
-import '../../domain/ids.dart';
 import '../../l10n/l10n.dart';
 import '../providers.dart';
 import '../widgets/ledgerly_layout.dart';

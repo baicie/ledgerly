@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/amount_parse.dart';
 import '../../data/local_budget_repository.dart';
-import '../../domain/ids.dart';
 import '../../l10n/l10n.dart';
 import '../design/ledgerly_theme.dart';
 import '../providers.dart';
