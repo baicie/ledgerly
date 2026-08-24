@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ledgerly_client/application/ledger_app_service.dart';
 import 'package:ledgerly_client/data/database.dart';
 import 'package:ledgerly_client/data/ledger_repository.dart';
@@ -17,6 +18,7 @@ void main() {
   late LedgerAppService service;
 
   setUp(() async {
+    SharedPreferences.setMockInitialValues({});
     database = AppDatabase.forTesting(NativeDatabase.memory());
     repository = LedgerRepository(
       database,
