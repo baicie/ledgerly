@@ -44,7 +44,7 @@ time = { version = "0.3", features = ["formatting", "parsing", "serde"] }
 clap = { version = "4", features = ["derive", "env"] }
 argon2 = "0.5"
 password-hash = "0.5"
-jsonwebtoken = "9"
+jsonwebtoken = "10"
 rand = "0.8"
 sha2 = "0.10"
 hex = "0.4"
