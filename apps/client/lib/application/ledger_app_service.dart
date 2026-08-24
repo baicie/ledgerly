@@ -7,11 +7,12 @@ import '../domain/ids.dart';
 import '../l10n/l10n.dart';
 
 class LedgerAppService {
-  LedgerAppService(this._repo);
+  LedgerAppService(this._repo, {String bookId = defaultBookId})
+      : bookId = domain.BookId(bookId);
 
   final LedgerRepository _repo;
   static const factory = domain.TransactionFactory();
-  static const bookId = domain.BookId(defaultBookId);
+  final domain.BookId bookId;
 
   Future<void> createExpense({
     required String expenseAccountId,

@@ -64,7 +64,7 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
 
   Future<void> _loadLocal() async {
     final records =
-        await ref.read(localBudgetRepositoryProvider).list(defaultBookId);
+        await ref.read(localBudgetRepositoryProvider).list(ref.read(selectedBookIdProvider));
     final transactions = await ref.read(monthTransactionsProvider.future);
     final categories =
         await ref.read(categoryAccountsProvider('expense').future);
@@ -124,7 +124,7 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
     try {
       if (ref.read(apiEndpointProvider) == null) {
         await ref.read(localBudgetRepositoryProvider).insert(
-              bookId: defaultBookId,
+              bookId: ref.read(selectedBookIdProvider),
               name: draft.name,
               amountMinor: draft.amountMinor,
               categoryAccountId: draft.categoryId,

@@ -33,7 +33,7 @@ class _ImportPageState extends ConsumerState<ImportPage> {
       final repo = ref.read(ledgerRepositoryProvider);
       await repo.seedIfEmpty();
       final drafts = _parser.parse(csv);
-      final existing = await repo.watchSummariesSync(defaultBookId);
+      final existing = await repo.watchSummariesSync(ref.read(selectedBookIdProvider));
       markDuplicateImportDrafts(drafts: drafts, existing: existing);
       setState(() {
         _drafts = drafts;
@@ -76,7 +76,7 @@ class _ImportPageState extends ConsumerState<ImportPage> {
           ImportCategory(id: row.id, name: row.name, type: row.type),
       ];
       final service = ref.read(ledgerAppServiceProvider);
-      final cash = accountKeyCash(defaultBookId);
+      final cash = accountKeyCash(ref.read(selectedBookIdProvider));
       var imported = 0;
       for (final draft in selected) {
         final kind = draft.kind == TransactionSummaryKind.income

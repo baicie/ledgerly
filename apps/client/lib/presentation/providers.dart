@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../application/ledger_app_service.dart';
 import '../application/ledger_csv.dart';
@@ -78,9 +79,57 @@ final ledgerRepositoryProvider = Provider<LedgerRepository>((ref) {
   );
 });
 
-final ledgerAppServiceProvider = Provider<LedgerAppService>((ref) {
-  return LedgerAppService(ref.watch(ledgerRepositoryProvider));
+final booksProvider = FutureProvider<List<Book>>((ref) async {
+  final repo = ref.watch(ledgerRepositoryProvider);
+  await repo.seedIfEmpty();
+  return repo.listBooks();
 });
+
+final selectedBookIdProvider = StateNotifierProvider<SelectedBookController, String>(
+  (ref) => SelectedBookController(ref.watch(booksProvider.future)),
+);
+
+final selectedBookProvider = FutureProvider<Book>((ref) async {
+  final books = await ref.watch(booksProvider.future);
+  final selectedId = ref.watch(selectedBookIdProvider);
+  return books.firstWhere(
+    (book) => book.id == selectedId,
+    orElse: () => books.first,
+  );
+});
+
+final ledgerAppServiceProvider = Provider<LedgerAppService>((ref) {
+  return LedgerAppService(
+    ref.watch(ledgerRepositoryProvider),
+    bookId: ref.watch(selectedBookIdProvider),
+  );
+});
+
+class SelectedBookController extends StateNotifier<String> {
+  SelectedBookController(this._booksFuture) : super(defaultBookId) {
+    _restore();
+  }
+
+  final Future<List<Book>> _booksFuture;
+  static const _preferenceKey = 'selected_book_id';
+
+  Future<void> _restore() async {
+    final books = await _booksFuture;
+    final preferences = await SharedPreferences.getInstance();
+    final saved = preferences.getString(_preferenceKey);
+    if (books.any((book) => book.id == saved)) {
+      state = saved!;
+    } else if (books.isNotEmpty && !books.any((book) => book.id == state)) {
+      state = books.first.id;
+    }
+  }
+
+  Future<void> select(String bookId) async {
+    state = bookId;
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(_preferenceKey, bookId);
+  }
+}
 
 final appLockStoreProvider = Provider<AppLockStore>((ref) {
   return createPlatformAppLockStore();
@@ -141,7 +190,7 @@ final localAttachmentsProvider =
   await ref.watch(transactionListProvider.future);
   return ref
       .read(localAttachmentRepositoryProvider)
-      .list(bookId: defaultBookId);
+      .list(bookId: ref.watch(selectedBookIdProvider));
 });
 
 final syncApiProvider = Provider<SyncApi>((ref) {
@@ -174,7 +223,7 @@ final transactionListProvider =
     StreamProvider<List<TransactionSummary>>((ref) async* {
   final repo = ref.watch(ledgerRepositoryProvider);
   await repo.seedIfEmpty();
-  yield* repo.watchSummaries(defaultBookId);
+  yield* repo.watchSummaries(ref.watch(selectedBookIdProvider));
 });
 
 final monthTransactionsProvider =
@@ -185,7 +234,7 @@ final monthTransactionsProvider =
   final month = ref.watch(selectedMonthProvider);
   final range = monthUtcRange(month);
   return repo.watchSummariesSync(
-    defaultBookId,
+    ref.watch(selectedBookIdProvider),
     monthStart: range.start,
     monthEnd: range.end,
   );
@@ -224,7 +273,7 @@ final categoryAccountsProvider =
     FutureProvider.family<List<CategoryAccountRow>, String>((ref, type) async {
   final repo = ref.watch(ledgerRepositoryProvider);
   await repo.seedIfEmpty();
-  final accounts = await repo.listCategories(defaultBookId, type);
+  final accounts = await repo.listCategories(ref.watch(selectedBookIdProvider), type);
   final rows = accounts
       .map(
         (account) => CategoryAccountRow(
@@ -259,7 +308,7 @@ final accountBalancesProvider =
   final repo = ref.watch(ledgerRepositoryProvider);
   await repo.seedIfEmpty();
   await ref.watch(transactionListProvider.future);
-  final accounts = await repo.listAccounts(defaultBookId);
+  final accounts = await repo.listAccounts(ref.watch(selectedBookIdProvider));
   final rows = <AccountBalanceRow>[];
   for (final a in accounts) {
     rows.add(
@@ -369,8 +418,8 @@ class SyncStatusView {
 final syncStatusProvider = FutureProvider<SyncStatusView>((ref) async {
   final repo = ref.watch(ledgerRepositoryProvider);
   await repo.seedIfEmpty();
-  final state = await repo.syncState(defaultBookId);
-  final pending = await repo.listPending(defaultBookId);
+  final state = await repo.syncState(ref.watch(selectedBookIdProvider));
+  final pending = await repo.listPending(ref.watch(selectedBookIdProvider));
   return SyncStatusView(
     label: state?.lastError == null
         ? L10n.current.syncReady
@@ -385,7 +434,7 @@ final syncStatusProvider = FutureProvider<SyncStatusView>((ref) async {
 final conflictsProvider = FutureProvider<List<SyncConflictItem>>((ref) async {
   final repo = ref.watch(ledgerRepositoryProvider);
   await repo.seedIfEmpty();
-  final rows = await repo.listConflicts(defaultBookId);
+  final rows = await repo.listConflicts(ref.watch(selectedBookIdProvider));
   return rows
       .map(
         (c) => SyncConflictItem(
@@ -414,7 +463,7 @@ class SyncConflictItem {
 final exportCsvProvider = FutureProvider<String>((ref) async {
   final repo = ref.watch(ledgerRepositoryProvider);
   await repo.seedIfEmpty();
-  final txs = await repo.watchSummariesSync(defaultBookId);
+  final txs = await repo.watchSummariesSync(ref.watch(selectedBookIdProvider));
   return buildLedgerCsv(txs, l10n: L10n.current);
 });
 
@@ -431,7 +480,7 @@ final localMonthBudgetProgressProvider =
     FutureProvider<List<LocalBudgetProgress>>((ref) async {
   await ref.watch(ledgerRepositoryProvider).seedIfEmpty();
   final records =
-      await ref.watch(localBudgetRepositoryProvider).list(defaultBookId);
+      await ref.watch(localBudgetRepositoryProvider).list(ref.watch(selectedBookIdProvider));
   final transactions = await ref.watch(monthTransactionsProvider.future);
   final categories =
       await ref.watch(categoryAccountsProvider('expense').future);

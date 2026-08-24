@@ -159,7 +159,7 @@ class _TransactionAttachmentsSheetState
 
   Future<void> _load() async {
     final items = await ref.read(localAttachmentRepositoryProvider).list(
-          bookId: defaultBookId,
+          bookId: ref.read(selectedBookIdProvider),
           transactionId: widget.transaction.id,
         );
     if (mounted) setState(() => _items = items);
@@ -177,7 +177,7 @@ class _TransactionAttachmentsSheetState
       final id = DateTime.now().microsecondsSinceEpoch.toString();
       final path = await store.write(id: id, bytes: picked.bytes);
       await repo.insert(
-        bookId: defaultBookId,
+        bookId: ref.read(selectedBookIdProvider),
         transactionId: widget.transaction.id,
         fileName: picked.name,
         mime: picked.mime,

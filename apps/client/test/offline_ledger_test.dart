@@ -14,6 +14,49 @@ import 'package:ledgerly_client/domain/ids.dart';
 import 'support/fake_auth_gateway.dart';
 
 void main() {
+  test('creates an isolated book with default accounts and no transactions',
+      () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final repo = LedgerRepository(
+      db,
+      deviceIdLoader: () async => 'test-device',
+    );
+    await repo.seedIfEmpty();
+
+    final book = await repo.createBook(name: '出差', currencyCode: 'CNY');
+    expect(book.name, '出差');
+    expect(book.id, isNot(defaultBookId));
+    expect((await repo.listAccounts(book.id)), isNotEmpty);
+    expect(await repo.watchSummariesSync(book.id), isEmpty);
+    expect(await repo.watchSummariesSync(defaultBookId), isEmpty);
+    expect(await repo.syncState(book.id), isNotNull);
+  });
+
+  test('book data remains isolated after recording in the selected book',
+      () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final repo = LedgerRepository(
+      db,
+      deviceIdLoader: () async => 'test-device',
+    );
+    await repo.seedIfEmpty();
+    final book = await repo.createBook(name: '旅行', currencyCode: 'CNY');
+    final service = LedgerAppService(repo, bookId: book.id);
+
+    await service.createExpense(
+      expenseAccountId: accountKeyFood(book.id),
+      fundingAccountId: accountKeyCash(book.id),
+      amountMinor: BigInt.from(1200),
+      description: '机场餐食',
+    );
+
+    expect(await repo.watchSummariesSync(book.id), hasLength(1));
+    expect(await repo.watchSummariesSync(defaultBookId), isEmpty);
+    expect(await repo.accountBalance(accountKeyCash(defaultBookId)), BigInt.zero);
+  });
+
   test('offline create expense enqueues pending mutation and updates balance',
       () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());

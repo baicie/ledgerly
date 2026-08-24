@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod authz;
 pub mod billing;
+pub mod books;
 pub mod commercial;
 pub mod health;
 pub mod ledger;

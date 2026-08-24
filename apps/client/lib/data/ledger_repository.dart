@@ -50,18 +50,7 @@ class LedgerRepository {
               createdAt: now,
             ),
           );
-      await _insertAccountIfMissing(
-        id: accountKeyCash(bookId),
-        bookId: bookId,
-        name: 'Cash',
-        type: 'asset',
-      );
-      await _insertAccountIfMissing(
-        id: accountKeyBank(bookId),
-        bookId: bookId,
-        name: 'Bank',
-        type: 'asset',
-      );
+      await _ensureDefaultBookAccounts(bookId);
       await _db.into(_db.syncStates).insert(
             SyncStatesCompanion.insert(
               bookId: bookId,
@@ -73,7 +62,17 @@ class LedgerRepository {
     }
 
     for (final book in books) {
-      await _ensureDefaultCategories(book.id);
+      await _ensureDefaultBookAccounts(book.id);
+      final state = await syncState(book.id);
+      if (state == null) {
+        await _db.into(_db.syncStates).insert(
+              SyncStatesCompanion.insert(
+                bookId: book.id,
+                deviceId: currentDeviceId,
+                updatedAt: DateTime.now().toUtc(),
+              ),
+            );
+      }
     }
   }
 
@@ -109,6 +108,61 @@ class LedgerRepository {
           ),
           mode: InsertMode.insertOrIgnore,
         );
+  }
+
+  Future<List<Book>> listBooks() {
+    return (_db.select(_db.books)
+          ..orderBy([(book) => OrderingTerm.asc(book.createdAt)]))
+        .get();
+  }
+
+  Future<Book> createBook({
+    required String name,
+    String currencyCode = 'CNY',
+  }) async {
+    final normalizedName = name.trim();
+    if (normalizedName.isEmpty) throw ArgumentError.value(name, 'name');
+    if (normalizedName.length > 40) {
+      throw ArgumentError.value(name, 'name', '账本名称不能超过 40 个字符');
+    }
+    final bookId = newId();
+    final now = DateTime.now().toUtc();
+    await _db.transaction(() async {
+      await _db.into(_db.books).insert(
+            BooksCompanion.insert(
+              id: bookId,
+              name: normalizedName,
+              currencyCode: currencyCode,
+              createdAt: now,
+            ),
+          );
+      await _ensureDefaultBookAccounts(bookId);
+      await _db.into(_db.syncStates).insert(
+            SyncStatesCompanion.insert(
+              bookId: bookId,
+              deviceId: await deviceId,
+              updatedAt: now,
+            ),
+          );
+    });
+    return (await (_db.select(_db.books)..where((b) => b.id.equals(bookId)))
+          .getSingle());
+  }
+
+  Future<void> _ensureDefaultBookAccounts(String bookId) async {
+    await _insertAccountIfMissing(
+      id: accountKeyCash(bookId),
+      bookId: bookId,
+      name: 'Cash',
+      type: 'asset',
+    );
+    await _insertAccountIfMissing(
+      id: accountKeyBank(bookId),
+      bookId: bookId,
+      name: 'Bank',
+      type: 'asset',
+    );
+    await _ensureDefaultCategories(bookId);
   }
 
   Future<List<Account>> listAccounts(String bookId) {

@@ -45,7 +45,7 @@ class _RecurringPageState extends ConsumerState<RecurringPage> {
     setState(() => _busy = true);
     try {
       final rules =
-          await ref.read(localRecurringRepositoryProvider).list(defaultBookId);
+          await ref.read(localRecurringRepositoryProvider).list(ref.read(selectedBookIdProvider));
       if (!mounted) return;
       setState(() {
         _rules = rules;
@@ -68,7 +68,7 @@ class _RecurringPageState extends ConsumerState<RecurringPage> {
     setState(() => _busy = true);
     try {
       await ref.read(localRecurringRepositoryProvider).insert(
-            bookId: defaultBookId,
+            bookId: ref.read(selectedBookIdProvider),
             name: _name.text.trim().isEmpty ? l10n.monthlyRent : _name.text.trim(),
             kind: _kind,
             amountMinor: amount,
@@ -98,7 +98,7 @@ class _RecurringPageState extends ConsumerState<RecurringPage> {
         .toList();
     _categoryId ??= categories.isEmpty ? null : categories.first.id;
     _accountId ??= accounts.isEmpty
-        ? accountKeyCash(defaultBookId)
+        ? accountKeyCash(ref.read(selectedBookIdProvider))
         : accounts.first.id;
 
     return Scaffold(
