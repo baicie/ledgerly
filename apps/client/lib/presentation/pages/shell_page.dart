@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../data/database.dart';
 import '../../l10n/l10n.dart';
 import '../design/ledgerly_theme.dart';
 import '../providers.dart';
