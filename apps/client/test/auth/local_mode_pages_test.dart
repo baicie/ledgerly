@@ -4,14 +4,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ledgerly_client/ai/ai_settings_store.dart';
+import 'package:ledgerly_client/data/database.dart';
 import 'package:ledgerly_client/data/ledger_repository.dart';
+import 'package:ledgerly_client/domain/ids.dart';
 import 'package:ledgerly_client/presentation/ai_providers.dart';
 import 'package:ledgerly_client/presentation/pages/feed_page.dart';
 import 'package:ledgerly_client/presentation/pages/reports_page.dart';
 import 'package:ledgerly_client/presentation/pages/sync_center_page.dart';
 import 'package:ledgerly_client/presentation/providers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   testWidgets('local feed opens an existing transaction for editing', (
     tester,
   ) async {
@@ -19,6 +26,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          _booksOverride,
           apiEndpointProvider.overrideWithValue(null),
           aiSettingsStoreProvider.overrideWithValue(MemoryAiSettingsStore()),
           monthTransactionsProvider.overrideWith(
@@ -65,6 +73,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            _booksOverride,
             apiEndpointProvider.overrideWithValue(null),
             aiSettingsStoreProvider.overrideWithValue(MemoryAiSettingsStore()),
             selectedMonthProvider.overrideWith((ref) => DateTime(2026, 8)),
@@ -179,6 +188,17 @@ void main() {
     expect(find.text('待推送：2'), findsOneWidget);
   });
 }
+
+Override get _booksOverride => booksProvider.overrideWith(
+  (ref) async => [
+    Book(
+      id: defaultBookId,
+      name: 'Personal',
+      currencyCode: 'CNY',
+      createdAt: DateTime.utc(2026),
+    ),
+  ],
+);
 
 String _dateLabel(DateTime occurredAt) {
   final date = occurredAt.toLocal();

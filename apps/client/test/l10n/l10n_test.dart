@@ -14,14 +14,20 @@ void main() {
 
     expect(zh.navFeed, '流水');
     expect(en.navFeed, 'Feed');
+    expect(zh.newBook, '新建账本');
+    expect(en.newBook, 'New book');
+    expect(localizedLedgerName(zh, 'Personal'), '标准账本');
+    expect(localizedLedgerName(en, 'Personal'), 'Standard book');
     expect(zh.monthlyInsightEntryTitle, '每月分析');
     expect(en.monthlyInsightEntryTitle, 'Monthly insight');
-    expect(L10n.resolve(const Locale('fr'), AppLocalizations.supportedLocales),
-        const Locale('zh'));
     expect(
-        L10n.resolve(
-            const Locale('en', 'US'), AppLocalizations.supportedLocales),
-        const Locale('en'));
+      L10n.resolve(const Locale('fr'), AppLocalizations.supportedLocales),
+      const Locale('zh'),
+    );
+    expect(
+      L10n.resolve(const Locale('en', 'US'), AppLocalizations.supportedLocales),
+      const Locale('en'),
+    );
   });
 
   test('endpoint errors follow the passed localizations', () {

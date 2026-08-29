@@ -11,6 +11,7 @@ import '../quick_entry.dart';
 import '../providers.dart';
 import '../widgets/ai_insight_card.dart';
 import '../widgets/feed_transaction_list.dart';
+import '../widgets/ledgerly_book_switcher.dart';
 import '../widgets/ledgerly_layout.dart';
 import '../widgets/ledgerly_summary_card.dart';
 import 'attachments_page.dart';
@@ -42,7 +43,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
             SliverToBoxAdapter(
               child: LedgerlyPageHeader(
                 title: l10n.allTransactions,
-                subtitle: l10n.standardLedger,
+                subtitleWidget: const LedgerlyBookSwitcher(),
               ),
             ),
             SliverToBoxAdapter(

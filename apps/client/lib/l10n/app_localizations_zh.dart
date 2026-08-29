@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -255,6 +256,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get standardLedger => '标准账本';
+
+  @override
+  String get newBook => '新建账本';
+
+  @override
+  String get bookName => '账本名称';
+
+  @override
+  String get switchBook => '切换账本';
 
   @override
   String get netWorth => '净资产';

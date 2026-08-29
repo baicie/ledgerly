@@ -225,6 +225,8 @@ jobs:
           ## Ledgerly ${{ github.ref_name }}
 
           ### Client (this release)
+          - Restore the original shell layout. Switch or create books from the feed header instead of a dropdown bar above every page.
+          - Keep multiple local books isolated (daily vs travel). The default Personal book is shown as the standard ledger.
           - Daily insights now appear on historical days in the feed, not just today. Older days generate on demand; today, yesterday, and last month still auto-fill.
           - Choose a built-in system prompt (balanced, frugal, review, concise) or write your own. Custom prompts still return JSON.
           - Generating an insight shows a progress bar, spinner, and status copy immediately, including when the card was collapsed.

@@ -37,15 +37,22 @@ class LedgerlyPageHeader extends StatelessWidget {
     super.key,
     required this.title,
     this.subtitle,
+    this.subtitleWidget,
     this.actions = const [],
   });
 
   final String title;
   final String? subtitle;
+  final Widget? subtitleWidget;
   final List<Widget> actions;
 
   @override
   Widget build(BuildContext context) {
+    final resolvedSubtitle =
+        subtitleWidget ??
+        (subtitle == null
+            ? null
+            : Text(subtitle!, style: Theme.of(context).textTheme.bodyMedium));
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
       child: Row(
@@ -55,10 +62,9 @@ class LedgerlyPageHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: Theme.of(context).textTheme.headlineSmall),
-                if (subtitle != null) ...[
+                if (resolvedSubtitle != null) ...[
                   const SizedBox(height: 2),
-                  Text(subtitle!,
-                      style: Theme.of(context).textTheme.bodyMedium),
+                  resolvedSubtitle,
                 ],
               ],
             ),
