@@ -30,6 +30,7 @@ AppLocalizations l10nOf(BuildContext context) {
 String localizedLedgerName(AppLocalizations l10n, String? name) {
   if (name == null || name.isEmpty) return l10n.uncategorized;
   return switch (name) {
+    'Personal' => l10n.standardLedger,
     'Cash' || '现金' => l10n.accountCash,
     'Bank' || '银行卡' => l10n.accountBank,
     'Transfer' || '账户转账' => l10n.accountTransfer,
