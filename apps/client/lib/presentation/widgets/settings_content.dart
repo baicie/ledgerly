@@ -22,6 +22,7 @@ class SettingsContent extends StatelessWidget {
     this.onLock,
     required this.onAi,
     required this.onLogout,
+    this.onAutoLedger,
   });
 
   final bool isLocal;
@@ -40,6 +41,7 @@ class SettingsContent extends StatelessWidget {
   final VoidCallback? onLock;
   final VoidCallback onAi;
   final VoidCallback? onLogout;
+  final VoidCallback? onAutoLedger;
 
   @override
   Widget build(BuildContext context) {
@@ -183,6 +185,23 @@ class SettingsContent extends StatelessWidget {
             ),
           ),
         ),
+        if (onAutoLedger != null)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            sliver: SliverToBoxAdapter(
+              child: _SettingsGroup(
+                title: l10n.autoLedgerSection,
+                children: [
+                  _routeTile(
+                    Icons.notifications_active_outlined,
+                    l10n.autoLedgerTitle,
+                    l10n.autoLedgerSubtitle,
+                    onAutoLedger!,
+                  ),
+                ],
+              ),
+            ),
+          ),
         if (!isLocal)
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),

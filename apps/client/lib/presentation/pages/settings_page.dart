@@ -138,6 +138,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           onAttachments: () => context.go('/settings/attachments'),
           onLock: () => context.go('/settings/lock'),
           onAi: () => context.go('/settings/ai'),
+          onAutoLedger: () => context.go('/settings/auto-ledger'),
           onLogout: _loggingOut || _changingEndpoint ? null : _confirmLogout,
         ),
       ),

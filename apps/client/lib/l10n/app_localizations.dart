@@ -63,7 +63,7 @@ import 'app_localizations_zh.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -86,16 +86,16 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-        delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-      ];
+    delegate,
+    GlobalMaterialLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+  ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('zh'),
-    Locale('en'),
+    Locale('en')
   ];
 
   /// No description provided for @appTitle.
@@ -2833,6 +2833,84 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'资金账户'**
   String get fundingAccount;
+
+  /// No description provided for @autoLedgerSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动记账'**
+  String get autoLedgerSection;
+
+  /// No description provided for @autoLedgerTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动捕捉支付通知'**
+  String get autoLedgerTitle;
+
+  /// No description provided for @autoLedgerSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'读取微信和支付宝通知，自动入账为支出或收入'**
+  String get autoLedgerSubtitle;
+
+  /// No description provided for @autoLedgerEnable.
+  ///
+  /// In zh, this message translates to:
+  /// **'开启自动记账'**
+  String get autoLedgerEnable;
+
+  /// No description provided for @autoLedgerDisable.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭自动记账'**
+  String get autoLedgerDisable;
+
+  /// No description provided for @autoLedgerGranted.
+  ///
+  /// In zh, this message translates to:
+  /// **'已授予通知使用权'**
+  String get autoLedgerGranted;
+
+  /// No description provided for @autoLedgerNotGranted.
+  ///
+  /// In zh, this message translates to:
+  /// **'尚未授予通知使用权'**
+  String get autoLedgerNotGranted;
+
+  /// No description provided for @autoLedgerOpenSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开通知设置'**
+  String get autoLedgerOpenSettings;
+
+  /// No description provided for @autoLedgerSyncNow.
+  ///
+  /// In zh, this message translates to:
+  /// **'立即同步待入账通知'**
+  String get autoLedgerSyncNow;
+
+  /// No description provided for @autoLedgerSyncSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'已入账 {posted}，重复 {duplicates}，已跳过 {skipped}'**
+  String autoLedgerSyncSummary(int posted, int duplicates, int skipped);
+
+  /// No description provided for @autoLedgerEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无待入账通知'**
+  String get autoLedgerEmpty;
+
+  /// No description provided for @autoLedgerFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法读取通知权限状态'**
+  String get autoLedgerFailed;
+
+  /// No description provided for @autoLedgerPendingCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 条待入账'**
+  String autoLedgerPendingCount(int count);
 }
 
 class _AppLocalizationsDelegate
@@ -2862,9 +2940,8 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-    'an issue with the localizations generation tool. Please file an issue '
-    'on GitHub with a reproducible sample app and the gen-l10n configuration '
-    'that was used.',
-  );
+      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+      'an issue with the localizations generation tool. Please file an issue '
+      'on GitHub with a reproducible sample app and the gen-l10n configuration '
+      'that was used.');
 }

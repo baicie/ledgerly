@@ -1,6 +1,5 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
-
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -1541,4 +1540,48 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fundingAccount => 'Funding account';
+
+  @override
+  String get autoLedgerSection => 'Auto ledger';
+
+  @override
+  String get autoLedgerTitle => 'Auto-capture payments';
+
+  @override
+  String get autoLedgerSubtitle =>
+      'Read WeChat and Alipay notifications, post as expenses or income';
+
+  @override
+  String get autoLedgerEnable => 'Enable auto ledger';
+
+  @override
+  String get autoLedgerDisable => 'Disable auto ledger';
+
+  @override
+  String get autoLedgerGranted => 'Notification access granted';
+
+  @override
+  String get autoLedgerNotGranted => 'Notification access required';
+
+  @override
+  String get autoLedgerOpenSettings => 'Open notification settings';
+
+  @override
+  String get autoLedgerSyncNow => 'Sync pending now';
+
+  @override
+  String autoLedgerSyncSummary(int posted, int duplicates, int skipped) {
+    return 'Posted $posted, duplicates $duplicates, skipped $skipped';
+  }
+
+  @override
+  String get autoLedgerEmpty => 'No pending notifications';
+
+  @override
+  String get autoLedgerFailed => 'Could not read notification access state';
+
+  @override
+  String autoLedgerPendingCount(int count) {
+    return '$count pending';
+  }
 }

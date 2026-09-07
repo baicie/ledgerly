@@ -1,6 +1,5 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
-
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -1483,4 +1482,47 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fundingAccount => '资金账户';
+
+  @override
+  String get autoLedgerSection => '自动记账';
+
+  @override
+  String get autoLedgerTitle => '自动捕捉支付通知';
+
+  @override
+  String get autoLedgerSubtitle => '读取微信和支付宝通知，自动入账为支出或收入';
+
+  @override
+  String get autoLedgerEnable => '开启自动记账';
+
+  @override
+  String get autoLedgerDisable => '关闭自动记账';
+
+  @override
+  String get autoLedgerGranted => '已授予通知使用权';
+
+  @override
+  String get autoLedgerNotGranted => '尚未授予通知使用权';
+
+  @override
+  String get autoLedgerOpenSettings => '打开通知设置';
+
+  @override
+  String get autoLedgerSyncNow => '立即同步待入账通知';
+
+  @override
+  String autoLedgerSyncSummary(int posted, int duplicates, int skipped) {
+    return '已入账 $posted，重复 $duplicates，已跳过 $skipped';
+  }
+
+  @override
+  String get autoLedgerEmpty => '暂无待入账通知';
+
+  @override
+  String get autoLedgerFailed => '无法读取通知权限状态';
+
+  @override
+  String autoLedgerPendingCount(int count) {
+    return '$count 条待入账';
+  }
 }

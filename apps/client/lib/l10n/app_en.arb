@@ -856,5 +856,38 @@
   "kindLabel": "Type",
   "kindExpense": "Expense",
   "kindIncome": "Income",
-  "fundingAccount": "Funding account"
+  "fundingAccount": "Funding account",
+  "autoLedgerSection": "Auto ledger",
+  "autoLedgerTitle": "Auto-capture payments",
+  "autoLedgerSubtitle": "Read WeChat and Alipay notifications, post as expenses or income",
+  "autoLedgerEnable": "Enable auto ledger",
+  "autoLedgerDisable": "Disable auto ledger",
+  "autoLedgerGranted": "Notification access granted",
+  "autoLedgerNotGranted": "Notification access required",
+  "autoLedgerOpenSettings": "Open notification settings",
+  "autoLedgerSyncNow": "Sync pending now",
+  "autoLedgerSyncSummary": "Posted {posted}, duplicates {duplicates}, skipped {skipped}",
+  "@autoLedgerSyncSummary": {
+    "placeholders": {
+      "posted": {
+        "type": "int"
+      },
+      "duplicates": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "autoLedgerEmpty": "No pending notifications",
+  "autoLedgerFailed": "Could not read notification access state",
+  "autoLedgerPendingCount": "{count} pending",
+  "@autoLedgerPendingCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

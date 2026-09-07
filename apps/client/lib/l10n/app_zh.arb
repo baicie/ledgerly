@@ -856,5 +856,38 @@
   "kindLabel": "类型",
   "kindExpense": "支出",
   "kindIncome": "收入",
-  "fundingAccount": "资金账户"
+  "fundingAccount": "资金账户",
+  "autoLedgerSection": "自动记账",
+  "autoLedgerTitle": "自动捕捉支付通知",
+  "autoLedgerSubtitle": "读取微信和支付宝通知，自动入账为支出或收入",
+  "autoLedgerEnable": "开启自动记账",
+  "autoLedgerDisable": "关闭自动记账",
+  "autoLedgerGranted": "已授予通知使用权",
+  "autoLedgerNotGranted": "尚未授予通知使用权",
+  "autoLedgerOpenSettings": "打开通知设置",
+  "autoLedgerSyncNow": "立即同步待入账通知",
+  "autoLedgerSyncSummary": "已入账 {posted}，重复 {duplicates}，已跳过 {skipped}",
+  "@autoLedgerSyncSummary": {
+    "placeholders": {
+      "posted": {
+        "type": "int"
+      },
+      "duplicates": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "autoLedgerEmpty": "暂无待入账通知",
+  "autoLedgerFailed": "无法读取通知权限状态",
+  "autoLedgerPendingCount": "{count} 条待入账",
+  "@autoLedgerPendingCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

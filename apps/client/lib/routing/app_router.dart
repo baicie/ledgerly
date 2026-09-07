@@ -6,6 +6,7 @@ import '../presentation/pages/accounts_page.dart';
 import '../presentation/pages/ai_settings_page.dart';
 import '../presentation/pages/app_lock_page.dart';
 import '../presentation/pages/attachments_page.dart';
+import '../presentation/pages/auto_ledger_settings_page.dart';
 import '../presentation/pages/auth_page.dart';
 import '../presentation/pages/budgets_page.dart';
 import '../presentation/pages/categories_page.dart';
@@ -211,6 +212,10 @@ GoRouter createAppRouter(
                   GoRoute(
                     path: 'attachments',
                     builder: (context, state) => const AttachmentsPage(),
+                  ),
+                  GoRoute(
+                    path: 'auto-ledger',
+                    builder: (context, state) => const AutoLedgerSettingsPage(),
                   ),
                 ],
               ),
