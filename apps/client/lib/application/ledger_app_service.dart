@@ -20,6 +20,7 @@ class LedgerAppService {
     required BigInt amountMinor,
     String? description,
     DateTime? occurredAt,
+    String? source,
   }) async {
     final accounts = await _repo.listAccounts(bookId.value);
     final expense =
@@ -38,6 +39,7 @@ class LedgerAppService {
         currency: domain.CurrencyCode.cny,
       ),
       description: description,
+      source: source,
     );
     await _repo.saveDomainTransaction(tx, mutationId: mutationId);
   }
@@ -48,6 +50,7 @@ class LedgerAppService {
     required BigInt amountMinor,
     String? description,
     DateTime? occurredAt,
+    String? source,
   }) async {
     final accounts = await _repo.listAccounts(bookId.value);
     final income =
@@ -66,6 +69,7 @@ class LedgerAppService {
         currency: domain.CurrencyCode.cny,
       ),
       description: description,
+      source: source,
     );
     await _repo.saveDomainTransaction(tx, mutationId: mutationId);
   }
@@ -76,6 +80,7 @@ class LedgerAppService {
     required BigInt amountMinor,
     String? description,
     DateTime? occurredAt,
+    String? source,
   }) async {
     final accounts = await _repo.listAccounts(bookId.value);
     final from = _asDomain(accounts.firstWhere((a) => a.id == fromAccountId));
@@ -92,6 +97,7 @@ class LedgerAppService {
         currency: domain.CurrencyCode.cny,
       ),
       description: description,
+      source: source,
     );
     await _repo.saveDomainTransaction(tx, mutationId: mutationId);
   }

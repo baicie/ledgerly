@@ -230,6 +230,7 @@ pub struct TxRecord {
     pub version: i64,
     pub deleted: bool,
     pub entries: Vec<(String, i64, String)>,
+    pub source: Option<String>,
 }
 
 #[derive(Clone)]

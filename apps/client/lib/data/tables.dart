@@ -30,6 +30,7 @@ class Transactions extends Table {
   IntColumn get version => integer().withDefault(const Constant(1))();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get deletedAt => dateTime().nullable()();
+  TextColumn get source => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

@@ -10,6 +10,10 @@ import 'ledger_app_service.dart';
 import 'merchant_classifier.dart';
 import '../../services/payment_notification_service.dart';
 
+/// Reserved [LedgerTransaction.source] value for transactions created by
+/// [AutoLedgerService] from captured payment notifications.
+const String autoLedgerSource = 'auto_ledger';
+
 /// Result of flushing one queued payment event into the ledger.
 enum AutoLedgerOutcome { posted, duplicate, skipped }
 
@@ -156,6 +160,7 @@ class AutoLedgerService {
         amountMinor: amountMinor,
         description: description,
         occurredAt: occurredAt,
+        source: autoLedgerSource,
       );
     } else {
       await ledger.createExpense(
@@ -164,6 +169,7 @@ class AutoLedgerService {
         amountMinor: amountMinor,
         description: description,
         occurredAt: occurredAt,
+        source: autoLedgerSource,
       );
     }
   }

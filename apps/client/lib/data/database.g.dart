@@ -678,9 +678,22 @@ class $TransactionsTable extends Transactions
   late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
       'deleted_at', aliasedName, true,
       type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _sourceMeta = const VerificationMeta('source');
   @override
-  List<GeneratedColumn> get $columns =>
-      [id, bookId, occurredAt, description, version, createdAt, deletedAt];
+  late final GeneratedColumn<String> source = GeneratedColumn<String>(
+      'source', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        bookId,
+        occurredAt,
+        description,
+        version,
+        createdAt,
+        deletedAt,
+        source
+      ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -730,6 +743,10 @@ class $TransactionsTable extends Transactions
       context.handle(_deletedAtMeta,
           deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta));
     }
+    if (data.containsKey('source')) {
+      context.handle(_sourceMeta,
+          source.isAcceptableOrUnknown(data['source']!, _sourceMeta));
+    }
     return context;
   }
 
@@ -753,6 +770,8 @@ class $TransactionsTable extends Transactions
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
       deletedAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}deleted_at']),
+      source: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}source']),
     );
   }
 
@@ -770,6 +789,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   final int version;
   final DateTime createdAt;
   final DateTime? deletedAt;
+  final String? source;
   const Transaction(
       {required this.id,
       required this.bookId,
@@ -777,7 +797,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       this.description,
       required this.version,
       required this.createdAt,
-      this.deletedAt});
+      this.deletedAt,
+      this.source});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -791,6 +812,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     map['created_at'] = Variable<DateTime>(createdAt);
     if (!nullToAbsent || deletedAt != null) {
       map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || source != null) {
+      map['source'] = Variable<String>(source);
     }
     return map;
   }
@@ -808,6 +832,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       deletedAt: deletedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(deletedAt),
+      source:
+          source == null && nullToAbsent ? const Value.absent() : Value(source),
     );
   }
 
@@ -822,6 +848,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       version: serializer.fromJson<int>(json['version']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      source: serializer.fromJson<String?>(json['source']),
     );
   }
   @override
@@ -835,6 +862,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       'version': serializer.toJson<int>(version),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'source': serializer.toJson<String?>(source),
     };
   }
 
@@ -845,7 +873,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           Value<String?> description = const Value.absent(),
           int? version,
           DateTime? createdAt,
-          Value<DateTime?> deletedAt = const Value.absent()}) =>
+          Value<DateTime?> deletedAt = const Value.absent(),
+          Value<String?> source = const Value.absent()}) =>
       Transaction(
         id: id ?? this.id,
         bookId: bookId ?? this.bookId,
@@ -854,6 +883,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
         version: version ?? this.version,
         createdAt: createdAt ?? this.createdAt,
         deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+        source: source.present ? source.value : this.source,
       );
   Transaction copyWithCompanion(TransactionsCompanion data) {
     return Transaction(
@@ -866,6 +896,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       version: data.version.present ? data.version.value : this.version,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      source: data.source.present ? data.source.value : this.source,
     );
   }
 
@@ -878,14 +909,15 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ..write('description: $description, ')
           ..write('version: $version, ')
           ..write('createdAt: $createdAt, ')
-          ..write('deletedAt: $deletedAt')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('source: $source')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
-      id, bookId, occurredAt, description, version, createdAt, deletedAt);
+  int get hashCode => Object.hash(id, bookId, occurredAt, description, version,
+      createdAt, deletedAt, source);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -896,7 +928,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           other.description == this.description &&
           other.version == this.version &&
           other.createdAt == this.createdAt &&
-          other.deletedAt == this.deletedAt);
+          other.deletedAt == this.deletedAt &&
+          other.source == this.source);
 }
 
 class TransactionsCompanion extends UpdateCompanion<Transaction> {
@@ -907,6 +940,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<int> version;
   final Value<DateTime> createdAt;
   final Value<DateTime?> deletedAt;
+  final Value<String?> source;
   final Value<int> rowid;
   const TransactionsCompanion({
     this.id = const Value.absent(),
@@ -916,6 +950,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.version = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
+    this.source = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TransactionsCompanion.insert({
@@ -926,6 +961,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.version = const Value.absent(),
     required DateTime createdAt,
     this.deletedAt = const Value.absent(),
+    this.source = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         bookId = Value(bookId),
@@ -939,6 +975,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Expression<int>? version,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? deletedAt,
+    Expression<String>? source,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -949,6 +986,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       if (version != null) 'version': version,
       if (createdAt != null) 'created_at': createdAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
+      if (source != null) 'source': source,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -961,6 +999,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       Value<int>? version,
       Value<DateTime>? createdAt,
       Value<DateTime?>? deletedAt,
+      Value<String?>? source,
       Value<int>? rowid}) {
     return TransactionsCompanion(
       id: id ?? this.id,
@@ -970,6 +1009,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       version: version ?? this.version,
       createdAt: createdAt ?? this.createdAt,
       deletedAt: deletedAt ?? this.deletedAt,
+      source: source ?? this.source,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -998,6 +1038,9 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     if (deletedAt.present) {
       map['deleted_at'] = Variable<DateTime>(deletedAt.value);
     }
+    if (source.present) {
+      map['source'] = Variable<String>(source.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1014,6 +1057,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
           ..write('version: $version, ')
           ..write('createdAt: $createdAt, ')
           ..write('deletedAt: $deletedAt, ')
+          ..write('source: $source, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2983,6 +3027,7 @@ typedef $$TransactionsTableCreateCompanionBuilder = TransactionsCompanion
   Value<int> version,
   required DateTime createdAt,
   Value<DateTime?> deletedAt,
+  Value<String?> source,
   Value<int> rowid,
 });
 typedef $$TransactionsTableUpdateCompanionBuilder = TransactionsCompanion
@@ -2994,6 +3039,7 @@ typedef $$TransactionsTableUpdateCompanionBuilder = TransactionsCompanion
   Value<int> version,
   Value<DateTime> createdAt,
   Value<DateTime?> deletedAt,
+  Value<String?> source,
   Value<int> rowid,
 });
 
@@ -3026,6 +3072,9 @@ class $$TransactionsTableFilterComposer
 
   ColumnFilters<DateTime> get deletedAt => $composableBuilder(
       column: $table.deletedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get source => $composableBuilder(
+      column: $table.source, builder: (column) => ColumnFilters(column));
 }
 
 class $$TransactionsTableOrderingComposer
@@ -3057,6 +3106,9 @@ class $$TransactionsTableOrderingComposer
 
   ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
       column: $table.deletedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get source => $composableBuilder(
+      column: $table.source, builder: (column) => ColumnOrderings(column));
 }
 
 class $$TransactionsTableAnnotationComposer
@@ -3088,6 +3140,9 @@ class $$TransactionsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get deletedAt =>
       $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get source =>
+      $composableBuilder(column: $table.source, builder: (column) => column);
 }
 
 class $$TransactionsTableTableManager extends RootTableManager<
@@ -3123,6 +3178,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             Value<int> version = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime?> deletedAt = const Value.absent(),
+            Value<String?> source = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               TransactionsCompanion(
@@ -3133,6 +3189,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             version: version,
             createdAt: createdAt,
             deletedAt: deletedAt,
+            source: source,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -3143,6 +3200,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             Value<int> version = const Value.absent(),
             required DateTime createdAt,
             Value<DateTime?> deletedAt = const Value.absent(),
+            Value<String?> source = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               TransactionsCompanion.insert(
@@ -3153,6 +3211,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             version: version,
             createdAt: createdAt,
             deletedAt: deletedAt,
+            source: source,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0

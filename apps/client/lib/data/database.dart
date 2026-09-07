@@ -32,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   static const aiInsightsTableDdl = '''
 CREATE TABLE IF NOT EXISTS ai_insights (
@@ -125,6 +125,9 @@ CREATE TABLE IF NOT EXISTS local_attachments (
             await customStatement(localBudgetsTableDdl);
             await customStatement(localRecurringTableDdl);
             await customStatement(localAttachmentsTableDdl);
+          }
+          if (from < 8) {
+            await m.addColumn(transactions, transactions.source);
           }
         },
       );

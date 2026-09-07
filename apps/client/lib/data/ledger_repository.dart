@@ -522,6 +522,7 @@ class LedgerRepository {
               description: Value(tx.description),
               version: Value(tx.version),
               createdAt: DateTime.now().toUtc(),
+              source: Value(tx.source),
             ),
           );
       for (final entry in tx.entries) {
@@ -539,6 +540,7 @@ class LedgerRepository {
       final payload = {
         'description': tx.description,
         'occurredAt': tx.occurredAt.toUtc().toIso8601String(),
+        'source': tx.source,
         'entries': tx.entries
             .map(
               (e) => {
@@ -610,6 +612,7 @@ class LedgerRepository {
       final payloadJson = jsonEncode({
         'description': tx.description,
         'occurredAt': tx.occurredAt.toUtc().toIso8601String(),
+        'source': tx.source,
         'entries': tx.entries
             .map(
               (entry) => {

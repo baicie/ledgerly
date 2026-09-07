@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ledgerly_client/application/auto_ledger_service.dart';
@@ -138,6 +140,58 @@ void main() {
     expect(tx.categoryName, 'Food');
     expect(tx.description, contains('微信支付'));
     expect(tx.description, contains('美团外卖'));
+  });
+
+  test('posted transactions carry the auto_ledger source tag', () async {
+    final boot = await _bootstrap();
+    final events = [
+      PendingPaymentEvent(
+        id: 'wechat-source-1',
+        platform: 'wechat',
+        direction: 'expense',
+        amountMinor: 1850,
+        merchant: '美团外卖',
+        rawText: '微信支付：向美团外卖付款18.50元',
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+      ),
+      PendingPaymentEvent(
+        id: 'alipay-source-2',
+        platform: 'alipay',
+        direction: 'income',
+        amountMinor: 10000,
+        merchant: '房东',
+        rawText: '支付宝：收到 房东 转账100.00元',
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+      ),
+    ];
+    final fake = _FakeNotifications(events);
+    final service = AutoLedgerService(
+      repository: boot.repo,
+      ledger: boot.ledger,
+      notifications: fake,
+    );
+
+    final report = await service.syncPending();
+    expect(report.posted, 2);
+
+    final rows = await boot.db
+        .select(boot.db.transactions)
+        .get();
+    expect(rows, hasLength(2));
+    expect(
+      rows.map((r) => r.source).toSet(),
+      equals({autoLedgerSource}),
+      reason: 'all auto-ledger rows should carry the auto_ledger source',
+    );
+
+    // Mutation payload also carries the source tag so the server receives it
+    // during sync push.
+    final mutations = await boot.db.select(boot.db.pendingMutations).get();
+    expect(mutations, hasLength(2));
+    for (final mutation in mutations) {
+      final payload = jsonDecode(mutation.payloadJson) as Map<String, dynamic>;
+      expect(payload['source'], autoLedgerSource);
+    }
   });
 
   test('deduplicates a repeat event inside the time window', () async {
