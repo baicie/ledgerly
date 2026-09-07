@@ -385,6 +385,7 @@ class LedgerRepository {
           categoryAccountId: details.categoryAccountId,
           accountId: details.accountId,
           toAccountId: details.toAccountId,
+          source: tx.source,
         ),
       );
     }
@@ -993,6 +994,7 @@ class TransactionSummary {
     this.categoryAccountId,
     this.accountId,
     this.toAccountId,
+    this.source,
   }) : amountMinor = amountMinor ?? BigInt.zero;
 
   final String id;
@@ -1007,6 +1009,10 @@ class TransactionSummary {
   final String? categoryAccountId;
   final String? accountId;
   final String? toAccountId;
+  final String? source;
+
+  /// True if this transaction came from the auto-ledger pipeline.
+  bool get isAutoLedger => source == 'auto_ledger';
 }
 
 class _TransactionDetails {

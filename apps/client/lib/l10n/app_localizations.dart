@@ -2522,6 +2522,54 @@ abstract class AppLocalizations {
   /// **'试试其他关键字，或清空搜索'**
   String get noSearchResultsMessage;
 
+  /// No description provided for @feedSourceFilterAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部'**
+  String get feedSourceFilterAll;
+
+  /// No description provided for @feedSourceFilterAuto.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动'**
+  String get feedSourceFilterAuto;
+
+  /// No description provided for @feedSourceFilterManual.
+  ///
+  /// In zh, this message translates to:
+  /// **'手动'**
+  String get feedSourceFilterManual;
+
+  /// No description provided for @feedSourceFilterAutoTooltip.
+  ///
+  /// In zh, this message translates to:
+  /// **'只显示由微信 / 支付宝通知自动入账的交易'**
+  String get feedSourceFilterAutoTooltip;
+
+  /// No description provided for @feedSourceBadgeTooltip.
+  ///
+  /// In zh, this message translates to:
+  /// **'来自支付通知自动入账'**
+  String get feedSourceBadgeTooltip;
+
+  /// No description provided for @feedMonthlySummaryAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'本月总览'**
+  String get feedMonthlySummaryAll;
+
+  /// No description provided for @feedMonthlySummaryAuto.
+  ///
+  /// In zh, this message translates to:
+  /// **'本月自动入账'**
+  String get feedMonthlySummaryAuto;
+
+  /// No description provided for @feedMonthlySummaryManual.
+  ///
+  /// In zh, this message translates to:
+  /// **'本月手动入账'**
+  String get feedMonthlySummaryManual;
+
   /// No description provided for @securitySection.
   ///
   /// In zh, this message translates to:

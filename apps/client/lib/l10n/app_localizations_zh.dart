@@ -1321,6 +1321,30 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noSearchResultsMessage => '试试其他关键字，或清空搜索';
 
   @override
+  String get feedSourceFilterAll => '全部';
+
+  @override
+  String get feedSourceFilterAuto => '自动';
+
+  @override
+  String get feedSourceFilterManual => '手动';
+
+  @override
+  String get feedSourceFilterAutoTooltip => '只显示由微信 / 支付宝通知自动入账的交易';
+
+  @override
+  String get feedSourceBadgeTooltip => '来自支付通知自动入账';
+
+  @override
+  String get feedMonthlySummaryAll => '本月总览';
+
+  @override
+  String get feedMonthlySummaryAuto => '本月自动入账';
+
+  @override
+  String get feedMonthlySummaryManual => '本月手动入账';
+
+  @override
   String get securitySection => '安全';
 
   @override

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../application/feed_search.dart';
 import '../application/ledger_app_service.dart';
 import '../application/ledger_csv.dart';
 import '../application/recurring_scheduler.dart';
@@ -380,6 +381,24 @@ class MonthlyLedgerSummary {
 final monthlyLedgerSummaryProvider =
     FutureProvider<MonthlyLedgerSummary>((ref) async {
   final transactions = await ref.watch(monthTransactionsProvider.future);
+  return summarizeMonth(transactions);
+});
+
+/// Computes a monthly summary restricted to transactions whose `source` tag
+/// matches [filter] (or all transactions when [filter] is `FeedSourceFilter.all`).
+final filteredMonthlyLedgerSummaryProvider = FutureProvider.family
+    .autoDispose<MonthlyLedgerSummary, FeedSourceFilter>((ref, filter) async {
+  final transactions = await ref.watch(monthTransactionsProvider.future);
+  if (filter == FeedSourceFilter.all) {
+    return summarizeMonth(transactions);
+  }
+  final filtered = transactions
+      .where((transaction) => matchesFeedSource(transaction, filter))
+      .toList();
+  return summarizeMonth(filtered);
+});
+
+MonthlyLedgerSummary summarizeMonth(List<TransactionSummary> transactions) {
   var income = BigInt.zero;
   var expense = BigInt.zero;
   for (final transaction in transactions) {
@@ -398,7 +417,7 @@ final monthlyLedgerSummaryProvider =
     expenseMinor: expense,
     transactionCount: transactions.length,
   );
-});
+}
 
 class SyncStatusView {
   const SyncStatusView({

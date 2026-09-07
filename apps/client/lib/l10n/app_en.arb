@@ -784,6 +784,20 @@
   "searchTransactionsHint": "Search notes, categories, accounts, or amounts",
   "noSearchResults": "No matching activity",
   "noSearchResultsMessage": "Try another keyword, or clear the search",
+  "feedSourceFilterAll": "All",
+  "feedSourceFilterAuto": "Auto",
+  "feedSourceFilterManual": "Manual",
+  "feedSourceFilterAutoTooltip": "Posted by auto-capture from WeChat / Alipay notifications",
+  "feedSourceBadgeTooltip": "Auto-captured from a payment notification",
+  "feedMonthlySummaryAll": "All transactions",
+  "feedMonthlySummaryAuto": "Auto-captured only",
+  "feedMonthlySummaryManual": "Manually entered only",
+  "@feedMonthlySummaryAuto": {
+    "placeholders": {}
+  },
+  "@feedMonthlySummaryManual": {
+    "placeholders": {}
+  },
   "securitySection": "Security",
   "appLock": "App lock",
   "appLockSubtitle": "Protect opening the app with a PIN or biometrics",

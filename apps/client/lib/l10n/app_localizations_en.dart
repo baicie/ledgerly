@@ -1370,6 +1370,32 @@ class AppLocalizationsEn extends AppLocalizations {
       'Try another keyword, or clear the search';
 
   @override
+  String get feedSourceFilterAll => 'All';
+
+  @override
+  String get feedSourceFilterAuto => 'Auto';
+
+  @override
+  String get feedSourceFilterManual => 'Manual';
+
+  @override
+  String get feedSourceFilterAutoTooltip =>
+      'Posted by auto-capture from WeChat / Alipay notifications';
+
+  @override
+  String get feedSourceBadgeTooltip =>
+      'Auto-captured from a payment notification';
+
+  @override
+  String get feedMonthlySummaryAll => 'All transactions';
+
+  @override
+  String get feedMonthlySummaryAuto => 'Auto-captured only';
+
+  @override
+  String get feedMonthlySummaryManual => 'Manually entered only';
+
+  @override
   String get securitySection => 'Security';
 
   @override
