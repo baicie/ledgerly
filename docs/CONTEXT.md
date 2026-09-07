@@ -1,6 +1,6 @@
 # Ledgerly CONTEXT
 
-* 更新日期：2026-08-04
+* 更新日期：2026-09-07
 * 产品：个人及家庭多端记账、资产管理、预算与财务分析
 * 首发平台：Android、iOS、Web（应用壳）
 * 后续：Windows、macOS
@@ -53,6 +53,50 @@
 ```text
 数据正确性 > 低资源占用 > 运行稳定性 > 开发速度
 ```
+
+## 自动记账（Auto-Ledger）
+
+通过 Android `NotificationListenerService` 拦截微信/支付宝的支付通知，将文字解析为记账流水，写入本地 Drift 数据库。
+
+### 隐私边界
+
+通知内容（商户名、金额）只存储在设备本地，不会上传到任何服务器。只有在用户主动开启「通知访问权限」后才生效，用户可随时在系统设置中关闭。
+
+### 数据流
+
+```
+微信/支付宝通知
+    → PayNotificationListener（系统进程，不可被杀）
+        → PaymentParser（正则提取平台/金额/商户/收付方向）
+            → PaymentEventStore（SharedPreferences，最多 200 条）
+                → Flutter 唤醒（下次打开 App 或静默拉活）
+                    → PaymentNotificationService（MethodChannel）
+                        → AutoLedgerService
+                            ① 过滤超过 7 天的过期事件
+                            ② 去重：内存 Set + Ledger 查询（60s 窗口）
+                            ③ MerchantClassifier → 默认分类账户
+                            ④ LedgerAppService.createExpense / createIncome
+                                → Drift 写入 + 同步 Mutation 入队
+```
+
+### 去重策略
+
+1. **内存层**：内存 Set 记录已处理的 raw event id
+2. **持久层**：Ledger 查询同一账本、同平台、同金额、同商户、±60s 窗口内是否有已入账交易
+
+若同一通知被多次投递（微信有时会重复），两步去重均会拦截，不会产生重复记账。
+
+### 商户分类
+
+`MerchantClassifier` 将商户名映射到默认支出/收入账户。目前为第一版，基于常见关键词匹配。
+
+### 配置入口
+
+设置页 → 自动记账 → 权限开关 / 待处理事件列表 / 手动同步按钮。
+
+### 同步影响
+
+自动入账的 Mutation 与普通手动记账走同一条同步通道，无需服务端额外改造。报表/流水页可按描述关键词「微信支付 / 支付宝」过滤自动记账记录。
 
 ## 首期部署
 
