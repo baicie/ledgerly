@@ -161,6 +161,7 @@ class AutoLedgerService {
         description: description,
         occurredAt: occurredAt,
         source: autoLedgerSource,
+        clientEventId: event.id,
       );
     } else {
       await ledger.createExpense(
@@ -170,6 +171,7 @@ class AutoLedgerService {
         description: description,
         occurredAt: occurredAt,
         source: autoLedgerSource,
+        clientEventId: event.id,
       );
     }
   }

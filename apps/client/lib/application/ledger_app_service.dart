@@ -14,6 +14,21 @@ class LedgerAppService {
   static const factory = domain.TransactionFactory();
   final domain.BookId bookId;
 
+  /// Builds a stable mutation id when the caller supplies a
+  /// [clientEventId] (used by the auto-ledger pipeline). The namespace
+  /// prefix keeps auto-ledger mutations separate from user-typed ones
+  /// and makes them identifiable on the server side.
+  String _resolveMutationId({String? source, String? clientEventId}) {
+    if (clientEventId == null || clientEventId.isEmpty) {
+      return _repo.newId();
+    }
+    final trimmed = clientEventId.trim();
+    if (source == 'auto_ledger') {
+      return 'auto:${bookId.value}:$trimmed';
+    }
+    return 'evt:${bookId.value}:$trimmed';
+  }
+
   Future<void> createExpense({
     required String expenseAccountId,
     required String fundingAccountId,
@@ -21,13 +36,14 @@ class LedgerAppService {
     String? description,
     DateTime? occurredAt,
     String? source,
+    String? clientEventId,
   }) async {
     final accounts = await _repo.listAccounts(bookId.value);
     final expense =
         _asDomain(accounts.firstWhere((a) => a.id == expenseAccountId));
     final funding =
         _asDomain(accounts.firstWhere((a) => a.id == fundingAccountId));
-    final mutationId = _repo.newId();
+    final mutationId = _resolveMutationId(source: source, clientEventId: clientEventId);
     final tx = factory.expense(
       id: domain.TransactionId(_repo.newId()),
       bookId: bookId,
@@ -51,13 +67,14 @@ class LedgerAppService {
     String? description,
     DateTime? occurredAt,
     String? source,
+    String? clientEventId,
   }) async {
     final accounts = await _repo.listAccounts(bookId.value);
     final income =
         _asDomain(accounts.firstWhere((a) => a.id == incomeAccountId));
     final deposit =
         _asDomain(accounts.firstWhere((a) => a.id == depositAccountId));
-    final mutationId = _repo.newId();
+    final mutationId = _resolveMutationId(source: source, clientEventId: clientEventId);
     final tx = factory.income(
       id: domain.TransactionId(_repo.newId()),
       bookId: bookId,

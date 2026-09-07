@@ -325,6 +325,69 @@ void main() {
     expect(txs.single.kind, TransactionSummaryKind.income);
   });
 
+  test(
+      'uses a stable mutation id derived from the client event id so server '
+      'deduplication survives retries', () async {
+    final boot = await _bootstrap();
+    final now = DateTime.now();
+    final event = PendingPaymentEvent(
+      id: 'wechat-stable-1',
+      platform: 'wechat',
+      direction: 'expense',
+      amountMinor: 2850,
+      merchant: '美团外卖',
+      rawText: '微信支付 28.50 元',
+      timestamp: now.millisecondsSinceEpoch,
+    );
+
+    // First sync posts the event.
+    final firstService = AutoLedgerService(
+      repository: boot.repo,
+      ledger: boot.ledger,
+      notifications: _FakeNotifications([event]),
+    );
+    final firstReport = await firstService.syncPending();
+    expect(firstReport.posted, 1);
+
+    // Capture the mutation id that landed on the wire so we can compare it
+    // against the second attempt.
+    final firstMutation = (await boot.db
+            .select(boot.db.pendingMutations)
+            .get())
+        .single;
+    expect(
+      firstMutation.mutationId,
+      'auto:${defaultBookId}:wechat-stable-1',
+      reason: 'auto-ledger mutation ids should be namespaced with auto:',
+    );
+
+    // Simulate a crash / restart: rebuild the service from scratch, leave
+    // the existing transaction in place, and re-sync the same event id.
+    // The local SQLite dedup window already suppresses a second insertion,
+    // but the durable mutation id must remain identical so the server can
+    // collapse a re-pushed attempt.
+    final rebootedLedger = LedgerAppService(boot.repo);
+    final secondService = AutoLedgerService(
+      repository: boot.repo,
+      ledger: rebootedLedger,
+      notifications: _FakeNotifications([event]),
+    );
+    final secondReport = await secondService.syncPending();
+    // The ledger rejects the second insert because of the in-ledger dedup
+    // window — that's the expected behaviour.
+    expect(secondReport.posted, 0);
+    expect(secondReport.duplicates, 1);
+
+    // Still exactly one transaction and exactly one pending mutation,
+    // and that mutation id matches the first sync's id.
+    final txs = await boot.repo.watchSummariesSync(defaultBookId);
+    expect(txs, hasLength(1));
+
+    final mutations = await boot.db.select(boot.db.pendingMutations).get();
+    expect(mutations, hasLength(1));
+    expect(mutations.single.mutationId, firstMutation.mutationId);
+  });
+
   test('posts two events that look similar but happen minutes apart',
       () async {
     final boot = await _bootstrap();
