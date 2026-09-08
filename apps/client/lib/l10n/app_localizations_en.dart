@@ -347,6 +347,186 @@ class AppLocalizationsEn extends AppLocalizations {
   String get reportsTitle => 'Reports';
 
   @override
+  String get reportsSummarySection => 'This month';
+
+  @override
+  String get reportsTrendSection => 'Last 6 months';
+
+  @override
+  String get reportsBudgetSection => 'Budgets';
+
+  @override
+  String get reportsBudgetEmptyTitle => 'No budgets for this period';
+
+  @override
+  String get reportsBudgetEmptyAction => 'Set a budget';
+
+  @override
+  String get reportsHeroIncome => 'Income';
+
+  @override
+  String get reportsHeroExpense => 'Expense';
+
+  @override
+  String get reportsHeroNet => 'Net';
+
+  @override
+  String get reportsHeroBudgetLeft => 'Budget left';
+
+  @override
+  String get reportsHeroBudgetUnset => 'Not set';
+
+  @override
+  String get budgetCreated => 'Budget created';
+
+  @override
+  String get budgetDeleted => 'Budget deleted';
+
+  @override
+  String get reportsIncome => 'Income';
+
+  @override
+  String get reportsExpense => 'Expense';
+
+  @override
+  String get reportsNet => 'Net';
+
+  @override
+  String get reportsBaseCurrency => 'Base';
+
+  @override
+  String reportsUpdatedAgo(String time) => 'Updated $time ago';
+
+  @override
+  String get reportsUpdatedJustNow => 'Updated just now';
+
+  @override
+  String get reportsCategories => 'Top categories';
+
+  @override
+  String get reportsNoBudgets => 'No budgets configured yet.';
+
+  @override
+  String get reportsPrevMonth => 'Previous month';
+
+  @override
+  String get reportsNextMonth => 'Next month';
+
+  @override
+  String get reportsRefresh => 'Refresh';
+
+  @override
+  String get aiInsightCardTitle => 'AI summary';
+
+  @override
+  String get aiInsightHighlights => 'Highlights';
+
+  @override
+  String get aiInsightAdvice => 'Suggestions';
+
+  @override
+  String get aiInsightRegenerate => 'Regenerate';
+
+  @override
+  String get aiInsightStale => 'Stale — regenerate';
+
+  @override
+  String get aiInsightUnconfigured =>
+      'Connect an AI provider to see a monthly summary.';
+
+  @override
+  String get aiInsightUnconfiguredDesc =>
+      'We\'ll analyze your income, expenses, and categories each month.';
+
+  @override
+  String get aiInsightConfigure => 'Configure AI';
+
+  @override
+  String get aiInsightEmpty => 'Nothing to summarize yet.';
+
+  @override
+  String get aiInsightEmptyDesc =>
+      'Once you log a few transactions this month, your summary will appear here.';
+
+  @override
+  String get aiInsightPeriodMenu => 'Period';
+
+  @override
+  String get aiInsightPeriodMonth => 'This month';
+
+  @override
+  String reportsAllCategories(int count) => 'All categories ($count)';
+
+  @override
+  String get reportsNoCategories => 'No matching categories.';
+
+  @override
+  String get reportsSearchHint => 'Search categories';
+
+  @override
+  String get reportsRangeTitle => 'Time range';
+
+  @override
+  String get reportsRangeMonth => 'This month';
+
+  @override
+  String get reportsRangeLast3 => 'Last 3 months';
+
+  @override
+  String get reportsRangeLast6 => 'Last 6 months';
+
+  @override
+  String get reportsRangeLast7 => 'Last 7 days';
+
+  @override
+  String get reportsRangeLast30 => 'Last 30 days';
+
+  @override
+  String get reportsRangeLast90 => 'Last 90 days';
+
+  @override
+  String get reportsRangeYear => 'This year';
+
+  @override
+  String get reportsRangeCustom => 'Custom range';
+
+  @override
+  String get reportsRangeStart => 'Start';
+
+  @override
+  String get reportsRangeEnd => 'End';
+
+  @override
+  String get commonCancel => 'Cancel';
+
+  @override
+  String get commonConfirm => 'Confirm';
+
+  @override
+  String get commonRetry => 'Retry';
+
+  @override
+  String get reportsExport => 'Export & Share';
+
+  @override
+  String get reportsExportCsv => 'Export CSV';
+
+  @override
+  String get reportsShare => 'Share Summary';
+
+  @override
+  String get reportsExportNoData => 'No data to export.';
+
+  @override
+  String get reportsExportCsvDone => 'CSV exported successfully.';
+
+  @override
+  String get reportsExportCsvError => 'Export failed';
+
+  @override
+  String get reportsTrendJumpToMonth => 'Go to this month';
+
+  @override
   String get localShort => 'Local';
 
   @override
@@ -678,7 +858,55 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncCenterSubtitle => 'Pending changes and recent status';
 
   @override
+  String get syncStatusReady => 'Synced';
+
+  @override
+  String get syncStatusPending => 'Syncing…';
+
+  @override
+  String get syncStatusError => 'Error';
+
+  @override
+  String get syncRemoteBook => 'Remote book';
+
+  @override
+  String get syncCursorLabel => 'Cursor';
+
+  @override
+  String get syncPendingLabel => 'Pending changes';
+
+  @override
+  String syncPendingCount(int count) {
+    if (count == 0) return 'Nothing pending';
+    if (count == 1) return '1 change pending';
+    return '$count changes pending';
+  }
+
+  @override
+  String get syncLastError => 'Last error';
+
+  @override
+  String get syncInProgress => 'Syncing…';
+
+  @override
   String get conflicts => 'Conflicts';
+
+  @override
+  String get conflictEntityHint => 'Transaction';
+
+  @override
+  String get conflictResolveRemoteHint =>
+      'Discard local edits, take the version on the server';
+
+  @override
+  String get conflictResolveLocalHint =>
+      'Keep local edits and push them back to the server';
+
+  @override
+  String get conflictResolved => 'Conflict resolved';
+
+  @override
+  String conflictRemoteVersion(String version) => 'Remote version $version';
 
   @override
   String get exportCsv => 'Export CSV';
@@ -736,6 +964,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get localOnlyStorage => 'Local only';
+
+  @override
+  String get localOnlyHelp => 'Connect to a server to enable sync';
 
   @override
   String get confirmConnect => 'Connect';

@@ -728,6 +728,360 @@ abstract class AppLocalizations {
   /// **'报表'**
   String get reportsTitle;
 
+  /// No description provided for @reportsSummarySection.
+  ///
+  /// In en, this message translates to:
+  /// **'This month'**
+  String get reportsSummarySection;
+
+  /// No description provided for @reportsTrendSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Last 6 months'**
+  String get reportsTrendSection;
+
+  /// No description provided for @reportsBudgetSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Budgets'**
+  String get reportsBudgetSection;
+
+  /// No description provided for @reportsBudgetEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No budgets for this period'**
+  String get reportsBudgetEmptyTitle;
+
+  /// No description provided for @reportsBudgetEmptyAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Set a budget'**
+  String get reportsBudgetEmptyAction;
+
+  /// No description provided for @reportsHeroIncome.
+  ///
+  /// In en, this message translates to:
+  /// **'Income'**
+  String get reportsHeroIncome;
+
+  /// No description provided for @reportsHeroExpense.
+  ///
+  /// In en, this message translates to:
+  /// **'Expense'**
+  String get reportsHeroExpense;
+
+  /// No description provided for @reportsHeroNet.
+  ///
+  /// In en, this message translates to:
+  /// **'Net'**
+  String get reportsHeroNet;
+
+  /// No description provided for @reportsHeroBudgetLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'Budget left'**
+  String get reportsHeroBudgetLeft;
+
+  /// No description provided for @reportsHeroBudgetUnset.
+  ///
+  /// In en, this message translates to:
+  /// **'Not set'**
+  String get reportsHeroBudgetUnset;
+
+  /// No description provided for @budgetCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Budget created'**
+  String get budgetCreated;
+
+  /// No description provided for @budgetDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Budget deleted'**
+  String get budgetDeleted;
+
+  /// No description provided for @reportsIncome.
+  ///
+  /// In en, this message translates to:
+  /// **'Income'**
+  String get reportsIncome;
+
+  /// No description provided for @reportsExpense.
+  ///
+  /// In en, this message translates to:
+  /// **'Expense'**
+  String get reportsExpense;
+
+  /// No description provided for @reportsNet.
+  ///
+  /// In en, this message translates to:
+  /// **'Net'**
+  String get reportsNet;
+
+  /// No description provided for @reportsBaseCurrency.
+  ///
+  /// In en, this message translates to:
+  /// **'Base'**
+  String get reportsBaseCurrency;
+
+  /// No description provided for @reportsUpdatedAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated {time} ago'**
+  String reportsUpdatedAgo(String time);
+
+  /// No description provided for @reportsUpdatedJustNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated just now'**
+  String get reportsUpdatedJustNow;
+
+  /// No description provided for @reportsCategories.
+  ///
+  /// In en, this message translates to:
+  /// **'Top categories'**
+  String get reportsCategories;
+
+  /// No description provided for @reportsNoBudgets.
+  ///
+  /// In en, this message translates to:
+  /// **'No budgets configured yet.'**
+  String get reportsNoBudgets;
+
+  /// No description provided for @reportsPrevMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous month'**
+  String get reportsPrevMonth;
+
+  /// No description provided for @reportsNextMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Next month'**
+  String get reportsNextMonth;
+
+  /// No description provided for @reportsRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get reportsRefresh;
+
+  /// No description provided for @aiInsightCardTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AI summary'**
+  String get aiInsightCardTitle;
+
+  /// No description provided for @aiInsightHighlights.
+  ///
+  /// In en, this message translates to:
+  /// **'Highlights'**
+  String get aiInsightHighlights;
+
+  /// No description provided for @aiInsightAdvice.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggestions'**
+  String get aiInsightAdvice;
+
+  /// No description provided for @aiInsightRegenerate.
+  ///
+  /// In en, this message translates to:
+  /// **'Regenerate'**
+  String get aiInsightRegenerate;
+
+  /// No description provided for @aiInsightStale.
+  ///
+  /// In en, this message translates to:
+  /// **'Stale — regenerate'**
+  String get aiInsightStale;
+
+  /// No description provided for @aiInsightUnconfigured.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect an AI provider to see a monthly summary.'**
+  String get aiInsightUnconfigured;
+
+  /// No description provided for @aiInsightUnconfiguredDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'ll analyze your income, expenses, and categories each month.'**
+  String get aiInsightUnconfiguredDesc;
+
+  /// No description provided for @aiInsightConfigure.
+  ///
+  /// In en, this message translates to:
+  /// **'Configure AI'**
+  String get aiInsightConfigure;
+
+  /// No description provided for @aiInsightEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing to summarize yet.'**
+  String get aiInsightEmpty;
+
+  /// No description provided for @aiInsightEmptyDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Once you log a few transactions this month, your summary will appear here.'**
+  String get aiInsightEmptyDesc;
+
+  /// No description provided for @aiInsightPeriodMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Period'**
+  String get aiInsightPeriodMenu;
+
+  /// No description provided for @aiInsightPeriodMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'This month'**
+  String get aiInsightPeriodMonth;
+
+  /// No description provided for @reportsAllCategories.
+  ///
+  /// In en, this message translates to:
+  /// **'All categories ({count})'**
+  String reportsAllCategories(int count);
+
+  /// No description provided for @reportsNoCategories.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching categories.'**
+  String get reportsNoCategories;
+
+  /// No description provided for @reportsSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search categories'**
+  String get reportsSearchHint;
+
+  /// No description provided for @reportsRangeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Time range'**
+  String get reportsRangeTitle;
+
+  /// No description provided for @reportsRangeMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'This month'**
+  String get reportsRangeMonth;
+
+  /// No description provided for @reportsRangeLast3.
+  ///
+  /// In en, this message translates to:
+  /// **'Last 3 months'**
+  String get reportsRangeLast3;
+
+  /// No description provided for @reportsRangeLast6.
+  ///
+  /// In en, this message translates to:
+  /// **'Last 6 months'**
+  String get reportsRangeLast6;
+
+  /// No description provided for @reportsRangeLast7.
+  ///
+  /// In en, this message translates to:
+  /// **'Last 7 days'**
+  String get reportsRangeLast7;
+
+  /// No description provided for @reportsRangeLast30.
+  ///
+  /// In en, this message translates to:
+  /// **'Last 30 days'**
+  String get reportsRangeLast30;
+
+  /// No description provided for @reportsRangeLast90.
+  ///
+  /// In en, this message translates to:
+  /// **'Last 90 days'**
+  String get reportsRangeLast90;
+
+  /// No description provided for @reportsRangeYear.
+  ///
+  /// In en, this message translates to:
+  /// **'This year'**
+  String get reportsRangeYear;
+
+  /// No description provided for @reportsRangeCustom.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom range'**
+  String get reportsRangeCustom;
+
+  /// No description provided for @reportsRangeStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Start'**
+  String get reportsRangeStart;
+
+  /// No description provided for @reportsRangeEnd.
+  ///
+  /// In en, this message translates to:
+  /// **'End'**
+  String get reportsRangeEnd;
+
+  /// No description provided for @commonCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get commonCancel;
+
+  /// No description provided for @commonConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get commonConfirm;
+
+  /// No description provided for @commonRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get commonRetry;
+
+  /// No description provided for @reportsExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Export & Share'**
+  String get reportsExport;
+
+  /// No description provided for @reportsExportCsv.
+  ///
+  /// In en, this message translates to:
+  /// **'Export CSV'**
+  String get reportsExportCsv;
+
+  /// No description provided for @reportsShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Share Summary'**
+  String get reportsShare;
+
+  /// No description provided for @reportsExportNoData.
+  ///
+  /// In en, this message translates to:
+  /// **'No data to export.'**
+  String get reportsExportNoData;
+
+  /// No description provided for @reportsExportCsvDone.
+  ///
+  /// In en, this message translates to:
+  /// **'CSV exported successfully.'**
+  String get reportsExportCsvDone;
+
+  /// No description provided for @reportsExportCsvError.
+  ///
+  /// In en, this message translates to:
+  /// **'Export failed'**
+  String get reportsExportCsvError;
+
+  /// No description provided for @reportsTrendJumpToMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to this month'**
+  String get reportsTrendJumpToMonth;
+
   /// No description provided for @localShort.
   ///
   /// In zh, this message translates to:
@@ -1304,11 +1658,95 @@ abstract class AppLocalizations {
   /// **'查看待同步与最近状态'**
   String get syncCenterSubtitle;
 
+  /// No description provided for @syncStatusReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'已同步'**
+  String get syncStatusReady;
+
+  /// No description provided for @syncStatusPending.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步中…'**
+  String get syncStatusPending;
+
+  /// No description provided for @syncStatusError.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步异常'**
+  String get syncStatusError;
+
+  /// No description provided for @syncRemoteBook.
+  ///
+  /// In zh, this message translates to:
+  /// **'云端账本'**
+  String get syncRemoteBook;
+
+  /// No description provided for @syncCursorLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步游标'**
+  String get syncCursorLabel;
+
+  /// No description provided for @syncPendingLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'待上传变更'**
+  String get syncPendingLabel;
+
+  /// No description provided for @syncPendingCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count, plural, =0{无待上传} =1{1 项待上传} other{{count} 项待上传}}'**
+  String syncPendingCount(int count);
+
+  /// No description provided for @syncLastError.
+  ///
+  /// In zh, this message translates to:
+  /// **'上次错误'**
+  String get syncLastError;
+
+  /// No description provided for @syncInProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在同步…'**
+  String get syncInProgress;
+
   /// No description provided for @conflicts.
   ///
   /// In zh, this message translates to:
   /// **'冲突处理'**
   String get conflicts;
+
+  /// No description provided for @conflictEntityHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'交易'**
+  String get conflictEntityHint;
+
+  /// No description provided for @conflictResolveRemoteHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'放弃本地修改，使用云端版本'**
+  String get conflictResolveRemoteHint;
+
+  /// No description provided for @conflictResolveLocalHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'保留本地修改，并推送到云端'**
+  String get conflictResolveLocalHint;
+
+  /// No description provided for @conflictResolved.
+  ///
+  /// In zh, this message translates to:
+  /// **'冲突已处理'**
+  String get conflictResolved;
+
+  /// No description provided for @conflictRemoteVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'云端版本 {version}'**
+  String conflictRemoteVersion(String version);
 
   /// No description provided for @exportCsv.
   ///
@@ -1417,6 +1855,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'仅本地存储'**
   String get localOnlyStorage;
+
+  /// No description provided for @localOnlyHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'接入服务端后即可开启同步'**
+  String get localOnlyHelp;
 
   /// No description provided for @confirmConnect.
   ///

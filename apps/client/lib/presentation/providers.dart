@@ -8,6 +8,7 @@ import '../application/ledger_app_service.dart';
 import '../application/ledger_csv.dart';
 import '../application/merchant_rule_store.dart';
 import '../application/recurring_scheduler.dart';
+import '../application/reports_range.dart';
 import '../application/sync_service.dart';
 import '../auth/app_lock_store.dart';
 import '../auth/auth_repository.dart';
@@ -114,6 +115,18 @@ final ledgerAppServiceProvider = Provider<LedgerAppService>((ref) {
 final merchantRuleStoreProvider = Provider<MerchantRuleStore>((ref) {
   return MerchantRuleStore();
 });
+
+/// Persistent store backing [reportsRangeProvider].
+final reportsRangeStoreProvider = Provider<ReportsRangeStore>((ref) {
+  return ReportsRangeStore();
+});
+
+/// Currently-selected reports range (month / last 3 months / year / custom).
+///
+/// The initial value is loaded asynchronously from [reportsRangeStoreProvider].
+/// Once persisted, the user's preference survives app restarts.
+final reportsRangeProvider =
+    StateProvider<ReportsRange>((ref) => ReportsRange.month());
 
 /// Gateway that talks to the platform (Android) notification listener
 /// side of the auto-ledger pipeline. Tests override this to swap in a
@@ -536,6 +549,51 @@ final localMonthBudgetProgressProvider =
   ];
 });
 
+/// Computes income/expense for the last [monthCount] months using local
+/// ledger data. Returns one [ReportTrendPoint] per month, oldest first.
+final localReportTrendProvider =
+    FutureProvider<List<ReportTrendPoint>>((ref) async {
+  await ref.watch(ledgerRepositoryProvider).seedIfEmpty();
+  final bookId = ref.watch(selectedBookIdProvider);
+  final repo = ref.watch(ledgerRepositoryProvider);
+  final range = ref.watch(reportsRangeProvider);
+  final monthCount = range.monthCount;
+  final anchor = range.anchor;
+  final points = <ReportTrendPoint>[];
+
+  for (var i = monthCount - 1; i >= 0; i--) {
+    final month = DateTime(anchor.year, anchor.month - i);
+    final bounds = monthUtcRange(month);
+    final transactions = await repo.watchSummariesSync(
+      bookId,
+      monthStart: bounds.start,
+      monthEnd: bounds.end,
+    );
+    var income = BigInt.zero;
+    var expense = BigInt.zero;
+    for (final t in transactions) {
+      switch (t.kind) {
+        case TransactionSummaryKind.income:
+          income += t.amountMinor;
+        case TransactionSummaryKind.expense:
+          expense += t.amountMinor;
+        case TransactionSummaryKind.transfer:
+        case TransactionSummaryKind.adjustment:
+          break;
+      }
+    }
+    points.add(ReportTrendPoint(
+      month:
+          '${month.year.toString().padLeft(4, '0')}-${month.month.toString().padLeft(2, '0')}',
+      incomeMinor: income,
+      expenseMinor: expense,
+      netMinor: income - expense,
+    ));
+  }
+
+  return points;
+});
+
 void invalidateLedgerViews(WidgetRef ref) {
   ref.invalidate(monthTransactionsProvider);
   ref.invalidate(transactionListProvider);
@@ -546,6 +604,7 @@ void invalidateLedgerViews(WidgetRef ref) {
   ref.invalidate(localAttachmentsProvider);
   ref.invalidate(recurringCatchUpProvider);
   ref.invalidate(localMonthBudgetProgressProvider);
+  ref.invalidate(localReportTrendProvider);
 }
 
 String formatMinor(BigInt minor) {
@@ -554,4 +613,273 @@ String formatMinor(BigInt minor) {
   final yuan = abs ~/ BigInt.from(100);
   final cents = abs % BigInt.from(100);
   return '${negative ? '-' : ''}$yuan.${cents.toString().padLeft(2, '0')}';
+}
+
+// ---------------------------------------------------------------------------
+// Server-side reporting (analytics dashboard)
+// ---------------------------------------------------------------------------
+
+class ReportSummary {
+  ReportSummary({
+    required this.incomeMinor,
+    required this.expenseMinor,
+    required this.netMinor,
+    required this.baseCurrency,
+    required this.categories,
+    required this.plan,
+  });
+
+  factory ReportSummary.fromJson(Map<String, dynamic> json) {
+    final categories = (json['categories'] as List? ?? const [])
+        .map((e) => ReportCategory.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+    return ReportSummary(
+      incomeMinor: BigInt.parse(json['incomeMinor']?.toString() ?? '0'),
+      expenseMinor: BigInt.parse(json['expenseMinor']?.toString() ?? '0'),
+      netMinor: BigInt.parse(json['netMinor']?.toString() ?? '0'),
+      baseCurrency: json['baseCurrency']?.toString() ?? 'CNY',
+      categories: categories,
+      plan: json['plan']?.toString(),
+    );
+  }
+
+  final BigInt incomeMinor;
+  final BigInt expenseMinor;
+  final BigInt netMinor;
+  final String baseCurrency;
+  final List<ReportCategory> categories;
+  final String? plan;
+}
+
+class ReportCategory {
+  ReportCategory({
+    required this.name,
+    required this.amountMinor,
+    required this.currency,
+  });
+
+  factory ReportCategory.fromJson(Map<String, dynamic> json) {
+    return ReportCategory(
+      name: json['name']?.toString() ?? 'Other',
+      amountMinor:
+          BigInt.parse(json['amountMinor']?.toString() ?? '0'),
+      currency: json['currency']?.toString() ?? 'CNY',
+    );
+  }
+
+  final String name;
+  final BigInt amountMinor;
+  final String currency;
+}
+
+class ReportTrendPoint {
+  ReportTrendPoint({
+    required this.month,
+    required this.incomeMinor,
+    required this.expenseMinor,
+    required this.netMinor,
+  });
+
+  factory ReportTrendPoint.fromJson(Map<String, dynamic> json) {
+    return ReportTrendPoint(
+      month: json['month']?.toString() ?? '',
+      incomeMinor: BigInt.parse(json['incomeMinor']?.toString() ?? '0'),
+      expenseMinor: BigInt.parse(json['expenseMinor']?.toString() ?? '0'),
+      netMinor: BigInt.parse(json['netMinor']?.toString() ?? '0'),
+    );
+  }
+
+  final String month;
+  final BigInt incomeMinor;
+  final BigInt expenseMinor;
+  final BigInt netMinor;
+}
+
+class ReportBudgetItem {
+  ReportBudgetItem({
+    required this.id,
+    required this.name,
+    required this.budgetMinor,
+    required this.actualMinor,
+    required this.currency,
+    required this.status,
+  });
+
+  factory ReportBudgetItem.fromJson(Map<String, dynamic> json) {
+    return ReportBudgetItem(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? 'Budget',
+      budgetMinor: BigInt.parse(json['budgetMinor']?.toString() ?? '0'),
+      actualMinor: BigInt.parse(json['actualMinor']?.toString() ?? '0'),
+      currency: json['currency']?.toString() ?? 'CNY',
+      status: json['status']?.toString() ?? 'ok',
+    );
+  }
+
+  final String id;
+  final String name;
+  final BigInt budgetMinor;
+  final BigInt actualMinor;
+  final String currency;
+  final String status;
+
+  double get ratio {
+    if (budgetMinor <= BigInt.zero) return 0;
+    return double.parse(actualMinor.toString()) /
+        double.parse(budgetMinor.toString());
+  }
+}
+
+/// True when the app is running in local-only mode (no remote API).
+final isLocalModeProvider = Provider<bool>((ref) {
+  return ref.watch(apiEndpointProvider) == null;
+});
+
+final reportSummaryProvider = FutureProvider<ReportSummary>((ref) async {
+  final range = ref.watch(reportsRangeProvider);
+  if (ref.watch(isLocalModeProvider)) {
+    return _reportSummaryLocal(ref, range);
+  }
+  final api = ref.watch(syncApiProvider);
+  final bookId = ref.watch(selectedBookIdProvider);
+  final bounds = range.resolve();
+  final from = bounds.start.toUtc();
+  final to = bounds.end.toUtc();
+  final fromIso =
+      '${from.year.toString().padLeft(4, '0')}-${from.month.toString().padLeft(2, '0')}-${from.day.toString().padLeft(2, '0')}T${from.hour.toString().padLeft(2, '0')}:${from.minute.toString().padLeft(2, '0')}:00Z';
+  final toIso =
+      '${to.year.toString().padLeft(4, '0')}-${to.month.toString().padLeft(2, '0')}-${to.day.toString().padLeft(2, '0')}T${to.hour.toString().padLeft(2, '0')}:${to.minute.toString().padLeft(2, '0')}:00Z';
+  final json = await api.reportSummary(
+    bookId: bookId,
+    from: fromIso,
+    to: toIso,
+  );
+  return ReportSummary.fromJson(json);
+});
+
+final reportTrendProvider = FutureProvider<List<ReportTrendPoint>>((ref) async {
+  final range = ref.watch(reportsRangeProvider);
+  if (ref.watch(isLocalModeProvider)) {
+    return _reportTrendLocal(ref, range);
+  }
+  final api = ref.watch(syncApiProvider);
+  final bookId = ref.watch(selectedBookIdProvider);
+  final rows = await api.reportTrend(bookId: bookId, months: range.monthCount);
+  return rows.map(ReportTrendPoint.fromJson).toList();
+});
+
+final reportBudgetProvider = FutureProvider<List<ReportBudgetItem>>((ref) async {
+  if (ref.watch(isLocalModeProvider)) {
+    return _reportBudgetLocal(ref);
+  }
+  final api = ref.watch(syncApiProvider);
+  final bookId = ref.watch(selectedBookIdProvider);
+  final month = ref.watch(selectedMonthProvider);
+  final monthStr =
+      '${month.year.toString().padLeft(4, '0')}-${month.month.toString().padLeft(2, '0')}';
+  final json = await api.reportBudget(bookId: bookId, month: monthStr);
+  final items = (json['items'] as List? ?? const [])
+      .map((e) =>
+          ReportBudgetItem.fromJson(Map<String, dynamic>.from(e as Map)))
+      .toList();
+  items.sort((a, b) => b.ratio.compareTo(a.ratio));
+  return items;
+});
+
+final reportLoadingProvider = Provider<bool>((ref) {
+  return ref.watch(reportSummaryProvider).isLoading ||
+      ref.watch(reportTrendProvider).isLoading ||
+      ref.watch(reportBudgetProvider).isLoading;
+});
+
+// ---------------------------------------------------------------------------
+// Local-mode report implementations (no remote API)
+// ---------------------------------------------------------------------------
+
+ReportSummary _reportSummaryLocal(Ref ref, ReportsRange range) {
+  if (!range.isMultiMonth) {
+    final summary = ref.watch(monthlyLedgerSummaryProvider).maybeWhen(
+          data: (s) => s,
+          orElse: () => MonthlyLedgerSummary(
+            incomeMinor: BigInt.zero,
+            expenseMinor: BigInt.zero,
+            transactionCount: 0,
+          ),
+        );
+    final categories = ref.watch(categoryReportProvider).maybeWhen(
+          data: (rows) => rows
+              .map((r) => ReportCategory(
+                    name: r.name,
+                    amountMinor: r.amount,
+                    currency: 'CNY',
+                  ))
+              .toList(),
+          orElse: () => <ReportCategory>[],
+        );
+    return ReportSummary(
+      incomeMinor: summary.incomeMinor,
+      expenseMinor: summary.expenseMinor,
+      netMinor: summary.balanceMinor,
+      baseCurrency: 'CNY',
+      categories: categories,
+      plan: 'local',
+    );
+  }
+  final aggregates = ref.watch(localReportTrendProvider).maybeWhen(
+        data: (points) => points,
+        orElse: () => const <ReportTrendPoint>[],
+      );
+  var income = BigInt.zero;
+  var expense = BigInt.zero;
+  for (final p in aggregates) {
+    income += p.incomeMinor;
+    expense += p.expenseMinor;
+  }
+  return ReportSummary(
+    incomeMinor: income,
+    expenseMinor: expense,
+    netMinor: income - expense,
+    baseCurrency: 'CNY',
+    categories: const [],
+    plan: 'local',
+  );
+}
+
+List<ReportTrendPoint> _reportTrendLocal(Ref ref, ReportsRange range) {
+  return ref.watch(localReportTrendProvider).maybeWhen(
+        data: (points) {
+          final count = range.monthCount;
+          if (points.length == count) return points;
+          if (points.length > count) return points.sublist(points.length - count);
+          return points;
+        },
+        orElse: () => const <ReportTrendPoint>[],
+      );
+}
+
+List<ReportBudgetItem> _reportBudgetLocal(Ref ref) {
+  final progress = ref.watch(localMonthBudgetProgressProvider).maybeWhen(
+        data: (rows) => rows,
+        orElse: () => <LocalBudgetProgress>[],
+      );
+  return progress
+      .map(
+        (p) => ReportBudgetItem(
+          id: p.budget.id,
+          name: p.budget.name,
+          budgetMinor: p.budget.amountMinor,
+          actualMinor: p.spent,
+          currency: 'CNY',
+          status: _localBudgetStatus(p.spent, p.budget.amountMinor),
+        ),
+      )
+      .toList();
+}
+
+String _localBudgetStatus(BigInt actual, BigInt budget) {
+  if (budget <= BigInt.zero) return 'ok';
+  final ratio = double.parse(actual.toString()) / double.parse(budget.toString());
+  if (ratio > 1.0) return 'over';
+  if (ratio > 0.9) return 'ok';
+  return 'under';
 }

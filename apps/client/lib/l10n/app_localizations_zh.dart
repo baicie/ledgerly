@@ -346,6 +346,183 @@ class AppLocalizationsZh extends AppLocalizations {
   String get reportsTitle => '报表';
 
   @override
+  String get reportsSummarySection => '本月概览';
+
+  @override
+  String get reportsTrendSection => '近 6 个月趋势';
+
+  @override
+  String get reportsBudgetSection => '预算';
+
+  @override
+  String get reportsBudgetEmptyTitle => '该周期暂无预算';
+
+  @override
+  String get reportsBudgetEmptyAction => '去设置预算';
+
+  @override
+  String get reportsHeroIncome => '入账';
+
+  @override
+  String get reportsHeroExpense => '支出';
+
+  @override
+  String get reportsHeroNet => '结余';
+
+  @override
+  String get reportsHeroBudgetLeft => '预算剩';
+
+  @override
+  String get reportsHeroBudgetUnset => '未设置';
+
+  @override
+  String get budgetCreated => '已添加预算';
+
+  @override
+  String get budgetDeleted => '已删除预算';
+
+  @override
+  String get reportsIncome => '收入';
+
+  @override
+  String get reportsExpense => '支出';
+
+  @override
+  String get reportsNet => '净额';
+
+  @override
+  String get reportsBaseCurrency => '基础货币';
+
+  @override
+  String reportsUpdatedAgo(String time) => '$time前更新';
+
+  @override
+  String get reportsUpdatedJustNow => '刚刚更新';
+
+  @override
+  String get reportsCategories => '主要分类';
+
+  @override
+  String get reportsNoBudgets => '尚未配置预算。';
+
+  @override
+  String get reportsPrevMonth => '上一月';
+
+  @override
+  String get reportsNextMonth => '下一月';
+
+  @override
+  String get reportsRefresh => '刷新';
+
+  @override
+  String get aiInsightCardTitle => 'AI 总结';
+
+  @override
+  String get aiInsightHighlights => '重点';
+
+  @override
+  String get aiInsightAdvice => '建议';
+
+  @override
+  String get aiInsightRegenerate => '重新生成';
+
+  @override
+  String get aiInsightStale => '数据已变更 — 请重新生成';
+
+  @override
+  String get aiInsightUnconfigured => '接入 AI 服务即可生成本月洞察。';
+
+  @override
+  String get aiInsightUnconfiguredDesc => '我们将按月分析你的收入、支出和分类情况。';
+
+  @override
+  String get aiInsightConfigure => '去配置';
+
+  @override
+  String get aiInsightEmpty => '暂无可总结的内容。';
+
+  @override
+  String get aiInsightEmptyDesc => '本月记几笔交易后，摘要会显示在这里。';
+
+  @override
+  String get aiInsightPeriodMenu => '周期';
+
+  @override
+  String get aiInsightPeriodMonth => '本月';
+
+  @override
+  String reportsAllCategories(int count) => '全部类别（$count）';
+
+  @override
+  String get reportsNoCategories => '没有匹配的类别。';
+
+  @override
+  String get reportsSearchHint => '搜索类别';
+
+  @override
+  String get reportsRangeTitle => '时间范围';
+
+  @override
+  String get reportsRangeMonth => '本月';
+
+  @override
+  String get reportsRangeLast3 => '最近 3 个月';
+
+  @override
+  String get reportsRangeLast6 => '最近 6 个月';
+
+  @override
+  String get reportsRangeLast7 => '最近 7 天';
+
+  @override
+  String get reportsRangeLast30 => '最近 30 天';
+
+  @override
+  String get reportsRangeLast90 => '最近 90 天';
+
+  @override
+  String get reportsRangeYear => '今年';
+
+  @override
+  String get reportsRangeCustom => '自定义范围';
+
+  @override
+  String get reportsRangeStart => '起始';
+
+  @override
+  String get reportsRangeEnd => '结束';
+
+  @override
+  String get commonCancel => '取消';
+
+  @override
+  String get commonConfirm => '确认';
+
+  @override
+  String get commonRetry => '重试';
+
+  @override
+  String get reportsExport => '导出与分享';
+
+  @override
+  String get reportsExportCsv => '导出 CSV';
+
+  @override
+  String get reportsShare => '分享摘要';
+
+  @override
+  String get reportsExportNoData => '暂无数据可导出。';
+
+  @override
+  String get reportsExportCsvDone => 'CSV 导出成功。';
+
+  @override
+  String get reportsExportCsvError => '导出失败';
+
+  @override
+  String get reportsTrendJumpToMonth => '跳转到该月';
+
+  @override
   String get localShort => '本地';
 
   @override
@@ -664,7 +841,53 @@ class AppLocalizationsZh extends AppLocalizations {
   String get syncCenterSubtitle => '查看待同步与最近状态';
 
   @override
+  String get syncStatusReady => '已同步';
+
+  @override
+  String get syncStatusPending => '同步中…';
+
+  @override
+  String get syncStatusError => '同步异常';
+
+  @override
+  String get syncRemoteBook => '云端账本';
+
+  @override
+  String get syncCursorLabel => '同步游标';
+
+  @override
+  String get syncPendingLabel => '待上传变更';
+
+  @override
+  String syncPendingCount(int count) {
+    if (count == 0) return '无待上传';
+    if (count == 1) return '1 项待上传';
+    return '$count 项待上传';
+  }
+
+  @override
+  String get syncLastError => '上次错误';
+
+  @override
+  String get syncInProgress => '正在同步…';
+
+  @override
   String get conflicts => '冲突处理';
+
+  @override
+  String get conflictEntityHint => '交易';
+
+  @override
+  String get conflictResolveRemoteHint => '放弃本地修改，使用云端版本';
+
+  @override
+  String get conflictResolveLocalHint => '保留本地修改，并推送到云端';
+
+  @override
+  String get conflictResolved => '冲突已处理';
+
+  @override
+  String conflictRemoteVersion(String version) => '云端版本 $version';
 
   @override
   String get exportCsv => '导出 CSV';
@@ -719,6 +942,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get localOnlyStorage => '仅本地存储';
+
+  @override
+  String get localOnlyHelp => '接入服务端后即可开启同步';
 
   @override
   String get confirmConnect => '确认连接';

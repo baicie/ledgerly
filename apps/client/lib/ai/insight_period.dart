@@ -91,6 +91,47 @@ String insightRecordId(String bookId, InsightPeriod period) {
   return '$bookId:${period.kind.name}:${period.key}';
 }
 
+/// A flexible period covering an arbitrary date range, not tied to a
+/// calendar day/month. Used for "Last N months" and custom report views.
+class InsightDateRange {
+  const InsightDateRange({
+    required this.label,
+    required this.start,
+    required this.end,
+  });
+
+  final String label;
+  final DateTime start;
+  final DateTime end;
+
+  String get key => '${_stamp(start)}-${_stamp(end)}';
+
+  InsightPeriod toPeriod() => InsightPeriod(
+        kind: InsightKind.monthly,
+        key: key,
+        start: start,
+        end: end,
+      );
+
+  static String _stamp(DateTime value) {
+    final utc = value.toUtc();
+    return '${utc.year.toString().padLeft(4, '0')}-${utc.month.toString().padLeft(2, '0')}-${utc.day.toString().padLeft(2, '0')}';
+  }
+}
+
+/// Recent N calendar months ending with [reference]. Used for trend-style
+/// AI summaries like "last 3 months".
+InsightDateRange recentMonths(DateTime reference, int months, {String? label}) {
+  assert(months > 0);
+  final endLocal = DateTime(reference.year, reference.month + 1);
+  final startLocal = DateTime(reference.year, reference.month - (months - 1));
+  return InsightDateRange(
+    label: label ?? '近 $months 个月',
+    start: startLocal.toUtc(),
+    end: endLocal.toUtc(),
+  );
+}
+
 String localizedInsightName(String? name) {
   if (name == null || name.isEmpty) return '未分类';
   switch (name) {

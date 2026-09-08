@@ -170,6 +170,31 @@ class SyncApi {
     return Map<String, dynamic>.from(res.data as Map);
   }
 
+  Future<List<Map<String, dynamic>>> reportTrend({
+    required String bookId,
+    int months = 6,
+  }) async {
+    final res = await _dio.get(
+      '/v1/books/$bookId/reports/trend',
+      queryParameters: {'months': months},
+    );
+    final data = Map<String, dynamic>.from(res.data as Map);
+    return (data['series'] as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> reportBudget({
+    required String bookId,
+    String? month,
+  }) async {
+    final res = await _dio.get(
+      '/v1/books/$bookId/reports/budget',
+      queryParameters: month != null ? {'month': month} : null,
+    );
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
   Future<List<Map<String, dynamic>>> listFxRates({
     required String bookId,
   }) async {
