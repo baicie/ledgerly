@@ -968,9 +968,7 @@ async fn postgres_auto_ledger_dedup_same_fingerprint_rejected() {
         if std::env::var("REQUIRE_POSTGRES_TESTS").ok().as_deref() == Some("true") {
             panic!("DATABASE_URL is required for PostgreSQL integration tests");
         }
-        eprintln!(
-            "skip postgres_auto_ledger_dedup_same_fingerprint_rejected: DATABASE_URL unset"
-        );
+        eprintln!("skip postgres_auto_ledger_dedup_same_fingerprint_rejected: DATABASE_URL unset");
         return;
     };
 
@@ -1113,7 +1111,10 @@ async fn postgres_auto_ledger_dedup_same_fingerprint_rejected() {
             .fetch_one(pool)
             .await
             .expect("count auto-ledger transactions by fingerprint");
-    assert_eq!(count, 1, "exactly one committed transaction should exist for this fingerprint");
+    assert_eq!(
+        count, 1,
+        "exactly one committed transaction should exist for this fingerprint"
+    );
 
     // Also verify source and fingerprint columns on the persisted row.
     let row: (String, String) = sqlx::query_as(

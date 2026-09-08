@@ -325,9 +325,7 @@ fn parse_occurred_at(
 
 /// Returns the `source_event_fingerprint` field from a mutation payload, if
 /// present.  The value is expected to be a hex-encoded SHA-256 hash (64 chars).
-fn parse_source_event_fingerprint(
-    mutation: &ledger_contracts::SyncMutationDto,
-) -> Option<String> {
+fn parse_source_event_fingerprint(mutation: &ledger_contracts::SyncMutationDto) -> Option<String> {
     let raw = mutation
         .payload
         .get("sourceEventFingerprint")
@@ -1116,13 +1114,12 @@ async fn process_mutation_mem(
             )
         })
         .collect();
-    let source = parse_source(mutation)
-        .or_else(|| {
-            store
-                .transactions
-                .get(&mutation.entity_id)
-                .and_then(|existing| existing.source.clone())
-        });
+    let source = parse_source(mutation).or_else(|| {
+        store
+            .transactions
+            .get(&mutation.entity_id)
+            .and_then(|existing| existing.source.clone())
+    });
     let source_event_fingerprint = fingerprint;
     store.transactions.insert(
         mutation.entity_id.clone(),
@@ -2308,10 +2305,7 @@ mod tests {
         assert_eq!(store.transactions.len(), 1);
         let tx = store.transactions.values().next().unwrap();
         assert_eq!(tx.source.as_deref(), Some("auto_ledger"));
-        assert_eq!(
-            tx.source_event_fingerprint.as_deref(),
-            Some(fingerprint)
-        );
+        assert_eq!(tx.source_event_fingerprint.as_deref(), Some(fingerprint));
     }
 
     #[tokio::test]
