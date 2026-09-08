@@ -31,6 +31,7 @@ class Transactions extends Table {
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get deletedAt => dateTime().nullable()();
   TextColumn get source => text().nullable()();
+  TextColumn get sourceEventFingerprint => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

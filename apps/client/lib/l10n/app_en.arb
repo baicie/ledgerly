@@ -9,6 +9,8 @@
   "savingEllipsis": "Saving…",
   "retry": "Retry",
   "create": "Create",
+  "edit": "Edit",
+  "delete": "Delete",
   "unknown": "Unknown",
   "show": "Show",
   "hide": "Hide",
@@ -710,7 +712,11 @@
   "createdWillPostTomorrow": "Created. The worker will post it from tomorrow.",
   "recurring": "Recurring",
   "ruleName": "Rule name",
-  "amountYuan": "Amount (yuan)",
+  "amountInvalid": "Enter a valid amount",
+  "amountRequired": "Amount is required",
+  "amountMustBePositive": "Amount must be greater than zero",
+  "merchantOptional": "Merchant (optional)",
+  "note": "Note",
   "runNow": "Run now",
   "createRule": "Create rule",
   "upgraded": "Upgraded",
@@ -903,5 +909,68 @@
         "type": "int"
       }
     }
-  }
+  },
+  "autoLedgerPlatformWechat": "WeChat Pay",
+  "autoLedgerPlatformAlipay": "Alipay",
+  "autoLedgerPlatformUnknown": "Unknown platform",
+  "autoLedgerRescueTitle": "Rescue this notification",
+  "autoLedgerRescueReason": "Reason: {reason}",
+  "@autoLedgerRescueReason": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "autoLedgerRescuePlatform": "Platform",
+  "autoLedgerRescueTime": "Time",
+  "autoLedgerRescueRawLabel": "Original text",
+  "autoLedgerRescueSubmit": "Save to ledger",
+  "autoLedgerRescueAlreadySaved": "Already saved to the ledger.",
+  "autoLedgerRescueCategoryLabel": "Category",
+  "autoLedgerRescueLearnRule": "Remember this merchant → category",
+  "autoLedgerRescueLearnRuleHint": "Future notifications from this merchant will be auto-posted here.",
+  "autoLedgerRescueLearnRuleToast": "Rule saved. Future payments at this merchant will be auto-posted.",
+  "all": "All",
+  "autoLedgerUnparsedEmpty": "No unrecognised notifications",
+  "autoLedgerUnparsedEmptyHint": "Notifications that don't look like a payment will appear here.",
+  "autoLedgerUnparsedCount": "{count} unrecognised",
+  "@autoLedgerUnparsedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "autoLedgerUnparsedDismiss": "Clear all",
+  "autoLedgerUnparsedCopy": "Copy raw text",
+  "autoLedgerUnparsedCopied": "Raw text copied",
+  "autoLedgerBulkRescueTitle": "Bulk rescue ({0})",
+  "autoLedgerBulkRescueSummary": "About to post {0} entries using the same amount and category.",
+  "autoLedgerBulkRescueAmountHint": "Shared amount for all {0} entries.",
+  "autoLedgerBulkRescueConfirm": "Post {0} entries",
+  "autoLedgerBulkSelectedCount": "{0} selected",
+  "autoLedgerBulkClear": "Clear",
+  "autoLedgerBulkRescue": "Rescue ({0})",
+  "autoLedgerBulkRescueSuccess": "Rescued {0} entries.",
+  "autoLedgerBulkRescuePartial": "Rescued {0}, failed {1}.",
+  "autoLedgerBulkRescueTotalPreview": "{0} entries × ¥{1} = ¥{2}",
+  "autoLedgerBacklogTitle": "{0} unrecognised notifications waiting",
+  "autoLedgerBacklogDominantHint": "Most are tagged {0} ({1} entries). Consider adding a merchant rule to cover this case.",
+  "autoLedgerBacklogAction": "Review",
+  "selectAll": "Select all",
+  "autoLedgerRulesTitle": "Merchant classification rules",
+  "autoLedgerRulesSubtitle": "Tell Ledgerly which category a merchant belongs to. Custom rules win over the built-in defaults.",
+  "autoLedgerRulesEmpty": "No custom rules yet",
+  "autoLedgerRulesEmptyHint": "Add one when a notification is miscategorized. Rules persist on this device only.",
+  "autoLedgerRuleAddTitle": "New classification rule",
+  "autoLedgerRuleEditTitle": "Edit classification rule",
+  "autoLedgerRuleAdd": "Add rule",
+  "autoLedgerRuleNeedlesLabel": "Match phrases",
+  "autoLedgerRuleNeedlesHelper": "Separate multiple phrases with commas. Any match wins.",
+  "autoLedgerRuleCategoryLabel": "Default category",
+  "autoLedgerRuleChooseCategory": "Pick a category first.",
+  "autoLedgerRuleNeedNeedle": "Add at least one match phrase.",
+  "autoLedgerRuleDeleteTitle": "Delete this rule?",
+  "autoLedgerRuleDeleteBody": "Future notifications that match this rule will fall back to the built-in defaults."
 }

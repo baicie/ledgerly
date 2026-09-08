@@ -37,6 +37,7 @@ class LedgerAppService {
     DateTime? occurredAt,
     String? source,
     String? clientEventId,
+    String? sourceEventFingerprint,
   }) async {
     final accounts = await _repo.listAccounts(bookId.value);
     final expense =
@@ -56,8 +57,13 @@ class LedgerAppService {
       ),
       description: description,
       source: source,
+      sourceEventFingerprint: sourceEventFingerprint,
     );
-    await _repo.saveDomainTransaction(tx, mutationId: mutationId);
+    await _repo.saveDomainTransaction(
+      tx,
+      mutationId: mutationId,
+      sourceEventFingerprint: sourceEventFingerprint,
+    );
   }
 
   Future<void> createIncome({
@@ -68,6 +74,7 @@ class LedgerAppService {
     DateTime? occurredAt,
     String? source,
     String? clientEventId,
+    String? sourceEventFingerprint,
   }) async {
     final accounts = await _repo.listAccounts(bookId.value);
     final income =
@@ -87,8 +94,13 @@ class LedgerAppService {
       ),
       description: description,
       source: source,
+      sourceEventFingerprint: sourceEventFingerprint,
     );
-    await _repo.saveDomainTransaction(tx, mutationId: mutationId);
+    await _repo.saveDomainTransaction(
+      tx,
+      mutationId: mutationId,
+      sourceEventFingerprint: sourceEventFingerprint,
+    );
   }
 
   Future<void> createTransfer({
@@ -395,6 +407,93 @@ class LedgerAppService {
 
   String _categoryComparisonKey(String name) {
     return defaultCategoryComparisonKey(name);
+  }
+
+  /// Posts a ledger transaction from a notification that the parser
+  /// could not classify automatically. The user fills in the amount and
+  /// (optionally) the merchant so the entry still ends up in the ledger.
+  ///
+  /// Uses a separate `source` namespace (`auto_ledger_rescue`) and a
+  /// prefixed `clientEventId` so the post never collides with a future
+  /// successful parse of the same notification. The transaction lands in
+  /// the default "Other" category for its direction so the domain rules
+  /// (which require matching account types) stay happy.
+  ///
+  /// Calling [rescueUnparsedEvent] twice with the same
+  /// [unparsedEventId] is idempotent: the second call resolves to a
+  /// no-op (the SQLite UNIQUE constraint on `pending_mutations.mutation_id`
+  /// is treated as "already posted").
+  Future<void> rescueUnparsedEvent({
+    required String direction,
+    required BigInt amountMinor,
+    required String? merchant,
+    required String? note,
+    required DateTime occurredAt,
+    required String platform,
+    required String reasonTag,
+    required String unparsedEventId,
+    String? categoryAccountId,
+    String? incomeAccountId,
+  }) async {
+    if (amountMinor <= BigInt.zero) {
+      throw const FormatException('Amount must be positive');
+    }
+    final funding = accountKeyBank(bookId.value);
+
+    final descriptionParts = <String>[
+      switch (platform) {
+        'wechat' => '微信支付',
+        'alipay' => '支付宝',
+        _ => platform,
+      },
+      if (merchant != null && merchant.trim().isNotEmpty) merchant.trim(),
+      if (note != null && note.trim().isNotEmpty) note.trim(),
+    ];
+    final description = descriptionParts.join(' · ');
+    final clientEventId = 'rescue:$unparsedEventId';
+    final fingerprint =
+        'rescue:${bookId.value}:$reasonTag:$amountMinor:$occurredAt';
+
+    try {
+      if (direction == 'income') {
+        await createIncome(
+          incomeAccountId: incomeAccountId ?? accountKeyOtherIncome(bookId.value),
+          depositAccountId: funding,
+          amountMinor: amountMinor,
+          description: description,
+          occurredAt: occurredAt,
+          source: 'auto_ledger_rescue',
+          clientEventId: clientEventId,
+          sourceEventFingerprint: fingerprint,
+        );
+      } else {
+        await createExpense(
+          expenseAccountId:
+              categoryAccountId ?? accountKeyOtherExpense(bookId.value),
+          fundingAccountId: funding,
+          amountMinor: amountMinor,
+          description: description,
+          occurredAt: occurredAt,
+          source: 'auto_ledger_rescue',
+          clientEventId: clientEventId,
+          sourceEventFingerprint: fingerprint,
+        );
+      }
+    } on Object catch (error) {
+      // Treat the mutation UNIQUE violation as "already posted" so
+      // retries are safe. Anything else still propagates so the UI can
+      // surface a real error.
+      if (_isUniqueViolation(error)) return;
+      rethrow;
+    }
+  }
+
+  /// Whether the throwable is a SQLite UNIQUE constraint violation
+  /// (either thrown directly by sqlite3 or wrapped by drift).
+  bool _isUniqueViolation(Object error) {
+    final message = error.toString();
+    return message.contains('UNIQUE constraint failed') ||
+        message.contains('constraint failed');
   }
 
   domain.Account _asDomain(Account row) {

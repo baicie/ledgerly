@@ -152,6 +152,18 @@ abstract class AppLocalizations {
   /// **'创建'**
   String get create;
 
+  /// No description provided for @edit.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑'**
+  String get edit;
+
+  /// No description provided for @delete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除'**
+  String get delete;
+
   /// No description provided for @unknown.
   ///
   /// In zh, this message translates to:
@@ -2372,6 +2384,36 @@ abstract class AppLocalizations {
   /// **'规则名称'**
   String get ruleName;
 
+  /// No description provided for @amountInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入有效的金额'**
+  String get amountInvalid;
+
+  /// No description provided for @amountRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'请填写金额'**
+  String get amountRequired;
+
+  /// No description provided for @amountMustBePositive.
+  ///
+  /// In zh, this message translates to:
+  /// **'金额必须大于零'**
+  String get amountMustBePositive;
+
+  /// No description provided for @merchantOptional.
+  ///
+  /// In zh, this message translates to:
+  /// **'商户（可选）'**
+  String get merchantOptional;
+
+  /// No description provided for @note.
+  ///
+  /// In zh, this message translates to:
+  /// **'备注'**
+  String get note;
+
   /// No description provided for @amountYuan.
   ///
   /// In zh, this message translates to:
@@ -2959,6 +3001,300 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'{count} 条待入账'**
   String autoLedgerPendingCount(int count);
+
+  /// No description provided for @autoLedgerUnparsedEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无未识别的通知'**
+  String get autoLedgerUnparsedEmpty;
+
+  /// No description provided for @autoLedgerPlatformWechat.
+  ///
+  /// In zh, this message translates to:
+  /// **'微信支付'**
+  String get autoLedgerPlatformWechat;
+
+  /// No description provided for @autoLedgerPlatformAlipay.
+  ///
+  /// In zh, this message translates to:
+  /// **'支付宝'**
+  String get autoLedgerPlatformAlipay;
+
+  /// No description provided for @autoLedgerPlatformUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'未知平台'**
+  String get autoLedgerPlatformUnknown;
+
+  /// No description provided for @autoLedgerRescueTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'手动入账这条通知'**
+  String get autoLedgerRescueTitle;
+
+  /// No description provided for @autoLedgerRescueReason.
+  ///
+  /// In zh, this message translates to:
+  /// **'失败原因：{reason}'**
+  String autoLedgerRescueReason(String reason);
+
+  /// No description provided for @autoLedgerRescuePlatform.
+  ///
+  /// In zh, this message translates to:
+  /// **'平台'**
+  String get autoLedgerRescuePlatform;
+
+  /// No description provided for @autoLedgerRescueTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'时间'**
+  String get autoLedgerRescueTime;
+
+  /// No description provided for @autoLedgerRescueRawLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'通知原文'**
+  String get autoLedgerRescueRawLabel;
+
+  /// No description provided for @autoLedgerRescueSubmit.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存到账本'**
+  String get autoLedgerRescueSubmit;
+
+  /// No description provided for @autoLedgerRescueAlreadySaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'这条已经入过账了。'**
+  String get autoLedgerRescueAlreadySaved;
+
+  /// No description provided for @autoLedgerRescueCategoryLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'分类'**
+  String get autoLedgerRescueCategoryLabel;
+
+  /// No description provided for @autoLedgerRescueLearnRule.
+  ///
+  /// In zh, this message translates to:
+  /// **'记住这条商户 → 分类规则'**
+  String get autoLedgerRescueLearnRule;
+
+  /// No description provided for @autoLedgerRescueLearnRuleHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'以后同一家商户的通知会自动入到这里。'**
+  String get autoLedgerRescueLearnRuleHint;
+
+  /// No description provided for @autoLedgerRescueLearnRuleToast.
+  ///
+  /// In zh, this message translates to:
+  /// **'已记住规则，下次这家商户会自动入账。'**
+  String get autoLedgerRescueLearnRuleToast;
+
+  /// No description provided for @all.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部'**
+  String get all;
+
+  /// No description provided for @autoLedgerUnparsedEmptyHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法识别为入账或出账的通知会出现在这里。'**
+  String get autoLedgerUnparsedEmptyHint;
+
+  /// No description provided for @autoLedgerUnparsedCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 条未识别'**
+  String autoLedgerUnparsedCount(int count);
+
+  /// No description provided for @autoLedgerUnparsedDismiss.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部忽略'**
+  String get autoLedgerUnparsedDismiss;
+
+  /// No description provided for @autoLedgerUnparsedCopy.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制原文'**
+  String get autoLedgerUnparsedCopy;
+
+  /// No description provided for @autoLedgerUnparsedCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制原文'**
+  String get autoLedgerUnparsedCopied;
+
+  /// No description provided for @autoLedgerBulkRescueTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量入账（{0} 条）'**
+  String autoLedgerBulkRescueTitle(int count);
+
+  /// No description provided for @autoLedgerBulkRescueSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'将使用同一个金额和分类入账 {0} 条记录。'**
+  String autoLedgerBulkRescueSummary(int count);
+
+  /// No description provided for @autoLedgerBulkRescueAmountHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'这笔批量里 {0} 条都用同一个金额。'**
+  String autoLedgerBulkRescueAmountHint(int count);
+
+  /// No description provided for @autoLedgerBulkRescueConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'入账 {0} 条'**
+  String autoLedgerBulkRescueConfirm(int count);
+
+  /// No description provided for @autoLedgerBulkSelectedCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'已选 {0} 条'**
+  String autoLedgerBulkSelectedCount(int count);
+
+  /// No description provided for @autoLedgerBulkClear.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空'**
+  String get autoLedgerBulkClear;
+
+  /// No description provided for @autoLedgerBulkRescue.
+  ///
+  /// In zh, this message translates to:
+  /// **'入账 ({0})'**
+  String autoLedgerBulkRescue(int count);
+
+  /// No description provided for @autoLedgerBulkRescueSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已成功入账 {0} 条。'**
+  String autoLedgerBulkRescueSuccess(int count);
+
+  /// No description provided for @autoLedgerBulkRescuePartial.
+  ///
+  /// In zh, this message translates to:
+  /// **'成功 {0} 条，失败 {1} 条。'**
+  String autoLedgerBulkRescuePartial(int rescued, int failed);
+
+  /// No description provided for @autoLedgerBulkRescueTotalPreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'{0} 笔 × ¥{1} = ¥{2}'**
+  String autoLedgerBulkRescueTotalPreview(int count, String unit, String total);
+
+  /// No description provided for @autoLedgerBacklogTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'{0} 条通知待处理'**
+  String autoLedgerBacklogTitle(int count);
+
+  /// No description provided for @autoLedgerBacklogDominantHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'其中最多的是 {0}（{1} 条），可以添加商户规则覆盖这种情况。'**
+  String autoLedgerBacklogDominantHint(String reason, int count);
+
+  /// No description provided for @autoLedgerBacklogAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'去看看'**
+  String get autoLedgerBacklogAction;
+
+  /// No description provided for @selectAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全选'**
+  String get selectAll;
+
+  /// No description provided for @autoLedgerRulesTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'商户分类规则'**
+  String get autoLedgerRulesTitle;
+
+  /// No description provided for @autoLedgerRulesSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'告诉 Ledgerly 某个商户应归入哪个分类。自定义规则优先于内置默认。'**
+  String get autoLedgerRulesSubtitle;
+
+  /// No description provided for @autoLedgerRulesEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'尚未添加自定义规则'**
+  String get autoLedgerRulesEmpty;
+
+  /// No description provided for @autoLedgerRulesEmptyHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'只要某条通知被误分类，可以手动添加一条规则。规则仅保存在本机。'**
+  String get autoLedgerRulesEmptyHint;
+
+  /// No description provided for @autoLedgerRuleAddTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'新增分类规则'**
+  String get autoLedgerRuleAddTitle;
+
+  /// No description provided for @autoLedgerRuleEditTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑分类规则'**
+  String get autoLedgerRuleEditTitle;
+
+  /// No description provided for @autoLedgerRuleAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加规则'**
+  String get autoLedgerRuleAdd;
+
+  /// No description provided for @autoLedgerRuleNeedlesLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'匹配关键词'**
+  String get autoLedgerRuleNeedlesLabel;
+
+  /// No description provided for @autoLedgerRuleNeedlesHelper.
+  ///
+  /// In zh, this message translates to:
+  /// **'多个关键词请用逗号分隔。任一匹配即生效。'**
+  String get autoLedgerRuleNeedlesHelper;
+
+  /// No description provided for @autoLedgerRuleCategoryLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认分类'**
+  String get autoLedgerRuleCategoryLabel;
+
+  /// No description provided for @autoLedgerRuleChooseCategory.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先选择一个分类。'**
+  String get autoLedgerRuleChooseCategory;
+
+  /// No description provided for @autoLedgerRuleNeedNeedle.
+  ///
+  /// In zh, this message translates to:
+  /// **'至少添加一个匹配关键词。'**
+  String get autoLedgerRuleNeedNeedle;
+
+  /// No description provided for @autoLedgerRuleDeleteTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除该规则？'**
+  String get autoLedgerRuleDeleteTitle;
+
+  /// No description provided for @autoLedgerRuleDeleteBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'以后匹配该规则的通知将回落到内置默认。'**
+  String get autoLedgerRuleDeleteBody;
 }
 
 class _AppLocalizationsDelegate

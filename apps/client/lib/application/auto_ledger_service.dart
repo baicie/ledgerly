@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,6 +10,7 @@ import '../domain/ids.dart';
 import '../presentation/providers.dart';
 import 'ledger_app_service.dart';
 import 'merchant_classifier.dart';
+import 'merchant_rule_store.dart';
 import '../../services/payment_notification_service.dart';
 
 /// Reserved [LedgerTransaction.source] value for transactions created by
@@ -48,14 +51,43 @@ class AutoLedgerSyncReport {
 ///    the transaction + pending mutation.
 /// 6. Clear the native queue once each event has been handled.
 class AutoLedgerService {
+  /// Computes the cross-device idempotency fingerprint for a payment event.
+  ///
+  /// Canonical fields: direction + amountMinor + occurredAt(UTC-epoch-seconds) +
+  /// normalized merchant + bookId.  Two devices that independently capture the
+  /// same WeChat/Alipay notification will derive the same SHA-256 hash.
+  static String computeFingerprint({
+    required String direction,
+    required int amountMinor,
+    required DateTime occurredAtUtc,
+    String? merchant,
+    required String bookId,
+  }) {
+    final normalizedMerchant =
+        (merchant ?? '').trim().toLowerCase();
+    // UTC epoch seconds, truncated to the second to absorb minor clock drift.
+    final epochSeconds =
+        occurredAtUtc.millisecondsSinceEpoch ~/ 1000;
+    final canonical = [
+      direction,
+      amountMinor.toString(),
+      epochSeconds.toString(),
+      normalizedMerchant,
+      bookId,
+    ].join('|');
+    final bytes = utf8.encode(canonical);
+    return sha256.convert(bytes).toString();
+  }
   AutoLedgerService({
     required this.repository,
     required this.ledger,
     required this.notifications,
     MerchantClassifier? classifier,
+    this.ruleStore,
     Duration dedupWindow = const Duration(seconds: 60),
     Duration staleAfter = const Duration(days: 7),
     DateTime Function()? now,
+    this.ruleLoader,
   })  : classifier = classifier ?? const MerchantClassifier(),
         _dedupWindow = dedupWindow,
         _staleAfter = staleAfter,
@@ -65,9 +97,37 @@ class AutoLedgerService {
   final LedgerAppService ledger;
   final PaymentNotificationGateway notifications;
   final MerchantClassifier classifier;
+
+  /// Optional persistent store for user-defined merchant rules. When set,
+  /// the service will use [effectiveRules] (user rules first, then defaults)
+  /// instead of the classifier's compile-time defaults.
+  final MerchantRuleStore? ruleStore;
+
+  /// Test seam: inject the rule list directly so tests don't need to fake
+  /// SharedPreferences. When non-null it wins over [ruleStore].
+  final Future<List<MerchantRule>> Function()? ruleLoader;
+
   final Duration _dedupWindow;
   final Duration _staleAfter;
   final DateTime Function() _now;
+
+  /// Returns the effective rule list: user rules (highest priority) followed
+  /// by the built-in defaults. Falls back to the classifier's default list
+  /// when no persistence layer is configured or when the user has not
+  /// stored any rules of their own.
+  Future<List<MerchantRule>> effectiveRules() async {
+    if (ruleLoader != null) {
+      final userRules = await ruleLoader!();
+      if (userRules.isEmpty) return classifier.rules;
+      return [...userRules, ...classifier.rules];
+    }
+    if (ruleStore != null) {
+      final userRules = await ruleStore!.load();
+      if (userRules.isEmpty) return classifier.rules;
+      return [...userRules, ...classifier.rules];
+    }
+    return classifier.rules;
+  }
 
   /// In-memory dedup cache for raw notification ids. The native queue already
   /// guards against duplicates, so this is purely a safety net.
@@ -91,6 +151,12 @@ class AutoLedgerService {
     // classifying events; otherwise accountId() would resolve to a row
     // that is not in the database and createExpense would throw.
     await repository.listAccounts(bookId);
+
+    // Resolve the rule list exactly once per batch: user-defined rules
+    // first, then built-in defaults. This avoids hitting SharedPreferences
+    // per-event and keeps matching behaviour consistent across the batch.
+    final rules = await effectiveRules();
+    final effectiveClassifier = MerchantClassifier(rules: rules);
 
     final now = _now().toUtc();
     var posted = 0;
@@ -117,7 +183,7 @@ class AutoLedgerService {
       }
 
       try {
-        await _postEvent(event, bookId: bookId);
+        await _postEvent(event, bookId: bookId, classifier: effectiveClassifier);
         posted += 1;
       } catch (_) {
         // Leave the event id out of _seenRawIds so the next sync retries.
@@ -137,6 +203,7 @@ class AutoLedgerService {
   Future<void> _postEvent(
     PendingPaymentEvent event, {
     required String bookId,
+    required MerchantClassifier classifier,
   }) async {
     final amountMinor = BigInt.from(event.amountMinor);
     if (amountMinor <= BigInt.zero) {
@@ -153,6 +220,14 @@ class AutoLedgerService {
     final fundingAccountId = accountKeyBank(bookId);
     final occurredAt = event.occurredAt.toUtc();
 
+    final fingerprint = AutoLedgerService.computeFingerprint(
+      direction: event.direction,
+      amountMinor: event.amountMinor,
+      occurredAtUtc: occurredAt,
+      merchant: merchant,
+      bookId: bookId,
+    );
+
     if (event.direction == 'income') {
       await ledger.createIncome(
         incomeAccountId: categoryId,
@@ -162,6 +237,7 @@ class AutoLedgerService {
         occurredAt: occurredAt,
         source: autoLedgerSource,
         clientEventId: event.id,
+        sourceEventFingerprint: fingerprint,
       );
     } else {
       await ledger.createExpense(
@@ -172,6 +248,7 @@ class AutoLedgerService {
         occurredAt: occurredAt,
         source: autoLedgerSource,
         clientEventId: event.id,
+        sourceEventFingerprint: fingerprint,
       );
     }
   }
@@ -233,6 +310,7 @@ final autoLedgerServiceProvider = Provider<AutoLedgerService>((ref) {
     repository: ref.watch(ledgerRepositoryProvider),
     ledger: ref.watch(ledgerAppServiceProvider),
     notifications: PaymentNotificationService(),
+    ruleStore: ref.watch(merchantRuleStoreProvider),
   );
 });
 

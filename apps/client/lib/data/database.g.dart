@@ -683,6 +683,12 @@ class $TransactionsTable extends Transactions
   late final GeneratedColumn<String> source = GeneratedColumn<String>(
       'source', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _sourceEventFingerprintMeta =
+      const VerificationMeta('sourceEventFingerprint');
+  @override
+  late final GeneratedColumn<String> sourceEventFingerprint =
+      GeneratedColumn<String>('source_event_fingerprint', aliasedName, true,
+          type: DriftSqlType.string, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -692,7 +698,8 @@ class $TransactionsTable extends Transactions
         version,
         createdAt,
         deletedAt,
-        source
+        source,
+        sourceEventFingerprint
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -747,6 +754,12 @@ class $TransactionsTable extends Transactions
       context.handle(_sourceMeta,
           source.isAcceptableOrUnknown(data['source']!, _sourceMeta));
     }
+    if (data.containsKey('source_event_fingerprint')) {
+      context.handle(
+          _sourceEventFingerprintMeta,
+          sourceEventFingerprint.isAcceptableOrUnknown(
+              data['source_event_fingerprint']!, _sourceEventFingerprintMeta));
+    }
     return context;
   }
 
@@ -772,6 +785,9 @@ class $TransactionsTable extends Transactions
           .read(DriftSqlType.dateTime, data['${effectivePrefix}deleted_at']),
       source: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}source']),
+      sourceEventFingerprint: attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}source_event_fingerprint']),
     );
   }
 
@@ -790,6 +806,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   final DateTime createdAt;
   final DateTime? deletedAt;
   final String? source;
+  final String? sourceEventFingerprint;
   const Transaction(
       {required this.id,
       required this.bookId,
@@ -798,7 +815,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       required this.version,
       required this.createdAt,
       this.deletedAt,
-      this.source});
+      this.source,
+      this.sourceEventFingerprint});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -815,6 +833,10 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     }
     if (!nullToAbsent || source != null) {
       map['source'] = Variable<String>(source);
+    }
+    if (!nullToAbsent || sourceEventFingerprint != null) {
+      map['source_event_fingerprint'] =
+          Variable<String>(sourceEventFingerprint);
     }
     return map;
   }
@@ -834,6 +856,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           : Value(deletedAt),
       source:
           source == null && nullToAbsent ? const Value.absent() : Value(source),
+      sourceEventFingerprint: sourceEventFingerprint == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceEventFingerprint),
     );
   }
 
@@ -849,6 +874,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       source: serializer.fromJson<String?>(json['source']),
+      sourceEventFingerprint:
+          serializer.fromJson<String?>(json['sourceEventFingerprint']),
     );
   }
   @override
@@ -863,6 +890,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'source': serializer.toJson<String?>(source),
+      'sourceEventFingerprint':
+          serializer.toJson<String?>(sourceEventFingerprint),
     };
   }
 
@@ -874,7 +903,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           int? version,
           DateTime? createdAt,
           Value<DateTime?> deletedAt = const Value.absent(),
-          Value<String?> source = const Value.absent()}) =>
+          Value<String?> source = const Value.absent(),
+          Value<String?> sourceEventFingerprint = const Value.absent()}) =>
       Transaction(
         id: id ?? this.id,
         bookId: bookId ?? this.bookId,
@@ -884,6 +914,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
         createdAt: createdAt ?? this.createdAt,
         deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
         source: source.present ? source.value : this.source,
+        sourceEventFingerprint: sourceEventFingerprint.present
+            ? sourceEventFingerprint.value
+            : this.sourceEventFingerprint,
       );
   Transaction copyWithCompanion(TransactionsCompanion data) {
     return Transaction(
@@ -897,6 +930,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       source: data.source.present ? data.source.value : this.source,
+      sourceEventFingerprint: data.sourceEventFingerprint.present
+          ? data.sourceEventFingerprint.value
+          : this.sourceEventFingerprint,
     );
   }
 
@@ -910,14 +946,15 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ..write('version: $version, ')
           ..write('createdAt: $createdAt, ')
           ..write('deletedAt: $deletedAt, ')
-          ..write('source: $source')
+          ..write('source: $source, ')
+          ..write('sourceEventFingerprint: $sourceEventFingerprint')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode => Object.hash(id, bookId, occurredAt, description, version,
-      createdAt, deletedAt, source);
+      createdAt, deletedAt, source, sourceEventFingerprint);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -929,7 +966,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           other.version == this.version &&
           other.createdAt == this.createdAt &&
           other.deletedAt == this.deletedAt &&
-          other.source == this.source);
+          other.source == this.source &&
+          other.sourceEventFingerprint == this.sourceEventFingerprint);
 }
 
 class TransactionsCompanion extends UpdateCompanion<Transaction> {
@@ -941,6 +979,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<DateTime> createdAt;
   final Value<DateTime?> deletedAt;
   final Value<String?> source;
+  final Value<String?> sourceEventFingerprint;
   final Value<int> rowid;
   const TransactionsCompanion({
     this.id = const Value.absent(),
@@ -951,6 +990,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.createdAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.source = const Value.absent(),
+    this.sourceEventFingerprint = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TransactionsCompanion.insert({
@@ -962,6 +1002,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     required DateTime createdAt,
     this.deletedAt = const Value.absent(),
     this.source = const Value.absent(),
+    this.sourceEventFingerprint = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         bookId = Value(bookId),
@@ -976,6 +1017,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Expression<DateTime>? createdAt,
     Expression<DateTime>? deletedAt,
     Expression<String>? source,
+    Expression<String>? sourceEventFingerprint,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -987,6 +1029,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       if (createdAt != null) 'created_at': createdAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
       if (source != null) 'source': source,
+      if (sourceEventFingerprint != null)
+        'source_event_fingerprint': sourceEventFingerprint,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1000,6 +1044,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       Value<DateTime>? createdAt,
       Value<DateTime?>? deletedAt,
       Value<String?>? source,
+      Value<String?>? sourceEventFingerprint,
       Value<int>? rowid}) {
     return TransactionsCompanion(
       id: id ?? this.id,
@@ -1010,6 +1055,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       createdAt: createdAt ?? this.createdAt,
       deletedAt: deletedAt ?? this.deletedAt,
       source: source ?? this.source,
+      sourceEventFingerprint:
+          sourceEventFingerprint ?? this.sourceEventFingerprint,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1041,6 +1088,10 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     if (source.present) {
       map['source'] = Variable<String>(source.value);
     }
+    if (sourceEventFingerprint.present) {
+      map['source_event_fingerprint'] =
+          Variable<String>(sourceEventFingerprint.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1058,6 +1109,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
           ..write('createdAt: $createdAt, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('source: $source, ')
+          ..write('sourceEventFingerprint: $sourceEventFingerprint, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3028,6 +3080,7 @@ typedef $$TransactionsTableCreateCompanionBuilder = TransactionsCompanion
   required DateTime createdAt,
   Value<DateTime?> deletedAt,
   Value<String?> source,
+  Value<String?> sourceEventFingerprint,
   Value<int> rowid,
 });
 typedef $$TransactionsTableUpdateCompanionBuilder = TransactionsCompanion
@@ -3040,6 +3093,7 @@ typedef $$TransactionsTableUpdateCompanionBuilder = TransactionsCompanion
   Value<DateTime> createdAt,
   Value<DateTime?> deletedAt,
   Value<String?> source,
+  Value<String?> sourceEventFingerprint,
   Value<int> rowid,
 });
 
@@ -3075,6 +3129,10 @@ class $$TransactionsTableFilterComposer
 
   ColumnFilters<String> get source => $composableBuilder(
       column: $table.source, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get sourceEventFingerprint => $composableBuilder(
+      column: $table.sourceEventFingerprint,
+      builder: (column) => ColumnFilters(column));
 }
 
 class $$TransactionsTableOrderingComposer
@@ -3109,6 +3167,10 @@ class $$TransactionsTableOrderingComposer
 
   ColumnOrderings<String> get source => $composableBuilder(
       column: $table.source, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get sourceEventFingerprint => $composableBuilder(
+      column: $table.sourceEventFingerprint,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$TransactionsTableAnnotationComposer
@@ -3143,6 +3205,9 @@ class $$TransactionsTableAnnotationComposer
 
   GeneratedColumn<String> get source =>
       $composableBuilder(column: $table.source, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceEventFingerprint => $composableBuilder(
+      column: $table.sourceEventFingerprint, builder: (column) => column);
 }
 
 class $$TransactionsTableTableManager extends RootTableManager<
@@ -3179,6 +3244,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime?> deletedAt = const Value.absent(),
             Value<String?> source = const Value.absent(),
+            Value<String?> sourceEventFingerprint = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               TransactionsCompanion(
@@ -3190,6 +3256,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             createdAt: createdAt,
             deletedAt: deletedAt,
             source: source,
+            sourceEventFingerprint: sourceEventFingerprint,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -3201,6 +3268,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             required DateTime createdAt,
             Value<DateTime?> deletedAt = const Value.absent(),
             Value<String?> source = const Value.absent(),
+            Value<String?> sourceEventFingerprint = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               TransactionsCompanion.insert(
@@ -3212,6 +3280,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             createdAt: createdAt,
             deletedAt: deletedAt,
             source: source,
+            sourceEventFingerprint: sourceEventFingerprint,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0

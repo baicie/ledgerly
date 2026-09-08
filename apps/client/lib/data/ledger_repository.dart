@@ -512,6 +512,7 @@ class LedgerRepository {
   Future<void> saveDomainTransaction(
     domain.LedgerTransaction tx, {
     required String mutationId,
+    String? sourceEventFingerprint,
   }) async {
     final currentDeviceId = await deviceId;
     await _db.transaction(() async {
@@ -524,6 +525,9 @@ class LedgerRepository {
               version: Value(tx.version),
               createdAt: DateTime.now().toUtc(),
               source: Value(tx.source),
+              sourceEventFingerprint: Value(
+                sourceEventFingerprint ?? tx.sourceEventFingerprint,
+              ),
             ),
           );
       for (final entry in tx.entries) {
@@ -542,6 +546,8 @@ class LedgerRepository {
         'description': tx.description,
         'occurredAt': tx.occurredAt.toUtc().toIso8601String(),
         'source': tx.source,
+        'sourceEventFingerprint':
+            sourceEventFingerprint ?? tx.sourceEventFingerprint,
         'entries': tx.entries
             .map(
               (e) => {

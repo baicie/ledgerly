@@ -8,6 +8,9 @@ class MerchantClassifier {
   const MerchantClassifier({this.rules = defaultMerchantRules});
 
   /// Ordered list of classification rules. First match wins.
+  ///
+  /// Built-in rules are anonymous (no `id`); user-defined rules supplied by
+  /// [MerchantRuleStore] carry a stable `id` so they can be edited.
   final List<MerchantRule> rules;
 
   /// Map a free-form merchant string to a default category account id.
@@ -40,6 +43,7 @@ class MerchantRule {
   const MerchantRule({
     required this.categoryKey,
     required this.needles,
+    this.id,
   });
 
   /// Default category key under `defaultBookId` (e.g. `acc_food`).
@@ -48,6 +52,38 @@ class MerchantRule {
   /// Substrings that, when found inside the merchant string, map to
   /// [categoryKey]. Matching is case-insensitive.
   final List<String> needles;
+
+  /// Stable identifier used by [MerchantRuleStore] to edit / remove a
+  /// user-defined rule. Null for built-in rules whose lifetime is tied to
+  /// the application version.
+  final String? id;
+
+  /// Returns a copy with [id] populated, useful when promoting an
+  /// anonymous built-in rule to an editable user rule.
+  MerchantRule withId(String newId) => MerchantRule(
+    categoryKey: categoryKey,
+    needles: needles,
+    id: newId,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      other is MerchantRule &&
+      other.id == id &&
+      other.categoryKey == categoryKey &&
+      _listEquals(other.needles, needles);
+
+  @override
+  int get hashCode => Object.hash(id, categoryKey, Object.hashAll(needles));
+}
+
+bool _listEquals(List<String> a, List<String> b) {
+  if (identical(a, b)) return true;
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
 }
 
 /// Built-in merchant -> category rules. Order matters: first match wins.

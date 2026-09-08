@@ -41,3 +41,19 @@ final salary = Account(
   type: AccountType.income,
   currency: CurrencyCode.cny,
 );
+
+final expense = Account(
+  id: const AccountId('acc_expense'),
+  bookId: bookId,
+  name: 'Expense',
+  type: AccountType.expense,
+  currency: CurrencyCode.cny,
+);
+
+final income = Account(
+  id: const AccountId('acc_income'),
+  bookId: bookId,
+  name: 'Income',
+  type: AccountType.income,
+  currency: CurrencyCode.cny,
+);

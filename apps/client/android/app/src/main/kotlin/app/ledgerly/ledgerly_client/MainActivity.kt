@@ -34,6 +34,26 @@ class MainActivity : FlutterFragmentActivity() {
                     PaymentEventStore.clear(this)
                     result.success(null)
                 }
+                METHOD_GET_UNPARSED -> {
+                    result.success(PaymentEventStore.getUnparsedEvents(this))
+                }
+                METHOD_CLEAR_UNPARSED -> {
+                    PaymentEventStore.clearUnparsed(this)
+                    result.success(null)
+                }
+                METHOD_DISMISS_UNPARSED -> {
+                    val id = call.argument<String>("id")
+                    if (id.isNullOrBlank()) {
+                        result.success(false)
+                    } else {
+                        result.success(PaymentEventStore.dismissUnparsed(this, id))
+                    }
+                }
+                METHOD_CLEAR_ALL -> {
+                    PaymentEventStore.clear(this)
+                    PaymentEventStore.clearUnparsed(this)
+                    result.success(null)
+                }
                 else -> result.notImplemented()
             }
         }
@@ -45,5 +65,9 @@ class MainActivity : FlutterFragmentActivity() {
         private const val METHOD_IS_ENABLED = "isNotificationAccessEnabled"
         private const val METHOD_GET_PENDING = "getPendingPaymentEvents"
         private const val METHOD_CLEAR_PENDING = "clearPendingPaymentEvents"
+        private const val METHOD_GET_UNPARSED = "getUnparsedPaymentEvents"
+        private const val METHOD_CLEAR_UNPARSED = "clearUnparsedPaymentEvents"
+        private const val METHOD_DISMISS_UNPARSED = "dismissUnparsedPaymentEvent"
+        private const val METHOD_CLEAR_ALL = "clearAllPaymentEvents"
     }
 }

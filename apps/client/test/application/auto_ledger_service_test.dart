@@ -4,6 +4,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ledgerly_client/application/auto_ledger_service.dart';
 import 'package:ledgerly_client/application/ledger_app_service.dart';
+import 'package:ledgerly_client/application/merchant_classifier.dart';
 import 'package:ledgerly_client/data/database.dart';
 import 'package:ledgerly_client/data/ledger_repository.dart';
 import 'package:ledgerly_client/domain/ids.dart';
@@ -34,6 +35,17 @@ class _FakeNotifications implements PaymentNotificationGateway {
   Future<void> clearPendingEvents() async {
     clearCount += 1;
   }
+
+  @override
+  Future<List<UnparsedPaymentEvent>> getUnparsedEvents() async {
+    return const [];
+  }
+
+  @override
+  Future<void> clearUnparsedEvents() async {}
+
+  @override
+  Future<bool> dismissUnparsedEvent(String id) async => false;
 }
 
 Future<({LedgerRepository repo, LedgerAppService ledger, AppDatabase db})>
@@ -357,7 +369,7 @@ void main() {
         .single;
     expect(
       firstMutation.mutationId,
-      'auto:${defaultBookId}:wechat-stable-1',
+      'auto:$defaultBookId:wechat-stable-1',
       reason: 'auto-ledger mutation ids should be namespaced with auto:',
     );
 
@@ -430,4 +442,272 @@ void main() {
     );
     expect(txs, hasLength(2));
   });
+
+  group('computeFingerprint', () {
+    test('same inputs produce the same fingerprint across calls', () {
+      final occurredAt = DateTime.utc(2024, 4, 13, 12, 0, 0);
+      final fp1 = AutoLedgerService.computeFingerprint(
+        direction: 'expense',
+        amountMinor: 2850,
+        occurredAtUtc: occurredAt,
+        merchant: '美团外卖',
+        bookId: defaultBookId,
+      );
+      final fp2 = AutoLedgerService.computeFingerprint(
+        direction: 'expense',
+        amountMinor: 2850,
+        occurredAtUtc: occurredAt,
+        merchant: '美团外卖',
+        bookId: defaultBookId,
+      );
+      expect(fp1, equals(fp2));
+    });
+
+    test('different amountMinor produces different fingerprint', () {
+      final occurredAt = DateTime.utc(2024, 4, 13, 12, 0, 0);
+      final fp1 = AutoLedgerService.computeFingerprint(
+        direction: 'expense',
+        amountMinor: 2850,
+        occurredAtUtc: occurredAt,
+        merchant: '美团外卖',
+        bookId: defaultBookId,
+      );
+      final fp2 = AutoLedgerService.computeFingerprint(
+        direction: 'expense',
+        amountMinor: 3000,
+        occurredAtUtc: occurredAt,
+        merchant: '美团外卖',
+        bookId: defaultBookId,
+      );
+      expect(fp1, isNot(equals(fp2)));
+    });
+
+    test('merchant case and whitespace are normalized', () {
+      final occurredAt = DateTime.utc(2024, 4, 13, 12, 0, 0);
+      final fp1 = AutoLedgerService.computeFingerprint(
+        direction: 'expense',
+        amountMinor: 2850,
+        occurredAtUtc: occurredAt,
+        merchant: '美团外卖',
+        bookId: defaultBookId,
+      );
+      final fp2 = AutoLedgerService.computeFingerprint(
+        direction: 'expense',
+        amountMinor: 2850,
+        occurredAtUtc: occurredAt,
+        merchant: '  美团外卖  ',
+        bookId: defaultBookId,
+      );
+      // Lower-case normalizes, leading/trailing spaces normalize.
+      // These should be different because "美团外卖" vs "  美团外卖  " after trim are equal
+      // but let me think again - after trim they are equal strings.
+      // Actually "美团外卖" vs "  美团外卖  " → both trim to "美团外卖" so fp1 == fp2.
+      expect(fp1, equals(fp2));
+    });
+
+    test('null merchant is treated as empty string', () {
+      final occurredAt = DateTime.utc(2024, 4, 13, 12, 0, 0);
+      final fp1 = AutoLedgerService.computeFingerprint(
+        direction: 'expense',
+        amountMinor: 2850,
+        occurredAtUtc: occurredAt,
+        merchant: null,
+        bookId: defaultBookId,
+      );
+      final fp2 = AutoLedgerService.computeFingerprint(
+        direction: 'expense',
+        amountMinor: 2850,
+        occurredAtUtc: occurredAt,
+        merchant: '',
+        bookId: defaultBookId,
+      );
+      expect(fp1, equals(fp2));
+    });
+
+    test('fingerprint is a 64-character lowercase hex string (SHA-256)', () {
+      final fp = AutoLedgerService.computeFingerprint(
+        direction: 'expense',
+        amountMinor: 2850,
+        occurredAtUtc: DateTime.utc(2024, 4, 13, 12, 0, 0),
+        merchant: '美团外卖',
+        bookId: defaultBookId,
+      );
+      expect(fp.length, equals(64));
+      expect(RegExp(r'^[a-f0-9]{64}$').hasMatch(fp), isTrue);
+    });
+  });
+
+  test('posted auto-ledger transaction carries fingerprint in mutation payload',
+      () async {
+    final boot = await _bootstrap();
+    final event = PendingPaymentEvent(
+      id: 'wechat-fp-test',
+      platform: 'wechat',
+      direction: 'expense',
+      amountMinor: 2850,
+      merchant: '美团外卖',
+      rawText: '微信支付：向美团外卖付款28.50元',
+      timestamp: DateTime.now().millisecondsSinceEpoch,
+    );
+    final fake = _FakeNotifications([event]);
+    final service = AutoLedgerService(
+      repository: boot.repo,
+      ledger: boot.ledger,
+      notifications: fake,
+    );
+
+    await service.syncPending();
+
+    final mutations = await boot.db.select(boot.db.pendingMutations).get();
+    expect(mutations, hasLength(1));
+    final payload =
+        jsonDecode(mutations.single.payloadJson) as Map<String, dynamic>;
+    expect(payload['sourceEventFingerprint'], isNotNull);
+    expect(payload['sourceEventFingerprint'], hasLength(64));
+  });
+
+  test('user-defined merchant rules override the built-in defaults',
+      () async {
+    final boot = await _bootstrap();
+    // Real life: the user wants "美团外卖" to count as shopping instead
+    // of food. They create a user rule that wins before the built-in
+    // food rules do.
+    const userRules = [
+      MerchantRule(
+        id: 'meituan-is-shopping',
+        categoryKey: 'acc_shopping',
+        needles: ['美团'],
+      ),
+    ];
+    final fake = _FakeNotifications([
+      PendingPaymentEvent(
+        id: 'wechat-user-rule-1',
+        platform: 'wechat',
+        direction: 'expense',
+        amountMinor: 2850,
+        merchant: '美团外卖',
+        rawText: '微信支付：向美团外卖付款28.50元',
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+      ),
+    ]);
+    final service = AutoLedgerService(
+      repository: boot.repo,
+      ledger: boot.ledger,
+      notifications: fake,
+      ruleLoader: () async => userRules,
+    );
+
+    final report = await service.syncPending();
+    expect(report.posted, 1);
+
+    final txs = await boot.repo.watchSummariesSync(defaultBookId);
+    expect(txs, hasLength(1));
+    // Without the user rule this would be 'Food'; the user rule pushes
+    // it into shopping.
+    expect(txs.single.categoryName, 'Shopping');
+  });
+
+  test(
+      'falls back to defaults when the rule loader returns an empty list',
+      () async {
+    final boot = await _bootstrap();
+    final fake = _FakeNotifications([
+      PendingPaymentEvent(
+        id: 'wechat-empty-rules-1',
+        platform: 'wechat',
+        direction: 'expense',
+        amountMinor: 1850,
+        merchant: '麦当劳麦乐送',
+        rawText: '微信支付：麦当劳麦乐送18.50元',
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+      ),
+    ]);
+    final service = AutoLedgerService(
+      repository: boot.repo,
+      ledger: boot.ledger,
+      notifications: fake,
+      // Empty list: should behave as if no user rules are configured.
+      ruleLoader: () async => const [],
+    );
+
+    final report = await service.syncPending();
+    expect(report.posted, 1);
+
+    final txs = await boot.repo.watchSummariesSync(defaultBookId);
+    expect(txs.single.categoryName, 'Food');
+  });
+
+  test('rescueUnparsedEvent posts an expense with the rescue namespace',
+      () async {
+    final boot = await _bootstrap();
+    final occurred = DateTime.utc(2026, 5, 1, 12, 0);
+    await boot.ledger.rescueUnparsedEvent(
+      direction: 'expense',
+      amountMinor: BigInt.from(2380),
+      merchant: '某小店',
+      note: null,
+      occurredAt: occurred,
+      platform: 'wechat',
+      reasonTag: 'no_amount',
+      unparsedEventId: 'unparsed-test-001',
+    );
+
+    final txs = await boot.repo.watchSummariesSync(defaultBookId);
+    expect(txs, hasLength(1));
+    final tx = txs.single;
+    expect(tx.amountMinor, BigInt.from(2380));
+    expect(tx.kind, TransactionSummaryKind.expense);
+    expect(tx.source, 'auto_ledger_rescue');
+    expect(tx.description, contains('微信支付'));
+    expect(tx.description, contains('某小店'));
+  });
+
+  test('rescueUnparsedEvent rejects a non-positive amount', () async {
+    final boot = await _bootstrap();
+    expect(
+      () => boot.ledger.rescueUnparsedEvent(
+        direction: 'expense',
+        amountMinor: BigInt.zero,
+        merchant: null,
+        note: null,
+        occurredAt: DateTime.utc(2026, 5, 1),
+        platform: 'alipay',
+        reasonTag: 'no_amount',
+        unparsedEventId: 'unparsed-test-002',
+      ),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test(
+    'rescueUnparsedEvent derives a stable clientEventId so retries collapse',
+    () async {
+      final boot = await _bootstrap();
+      final occurred = DateTime.utc(2026, 5, 1, 12, 0);
+      await boot.ledger.rescueUnparsedEvent(
+        direction: 'expense',
+        amountMinor: BigInt.from(990),
+        merchant: null,
+        note: null,
+        occurredAt: occurred,
+        platform: 'wechat',
+        reasonTag: 'no_amount',
+        unparsedEventId: 'unparsed-test-003',
+      );
+      // Re-running with the same unparsed id should not double-post,
+      // because the clientEventId is deterministic.
+      await boot.ledger.rescueUnparsedEvent(
+        direction: 'expense',
+        amountMinor: BigInt.from(990),
+        merchant: null,
+        note: null,
+        occurredAt: occurred,
+        platform: 'wechat',
+        reasonTag: 'no_amount',
+        unparsedEventId: 'unparsed-test-003',
+      );
+      final txs = await boot.repo.watchSummariesSync(defaultBookId);
+      expect(txs, hasLength(1));
+    },
+  );
 }

@@ -36,6 +36,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get create => 'Create';
 
   @override
+  String get edit => 'Edit';
+
+  @override
+  String get delete => 'Delete';
+
+  @override
   String get unknown => 'Unknown';
 
   @override
@@ -1277,6 +1283,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ruleName => 'Rule name';
 
   @override
+  String get amountInvalid => 'Enter a valid amount';
+
+  @override
+  String get amountRequired => 'Amount is required';
+
+  @override
+  String get amountMustBePositive => 'Amount must be greater than zero';
+
+  @override
+  String get merchantOptional => 'Merchant (optional)';
+
+  @override
+  String get note => 'Note';
+
+  @override
   String get amountYuan => 'Amount (yuan)';
 
   @override
@@ -1610,4 +1631,175 @@ class AppLocalizationsEn extends AppLocalizations {
   String autoLedgerPendingCount(int count) {
     return '$count pending';
   }
+
+  @override
+  String get autoLedgerUnparsedEmpty => 'No unrecognised notifications';
+
+  @override
+  String get autoLedgerPlatformWechat => 'WeChat Pay';
+
+  @override
+  String get autoLedgerPlatformAlipay => 'Alipay';
+
+  @override
+  String get autoLedgerPlatformUnknown => 'Unknown platform';
+
+  @override
+  String get autoLedgerRescueTitle => 'Rescue this notification';
+
+  @override
+  String autoLedgerRescueReason(String reason) {
+    return 'Reason: $reason';
+  }
+
+  @override
+  String get autoLedgerRescuePlatform => 'Platform';
+
+  @override
+  String get autoLedgerRescueTime => 'Time';
+
+  @override
+  String get autoLedgerRescueRawLabel => 'Original text';
+
+  @override
+  String get autoLedgerRescueSubmit => 'Save to ledger';
+
+  @override
+  String get autoLedgerRescueAlreadySaved => 'Already saved to the ledger.';
+
+  @override
+  String get autoLedgerRescueCategoryLabel => 'Category';
+
+  @override
+  String get autoLedgerRescueLearnRule =>
+      'Remember this merchant → category';
+
+  @override
+  String get autoLedgerRescueLearnRuleHint =>
+      'Future notifications from this merchant will be auto-posted here.';
+
+  @override
+  String get autoLedgerRescueLearnRuleToast =>
+      'Rule saved. Future payments at this merchant will be auto-posted.';
+
+  @override
+  String get all => 'All';
+
+  @override
+  String get autoLedgerUnparsedEmptyHint =>
+      'Notifications that don\'t look like a payment will appear here.';
+
+  @override
+  String autoLedgerUnparsedCount(int count) {
+    return '$count unrecognised';
+  }
+
+  @override
+  String get autoLedgerUnparsedDismiss => 'Clear all';
+
+  @override
+  String get autoLedgerUnparsedCopy => 'Copy raw text';
+
+  @override
+  String get autoLedgerUnparsedCopied => 'Raw text copied';
+
+  @override
+  String autoLedgerBulkRescueTitle(int count) =>
+      'Bulk rescue ($count)';
+
+  @override
+  String autoLedgerBulkRescueSummary(int count) =>
+      'About to post $count entries using the same amount and category.';
+
+  @override
+  String autoLedgerBulkRescueAmountHint(int count) =>
+      'Shared amount for all $count entries.';
+
+  @override
+  String autoLedgerBulkRescueConfirm(int count) => 'Post $count entries';
+
+  @override
+  String autoLedgerBulkSelectedCount(int count) => '$count selected';
+
+  @override
+  String get autoLedgerBulkClear => 'Clear';
+
+  @override
+  String autoLedgerBulkRescue(int count) => 'Rescue ($count)';
+
+  @override
+  String autoLedgerBulkRescueSuccess(int count) =>
+      'Rescued $count entries.';
+
+  @override
+  String autoLedgerBulkRescuePartial(int rescued, int failed) =>
+      'Rescued $rescued, failed $failed.';
+
+  @override
+  String autoLedgerBulkRescueTotalPreview(
+    int count,
+    String unit,
+    String total,
+  ) =>
+      '$count entries × ¥$unit = ¥$total';
+
+  @override
+  String autoLedgerBacklogTitle(int count) =>
+      '$count unrecognised notifications waiting';
+
+  @override
+  String autoLedgerBacklogDominantHint(String reason, int count) =>
+      'Most are tagged $reason ($count entries). Consider adding a merchant rule to cover this case.';
+
+  @override
+  String get autoLedgerBacklogAction => 'Review';
+
+  @override
+  String get selectAll => 'Select all';
+
+  @override
+  String get autoLedgerRulesTitle => 'Merchant classification rules';
+
+  @override
+  String get autoLedgerRulesSubtitle =>
+      'Tell Ledgerly which category a merchant belongs to. Custom rules win over the built-in defaults.';
+
+  @override
+  String get autoLedgerRulesEmpty => 'No custom rules yet';
+
+  @override
+  String get autoLedgerRulesEmptyHint =>
+      'Add one when a notification is miscategorized. Rules persist on this device only.';
+
+  @override
+  String get autoLedgerRuleAddTitle => 'New classification rule';
+
+  @override
+  String get autoLedgerRuleEditTitle => 'Edit classification rule';
+
+  @override
+  String get autoLedgerRuleAdd => 'Add rule';
+
+  @override
+  String get autoLedgerRuleNeedlesLabel => 'Match phrases';
+
+  @override
+  String get autoLedgerRuleNeedlesHelper =>
+      'Separate multiple phrases with commas. Any match wins.';
+
+  @override
+  String get autoLedgerRuleCategoryLabel => 'Default category';
+
+  @override
+  String get autoLedgerRuleChooseCategory => 'Pick a category first.';
+
+  @override
+  String get autoLedgerRuleNeedNeedle => 'Add at least one match phrase.';
+
+  @override
+  String get autoLedgerRuleDeleteTitle => 'Delete this rule?';
+
+  @override
+  String get autoLedgerRuleDeleteBody =>
+      'Future notifications that match this rule will fall back to the built-in defaults.';
 }

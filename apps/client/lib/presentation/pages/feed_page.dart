@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../ai/ai_models.dart';
 import '../../ai/insight_period.dart';
 import '../../application/feed_search.dart';
-import '../../data/ledger_repository.dart';
 import '../../l10n/l10n.dart';
 import '../ai_providers.dart';
 import '../quick_entry.dart';
