@@ -35,6 +35,9 @@ pub async fn migrate(pool: &PgPool) -> anyhow::Result<()> {
             include_str!("../../migrations/004_auth_session_indexes.sql"),
             include_str!("../../migrations/005_category_hierarchy.sql"),
             include_str!("../../migrations/006_transaction_occurred_at.sql"),
+            include_str!("../../migrations/007_multi_books.sql"),
+            include_str!("../../migrations/008_transaction_source.sql"),
+            include_str!("../../migrations/009_auto_ledger_fingerprint.sql"),
         ] {
             sqlx::raw_sql(file).execute(&mut *connection).await?;
         }
