@@ -735,7 +735,17 @@ async fn process_mutation_pg(
     }
     .await;
 
-    result.unwrap_or_else(|_| db_error_receipt(mutation))
+    result.unwrap_or_else(|error| match classify_sync_db_error(&error) {
+        SyncDbErrorKind::AutoLedgerDuplicate if is_auto_ledger_fingerprint(mutation) => {
+            MutationReceiptDto {
+                mutation_id: mutation.mutation_id.clone(),
+                status: "applied".into(),
+                result_code: "AUTO_LEDGER_DEDUPED".into(),
+                entity_version: Some(1),
+            }
+        }
+        _ => db_error_receipt(mutation),
+    })
 }
 
 async fn process_account_mutation_pg(
@@ -936,6 +946,49 @@ async fn process_account_mutation_pg(
 
 fn db_error_receipt(mutation: &ledger_contracts::SyncMutationDto) -> MutationReceiptDto {
     rejected_receipt(mutation, "DB_ERROR", None)
+}
+
+/// Returns true when this mutation targets an auto-ledger transaction that
+/// carries a fingerprint payload — the only scenario in which surfacing a
+/// unique-violation as `AUTO_LEDGER_DEDUPED` is semantically correct.
+fn is_auto_ledger_fingerprint(mutation: &ledger_contracts::SyncMutationDto) -> bool {
+    if mutation.entity_type != "transaction" {
+        return false;
+    }
+    if parse_source(mutation).as_deref() != Some("auto_ledger") {
+        return false;
+    }
+    parse_source_event_fingerprint(mutation).is_some()
+}
+
+/// Classifies a transaction-mutation Postgres error to decide whether the
+/// failure was a cross-device fingerprint collision (which we surface as
+/// `AUTO_LEDGER_DEDUPED` so the client collapses the duplicate) or some
+/// other database problem that should remain a `DB_ERROR`.
+fn classify_sync_db_error(error: &sqlx::Error) -> SyncDbErrorKind {
+    let Some(db_error) = error.as_database_error() else {
+        return SyncDbErrorKind::Other;
+    };
+    // Postgres unique_violation = SQLSTATE 23505.  We inspect the formatted
+    // SQLSTATE rather than reaching into sqlx's private enum surface (which
+    // differs across 0.7 / 0.8 feature permutations).
+    if !db_error
+        .code()
+        .is_some_and(|code| code.contains("23505"))
+    {
+        return SyncDbErrorKind::Other;
+    }
+    SyncDbErrorKind::AutoLedgerDuplicate
+}
+
+#[derive(Debug)]
+enum SyncDbErrorKind {
+    /// A unique constraint fired.  It may or may not be the auto-ledger
+    /// fingerprint index — confirmation is done at the call site via
+    /// `is_auto_ledger_fingerprint` so we don't mislabel collisions on
+    /// other tables (e.g. device_sessions) as dedup events.
+    AutoLedgerDuplicate,
+    Other,
 }
 
 fn rejected_receipt(
