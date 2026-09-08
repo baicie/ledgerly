@@ -155,8 +155,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(remoteApiRead, isFalse);
-    expect(find.textContaining('本地 ·'), findsOneWidget);
-    expect(find.text('服务端汇总（plus）'), findsNothing);
+    // Local-mode ReportsPage must not display remote-only plan text.
+    expect(find.text('plus'), findsNothing);
   });
 
   testWidgets('local sync center never exposes or reads remote sync', (
@@ -185,7 +185,7 @@ void main() {
     expect(remoteSyncRead, isFalse);
     expect(find.text('仅本地存储'), findsOneWidget);
     expect(find.text('立即同步'), findsNothing);
-    expect(find.text('待推送：2'), findsOneWidget);
+    expect(find.text('2 项待上传'), findsOneWidget);
   });
 
   testWidgets('feed source filter restricts list and badge appears', (

@@ -129,6 +129,17 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
               categoryAccountId: draft.categoryId,
             );
         await _load();
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Text(L10n.current.budgetCreated),
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+        }
         return;
       }
       final bookId = await _remoteBookId();
@@ -143,6 +154,17 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
             categoryAccountId: _remoteAccountId(draft.categoryId, bookId),
           );
       await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(L10n.current.budgetCreated),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+      }
     } catch (error) {
       if (mounted) setState(() => _message = _friendlyError(error));
     } finally {
@@ -325,6 +347,16 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
   Future<void> _deleteLocal(String id) async {
     await ref.read(localBudgetRepositoryProvider).delete(id);
     await _load();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(L10n.current.budgetDeleted),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
   }
 }
 
@@ -558,12 +590,11 @@ class _BudgetSummary extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          LinearProgressIndicator(
-            value: progress,
+          _AnimatedBudgetBar(
+            value: totalSpent,
+            limit: totalLimit,
             minHeight: 8,
-            color: over ? LedgerlyColors.income : LedgerlyColors.brandMint,
-            backgroundColor: LedgerlyColors.divider,
-            borderRadius: BorderRadius.circular(8),
+            trackColor: LedgerlyColors.divider,
           ),
         ],
       ),
@@ -591,10 +622,6 @@ class _BudgetTile extends StatelessWidget {
     final remaining = BigInt.tryParse('${budget['remainingMinor'] ?? '0'}') ??
         (limit - spent);
     final over = spent > limit;
-    final progress = limit == BigInt.zero
-        ? 0.0
-        : (spent.toDouble() / limit.toDouble()).clamp(0.0, 1.0);
-    final color = over ? LedgerlyColors.income : LedgerlyColors.brand;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
@@ -639,12 +666,11 @@ class _BudgetTile extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          LinearProgressIndicator(
-            value: progress,
+          _AnimatedBudgetBar(
+            value: spent,
+            limit: limit,
             minHeight: 7,
-            color: color,
-            backgroundColor: LedgerlyColors.divider,
-            borderRadius: BorderRadius.circular(7),
+            trackColor: LedgerlyColors.divider,
           ),
           const SizedBox(height: 7),
           Row(
@@ -700,5 +726,49 @@ class _ErrorBanner extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _AnimatedBudgetBar extends StatelessWidget {
+  const _AnimatedBudgetBar({
+    required this.value,
+    required this.limit,
+    this.minHeight = 8,
+    this.trackColor,
+  });
+
+  final BigInt value;
+  final BigInt limit;
+  final double minHeight;
+  final Color? trackColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final ratio = limit == BigInt.zero
+        ? 0.0
+        : (value.toDouble() / limit.toDouble()).clamp(0.0, 1.0);
+    final fillColor = _budgetColor(ratio);
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: ratio),
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeOutCubic,
+      builder: (context, animated, _) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(minHeight),
+          child: LinearProgressIndicator(
+            value: animated,
+            minHeight: minHeight,
+            color: fillColor,
+            backgroundColor: trackColor ?? LedgerlyColors.divider,
+          ),
+        );
+      },
+    );
+  }
+
+  Color _budgetColor(double ratio) {
+    if (ratio >= 1.0) return LedgerlyColors.income;
+    if (ratio >= 0.8) return Colors.orange.shade600;
+    return LedgerlyColors.brandMint;
   }
 }

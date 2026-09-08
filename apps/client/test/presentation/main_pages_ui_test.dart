@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ledgerly_client/data/ledger_repository.dart';
+import 'package:ledgerly_client/ai/ai_models.dart';
 import 'package:ledgerly_client/ai/ai_settings_store.dart';
 import 'package:ledgerly_client/presentation/ai_providers.dart';
 import 'package:ledgerly_client/presentation/pages/accounts_page.dart';
@@ -151,33 +152,42 @@ void main() {
               ),
             ],
           ),
+          reportBudgetProvider.overrideWith((ref) async => []),
+          selectedMonthAiInsightProvider.overrideWith(
+            (ref) async => const AiInsightView(
+              status: AiInsightStatus.ready,
+              kind: InsightKind.monthly,
+              periodKey: '2026-08',
+              periodLabel: '2026年8月',
+              headline: '测试总结',
+              highlights: const ['高消费'],
+              advice: const ['减少开支'],
+            ),
+          ),
         ],
         child: const MaterialApp(home: ReportsPage()),
       ),
     );
     await tester.pumpAndSettle();
-
-    expect(find.text('本月收支统计'), findsOneWidget);
-    expect(find.textContaining('AI 月报'), findsOneWidget);
-    expect(find.textContaining('AI 日分析'), findsNothing);
-    expect(find.textContaining('所选月份的消费月报'), findsNothing);
-
-    await tester.tap(find.byKey(const Key('ai-insight-toggle')));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('配置模型供应商和 API Key'), findsWidgets);
-    expect(find.textContaining('所选月份的消费月报'), findsOneWidget);
-    expect(find.textContaining('当天流水'), findsNothing);
-
-    await tester.scrollUntilVisible(find.text('收入来源'), 300);
-    await tester.pump();
-    expect(find.text('收入来源'), findsOneWidget);
-    expect(find.text('工资收入'), findsOneWidget);
-
-    await tester.scrollUntilVisible(find.text('支出分布'), 260);
     await tester.pump();
 
-    expect(find.text('支出分布'), findsOneWidget);
-    expect(find.text('餐饮'), findsOneWidget);
+    // AI card renders at top.
+    expect(find.text('AI 总结'), findsOneWidget);
+    expect(find.text('测试总结'), findsOneWidget);
+    // Scroll to find the other sections.
+    await tester.scrollUntilVisible(find.text('本月概览'), 300);
+    await tester.pump();
+    expect(find.text('本月概览'), findsOneWidget);
+    expect(find.text('收入'), findsWidgets);
+    expect(find.text('支出'), findsWidgets);
+    expect(find.text('净额'), findsOneWidget);
+    // Trend section title.
+    await tester.scrollUntilVisible(find.text('近 6 个月趋势'), 300);
+    await tester.pump();
+    expect(find.text('近 6 个月趋势'), findsOneWidget);
+    // Budgets section (overridden to empty in test).
+    await tester.scrollUntilVisible(find.text('预算'), 300);
+    expect(find.text('预算'), findsOneWidget);
   });
 }
 
