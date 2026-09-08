@@ -1298,9 +1298,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get note => 'Note';
 
   @override
-  String get amountYuan => 'Amount (yuan)';
-
-  @override
   String get runNow => 'Run now';
 
   @override
@@ -1628,12 +1625,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get autoLedgerFailed => 'Could not read notification access state';
 
   @override
+  String get amountYuan => 'Amount (yuan)';
+
+  @override
   String autoLedgerPendingCount(int count) {
     return '$count pending';
   }
-
-  @override
-  String get autoLedgerUnparsedEmpty => 'No unrecognised notifications';
 
   @override
   String get autoLedgerPlatformWechat => 'WeChat Pay';
@@ -1671,8 +1668,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get autoLedgerRescueCategoryLabel => 'Category';
 
   @override
-  String get autoLedgerRescueLearnRule =>
-      'Remember this merchant → category';
+  String get autoLedgerRescueLearnRule => 'Remember this merchant → category';
 
   @override
   String get autoLedgerRescueLearnRuleHint =>
@@ -1684,6 +1680,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get all => 'All';
+
+  @override
+  String get autoLedgerUnparsedEmpty => 'No unrecognised notifications';
 
   @override
   String get autoLedgerUnparsedEmptyHint =>
@@ -1704,52 +1703,63 @@ class AppLocalizationsEn extends AppLocalizations {
   String get autoLedgerUnparsedCopied => 'Raw text copied';
 
   @override
-  String autoLedgerBulkRescueTitle(int count) =>
-      'Bulk rescue ($count)';
+  String autoLedgerBulkRescueTitle(int count) {
+    return 'Bulk rescue ($count)';
+  }
 
   @override
-  String autoLedgerBulkRescueSummary(int count) =>
-      'About to post $count entries using the same amount and category.';
+  String autoLedgerBulkRescueSummary(int count) {
+    return 'About to post $count entries using the same amount and category.';
+  }
 
   @override
-  String autoLedgerBulkRescueAmountHint(int count) =>
-      'Shared amount for all $count entries.';
+  String autoLedgerBulkRescueAmountHint(int count) {
+    return 'Shared amount for all $count entries.';
+  }
 
   @override
-  String autoLedgerBulkRescueConfirm(int count) => 'Post $count entries';
+  String autoLedgerBulkRescueConfirm(int count) {
+    return 'Post $count entries';
+  }
 
   @override
-  String autoLedgerBulkSelectedCount(int count) => '$count selected';
+  String autoLedgerBulkSelectedCount(int count) {
+    return '$count selected';
+  }
 
   @override
   String get autoLedgerBulkClear => 'Clear';
 
   @override
-  String autoLedgerBulkRescue(int count) => 'Rescue ($count)';
+  String autoLedgerBulkRescue(int count) {
+    return 'Rescue ($count)';
+  }
 
   @override
-  String autoLedgerBulkRescueSuccess(int count) =>
-      'Rescued $count entries.';
+  String autoLedgerBulkRescueSuccess(int count) {
+    return 'Rescued $count entries.';
+  }
 
   @override
-  String autoLedgerBulkRescuePartial(int rescued, int failed) =>
-      'Rescued $rescued, failed $failed.';
+  String autoLedgerBulkRescuePartial(int rescued, int failed) {
+    return 'Rescued $rescued, failed $failed.';
+  }
 
   @override
   String autoLedgerBulkRescueTotalPreview(
-    int count,
-    String unit,
-    String total,
-  ) =>
-      '$count entries × ¥$unit = ¥$total';
+      int count, String unit, String total) {
+    return '$count entries × ¥$unit = ¥$total';
+  }
 
   @override
-  String autoLedgerBacklogTitle(int count) =>
-      '$count unrecognised notifications waiting';
+  String autoLedgerBacklogTitle(int count) {
+    return '$count unrecognised notifications waiting';
+  }
 
   @override
-  String autoLedgerBacklogDominantHint(String reason, int count) =>
-      'Most are tagged $reason ($count entries). Consider adding a merchant rule to cover this case.';
+  String autoLedgerBacklogDominantHint(String reason, int count) {
+    return 'Most are tagged $reason ($count entries). Consider adding a merchant rule to cover this case.';
+  }
 
   @override
   String get autoLedgerBacklogAction => 'Review';

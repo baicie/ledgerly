@@ -2414,12 +2414,6 @@ abstract class AppLocalizations {
   /// **'备注'**
   String get note;
 
-  /// No description provided for @amountYuan.
-  ///
-  /// In zh, this message translates to:
-  /// **'金额（元）'**
-  String get amountYuan;
-
   /// No description provided for @runNow.
   ///
   /// In zh, this message translates to:
@@ -2996,17 +2990,17 @@ abstract class AppLocalizations {
   /// **'无法读取通知权限状态'**
   String get autoLedgerFailed;
 
+  /// No description provided for @amountYuan.
+  ///
+  /// In zh, this message translates to:
+  /// **'金额（元）'**
+  String get amountYuan;
+
   /// No description provided for @autoLedgerPendingCount.
   ///
   /// In zh, this message translates to:
   /// **'{count} 条待入账'**
   String autoLedgerPendingCount(int count);
-
-  /// No description provided for @autoLedgerUnparsedEmpty.
-  ///
-  /// In zh, this message translates to:
-  /// **'暂无未识别的通知'**
-  String get autoLedgerUnparsedEmpty;
 
   /// No description provided for @autoLedgerPlatformWechat.
   ///
@@ -3098,6 +3092,12 @@ abstract class AppLocalizations {
   /// **'全部'**
   String get all;
 
+  /// No description provided for @autoLedgerUnparsedEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无未识别的通知'**
+  String get autoLedgerUnparsedEmpty;
+
   /// No description provided for @autoLedgerUnparsedEmptyHint.
   ///
   /// In zh, this message translates to:
@@ -3131,31 +3131,31 @@ abstract class AppLocalizations {
   /// No description provided for @autoLedgerBulkRescueTitle.
   ///
   /// In zh, this message translates to:
-  /// **'批量入账（{0} 条）'**
+  /// **'批量入账（{count} 条）'**
   String autoLedgerBulkRescueTitle(int count);
 
   /// No description provided for @autoLedgerBulkRescueSummary.
   ///
   /// In zh, this message translates to:
-  /// **'将使用同一个金额和分类入账 {0} 条记录。'**
+  /// **'将使用同一个金额和分类入账 {count} 条记录。'**
   String autoLedgerBulkRescueSummary(int count);
 
   /// No description provided for @autoLedgerBulkRescueAmountHint.
   ///
   /// In zh, this message translates to:
-  /// **'这笔批量里 {0} 条都用同一个金额。'**
+  /// **'这笔批量里 {count} 条都用同一个金额。'**
   String autoLedgerBulkRescueAmountHint(int count);
 
   /// No description provided for @autoLedgerBulkRescueConfirm.
   ///
   /// In zh, this message translates to:
-  /// **'入账 {0} 条'**
+  /// **'入账 {count} 条'**
   String autoLedgerBulkRescueConfirm(int count);
 
   /// No description provided for @autoLedgerBulkSelectedCount.
   ///
   /// In zh, this message translates to:
-  /// **'已选 {0} 条'**
+  /// **'已选 {count} 条'**
   String autoLedgerBulkSelectedCount(int count);
 
   /// No description provided for @autoLedgerBulkClear.
@@ -3167,37 +3167,37 @@ abstract class AppLocalizations {
   /// No description provided for @autoLedgerBulkRescue.
   ///
   /// In zh, this message translates to:
-  /// **'入账 ({0})'**
+  /// **'入账 ({count})'**
   String autoLedgerBulkRescue(int count);
 
   /// No description provided for @autoLedgerBulkRescueSuccess.
   ///
   /// In zh, this message translates to:
-  /// **'已成功入账 {0} 条。'**
+  /// **'已成功入账 {count} 条。'**
   String autoLedgerBulkRescueSuccess(int count);
 
   /// No description provided for @autoLedgerBulkRescuePartial.
   ///
   /// In zh, this message translates to:
-  /// **'成功 {0} 条，失败 {1} 条。'**
+  /// **'成功 {rescued} 条，失败 {failed} 条。'**
   String autoLedgerBulkRescuePartial(int rescued, int failed);
 
   /// No description provided for @autoLedgerBulkRescueTotalPreview.
   ///
   /// In zh, this message translates to:
-  /// **'{0} 笔 × ¥{1} = ¥{2}'**
+  /// **'{count} 笔 × ¥{unit} = ¥{total}'**
   String autoLedgerBulkRescueTotalPreview(int count, String unit, String total);
 
   /// No description provided for @autoLedgerBacklogTitle.
   ///
   /// In zh, this message translates to:
-  /// **'{0} 条通知待处理'**
+  /// **'{count} 条通知待处理'**
   String autoLedgerBacklogTitle(int count);
 
   /// No description provided for @autoLedgerBacklogDominantHint.
   ///
   /// In zh, this message translates to:
-  /// **'其中最多的是 {0}（{1} 条），可以添加商户规则覆盖这种情况。'**
+  /// **'其中最多的是 {reason}（{count} 条），可以添加商户规则覆盖这种情况。'**
   String autoLedgerBacklogDominantHint(String reason, int count);
 
   /// No description provided for @autoLedgerBacklogAction.

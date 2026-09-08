@@ -1253,9 +1253,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get note => '备注';
 
   @override
-  String get amountYuan => '金额（元）';
-
-  @override
   String get runNow => '立即调度（runNow）';
 
   @override
@@ -1567,12 +1564,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get autoLedgerFailed => '无法读取通知权限状态';
 
   @override
+  String get amountYuan => '金额（元）';
+
+  @override
   String autoLedgerPendingCount(int count) {
     return '$count 条待入账';
   }
-
-  @override
-  String get autoLedgerUnparsedEmpty => '暂无未识别的通知';
 
   @override
   String get autoLedgerPlatformWechat => '微信支付';
@@ -1613,15 +1610,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get autoLedgerRescueLearnRule => '记住这条商户 → 分类规则';
 
   @override
-  String get autoLedgerRescueLearnRuleHint =>
-      '以后同一家商户的通知会自动入到这里。';
+  String get autoLedgerRescueLearnRuleHint => '以后同一家商户的通知会自动入到这里。';
 
   @override
-  String get autoLedgerRescueLearnRuleToast =>
-      '已记住规则，下次这家商户会自动入账。';
+  String get autoLedgerRescueLearnRuleToast => '已记住规则，下次这家商户会自动入账。';
 
   @override
   String get all => '全部';
+
+  @override
+  String get autoLedgerUnparsedEmpty => '暂无未识别的通知';
 
   @override
   String get autoLedgerUnparsedEmptyHint => '无法识别为入账或出账的通知会出现在这里。';
@@ -1641,49 +1639,63 @@ class AppLocalizationsZh extends AppLocalizations {
   String get autoLedgerUnparsedCopied => '已复制原文';
 
   @override
-  String autoLedgerBulkRescueTitle(int count) => '批量入账（$count 条）';
+  String autoLedgerBulkRescueTitle(int count) {
+    return '批量入账（$count 条）';
+  }
 
   @override
-  String autoLedgerBulkRescueSummary(int count) =>
-      '将使用同一个金额和分类入账 $count 条记录。';
+  String autoLedgerBulkRescueSummary(int count) {
+    return '将使用同一个金额和分类入账 $count 条记录。';
+  }
 
   @override
-  String autoLedgerBulkRescueAmountHint(int count) =>
-      '这笔批量里 $count 条都用同一个金额。';
+  String autoLedgerBulkRescueAmountHint(int count) {
+    return '这笔批量里 $count 条都用同一个金额。';
+  }
 
   @override
-  String autoLedgerBulkRescueConfirm(int count) => '入账 $count 条';
+  String autoLedgerBulkRescueConfirm(int count) {
+    return '入账 $count 条';
+  }
 
   @override
-  String autoLedgerBulkSelectedCount(int count) => '已选 $count 条';
+  String autoLedgerBulkSelectedCount(int count) {
+    return '已选 $count 条';
+  }
 
   @override
   String get autoLedgerBulkClear => '清空';
 
   @override
-  String autoLedgerBulkRescue(int count) => '入账 ($count)';
+  String autoLedgerBulkRescue(int count) {
+    return '入账 ($count)';
+  }
 
   @override
-  String autoLedgerBulkRescueSuccess(int count) => '已成功入账 $count 条。';
+  String autoLedgerBulkRescueSuccess(int count) {
+    return '已成功入账 $count 条。';
+  }
 
   @override
-  String autoLedgerBulkRescuePartial(int rescued, int failed) =>
-      '成功 $rescued 条，失败 $failed 条。';
+  String autoLedgerBulkRescuePartial(int rescued, int failed) {
+    return '成功 $rescued 条，失败 $failed 条。';
+  }
 
   @override
   String autoLedgerBulkRescueTotalPreview(
-    int count,
-    String unit,
-    String total,
-  ) =>
-      '$count 笔 × ¥$unit = ¥$total';
+      int count, String unit, String total) {
+    return '$count 笔 × ¥$unit = ¥$total';
+  }
 
   @override
-  String autoLedgerBacklogTitle(int count) => '$count 条通知待处理';
+  String autoLedgerBacklogTitle(int count) {
+    return '$count 条通知待处理';
+  }
 
   @override
-  String autoLedgerBacklogDominantHint(String reason, int count) =>
-      '其中最多的是 $reason（$count 条），可以添加商户规则覆盖这种情况。';
+  String autoLedgerBacklogDominantHint(String reason, int count) {
+    return '其中最多的是 $reason（$count 条），可以添加商户规则覆盖这种情况。';
+  }
 
   @override
   String get autoLedgerBacklogAction => '去看看';

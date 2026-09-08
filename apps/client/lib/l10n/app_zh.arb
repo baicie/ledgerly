@@ -896,6 +896,7 @@
   },
   "autoLedgerEmpty": "暂无待入账通知",
   "autoLedgerFailed": "无法读取通知权限状态",
+  "amountYuan": "金额（元）",
   "autoLedgerPendingCount": "{count} 条待入账",
   "@autoLedgerPendingCount": {
     "placeholders": {
@@ -940,18 +941,107 @@
   "autoLedgerUnparsedDismiss": "全部忽略",
   "autoLedgerUnparsedCopy": "复制原文",
   "autoLedgerUnparsedCopied": "已复制原文",
-  "autoLedgerBulkRescueTitle": "批量入账（{0} 条）",
-  "autoLedgerBulkRescueSummary": "将使用同一个金额和分类入账 {0} 条记录。",
-  "autoLedgerBulkRescueAmountHint": "这笔批量里 {0} 条都用同一个金额。",
-  "autoLedgerBulkRescueConfirm": "入账 {0} 条",
-  "autoLedgerBulkSelectedCount": "已选 {0} 条",
+  "autoLedgerBulkRescueTitle": "批量入账（{count} 条）",
+  "@autoLedgerBulkRescueTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "autoLedgerBulkRescueSummary": "将使用同一个金额和分类入账 {count} 条记录。",
+  "@autoLedgerBulkRescueSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "autoLedgerBulkRescueAmountHint": "这笔批量里 {count} 条都用同一个金额。",
+  "@autoLedgerBulkRescueAmountHint": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "autoLedgerBulkRescueConfirm": "入账 {count} 条",
+  "@autoLedgerBulkRescueConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "autoLedgerBulkSelectedCount": "已选 {count} 条",
+  "@autoLedgerBulkSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "autoLedgerBulkClear": "清空",
-  "autoLedgerBulkRescue": "入账 ({0})",
-  "autoLedgerBulkRescueSuccess": "已成功入账 {0} 条。",
-  "autoLedgerBulkRescuePartial": "成功 {0} 条，失败 {1} 条。",
-  "autoLedgerBulkRescueTotalPreview": "{0} 笔 × ¥{1} = ¥{2}",
-  "autoLedgerBacklogTitle": "{0} 条通知待处理",
-  "autoLedgerBacklogDominantHint": "其中最多的是 {0}（{1} 条），可以添加商户规则覆盖这种情况。",
+  "autoLedgerBulkRescue": "入账 ({count})",
+  "@autoLedgerBulkRescue": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "autoLedgerBulkRescueSuccess": "已成功入账 {count} 条。",
+  "@autoLedgerBulkRescueSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "autoLedgerBulkRescuePartial": "成功 {rescued} 条，失败 {failed} 条。",
+  "@autoLedgerBulkRescuePartial": {
+    "placeholders": {
+      "rescued": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "autoLedgerBulkRescueTotalPreview": "{count} 笔 × ¥{unit} = ¥{total}",
+  "@autoLedgerBulkRescueTotalPreview": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "unit": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "autoLedgerBacklogTitle": "{count} 条通知待处理",
+  "@autoLedgerBacklogTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "autoLedgerBacklogDominantHint": "其中最多的是 {reason}（{count} 条），可以添加商户规则覆盖这种情况。",
+  "@autoLedgerBacklogDominantHint": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "autoLedgerBacklogAction": "去看看",
   "selectAll": "全选",
   "autoLedgerRulesTitle": "商户分类规则",

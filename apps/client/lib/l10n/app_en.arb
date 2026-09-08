@@ -902,6 +902,7 @@
   },
   "autoLedgerEmpty": "No pending notifications",
   "autoLedgerFailed": "Could not read notification access state",
+  "amountYuan": "Amount (yuan)",
   "autoLedgerPendingCount": "{count} pending",
   "@autoLedgerPendingCount": {
     "placeholders": {
@@ -945,18 +946,107 @@
   "autoLedgerUnparsedDismiss": "Clear all",
   "autoLedgerUnparsedCopy": "Copy raw text",
   "autoLedgerUnparsedCopied": "Raw text copied",
-  "autoLedgerBulkRescueTitle": "Bulk rescue ({0})",
-  "autoLedgerBulkRescueSummary": "About to post {0} entries using the same amount and category.",
-  "autoLedgerBulkRescueAmountHint": "Shared amount for all {0} entries.",
-  "autoLedgerBulkRescueConfirm": "Post {0} entries",
-  "autoLedgerBulkSelectedCount": "{0} selected",
+  "autoLedgerBulkRescueTitle": "Bulk rescue ({count})",
+  "@autoLedgerBulkRescueTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "autoLedgerBulkRescueSummary": "About to post {count} entries using the same amount and category.",
+  "@autoLedgerBulkRescueSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "autoLedgerBulkRescueAmountHint": "Shared amount for all {count} entries.",
+  "@autoLedgerBulkRescueAmountHint": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "autoLedgerBulkRescueConfirm": "Post {count} entries",
+  "@autoLedgerBulkRescueConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "autoLedgerBulkSelectedCount": "{count} selected",
+  "@autoLedgerBulkSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "autoLedgerBulkClear": "Clear",
-  "autoLedgerBulkRescue": "Rescue ({0})",
-  "autoLedgerBulkRescueSuccess": "Rescued {0} entries.",
-  "autoLedgerBulkRescuePartial": "Rescued {0}, failed {1}.",
-  "autoLedgerBulkRescueTotalPreview": "{0} entries × ¥{1} = ¥{2}",
-  "autoLedgerBacklogTitle": "{0} unrecognised notifications waiting",
-  "autoLedgerBacklogDominantHint": "Most are tagged {0} ({1} entries). Consider adding a merchant rule to cover this case.",
+  "autoLedgerBulkRescue": "Rescue ({count})",
+  "@autoLedgerBulkRescue": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "autoLedgerBulkRescueSuccess": "Rescued {count} entries.",
+  "@autoLedgerBulkRescueSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "autoLedgerBulkRescuePartial": "Rescued {rescued}, failed {failed}.",
+  "@autoLedgerBulkRescuePartial": {
+    "placeholders": {
+      "rescued": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "autoLedgerBulkRescueTotalPreview": "{count} entries × ¥{unit} = ¥{total}",
+  "@autoLedgerBulkRescueTotalPreview": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "unit": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "autoLedgerBacklogTitle": "{count} unrecognised notifications waiting",
+  "@autoLedgerBacklogTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "autoLedgerBacklogDominantHint": "Most are tagged {reason} ({count} entries). Consider adding a merchant rule to cover this case.",
+  "@autoLedgerBacklogDominantHint": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "autoLedgerBacklogAction": "Review",
   "selectAll": "Select all",
   "autoLedgerRulesTitle": "Merchant classification rules",
