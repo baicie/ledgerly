@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../application/feed_search.dart';
 import '../application/ledger_app_service.dart';
 import '../application/ledger_csv.dart';
+import '../application/merchant_rule_store.dart';
 import '../application/recurring_scheduler.dart';
 import '../application/sync_service.dart';
 import '../auth/app_lock_store.dart';
@@ -29,6 +31,7 @@ import '../platform/attachment_store.dart';
 import '../platform/attachment_store_factory.dart';
 import '../platform/user_file_port.dart';
 import '../platform/user_file_port_impl.dart';
+import '../services/payment_notification_service.dart';
 
 final databaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
@@ -103,6 +106,21 @@ final ledgerAppServiceProvider = Provider<LedgerAppService>((ref) {
     ref.watch(ledgerRepositoryProvider),
     bookId: ref.watch(selectedBookIdProvider),
   );
+});
+
+/// Exposes the persistent merchant rule store so the settings UI can read,
+/// add, and remove user-defined classification rules. The store is keyed
+/// against SharedPreferences so the rules survive app restarts.
+final merchantRuleStoreProvider = Provider<MerchantRuleStore>((ref) {
+  return MerchantRuleStore();
+});
+
+/// Gateway that talks to the platform (Android) notification listener
+/// side of the auto-ledger pipeline. Tests override this to swap in a
+/// in-memory implementation without going through the MethodChannel.
+final paymentNotificationGatewayProvider =
+    Provider<PaymentNotificationGateway>((ref) {
+  return PaymentNotificationService();
 });
 
 class SelectedBookController extends StateNotifier<String> {
@@ -380,6 +398,24 @@ class MonthlyLedgerSummary {
 final monthlyLedgerSummaryProvider =
     FutureProvider<MonthlyLedgerSummary>((ref) async {
   final transactions = await ref.watch(monthTransactionsProvider.future);
+  return summarizeMonth(transactions);
+});
+
+/// Computes a monthly summary restricted to transactions whose `source` tag
+/// matches [filter] (or all transactions when [filter] is `FeedSourceFilter.all`).
+final filteredMonthlyLedgerSummaryProvider = FutureProvider.family
+    .autoDispose<MonthlyLedgerSummary, FeedSourceFilter>((ref, filter) async {
+  final transactions = await ref.watch(monthTransactionsProvider.future);
+  if (filter == FeedSourceFilter.all) {
+    return summarizeMonth(transactions);
+  }
+  final filtered = transactions
+      .where((transaction) => matchesFeedSource(transaction, filter))
+      .toList();
+  return summarizeMonth(filtered);
+});
+
+MonthlyLedgerSummary summarizeMonth(List<TransactionSummary> transactions) {
   var income = BigInt.zero;
   var expense = BigInt.zero;
   for (final transaction in transactions) {
@@ -398,7 +434,7 @@ final monthlyLedgerSummaryProvider =
     expenseMinor: expense,
     transactionCount: transactions.length,
   );
-});
+}
 
 class SyncStatusView {
   const SyncStatusView({

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'application/auto_ledger_service.dart';
 import 'config/api_endpoint.dart';
 import 'config/api_endpoint_controller.dart';
 import 'config/platform_api_endpoint_store.dart';
@@ -123,6 +124,8 @@ class _LedgerlyAppState extends ConsumerState<LedgerlyApp>
       ref.invalidate(monthDailyAiInsightsProvider);
       ref.invalidate(selectedMonthAiInsightProvider);
       ref.invalidate(recurringCatchUpProvider);
+      // Drain any payment notifications captured while the app was closed.
+      ref.invalidate(autoLedgerSyncProvider);
     }
   }
 
@@ -132,6 +135,13 @@ class _LedgerlyAppState extends ConsumerState<LedgerlyApp>
     ref.listen(recurringCatchUpProvider, (previous, next) {
       next.whenData((posted) {
         if (posted > 0) invalidateLedgerViews(ref);
+      });
+    });
+    ref.listen(autoLedgerSyncProvider, (previous, next) {
+      next.whenData((report) {
+        if (report.posted > 0 || report.skipped > 0) {
+          invalidateLedgerViews(ref);
+        }
       });
     });
     return MaterialApp.router(

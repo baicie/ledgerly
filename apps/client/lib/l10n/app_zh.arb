@@ -9,6 +9,8 @@
   "savingEllipsis": "保存中…",
   "retry": "重试",
   "create": "创建",
+  "edit": "编辑",
+  "delete": "删除",
   "unknown": "未知",
   "show": "显示",
   "hide": "隐藏",
@@ -710,7 +712,11 @@
   "createdWillPostTomorrow": "已创建，明日起由 Worker 入账",
   "recurring": "周期记账",
   "ruleName": "规则名称",
-  "amountYuan": "金额（元）",
+  "amountInvalid": "请输入有效的金额",
+  "amountRequired": "请填写金额",
+  "amountMustBePositive": "金额必须大于零",
+  "merchantOptional": "商户（可选）",
+  "note": "备注",
   "runNow": "立即调度（runNow）",
   "createRule": "创建规则",
   "upgraded": "已升级",
@@ -784,6 +790,14 @@
   "searchTransactionsHint": "搜索备注、分类、账户或金额",
   "noSearchResults": "没有匹配的流水",
   "noSearchResultsMessage": "试试其他关键字，或清空搜索",
+  "feedSourceFilterAll": "全部",
+  "feedSourceFilterAuto": "自动",
+  "feedSourceFilterManual": "手动",
+  "feedSourceFilterAutoTooltip": "只显示由微信 / 支付宝通知自动入账的交易",
+  "feedSourceBadgeTooltip": "来自支付通知自动入账",
+  "feedMonthlySummaryAll": "本月总览",
+  "feedMonthlySummaryAuto": "本月自动入账",
+  "feedMonthlySummaryManual": "本月手动入账",
   "securitySection": "安全",
   "appLock": "应用锁",
   "appLockSubtitle": "用 PIN 或生物识别保护打开应用",
@@ -856,5 +870,102 @@
   "kindLabel": "类型",
   "kindExpense": "支出",
   "kindIncome": "收入",
-  "fundingAccount": "资金账户"
+  "fundingAccount": "资金账户",
+  "autoLedgerSection": "自动记账",
+  "autoLedgerTitle": "自动捕捉支付通知",
+  "autoLedgerSubtitle": "读取微信和支付宝通知，自动入账为支出或收入",
+  "autoLedgerEnable": "开启自动记账",
+  "autoLedgerDisable": "关闭自动记账",
+  "autoLedgerGranted": "已授予通知使用权",
+  "autoLedgerNotGranted": "尚未授予通知使用权",
+  "autoLedgerOpenSettings": "打开通知设置",
+  "autoLedgerSyncNow": "立即同步待入账通知",
+  "autoLedgerSyncSummary": "已入账 {posted}，重复 {duplicates}，已跳过 {skipped}",
+  "@autoLedgerSyncSummary": {
+    "placeholders": {
+      "posted": {
+        "type": "int"
+      },
+      "duplicates": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "autoLedgerEmpty": "暂无待入账通知",
+  "autoLedgerFailed": "无法读取通知权限状态",
+  "autoLedgerPendingCount": "{count} 条待入账",
+  "@autoLedgerPendingCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
+,
+  "autoLedgerPlatformWechat": "微信支付",
+  "autoLedgerPlatformAlipay": "支付宝",
+  "autoLedgerPlatformUnknown": "未知平台",
+  "autoLedgerRescueTitle": "手动入账这条通知",
+  "autoLedgerRescueReason": "失败原因：{reason}",
+  "@autoLedgerRescueReason": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "autoLedgerRescuePlatform": "平台",
+  "autoLedgerRescueTime": "时间",
+  "autoLedgerRescueRawLabel": "通知原文",
+  "autoLedgerRescueSubmit": "保存到账本",
+  "autoLedgerRescueAlreadySaved": "这条已经入过账了。",
+  "autoLedgerRescueCategoryLabel": "分类",
+  "autoLedgerRescueLearnRule": "记住这条商户 → 分类规则",
+  "autoLedgerRescueLearnRuleHint": "以后同一家商户的通知会自动入到这里。",
+  "autoLedgerRescueLearnRuleToast": "已记住规则，下次这家商户会自动入账。",
+  "all": "全部",
+  "autoLedgerUnparsedEmpty": "暂无未识别的通知",
+  "autoLedgerUnparsedEmptyHint": "无法识别为入账或出账的通知会出现在这里。",
+  "autoLedgerUnparsedCount": "{count} 条未识别",
+  "@autoLedgerUnparsedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "autoLedgerUnparsedDismiss": "全部忽略",
+  "autoLedgerUnparsedCopy": "复制原文",
+  "autoLedgerUnparsedCopied": "已复制原文",
+  "autoLedgerBulkRescueTitle": "批量入账（{0} 条）",
+  "autoLedgerBulkRescueSummary": "将使用同一个金额和分类入账 {0} 条记录。",
+  "autoLedgerBulkRescueAmountHint": "这笔批量里 {0} 条都用同一个金额。",
+  "autoLedgerBulkRescueConfirm": "入账 {0} 条",
+  "autoLedgerBulkSelectedCount": "已选 {0} 条",
+  "autoLedgerBulkClear": "清空",
+  "autoLedgerBulkRescue": "入账 ({0})",
+  "autoLedgerBulkRescueSuccess": "已成功入账 {0} 条。",
+  "autoLedgerBulkRescuePartial": "成功 {0} 条，失败 {1} 条。",
+  "autoLedgerBulkRescueTotalPreview": "{0} 笔 × ¥{1} = ¥{2}",
+  "autoLedgerBacklogTitle": "{0} 条通知待处理",
+  "autoLedgerBacklogDominantHint": "其中最多的是 {0}（{1} 条），可以添加商户规则覆盖这种情况。",
+  "autoLedgerBacklogAction": "去看看",
+  "selectAll": "全选",
+  "autoLedgerRulesTitle": "商户分类规则",
+  "autoLedgerRulesSubtitle": "告诉 Ledgerly 某个商户应归入哪个分类。自定义规则优先于内置默认。",
+  "autoLedgerRulesEmpty": "尚未添加自定义规则",
+  "autoLedgerRulesEmptyHint": "只要某条通知被误分类，可以手动添加一条规则。规则仅保存在本机。",
+  "autoLedgerRuleAddTitle": "新增分类规则",
+  "autoLedgerRuleEditTitle": "编辑分类规则",
+  "autoLedgerRuleAdd": "添加规则",
+  "autoLedgerRuleNeedlesLabel": "匹配关键词",
+  "autoLedgerRuleNeedlesHelper": "多个关键词请用逗号分隔。任一匹配即生效。",
+  "autoLedgerRuleCategoryLabel": "默认分类",
+  "autoLedgerRuleChooseCategory": "请先选择一个分类。",
+  "autoLedgerRuleNeedNeedle": "至少添加一个匹配关键词。",
+  "autoLedgerRuleDeleteTitle": "删除该规则？",
+  "autoLedgerRuleDeleteBody": "以后匹配该规则的通知将回落到内置默认。"
 }

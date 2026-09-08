@@ -323,6 +323,49 @@ fn parse_occurred_at(
         .map_err(|_| rejected_receipt(mutation, "INVALID_PAYLOAD", None))
 }
 
+/// Returns the `source_event_fingerprint` field from a mutation payload, if
+/// present.  The value is expected to be a hex-encoded SHA-256 hash (64 chars).
+fn parse_source_event_fingerprint(
+    mutation: &ledger_contracts::SyncMutationDto,
+) -> Option<String> {
+    let raw = mutation
+        .payload
+        .get("sourceEventFingerprint")
+        .or_else(|| mutation.payload.get("source_event_fingerprint"))?;
+    match raw {
+        serde_json::Value::String(value) => {
+            let trimmed = value.trim();
+            // SHA-256 hex = exactly 64 lowercase hex characters.
+            if trimmed.len() == 64 && trimmed.chars().all(|c| c.is_ascii_hexdigit()) {
+                Some(trimmed.to_string())
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+/// Returns the `source` tag from a mutation payload, if present.
+///
+/// The value is opaque and stored verbatim; we only reject obvious junk
+/// (non-string types, empty strings, or values longer than 32 characters).
+fn parse_source(mutation: &ledger_contracts::SyncMutationDto) -> Option<String> {
+    let raw = mutation.payload.get("source")?;
+    match raw {
+        serde_json::Value::String(value) => {
+            let trimmed = value.trim();
+            if trimmed.is_empty() || trimmed.chars().count() > 32 {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        }
+        serde_json::Value::Null => None,
+        _ => None,
+    }
+}
+
 pub(crate) fn format_occurred_at(value: OffsetDateTime) -> String {
     value
         .to_offset(UtcOffset::UTC)
@@ -532,6 +575,39 @@ async fn process_mutation_pg(
             }
         }
 
+        // Cross-device idempotency for auto_ledger:
+        // If a transaction with the same (book_id, source_event_fingerprint)
+        // already exists, another device has already captured this payment.
+        // Return an applied receipt so this device collapses its local copy
+        // and stops retrying.
+        let fingerprint = parse_source_event_fingerprint(mutation);
+        if existing.is_none() {
+            if let (Some(fingerprint), Some("auto_ledger")) =
+                (&fingerprint, parse_source(mutation).as_deref())
+            {
+                let existing_by_fingerprint: Option<(String, i64)> = sqlx::query_as(
+                    "SELECT id, version FROM transactions
+                     WHERE book_id=$1 AND source='auto_ledger'
+                           AND source_event_fingerprint=$2 AND deleted_at IS NULL",
+                )
+                .bind(book_id)
+                .bind(fingerprint)
+                .fetch_optional(&mut *tx)
+                .await?;
+                if let Some((_existing_id, existing_version)) = existing_by_fingerprint {
+                    let receipt = MutationReceiptDto {
+                        mutation_id: mutation.mutation_id.clone(),
+                        status: "applied".into(),
+                        result_code: "AUTO_LEDGER_DEDUPED".into(),
+                        entity_version: Some(existing_version),
+                    };
+                    insert_pg_receipt(&mut tx, book_id, device_id, &receipt).await?;
+                    tx.commit().await?;
+                    return Ok(receipt);
+                }
+            }
+        }
+
         let is_update = existing.is_some();
         let version = existing
             .as_ref()
@@ -540,7 +616,28 @@ async fn process_mutation_pg(
         let occurred_at = requested_occurred_at
             .or_else(|| existing.as_ref().map(|(_, occurred_at)| *occurred_at))
             .unwrap_or_else(OffsetDateTime::now_utc);
-        let canonical_payload = canonical_transaction_payload(&mutation.payload, occurred_at);
+        let source = parse_source(mutation);
+        let mut canonical_payload =
+            canonical_transaction_payload(&mutation.payload, occurred_at);
+        if is_update && !canonical_payload.as_object().is_some_and(|o| o.contains_key("source")) {
+            // Carry the existing source forward so subsequent pulls see a stable
+            // value even when the update mutation omits the field.
+            let row: Option<(Option<String>,)> = sqlx::query_as(
+                "SELECT source FROM transactions WHERE id=$1 AND book_id=$2",
+            )
+            .bind(&mutation.entity_id)
+            .bind(book_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+            if let Some((Some(previous_source),)) = row {
+                if let Some(object) = canonical_payload.as_object_mut() {
+                    object.insert(
+                        "source".into(),
+                        serde_json::Value::String(previous_source),
+                    );
+                }
+            }
+        }
         let description = mutation
             .payload
             .get("description")
@@ -548,12 +645,15 @@ async fn process_mutation_pg(
             .map(str::to_string);
         if is_update {
             let updated = sqlx::query(
-                "UPDATE transactions SET description=$1, occurred_at=$2, version=$3
-                 WHERE id=$4 AND book_id=$5 AND version=$6",
+                "UPDATE transactions
+                 SET description=$1, occurred_at=$2, version=$3,
+                     source = COALESCE($4, source)
+                 WHERE id=$5 AND book_id=$6 AND version=$7",
             )
             .bind(&description)
             .bind(occurred_at)
             .bind(version)
+            .bind(source.as_deref())
             .bind(&mutation.entity_id)
             .bind(book_id)
             .bind(mutation.base_version)
@@ -568,14 +668,16 @@ async fn process_mutation_pg(
                 .await?;
         } else {
             sqlx::query(
-                "INSERT INTO transactions (id, book_id, description, occurred_at, version)
-                 VALUES ($1,$2,$3,$4,$5)",
+                "INSERT INTO transactions (id, book_id, description, occurred_at, version, source, source_event_fingerprint)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7)",
             )
             .bind(&mutation.entity_id)
             .bind(book_id)
             .bind(&description)
             .bind(occurred_at)
             .bind(version)
+            .bind(source.as_deref())
+            .bind(fingerprint.as_deref())
             .execute(&mut *tx)
             .await?;
         }
@@ -961,6 +1063,29 @@ async fn process_mutation_mem(
         }
     }
 
+    // Cross-device idempotency for auto_ledger (memory path).
+    let fingerprint = parse_source_event_fingerprint(mutation);
+    if existing.is_none() {
+        if let (Some(fingerprint), Some("auto_ledger")) =
+            (&fingerprint, parse_source(mutation).as_deref())
+        {
+            let deduped = store.transactions.values().find(|t| {
+                t.book_id == book_id
+                    && t.source.as_deref() == Some("auto_ledger")
+                    && t.source_event_fingerprint.as_deref() == Some(fingerprint.as_str())
+                    && !t.deleted
+            });
+            if let Some(deduped) = deduped {
+                return MutationReceiptDto {
+                    mutation_id: mutation.mutation_id.clone(),
+                    status: "applied".into(),
+                    result_code: "AUTO_LEDGER_DEDUPED".into(),
+                    entity_version: Some(deduped.version),
+                };
+            }
+        }
+    }
+
     let version = existing
         .as_ref()
         .map(|transaction| transaction.version + 1)
@@ -968,7 +1093,18 @@ async fn process_mutation_mem(
     let occurred_at = requested_occurred_at
         .or_else(|| existing.as_ref().map(|transaction| transaction.occurred_at))
         .unwrap_or_else(OffsetDateTime::now_utc);
-    let canonical_payload = canonical_transaction_payload(&mutation.payload, occurred_at);
+    let mut canonical_payload = canonical_transaction_payload(&mutation.payload, occurred_at);
+    if let Some(object) = canonical_payload.as_object_mut() {
+        if !object.contains_key("source") {
+            if let Some(existing_source) = store
+                .transactions
+                .get(&mutation.entity_id)
+                .and_then(|existing| existing.source.clone())
+            {
+                object.insert("source".into(), serde_json::Value::String(existing_source));
+            }
+        }
+    }
     let commit_id = Uuid::now_v7().to_string();
     let entry_tuples: Vec<(String, i64, String)> = drafts
         .iter()
@@ -980,6 +1116,14 @@ async fn process_mutation_mem(
             )
         })
         .collect();
+    let source = parse_source(mutation)
+        .or_else(|| {
+            store
+                .transactions
+                .get(&mutation.entity_id)
+                .and_then(|existing| existing.source.clone())
+        });
+    let source_event_fingerprint = fingerprint;
     store.transactions.insert(
         mutation.entity_id.clone(),
         TxRecord {
@@ -994,6 +1138,8 @@ async fn process_mutation_mem(
             version,
             deleted: false,
             entries: entry_tuples,
+            source,
+            source_event_fingerprint,
         },
     );
     let sequence = (store.changes.len() as i64) + 1;
@@ -1290,14 +1436,15 @@ async fn bootstrap(
         .fetch_one(pool)
         .await
         .map_err(db_err)?;
-        let txs: Vec<(String, i64, Option<String>, OffsetDateTime)> = sqlx::query_as(
-            "SELECT id, version, description, occurred_at
-             FROM transactions WHERE book_id=$1 AND deleted_at IS NULL",
-        )
-        .bind(&book_id)
-        .fetch_all(pool)
-        .await
-        .map_err(db_err)?;
+        let txs: Vec<(String, i64, Option<String>, OffsetDateTime, Option<String>)> =
+            sqlx::query_as(
+                "SELECT id, version, description, occurred_at, source
+                 FROM transactions WHERE book_id=$1 AND deleted_at IS NULL",
+            )
+            .bind(&book_id)
+            .fetch_all(pool)
+            .await
+            .map_err(db_err)?;
         let accounts: Vec<(String, i64, String, String, String, Option<String>)> = sqlx::query_as(
             "SELECT id, version, name, account_type, currency_code, parent_account_id
              FROM accounts WHERE book_id=$1 ORDER BY id",
@@ -1307,7 +1454,7 @@ async fn bootstrap(
         .await
         .map_err(db_err)?;
         let mut out = Vec::new();
-        for (id, version, description, occurred_at) in txs {
+        for (id, version, description, occurred_at, source) in txs {
             let entries: Vec<(String, i64, String)> = sqlx::query_as(
                 "SELECT account_id, amount_minor, currency_code FROM transaction_entries
                  WHERE transaction_id=$1 ORDER BY entry_index",
@@ -1321,6 +1468,7 @@ async fn bootstrap(
                 "version": version,
                 "occurredAt": format_occurred_at(occurred_at),
                 "description": description,
+                "source": source,
                 "entries": entries.iter().map(|(a,m,c)| serde_json::json!({
                     "accountId": a, "amountMinor": m.to_string(), "currency": c
                 })).collect::<Vec<_>>(),
@@ -1386,6 +1534,7 @@ async fn bootstrap(
             "version": t.version,
             "occurredAt": format_occurred_at(t.occurred_at),
             "description": t.description,
+            "source": t.source,
             "entries": t.entries.iter().map(|(account_id, amount_minor, currency)| serde_json::json!({
                 "accountId": account_id,
                 "amountMinor": amount_minor.to_string(),
@@ -1457,7 +1606,7 @@ mod tests {
     use serde_json::json;
 
     use super::{
-        parse_account_payload, parse_occurred_at, process_account_mutation_mem,
+        parse_account_payload, parse_occurred_at, parse_source, process_account_mutation_mem,
         process_mutation_mem,
     };
     use crate::{state::AccountRecord, AppState, Config};
@@ -1525,6 +1674,36 @@ mod tests {
             assert_eq!(receipt.status, "rejected");
             assert_eq!(receipt.result_code, "INVALID_PAYLOAD");
         }
+    }
+
+    #[test]
+    fn source_returns_value_for_string_payloads_and_none_otherwise() {
+        assert_eq!(
+            parse_source(&transaction_mutation(json!({"source": "auto_ledger"}))),
+            Some("auto_ledger".to_string()),
+        );
+        // Whitespace is trimmed.
+        assert_eq!(
+            parse_source(&transaction_mutation(json!({"source": "  recurring  "}))),
+            Some("recurring".to_string()),
+        );
+        // Null / missing / non-string all collapse to None.
+        for invalid in [json!({}), json!({"source": null}), json!({"source": 1})] {
+            assert_eq!(
+                parse_source(&transaction_mutation(invalid)),
+                None,
+                "expected None for invalid source payload",
+            );
+        }
+        // Empty / over-length values are rejected.
+        assert_eq!(
+            parse_source(&transaction_mutation(json!({"source": ""}))),
+            None,
+        );
+        assert_eq!(
+            parse_source(&transaction_mutation(json!({"source": "x".repeat(33)}))),
+            None,
+        );
     }
 
     #[test]
@@ -1983,5 +2162,265 @@ mod tests {
             store.changes.last().unwrap().payload["occurredAt"],
             "2024-04-13T04:34:56Z"
         );
+    }
+
+    #[tokio::test]
+    async fn memory_transaction_persists_source_through_create_and_update() {
+        let state = AppState::new(Config::for_test());
+        {
+            let mut store = state.store.write().await;
+            for (id, account_type) in [("book-1:expense", "expense"), ("book-1:cash", "asset")] {
+                store.accounts.insert(
+                    id.into(),
+                    AccountRecord {
+                        id: id.into(),
+                        book_id: "book-1".into(),
+                        name: "Account".into(),
+                        account_type: account_type.into(),
+                        currency: "CNY".into(),
+                        parent_account_id: None,
+                        version: 1,
+                    },
+                );
+            }
+        }
+        let entries = json!([
+            {"accountId": "book-1:expense", "amountMinor": "100", "currency": "CNY"},
+            {"accountId": "book-1:cash", "amountMinor": "-100", "currency": "CNY"}
+        ]);
+        let mut create = transaction_mutation(json!({
+            "description": "WeChat 28.50",
+            "source": "auto_ledger",
+            "entries": entries,
+        }));
+        create.mutation_id = "create-with-source".into();
+        let receipt = process_mutation_mem(&state, "book-1", &create).await;
+        assert_eq!(receipt.status, "applied");
+
+        let store = state.store.read().await;
+        let transaction = store.transactions.get("tx-1").unwrap();
+        assert_eq!(transaction.source.as_deref(), Some("auto_ledger"));
+        let canonical_payload = &store.changes.last().unwrap().payload;
+        assert_eq!(canonical_payload["source"], "auto_ledger");
+        drop(store);
+
+        // Update without source -> existing source is preserved.
+        let mut update_without_source = transaction_mutation(json!({
+            "description": "Edited",
+            "entries": entries,
+        }));
+        update_without_source.mutation_id = "update-no-source".into();
+        update_without_source.operation = "update".into();
+        update_without_source.base_version = 1;
+        let receipt = process_mutation_mem(&state, "book-1", &update_without_source).await;
+        assert_eq!(receipt.status, "applied");
+        assert_eq!(receipt.entity_version, Some(2));
+
+        let store = state.store.read().await;
+        let transaction = store.transactions.get("tx-1").unwrap();
+        assert_eq!(transaction.source.as_deref(), Some("auto_ledger"));
+        let latest_payload = &store.changes.last().unwrap().payload;
+        assert_eq!(latest_payload["source"], "auto_ledger");
+        drop(store);
+
+        // Explicit source in update overrides (used for "promote" / "demote").
+        let mut update_with_source = transaction_mutation(json!({
+            "description": "Manually edited",
+            "source": "manual",
+            "entries": entries,
+        }));
+        update_with_source.mutation_id = "update-with-source".into();
+        update_with_source.operation = "update".into();
+        update_with_source.base_version = 2;
+        let receipt = process_mutation_mem(&state, "book-1", &update_with_source).await;
+        assert_eq!(receipt.status, "applied");
+        assert_eq!(receipt.entity_version, Some(3));
+
+        let store = state.store.read().await;
+        let transaction = store.transactions.get("tx-1").unwrap();
+        assert_eq!(transaction.source.as_deref(), Some("manual"));
+        assert_eq!(store.changes.last().unwrap().payload["source"], "manual");
+    }
+
+    #[tokio::test]
+    async fn memory_auto_ledger_dedup_returns_auto_ledger_deduped() {
+        let state = AppState::new(Config::for_test());
+        {
+            let mut store = state.store.write().await;
+            for (id, account_type) in [("book-1:expense", "expense"), ("book-1:cash", "asset")] {
+                store.accounts.insert(
+                    id.into(),
+                    AccountRecord {
+                        id: id.into(),
+                        book_id: "book-1".into(),
+                        name: "Account".into(),
+                        account_type: account_type.into(),
+                        currency: "CNY".into(),
+                        parent_account_id: None,
+                        version: 1,
+                    },
+                );
+            }
+        }
+        let entries = json!([
+            {"accountId": "book-1:expense", "amountMinor": "100", "currency": "CNY"},
+            {"accountId": "book-1:cash", "amountMinor": "-100", "currency": "CNY"}
+        ]);
+
+        // Two devices independently capture the same payment event and generate
+        // different entity IDs. The fingerprint dedup check must scan all
+        // transactions in the store (not just by entity_id) and collapse the
+        // second attempt.
+        // sha256("test") for the canonical test fingerprint.
+        let fingerprint = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
+        let mut first = transaction_mutation(json!({
+            "description": "WeChat 1.00",
+            "source": "auto_ledger",
+            "sourceEventFingerprint": fingerprint,
+            "occurredAt": "2024-04-13T12:00:00+08:00",
+            "entries": entries.clone(),
+        }));
+        first.mutation_id = "device-1-event-1".into();
+        first.entity_id = "tx-device-1".into();
+        let first_receipt = process_mutation_mem(&state, "book-1", &first).await;
+        assert_eq!(first_receipt.status, "applied");
+        assert_eq!(first_receipt.result_code, "OK");
+        assert_eq!(first_receipt.entity_version, Some(1));
+
+        // Second device's entity_id is different (UUID collision is astronomically
+        // unlikely) — fingerprint dedup must find the existing tx by scanning.
+        let mut second = transaction_mutation(json!({
+            "description": "WeChat 1.00",
+            "source": "auto_ledger",
+            "sourceEventFingerprint": fingerprint,
+            "occurredAt": "2024-04-13T12:00:00+08:00",
+            "entries": entries.clone(),
+        }));
+        second.mutation_id = "device-2-event-1".into();
+        second.entity_id = "tx-device-2".into();
+        let second_receipt = process_mutation_mem(&state, "book-1", &second).await;
+        assert_eq!(second_receipt.status, "applied");
+        assert_eq!(second_receipt.result_code, "AUTO_LEDGER_DEDUPED");
+        assert_eq!(second_receipt.entity_version, Some(1));
+
+        // Only one transaction in the ledger.
+        let store = state.store.read().await;
+        assert_eq!(store.transactions.len(), 1);
+        let tx = store.transactions.values().next().unwrap();
+        assert_eq!(tx.source.as_deref(), Some("auto_ledger"));
+        assert_eq!(
+            tx.source_event_fingerprint.as_deref(),
+            Some(fingerprint)
+        );
+    }
+
+    #[tokio::test]
+    async fn memory_auto_ledger_no_dedup_when_fingerprint_differs() {
+        let state = AppState::new(Config::for_test());
+        {
+            let mut store = state.store.write().await;
+            for (id, account_type) in [("book-1:expense", "expense"), ("book-1:cash", "asset")] {
+                store.accounts.insert(
+                    id.into(),
+                    AccountRecord {
+                        id: id.into(),
+                        book_id: "book-1".into(),
+                        name: "Account".into(),
+                        account_type: account_type.into(),
+                        currency: "CNY".into(),
+                        parent_account_id: None,
+                        version: 1,
+                    },
+                );
+            }
+        }
+        let entries = json!([
+            {"accountId": "book-1:expense", "amountMinor": "100", "currency": "CNY"},
+            {"accountId": "book-1:cash", "amountMinor": "-100", "currency": "CNY"}
+        ]);
+
+        // sha256("a") and sha256("b") — both are valid 64-char hex.
+        let fingerprint_a = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
+        let fingerprint_b = "3e23e8160039594a33894f6564e1b1348bbd7a0088d42c4acb73eeaed59c009d";
+
+        let mut first = transaction_mutation(json!({
+            "source": "auto_ledger",
+            "sourceEventFingerprint": fingerprint_a,
+            "occurredAt": "2024-04-13T12:00:00+08:00",
+            "entries": entries.clone(),
+        }));
+        first.mutation_id = "event-a".into();
+        first.entity_id = "tx-1".into();
+        let first_receipt = process_mutation_mem(&state, "book-1", &first).await;
+        assert_eq!(first_receipt.status, "applied");
+
+        // Different fingerprint → second transaction is created (no dedup).
+        let mut second = transaction_mutation(json!({
+            "source": "auto_ledger",
+            "sourceEventFingerprint": fingerprint_b,
+            "occurredAt": "2024-04-13T12:00:00+08:00",
+            "entries": entries.clone(),
+        }));
+        second.mutation_id = "event-b".into();
+        second.entity_id = "tx-2".into();
+        let second_receipt = process_mutation_mem(&state, "book-1", &second).await;
+        assert_eq!(second_receipt.status, "applied");
+        assert_eq!(second_receipt.result_code, "OK");
+
+        let store = state.store.read().await;
+        assert_eq!(store.transactions.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn memory_auto_ledger_no_dedup_for_manual_transactions() {
+        let state = AppState::new(Config::for_test());
+        {
+            let mut store = state.store.write().await;
+            for (id, account_type) in [("book-1:expense", "expense"), ("book-1:cash", "asset")] {
+                store.accounts.insert(
+                    id.into(),
+                    AccountRecord {
+                        id: id.into(),
+                        book_id: "book-1".into(),
+                        name: "Account".into(),
+                        account_type: account_type.into(),
+                        currency: "CNY".into(),
+                        parent_account_id: None,
+                        version: 1,
+                    },
+                );
+            }
+        }
+        let entries = json!([
+            {"accountId": "book-1:expense", "amountMinor": "100", "currency": "CNY"},
+            {"accountId": "book-1:cash", "amountMinor": "-100", "currency": "CNY"}
+        ]);
+
+        // Same fingerprint but source is "manual" — no dedup (fingerprint format: sha256("same")).
+        let mut first = transaction_mutation(json!({
+            "source": "manual",
+            "sourceEventFingerprint": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+            "occurredAt": "2024-04-13T12:00:00+08:00",
+            "entries": entries.clone(),
+        }));
+        first.mutation_id = "manual-1".into();
+        first.entity_id = "tx-1".into();
+        let first_receipt = process_mutation_mem(&state, "book-1", &first).await;
+        assert_eq!(first_receipt.status, "applied");
+
+        let mut second = transaction_mutation(json!({
+            "source": "manual",
+            "sourceEventFingerprint": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+            "occurredAt": "2024-04-13T12:00:00+08:00",
+            "entries": entries.clone(),
+        }));
+        second.mutation_id = "manual-2".into();
+        second.entity_id = "tx-2".into();
+        let second_receipt = process_mutation_mem(&state, "book-1", &second).await;
+        assert_eq!(second_receipt.status, "applied");
+        assert_eq!(second_receipt.result_code, "OK");
+
+        let store = state.store.read().await;
+        assert_eq!(store.transactions.len(), 2);
     }
 }

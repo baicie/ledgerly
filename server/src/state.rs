@@ -230,6 +230,10 @@ pub struct TxRecord {
     pub version: i64,
     pub deleted: bool,
     pub entries: Vec<(String, i64, String)>,
+    pub source: Option<String>,
+    /// SHA-256 fingerprint of the source event; used to collapse duplicate
+    /// auto-ledger transactions from different devices.
+    pub source_event_fingerprint: Option<String>,
 }
 
 #[derive(Clone)]

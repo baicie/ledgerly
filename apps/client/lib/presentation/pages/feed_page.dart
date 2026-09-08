@@ -25,13 +25,16 @@ class FeedPage extends ConsumerStatefulWidget {
 
 class _FeedPageState extends ConsumerState<FeedPage> {
   var _query = '';
+  FeedSourceFilter _sourceFilter = FeedSourceFilter.all;
 
   @override
   Widget build(BuildContext context) {
     final l10n = l10nOf(context);
     final month = ref.watch(selectedMonthProvider);
     final transactions = ref.watch(monthTransactionsProvider);
-    final summary = ref.watch(monthlyLedgerSummaryProvider);
+    final summary = ref.watch(
+      filteredMonthlyLedgerSummaryProvider(_sourceFilter),
+    );
     final now = DateTime.now();
     final isCurrentMonth = month.year == now.year && month.month == now.month;
     final configured =
@@ -66,13 +69,22 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                 ),
               ),
             ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              sliver: SliverToBoxAdapter(
+                child: _SourceFilterChips(
+                  filter: _sourceFilter,
+                  onChanged: (next) => setState(() => _sourceFilter = next),
+                ),
+              ),
+            ),
             summary.when(
               skipLoadingOnReload: true,
               data: (totals) => SliverPadding(
                 padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
                 sliver: SliverToBoxAdapter(
                   child: LedgerlySummaryCard(
-                    title: l10n.monthlyFeedStats,
+                    title: _summaryTitle(l10n),
                     balanceMinor: totals.balanceMinor,
                     incomeMinor: totals.incomeMinor,
                     expenseMinor: totals.expenseMinor,
@@ -103,16 +115,18 @@ class _FeedPageState extends ConsumerState<FeedPage> {
             transactions.when(
               skipLoadingOnReload: true,
               data: (items) {
-                final filtered = filterFeedTransactions(items, _query, l10n);
+                final filtered = filterFeedTransactions(
+                  items,
+                  _query,
+                  l10n,
+                  sourceFilter: _sourceFilter,
+                );
                 final searching = _query.trim().isNotEmpty;
                 return FeedTransactionList(
                   transactions: filtered,
                   expandAll: searching,
-                  emptyTitle:
-                      searching ? l10n.noSearchResults : l10n.emptyMonthTitle,
-                  emptyMessage: searching
-                      ? l10n.noSearchResultsMessage
-                      : l10n.emptyMonthMessage,
+                  emptyTitle: _emptyTitle(l10n, searching),
+                  emptyMessage: _emptyMessage(l10n, searching),
                   dayInsight: (day) => _DayAiInsight(day: day),
                   showDayInsightBadge: (day) => _dayHasReadyInsight(ref, day),
                   orphanTodayInsight:
@@ -137,6 +151,28 @@ class _FeedPageState extends ConsumerState<FeedPage> {
     );
   }
 
+  String _summaryTitle(AppLocalizations l10n) {
+    return switch (_sourceFilter) {
+      FeedSourceFilter.all => l10n.feedMonthlySummaryAll,
+      FeedSourceFilter.autoLedger => l10n.feedMonthlySummaryAuto,
+      FeedSourceFilter.manual => l10n.feedMonthlySummaryManual,
+    };
+  }
+
+  String _emptyTitle(AppLocalizations l10n, bool searching) {
+    if (searching) return l10n.noSearchResults;
+    return switch (_sourceFilter) {
+      FeedSourceFilter.all => l10n.emptyMonthTitle,
+      FeedSourceFilter.autoLedger => l10n.feedMonthlySummaryAuto,
+      FeedSourceFilter.manual => l10n.feedMonthlySummaryManual,
+    };
+  }
+
+  String? _emptyMessage(AppLocalizations l10n, bool searching) {
+    if (searching) return l10n.noSearchResultsMessage;
+    return l10n.emptyMonthMessage;
+  }
+
   void _changeMonth(WidgetRef ref, DateTime month, int offset) {
     ref.read(selectedMonthProvider.notifier).state = DateTime(
       month.year,
@@ -150,6 +186,44 @@ class _FeedPageState extends ConsumerState<FeedPage> {
     ref.invalidate(todayAiInsightProvider);
     ref.invalidate(monthDailyAiInsightsProvider);
     ref.invalidate(selectedMonthAiInsightProvider);
+  }
+}
+
+class _SourceFilterChips extends StatelessWidget {
+  const _SourceFilterChips({required this.filter, required this.onChanged});
+
+  final FeedSourceFilter filter;
+  final ValueChanged<FeedSourceFilter> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
+    return SegmentedButton<FeedSourceFilter>(
+      key: const Key('feed-source-filter'),
+      showSelectedIcon: false,
+      segments: [
+        ButtonSegment(
+          value: FeedSourceFilter.all,
+          label: Text(l10n.feedSourceFilterAll),
+          icon: const Icon(Icons.list_alt_rounded, size: 16),
+        ),
+        ButtonSegment(
+          value: FeedSourceFilter.autoLedger,
+          label: Text(l10n.feedSourceFilterAuto),
+          icon: const Icon(Icons.bolt_rounded, size: 16),
+        ),
+        ButtonSegment(
+          value: FeedSourceFilter.manual,
+          label: Text(l10n.feedSourceFilterManual),
+          icon: const Icon(Icons.edit_outlined, size: 16),
+        ),
+      ],
+      selected: {filter},
+      onSelectionChanged: (selection) {
+        if (selection.isEmpty) return;
+        onChanged(selection.first);
+      },
+    );
   }
 }
 

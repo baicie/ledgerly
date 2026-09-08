@@ -1,6 +1,5 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
-
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -35,6 +34,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get create => '创建';
+
+  @override
+  String get edit => '编辑';
+
+  @override
+  String get delete => '删除';
 
   @override
   String get unknown => '未知';
@@ -1233,6 +1238,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get ruleName => '规则名称';
 
   @override
+  String get amountInvalid => '请输入有效的金额';
+
+  @override
+  String get amountRequired => '请填写金额';
+
+  @override
+  String get amountMustBePositive => '金额必须大于零';
+
+  @override
+  String get merchantOptional => '商户（可选）';
+
+  @override
+  String get note => '备注';
+
+  @override
   String get amountYuan => '金额（元）';
 
   @override
@@ -1320,6 +1340,30 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get noSearchResultsMessage => '试试其他关键字，或清空搜索';
+
+  @override
+  String get feedSourceFilterAll => '全部';
+
+  @override
+  String get feedSourceFilterAuto => '自动';
+
+  @override
+  String get feedSourceFilterManual => '手动';
+
+  @override
+  String get feedSourceFilterAutoTooltip => '只显示由微信 / 支付宝通知自动入账的交易';
+
+  @override
+  String get feedSourceBadgeTooltip => '来自支付通知自动入账';
+
+  @override
+  String get feedMonthlySummaryAll => '本月总览';
+
+  @override
+  String get feedMonthlySummaryAuto => '本月自动入账';
+
+  @override
+  String get feedMonthlySummaryManual => '本月手动入账';
 
   @override
   String get securitySection => '安全';
@@ -1483,4 +1527,209 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fundingAccount => '资金账户';
+
+  @override
+  String get autoLedgerSection => '自动记账';
+
+  @override
+  String get autoLedgerTitle => '自动捕捉支付通知';
+
+  @override
+  String get autoLedgerSubtitle => '读取微信和支付宝通知，自动入账为支出或收入';
+
+  @override
+  String get autoLedgerEnable => '开启自动记账';
+
+  @override
+  String get autoLedgerDisable => '关闭自动记账';
+
+  @override
+  String get autoLedgerGranted => '已授予通知使用权';
+
+  @override
+  String get autoLedgerNotGranted => '尚未授予通知使用权';
+
+  @override
+  String get autoLedgerOpenSettings => '打开通知设置';
+
+  @override
+  String get autoLedgerSyncNow => '立即同步待入账通知';
+
+  @override
+  String autoLedgerSyncSummary(int posted, int duplicates, int skipped) {
+    return '已入账 $posted，重复 $duplicates，已跳过 $skipped';
+  }
+
+  @override
+  String get autoLedgerEmpty => '暂无待入账通知';
+
+  @override
+  String get autoLedgerFailed => '无法读取通知权限状态';
+
+  @override
+  String autoLedgerPendingCount(int count) {
+    return '$count 条待入账';
+  }
+
+  @override
+  String get autoLedgerUnparsedEmpty => '暂无未识别的通知';
+
+  @override
+  String get autoLedgerPlatformWechat => '微信支付';
+
+  @override
+  String get autoLedgerPlatformAlipay => '支付宝';
+
+  @override
+  String get autoLedgerPlatformUnknown => '未知平台';
+
+  @override
+  String get autoLedgerRescueTitle => '手动入账这条通知';
+
+  @override
+  String autoLedgerRescueReason(String reason) {
+    return '失败原因：$reason';
+  }
+
+  @override
+  String get autoLedgerRescuePlatform => '平台';
+
+  @override
+  String get autoLedgerRescueTime => '时间';
+
+  @override
+  String get autoLedgerRescueRawLabel => '通知原文';
+
+  @override
+  String get autoLedgerRescueSubmit => '保存到账本';
+
+  @override
+  String get autoLedgerRescueAlreadySaved => '这条已经入过账了。';
+
+  @override
+  String get autoLedgerRescueCategoryLabel => '分类';
+
+  @override
+  String get autoLedgerRescueLearnRule => '记住这条商户 → 分类规则';
+
+  @override
+  String get autoLedgerRescueLearnRuleHint =>
+      '以后同一家商户的通知会自动入到这里。';
+
+  @override
+  String get autoLedgerRescueLearnRuleToast =>
+      '已记住规则，下次这家商户会自动入账。';
+
+  @override
+  String get all => '全部';
+
+  @override
+  String get autoLedgerUnparsedEmptyHint => '无法识别为入账或出账的通知会出现在这里。';
+
+  @override
+  String autoLedgerUnparsedCount(int count) {
+    return '$count 条未识别';
+  }
+
+  @override
+  String get autoLedgerUnparsedDismiss => '全部忽略';
+
+  @override
+  String get autoLedgerUnparsedCopy => '复制原文';
+
+  @override
+  String get autoLedgerUnparsedCopied => '已复制原文';
+
+  @override
+  String autoLedgerBulkRescueTitle(int count) => '批量入账（$count 条）';
+
+  @override
+  String autoLedgerBulkRescueSummary(int count) =>
+      '将使用同一个金额和分类入账 $count 条记录。';
+
+  @override
+  String autoLedgerBulkRescueAmountHint(int count) =>
+      '这笔批量里 $count 条都用同一个金额。';
+
+  @override
+  String autoLedgerBulkRescueConfirm(int count) => '入账 $count 条';
+
+  @override
+  String autoLedgerBulkSelectedCount(int count) => '已选 $count 条';
+
+  @override
+  String get autoLedgerBulkClear => '清空';
+
+  @override
+  String autoLedgerBulkRescue(int count) => '入账 ($count)';
+
+  @override
+  String autoLedgerBulkRescueSuccess(int count) => '已成功入账 $count 条。';
+
+  @override
+  String autoLedgerBulkRescuePartial(int rescued, int failed) =>
+      '成功 $rescued 条，失败 $failed 条。';
+
+  @override
+  String autoLedgerBulkRescueTotalPreview(
+    int count,
+    String unit,
+    String total,
+  ) =>
+      '$count 笔 × ¥$unit = ¥$total';
+
+  @override
+  String autoLedgerBacklogTitle(int count) => '$count 条通知待处理';
+
+  @override
+  String autoLedgerBacklogDominantHint(String reason, int count) =>
+      '其中最多的是 $reason（$count 条），可以添加商户规则覆盖这种情况。';
+
+  @override
+  String get autoLedgerBacklogAction => '去看看';
+
+  @override
+  String get selectAll => '全选';
+
+  @override
+  String get autoLedgerRulesTitle => '商户分类规则';
+
+  @override
+  String get autoLedgerRulesSubtitle => '告诉 Ledgerly 某个商户应归入哪个分类。自定义规则优先于内置默认。';
+
+  @override
+  String get autoLedgerRulesEmpty => '尚未添加自定义规则';
+
+  @override
+  String get autoLedgerRulesEmptyHint => '只要某条通知被误分类，可以手动添加一条规则。规则仅保存在本机。';
+
+  @override
+  String get autoLedgerRuleAddTitle => '新增分类规则';
+
+  @override
+  String get autoLedgerRuleEditTitle => '编辑分类规则';
+
+  @override
+  String get autoLedgerRuleAdd => '添加规则';
+
+  @override
+  String get autoLedgerRuleNeedlesLabel => '匹配关键词';
+
+  @override
+  String get autoLedgerRuleNeedlesHelper => '多个关键词请用逗号分隔。任一匹配即生效。';
+
+  @override
+  String get autoLedgerRuleCategoryLabel => '默认分类';
+
+  @override
+  String get autoLedgerRuleChooseCategory => '请先选择一个分类。';
+
+  @override
+  String get autoLedgerRuleNeedNeedle => '至少添加一个匹配关键词。';
+
+  @override
+  String get autoLedgerRuleDeleteTitle => '删除该规则？';
+
+  @override
+  String get autoLedgerRuleDeleteBody => '以后匹配该规则的通知将回落到内置默认。';
 }

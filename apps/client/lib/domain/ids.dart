@@ -7,3 +7,7 @@ String accountKeyBank(String bookId) => accountId(bookId, 'acc_bank');
 String accountKeyFood(String bookId) => accountId(bookId, 'acc_food');
 String accountKeyTransport(String bookId) => accountId(bookId, 'acc_transport');
 String accountKeySalary(String bookId) => accountId(bookId, 'acc_salary');
+String accountKeyOtherExpense(String bookId) =>
+    accountId(bookId, 'acc_other_expense');
+String accountKeyOtherIncome(String bookId) =>
+    accountId(bookId, 'acc_other_income');

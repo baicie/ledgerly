@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pay_notification_listener_label">支付通知监听</string>
+</resources>

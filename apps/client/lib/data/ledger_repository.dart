@@ -385,6 +385,7 @@ class LedgerRepository {
           categoryAccountId: details.categoryAccountId,
           accountId: details.accountId,
           toAccountId: details.toAccountId,
+          source: tx.source,
         ),
       );
     }
@@ -511,6 +512,7 @@ class LedgerRepository {
   Future<void> saveDomainTransaction(
     domain.LedgerTransaction tx, {
     required String mutationId,
+    String? sourceEventFingerprint,
   }) async {
     final currentDeviceId = await deviceId;
     await _db.transaction(() async {
@@ -522,6 +524,10 @@ class LedgerRepository {
               description: Value(tx.description),
               version: Value(tx.version),
               createdAt: DateTime.now().toUtc(),
+              source: Value(tx.source),
+              sourceEventFingerprint: Value(
+                sourceEventFingerprint ?? tx.sourceEventFingerprint,
+              ),
             ),
           );
       for (final entry in tx.entries) {
@@ -539,6 +545,9 @@ class LedgerRepository {
       final payload = {
         'description': tx.description,
         'occurredAt': tx.occurredAt.toUtc().toIso8601String(),
+        'source': tx.source,
+        'sourceEventFingerprint':
+            sourceEventFingerprint ?? tx.sourceEventFingerprint,
         'entries': tx.entries
             .map(
               (e) => {
@@ -610,6 +619,7 @@ class LedgerRepository {
       final payloadJson = jsonEncode({
         'description': tx.description,
         'occurredAt': tx.occurredAt.toUtc().toIso8601String(),
+        'source': tx.source,
         'entries': tx.entries
             .map(
               (entry) => {
@@ -990,6 +1000,7 @@ class TransactionSummary {
     this.categoryAccountId,
     this.accountId,
     this.toAccountId,
+    this.source,
   }) : amountMinor = amountMinor ?? BigInt.zero;
 
   final String id;
@@ -1004,6 +1015,10 @@ class TransactionSummary {
   final String? categoryAccountId;
   final String? accountId;
   final String? toAccountId;
+  final String? source;
+
+  /// True if this transaction came from the auto-ledger pipeline.
+  bool get isAutoLedger => source == 'auto_ledger';
 }
 
 class _TransactionDetails {

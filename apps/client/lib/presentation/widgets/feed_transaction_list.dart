@@ -233,9 +233,40 @@ class _TransactionTile extends StatelessWidget {
       onTap: onTap,
       minTileHeight: 76,
       contentPadding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
-      leading: LedgerlyIconBadge(
-        icon: ledgerIconFor(transaction.categoryName, kind: transaction.kind),
-        color: color,
+      leading: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          LedgerlyIconBadge(
+            icon: ledgerIconFor(transaction.categoryName, kind: transaction.kind),
+            color: color,
+          ),
+          if (transaction.isAutoLedger)
+            Positioned(
+              right: -4,
+              bottom: -4,
+              child: Tooltip(
+                key: ValueKey('auto-ledger-badge-${transaction.id}'),
+                message: l10n.feedSourceBadgeTooltip,
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: LedgerlyColors.brandMint,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.surface,
+                      width: 2,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.bolt_rounded,
+                    size: 10,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
       title: Text(
         transaction.description?.trim().isNotEmpty == true

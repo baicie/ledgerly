@@ -187,6 +187,82 @@ void main() {
     expect(find.text('立即同步'), findsNothing);
     expect(find.text('待推送：2'), findsOneWidget);
   });
+
+  testWidgets('feed source filter restricts list and badge appears', (
+    tester,
+  ) async {
+    final occurredAt = DateTime.utc(2026, 8, 4);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          _booksOverride,
+          apiEndpointProvider.overrideWithValue(null),
+          aiSettingsStoreProvider.overrideWithValue(MemoryAiSettingsStore()),
+          monthTransactionsProvider.overrideWith(
+            (ref) async => [
+              TransactionSummary(
+                id: 'tx-auto',
+                occurredAt: occurredAt,
+                description: '美团外卖',
+                entryCount: 2,
+                kind: TransactionSummaryKind.expense,
+                amountMinor: BigInt.from(2850),
+                categoryName: 'Food',
+                accountName: 'Cash',
+                source: 'auto_ledger',
+              ),
+              TransactionSummary(
+                id: 'tx-manual',
+                occurredAt: occurredAt,
+                description: '咖啡',
+                entryCount: 2,
+                kind: TransactionSummaryKind.expense,
+                amountMinor: BigInt.from(3000),
+                categoryName: 'Drinks & Snacks',
+                accountName: 'Cash',
+              ),
+            ],
+          ),
+        ],
+        child: const MaterialApp(home: FeedPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Expand today's transaction group so the rows are visible.
+    await tester.tap(find.text(_dateLabel(occurredAt)));
+    await tester.pumpAndSettle();
+
+    // Both rows visible by default, and the auto-ledged row shows its badge.
+    expect(find.text('美团外卖'), findsOneWidget);
+    expect(find.text('咖啡'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('auto-ledger-badge-tx-auto')),
+      findsOneWidget,
+    );
+    expect(find.text('本月总览'), findsOneWidget);
+
+    // Switch to auto-ledger only.
+    await tester.tap(find.text('自动'));
+    await tester.pumpAndSettle();
+    expect(find.text('美团外卖'), findsOneWidget);
+    expect(find.text('咖啡'), findsNothing);
+    expect(find.text('本月自动入账'), findsOneWidget);
+
+    // Switch to manual only.
+    await tester.tap(find.text('手动'));
+    await tester.pumpAndSettle();
+    expect(find.text('咖啡'), findsOneWidget);
+    expect(find.text('美团外卖'), findsNothing);
+    expect(find.text('本月手动入账'), findsOneWidget);
+
+    // Back to all.
+    await tester.tap(find.text('全部'));
+    await tester.pumpAndSettle();
+    expect(find.text('美团外卖'), findsOneWidget);
+    expect(find.text('咖啡'), findsOneWidget);
+    expect(find.text('本月总览'), findsOneWidget);
+  });
 }
 
 Override get _booksOverride => booksProvider.overrideWith(

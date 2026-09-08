@@ -76,6 +76,8 @@ async fn create_transaction(
                 version: 1,
                 deleted: false,
                 entries: entries.clone(),
+                source: None,
+                source_event_fingerprint: None,
             },
         );
         let sequence = (store.changes.len() as i64) + 1;

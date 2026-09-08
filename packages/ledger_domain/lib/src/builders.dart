@@ -18,6 +18,8 @@ final class TransactionFactory {
     required Account fundingAccount,
     required Money amount,
     String? description,
+    String? source,
+    String? sourceEventFingerprint,
     EntryId? expenseEntryId,
     EntryId? fundingEntryId,
   }) {
@@ -29,6 +31,8 @@ final class TransactionFactory {
       bookId: bookId,
       occurredAt: occurredAt,
       description: description,
+      source: source,
+      sourceEventFingerprint: sourceEventFingerprint,
       entries: [
         TransactionEntry(
           id: expenseEntryId ?? EntryId('${id.value}-0'),
@@ -57,6 +61,8 @@ final class TransactionFactory {
     required Account depositAccount,
     required Money amount,
     String? description,
+    String? source,
+    String? sourceEventFingerprint,
   }) {
     _requireType(incomeAccount, AccountType.income);
     _requireCurrency(incomeAccount, amount);
@@ -66,6 +72,8 @@ final class TransactionFactory {
       bookId: bookId,
       occurredAt: occurredAt,
       description: description,
+      source: source,
+      sourceEventFingerprint: sourceEventFingerprint,
       entries: [
         TransactionEntry(
           id: EntryId('${id.value}-0'),
@@ -94,6 +102,8 @@ final class TransactionFactory {
     required Account to,
     required Money amount,
     String? description,
+    String? source,
+    String? sourceEventFingerprint,
   }) {
     if (from.id == to.id) {
       throw const DomainException(
@@ -108,6 +118,8 @@ final class TransactionFactory {
       bookId: bookId,
       occurredAt: occurredAt,
       description: description,
+      source: source,
+      sourceEventFingerprint: sourceEventFingerprint,
       entries: [
         TransactionEntry(
           id: EntryId('${id.value}-0'),

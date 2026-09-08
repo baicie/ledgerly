@@ -26,6 +26,15 @@ void main() {
         type TEXT NOT NULL,
         currency_code TEXT NOT NULL
       );
+      CREATE TABLE transactions (
+        id TEXT NOT NULL PRIMARY KEY,
+        book_id TEXT NOT NULL,
+        occurred_at INTEGER NOT NULL,
+        description TEXT,
+        version INTEGER NOT NULL DEFAULT 1,
+        created_at INTEGER NOT NULL,
+        deleted_at INTEGER
+      );
       INSERT INTO sync_states (
         book_id, device_id, cursor, access_token, refresh_token,
         remote_book_id, last_error, updated_at
@@ -78,6 +87,15 @@ void main() {
         type TEXT NOT NULL,
         currency_code TEXT NOT NULL
       );
+      CREATE TABLE transactions (
+        id TEXT NOT NULL PRIMARY KEY,
+        book_id TEXT NOT NULL,
+        occurred_at INTEGER NOT NULL,
+        description TEXT,
+        version INTEGER NOT NULL DEFAULT 1,
+        created_at INTEGER NOT NULL,
+        deleted_at INTEGER
+      );
       INSERT INTO accounts (id, book_id, name, type, currency_code)
       VALUES ('book:acc_food', 'book', 'Food', 'expense', 'CNY');
       PRAGMA user_version = 4;
@@ -106,6 +124,15 @@ void main() {
         type TEXT NOT NULL,
         currency_code TEXT NOT NULL,
         parent_account_id TEXT
+      );
+      CREATE TABLE transactions (
+        id TEXT NOT NULL PRIMARY KEY,
+        book_id TEXT NOT NULL,
+        occurred_at INTEGER NOT NULL,
+        description TEXT,
+        version INTEGER NOT NULL DEFAULT 1,
+        created_at INTEGER NOT NULL,
+        deleted_at INTEGER
       );
       PRAGMA user_version = 5;
     ''');
@@ -147,6 +174,15 @@ void main() {
         type TEXT NOT NULL,
         currency_code TEXT NOT NULL,
         parent_account_id TEXT
+      );
+      CREATE TABLE transactions (
+        id TEXT NOT NULL PRIMARY KEY,
+        book_id TEXT NOT NULL,
+        occurred_at INTEGER NOT NULL,
+        description TEXT,
+        version INTEGER NOT NULL DEFAULT 1,
+        created_at INTEGER NOT NULL,
+        deleted_at INTEGER
       );
       PRAGMA user_version = 6;
     ''');

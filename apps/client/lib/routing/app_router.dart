@@ -6,6 +6,7 @@ import '../presentation/pages/accounts_page.dart';
 import '../presentation/pages/ai_settings_page.dart';
 import '../presentation/pages/app_lock_page.dart';
 import '../presentation/pages/attachments_page.dart';
+import '../presentation/pages/auto_ledger_settings_page.dart';
 import '../presentation/pages/auth_page.dart';
 import '../presentation/pages/budgets_page.dart';
 import '../presentation/pages/categories_page.dart';
@@ -15,6 +16,7 @@ import '../presentation/pages/family_invite_page.dart';
 import '../presentation/pages/feed_page.dart';
 import '../presentation/pages/fx_rates_page.dart';
 import '../presentation/pages/import_page.dart';
+import '../presentation/pages/merchant_rules_page.dart';
 import '../presentation/pages/recurring_page.dart';
 import '../presentation/pages/reports_page.dart';
 import '../presentation/pages/settings_page.dart';
@@ -211,6 +213,17 @@ GoRouter createAppRouter(
                   GoRoute(
                     path: 'attachments',
                     builder: (context, state) => const AttachmentsPage(),
+                  ),
+                  GoRoute(
+                    path: 'auto-ledger',
+                    builder: (context, state) => const AutoLedgerSettingsPage(),
+                    routes: [
+                      GoRoute(
+                        path: 'rules',
+                        builder: (context, state) =>
+                            const MerchantRulesPage(),
+                      ),
+                    ],
                   ),
                 ],
               ),
