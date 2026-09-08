@@ -5,51 +5,70 @@ use axum::{
     http::{header, HeaderValue, Method},
     Router,
 };
+use metrics_exporter_prometheus::PrometheusBuilder;
 use tower_http::catch_panic::CatchPanicLayer;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::limit::RequestBodyLimitLayer;
 use tower_http::timeout::TimeoutLayer;
-use tower_http::trace::TraceLayer;
 use uuid::Uuid;
 
 use crate::config::Config;
 use crate::infrastructure::{jobs, object_store, postgres, rate_limit};
+use crate::metrics::{http_metrics_middleware, make_span_fn, register_metrics};
 use crate::state::AppState;
 use crate::transport::http::router;
 
 pub async fn migrate(config: &Config) -> anyhow::Result<()> {
+    let span = crate::obs::info_span!("app.migrate", domain = "app", phase = "migrate");
+    let _guard = span.enter();
     let Some(pool) = postgres::connect(config).await? else {
-        tracing::warn!("DATABASE_URL unset; migrate skipped (in-memory mode)");
+        crate::obs::app_event("migrate", "skipped", "DATABASE_URL unset");
         return Ok(());
     };
     postgres::migrate(&pool).await?;
+    crate::obs::app_event("migrate", "ok", "postgres migrations applied");
     Ok(())
 }
 
 pub async fn run_api(config: Config, with_worker: bool) -> anyhow::Result<()> {
+    let span = crate::obs::info_span!("app.run_api", domain = "app", phase = "boot");
+    let _guard = span.enter();
     init_otel(&config);
     let _ = object_store::ensure_dir(&config);
 
-    let state = AppState::new_async(config.clone()).await?;
+    // Register metric descriptors and build the Prometheus exporter.
+    register_metrics();
+    let metrics_handle = PrometheusBuilder::new()
+        .install_recorder()
+        .map_err(|e| anyhow::anyhow!("failed to install Prometheus recorder: {e}"))?;
+    let handle = crate::metrics::MetricsHandle::new(metrics_handle);
+
+    let mut state = AppState::new_async(config.clone()).await?;
+    // Attach the Prometheus handle to app state so /metrics can serve it.
+    state.metrics_handle = Some(handle);
     if let Some(pool) = &state.pool {
         postgres::migrate(pool).await?;
-        tracing::info!("postgres connected and migrated");
+        crate::obs::app_event("boot", "ok", "postgres connected and migrated");
         let _ = jobs::enqueue(pool, "purge_expired_sessions", serde_json::json!({}), 0).await;
         let _ = jobs::enqueue(pool, "enqueue_recurring_scan", serde_json::json!({}), 0).await;
     } else {
-        tracing::warn!("running with in-memory store");
+        crate::obs::app_event("boot", "degraded", "running with in-memory store");
     }
 
     if with_worker {
         if let Some(pool) = state.pool.clone() {
             let worker_id = format!("worker-{}", Uuid::now_v7());
             tokio::spawn(async move {
-                if let Err(err) = jobs::run_worker(pool, worker_id).await {
-                    tracing::error!(error = %err, "worker exited");
+                if let Err(_err) = jobs::run_worker(pool, worker_id).await {
+                    // Structured error event is recorded in obs::error_event.
+                    // The raw error is intentionally omitted: it may embed
+                    // connection strings or query parameters.
+                    crate::obs::error_event("job", "WORKER_EXITED");
+                    crate::metrics::record_job_outcome("worker", "exited");
                 }
             });
         } else {
-            tracing::warn!("worker requested but DATABASE_URL unset");
+            crate::obs::app_event("boot", "skipped", "worker requested but DATABASE_URL unset");
         }
     }
 
@@ -57,7 +76,9 @@ pub async fn run_api(config: Config, with_worker: bool) -> anyhow::Result<()> {
     let app = Router::new()
         .merge(router::app_router(state.clone()))
         .layer(rate)
-        .layer(TraceLayer::new_for_http())
+        .layer(axum::middleware::from_fn(http_metrics_middleware))
+        .layer(axum::middleware::from_fn(request_id_middleware))
+        .layer(tower_http::trace::TraceLayer::new_for_http().make_span_with(make_span_fn()))
         .layer(cors_layer(&config)?)
         .layer(RequestBodyLimitLayer::new(8 * 1024 * 1024))
         .layer(TimeoutLayer::with_status_code(
@@ -67,7 +88,7 @@ pub async fn run_api(config: Config, with_worker: bool) -> anyhow::Result<()> {
         .layer(CatchPanicLayer::new());
 
     let addr: SocketAddr = config.listen_addr.parse()?;
-    tracing::info!(%addr, "listening");
+    crate::obs::app_event("listen", "ok", &format!("{addr}"));
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(
         listener,
@@ -76,6 +97,44 @@ pub async fn run_api(config: Config, with_worker: bool) -> anyhow::Result<()> {
     .with_graceful_shutdown(shutdown_signal())
     .await?;
     Ok(())
+}
+
+/// Middleware that opens an `http.request` span for every request and
+/// stamps `request_id` (either from the inbound `x-request-id` header
+/// when present and well-formed, or freshly minted). The span stays
+/// entered for the lifetime of the inner future, so every downstream
+/// log line and the JSON error response body share the same correlation
+/// ID. We deliberately run this before `TraceLayer` so HTTP-level spans
+/// nest inside the request span rather than racing with it.
+async fn request_id_middleware(
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    // Inbound `x-request-id` is treated as opaque user input:
+    // anything longer than 64 chars is dropped because we never
+    // expect legitimate clients to send long ids, and we never
+    // want an attacker to inflate log line size.
+    const MAX_INBOUND_ID_LEN: usize = 64;
+    let header_id = req
+        .headers()
+        .get("x-request-id")
+        .and_then(|v| v.to_str().ok())
+        .filter(|s| {
+            !s.is_empty()
+                && s.len() <= MAX_INBOUND_ID_LEN
+                && s.bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+        })
+        .map(|s| s.to_string());
+    let request_id = header_id.unwrap_or_else(|| format!("req_{}", Uuid::now_v7()));
+    let method = req.method().as_str().to_string();
+    let path = req.uri().path().to_string();
+    let span = crate::obs::http_request_span(&request_id, &method, &path);
+    let mut response = span.in_scope(|| async move { next.run(req).await }).await;
+    if let Ok(value) = axum::http::HeaderValue::from_str(&request_id) {
+        response.headers_mut().insert("x-request-id", value);
+    }
+    response
 }
 
 fn cors_layer(config: &Config) -> anyhow::Result<CorsLayer> {
@@ -118,7 +177,7 @@ pub async fn backup(config: &Config, out: &str) -> anyhow::Result<()> {
     if !status.success() {
         anyhow::bail!("pg_dump failed");
     }
-    tracing::info!(out, "backup complete");
+    crate::obs::app_event("backup", "ok", out);
     Ok(())
 }
 
@@ -140,15 +199,18 @@ pub async fn restore(config: &Config, from: &str) -> anyhow::Result<()> {
     if !status.success() {
         anyhow::bail!("pg_restore failed");
     }
-    tracing::info!(from, "restore complete");
+    crate::obs::app_event("restore", "ok", from);
     Ok(())
 }
 
 fn init_otel(config: &Config) {
     if let Some(endpoint) = &config.otel_endpoint {
-        tracing::info!(
-            %endpoint,
-            "OTEL_EXPORTER_OTLP_ENDPOINT set; using tracing JSON export (OTLP collector optional)"
+        crate::obs::app_event(
+            "otel",
+            "ok",
+            &format!(
+                "endpoint={endpoint} using tracing JSON export (OTLP collector optional)"
+            ),
         );
         // Full OTLP pipeline kept minimal for MVP: rely on structured tracing logs.
         // When a collector is present, ship JSON logs or attach a future otlp layer.
@@ -157,7 +219,7 @@ fn init_otel(config: &Config) {
 
 async fn shutdown_signal() {
     let _ = tokio::signal::ctrl_c().await;
-    tracing::info!("shutdown signal received");
+    crate::obs::app_event("shutdown", "ok", "ctrl-c received");
 }
 
 #[cfg(test)]

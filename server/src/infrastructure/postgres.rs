@@ -10,16 +10,22 @@ pub async fn connect(config: &Config) -> anyhow::Result<Option<PgPool>> {
     let Some(url) = &config.database_url else {
         return Ok(None);
     };
+    let span = crate::obs::postgres_span("connect", "pg_pool_init");
+    let _guard = span.enter();
     let pool = PgPoolOptions::new()
         .min_connections(1)
         .max_connections(8)
         .acquire_timeout(Duration::from_secs(3))
         .connect(url)
         .await?;
+    crate::obs::postgres_pool_ready(1, 8);
+    crate::metrics::record_postgres_pool_connections(8, 1, 8);
     Ok(Some(pool))
 }
 
 pub async fn migrate(pool: &PgPool) -> anyhow::Result<()> {
+    let span = crate::obs::postgres_span("migrate", "apply_migrations");
+    let _guard = span.enter();
     let mut connection = pool.acquire().await?;
     const MIGRATION_LOCK: &str = "SELECT pg_advisory_lock(704065788921)";
     const MIGRATION_UNLOCK: &str = "SELECT pg_advisory_unlock(704065788921)";
@@ -49,10 +55,13 @@ pub async fn migrate(pool: &PgPool) -> anyhow::Result<()> {
         .await;
 
     migration_result.and(unlock_result.map(|_| ()))?;
+    crate::obs::postgres_migrations_applied();
     Ok(())
 }
 
 pub async fn ping(pool: &PgPool) -> Result<(), ApiError> {
+    let span = crate::obs::postgres_span("ping", "pg_ping");
+    let _guard = span.enter();
     sqlx::query("SELECT 1").execute(pool).await.map_err(|e| {
         ApiError::new(
             StatusCode::SERVICE_UNAVAILABLE,

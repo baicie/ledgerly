@@ -50,6 +50,8 @@ async fn logout(
     jar: CookieJar,
     auth: AuthUser,
 ) -> Result<(CookieJar, StatusCode), ApiError> {
+    let span = crate::obs::auth_span("logout", &auth.user_id);
+    let _guard = span.enter();
     if let Some(pool) = &state.pool {
         sqlx::query(
             "UPDATE device_sessions SET revoked_at=now()
@@ -74,6 +76,9 @@ async fn register(
     State(state): State<AppState>,
     Json(req): Json<RegisterRequest>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
+    let span = crate::obs::auth_span("register", "pending");
+    let _guard = span.enter();
+
     let req = validate_registration(req)?;
     let hash = hash_password(&req.password)?;
     let id = Uuid::now_v7().to_string();
@@ -91,17 +96,20 @@ async fn register(
         .await
         .map_err(db_err)?;
         if result.rows_affected() == 0 {
+            span.record("outcome", "email_taken");
             return Err(ApiError::new(
                 StatusCode::CONFLICT,
                 "EMAIL_TAKEN",
                 "email already registered",
             ));
         }
+        span.record("user_id", id.as_str());
         return Ok(Json(serde_json::json!({ "userId": id })));
     }
 
     let mut store = state.store.write().await;
     if store.users_by_email.contains_key(&req.email) {
+        span.record("outcome", "email_taken");
         return Err(ApiError::new(
             StatusCode::CONFLICT,
             "EMAIL_TAKEN",
@@ -109,6 +117,7 @@ async fn register(
         ));
     }
     store.users_by_email.insert(req.email.clone(), id.clone());
+    span.record("user_id", id.as_str());
     store.users.insert(
         id.clone(),
         UserRecord {
@@ -126,6 +135,9 @@ async fn login(
     jar: CookieJar,
     Json(req): Json<LoginRequest>,
 ) -> Result<(CookieJar, TokenResponseHeaders, Json<TokenResponse>), ApiError> {
+    let span = crate::obs::auth_span("login", "pending");
+    let _guard = span.enter();
+
     let req = validate_login(req)?;
     let cookie_mode = uses_cookie_session(req.session_mode)?;
     let user = if let Some(pool) = &state.pool {
@@ -160,8 +172,7 @@ async fn login(
     };
 
     verify_password(&req.password, &user.password_hash)?;
-    let book_id = state.ensure_demo_book(&user.id).await.map_err(|e| {
-        tracing::error!(error = %e, "failed to resolve book during login");
+    let book_id = state.ensure_demo_book(&user.id).await.map_err(|_e| {
         ApiError::new(
             StatusCode::INTERNAL_SERVER_ERROR,
             "BOOK_ERROR",
@@ -171,12 +182,14 @@ async fn login(
     let mut tokens = issue_tokens(&state, &user.id, &req.device_id).await?;
     tokens.book_id = Some(book_id);
     tokens.plan = Some(user_plan(&state, &user.id).await);
+    span.record("user_id", user.id.as_str());
     let jar = if cookie_mode {
         let refresh = tokens.refresh_token.take().expect("issued refresh token");
         add_refresh_cookie(jar, &state, refresh)
     } else {
         jar
     };
+    span.record("outcome", "success");
     Ok((jar, token_response_headers(), Json(tokens)))
 }
 
@@ -185,6 +198,9 @@ async fn refresh(
     jar: CookieJar,
     Json(req): Json<RefreshRequest>,
 ) -> Result<(CookieJar, TokenResponseHeaders, Json<TokenResponse>), RefreshError> {
+    let span = crate::obs::auth_span("refresh", "pending");
+    let _guard = span.enter();
+
     let cookie_mode = uses_cookie_session(req.session_mode).map_err(RefreshError::from)?;
     let refresh_token = if cookie_mode {
         if req.refresh_token.is_some() {
@@ -244,11 +260,15 @@ async fn refresh(
             error,
         ))
     })?;
+    let _ = span.record("outcome", "success");
     let jar = finish_refresh(jar, &state, cookie_mode, &mut tokens);
     Ok((jar, token_response_headers(), Json(tokens)))
 }
 
 async fn rotate_refresh_token(state: &AppState, hash: &str) -> Result<TokenResponse, ApiError> {
+    let span = crate::obs::auth_span("rotate_refresh", "pending");
+    let _guard = span.enter();
+
     if let Some(pool) = &state.pool {
         let row: Option<(String, String, String, Option<time::OffsetDateTime>, bool)> =
             sqlx::query_as(
@@ -291,8 +311,7 @@ async fn rotate_refresh_token(state: &AppState, hash: &str) -> Result<TokenRespo
             ));
         }
 
-        let book_id = state.ensure_demo_book(&user_id).await.map_err(|e| {
-            tracing::error!(error = %e, "failed to resolve book during token refresh");
+        let book_id = state.ensure_demo_book(&user_id).await.map_err(|_e| {
             ApiError::new(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "BOOK_ERROR",
@@ -345,6 +364,8 @@ async fn rotate_refresh_token(state: &AppState, hash: &str) -> Result<TokenRespo
         tx.commit().await.map_err(db_err)?;
         tokens.book_id = Some(book_id);
         tokens.plan = Some(plan);
+        span.record("user_id", user_id.as_str());
+        span.record("outcome", "success");
         return Ok(tokens);
     }
 
@@ -385,6 +406,8 @@ async fn rotate_refresh_token(state: &AppState, hash: &str) -> Result<TokenRespo
     let mut tokens = issue_tokens(state, &user_id, &device_id).await?;
     tokens.book_id = Some(book_id);
     tokens.plan = Some(user_plan(state, &user_id).await);
+    span.record("user_id", user_id.as_str());
+    span.record("outcome", "success");
     Ok(tokens)
 }
 
@@ -425,6 +448,9 @@ async fn issue_tokens(
     user_id: &str,
     device_id: &str,
 ) -> Result<TokenResponse, ApiError> {
+    let span = crate::obs::auth_span("issue_tokens", user_id);
+    let _guard = span.enter();
+
     let session_id = Uuid::now_v7().to_string();
     let refresh = random_token();
     let refresh_hash = hash_token(&refresh);
@@ -490,11 +516,10 @@ fn build_token_response(
         exp,
     };
     let header = Header::new(Algorithm::EdDSA);
-    let access = encode(&header, &claims, &state.config.jwt_encoding_key).map_err(|e| {
-        tracing::error!(error = %e, "failed to encode access token");
+    let access = encode(&header, &claims, &state.config.jwt_encoding_key).map_err(|_e| {
         ApiError::new(
             StatusCode::INTERNAL_SERVER_ERROR,
-            "TOKEN_ERROR",
+            "TOKEN_ENCODING_FAILED",
             "failed to issue access token",
         )
     })?;
@@ -693,11 +718,10 @@ fn hash_password(password: &str) -> Result<String, ApiError> {
     let argon2 = Argon2::default();
     Ok(argon2
         .hash_password(password.as_bytes(), &salt)
-        .map_err(|e| {
-            tracing::error!(error = %e, "failed to hash password");
+        .map_err(|_e| {
             ApiError::new(
                 StatusCode::INTERNAL_SERVER_ERROR,
-                "HASH_ERROR",
+                "PASSWORD_HASH_FAILED",
                 "failed to secure password",
             )
         })?
@@ -729,7 +753,11 @@ fn valid_refresh_token(token: &str) -> bool {
 }
 
 fn db_err(e: sqlx::Error) -> ApiError {
-    tracing::error!(error = %e, "database operation failed");
+    // Avoid logging the raw sqlx error message: it may embed bound
+    // parameter values (e.g. email addresses on unique-violation).
+    // `ApiError::into_response` records the structured error code via
+    // `obs::error_event`, which is enough for dashboards.
+    let _ = e;
     ApiError::new(
         StatusCode::INTERNAL_SERVER_ERROR,
         "DB_ERROR",

@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 /// Background job worker using PostgreSQL SKIP LOCKED.
 pub async fn run_worker(pool: PgPool, worker_id: String) -> anyhow::Result<()> {
-    tracing::info!(%worker_id, "job worker started");
+    crate::obs::job_worker_event("started", &worker_id);
     loop {
         let claimed = claim_jobs(&pool, &worker_id, 10).await?;
         if claimed.is_empty() {
@@ -14,11 +14,25 @@ pub async fn run_worker(pool: PgPool, worker_id: String) -> anyhow::Result<()> {
             continue;
         }
         for job in claimed {
-            if let Err(err) = execute_job(&pool, &job).await {
-                tracing::error!(job_id = %job.id, error = %err, "job failed");
-                let _ = fail_job(&pool, &job, &err.to_string()).await;
-            } else {
-                let _ = complete_job(&pool, &job.id).await;
+            let span = crate::obs::job_span(&job.job_type, &job.id);
+            let _guard = span.enter();
+            let result = execute_job(&pool, &job).await;
+            match &result {
+                Ok(()) => {
+                    let _ = complete_job(&pool, &job.id).await;
+                    crate::obs::job_outcome(&job.job_type, &job.id, "success");
+                    crate::metrics::record_job_outcome(&job.job_type, "success");
+                }
+                Err(err) => {
+                    // Record structured error event before we lose the type
+                    // in fail_job. The message is intentionally omitted: it
+                    // may contain parameter values from the job payload.
+                    let _ = &err;
+                    crate::obs::error_event("job", "JOB_FAILED");
+                    let _ = fail_job(&pool, &job, &err.to_string()).await;
+                    crate::obs::job_outcome(&job.job_type, &job.id, "failure");
+                    crate::metrics::record_job_outcome(&job.job_type, "failure");
+                }
             }
         }
     }
@@ -100,7 +114,8 @@ async fn execute_job(pool: &PgPool, job: &JobRow) -> anyhow::Result<()> {
             .await;
         }
         other => {
-            tracing::warn!(job_type = other, "unknown job type, marking done");
+            crate::obs::job_rule_skip(other, "UNKNOWN_JOB_TYPE");
+            crate::metrics::record_job_rule_skip("UNKNOWN_JOB_TYPE");
         }
     }
     Ok(())
@@ -124,7 +139,8 @@ async fn generate_due_recurring(pool: &PgPool) -> anyhow::Result<()> {
             .cloned()
             .unwrap_or_default();
         if entries.len() < 2 {
-            tracing::warn!(%rule_id, "recurring payload missing entries, skipping");
+            crate::obs::job_rule_skip(&rule_id, "PAYLOAD_MISSING_ENTRIES");
+            crate::metrics::record_job_rule_skip("PAYLOAD_MISSING_ENTRIES");
             sqlx::query(
                 "UPDATE recurring_rules SET next_run_at = next_run_at + interval '1 month'
                  WHERE id=$1",
@@ -159,7 +175,9 @@ async fn generate_due_recurring(pool: &PgPool) -> anyhow::Result<()> {
             parsed.push((account_id, amount, currency));
         }
         if sum != 0 {
-            tracing::warn!(%rule_id, %sum, "unbalanced recurring payload, skipping");
+            // Log without sum to avoid emitting financial amounts into traces.
+            crate::obs::job_rule_skip(&rule_id, "UNBALANCED_PAYLOAD");
+            crate::metrics::record_job_rule_skip("UNBALANCED_PAYLOAD");
             sqlx::query(
                 "UPDATE recurring_rules SET next_run_at = next_run_at + interval '1 month'
                  WHERE id=$1",
@@ -241,7 +259,8 @@ async fn generate_due_recurring(pool: &PgPool) -> anyhow::Result<()> {
         .execute(&mut *db)
         .await?;
         db.commit().await?;
-        tracing::info!(%rule_id, %tx_id, %book_id, "recurring transaction generated");
+        crate::obs::job_recurring_generated(&rule_id, &tx_id, &book_id);
+        crate::metrics::record_job_recurring_generated();
     }
     Ok(())
 }

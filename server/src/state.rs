@@ -15,6 +15,8 @@ pub struct AppState {
     pub store: Arc<RwLock<MemoryStore>>,
     pub memory_sync_lock: Arc<Mutex<()>>,
     pub pool: Option<PgPool>,
+    /// Handle to the Prometheus metrics recorder, set at startup.
+    pub metrics_handle: Option<crate::metrics::MetricsHandle>,
 }
 
 #[derive(Default)]
@@ -303,6 +305,7 @@ impl AppState {
             store: Arc::new(RwLock::new(MemoryStore::default())),
             memory_sync_lock: Arc::new(Mutex::new(())),
             pool: None,
+            metrics_handle: None,
         }
     }
 
@@ -313,6 +316,7 @@ impl AppState {
             store: Arc::new(RwLock::new(MemoryStore::default())),
             memory_sync_lock: Arc::new(Mutex::new(())),
             pool,
+            metrics_handle: None,
         })
     }
 

@@ -191,6 +191,10 @@ async fn push(
     Path(book_id): Path<String>,
     Json(req): Json<SyncPushRequest>,
 ) -> Result<Json<SyncPushResponse>, ApiError> {
+    let span = crate::obs::sync_push_span(&book_id, &req.device_id, req.mutations.len());
+    let _guard = span.enter();
+    crate::metrics::record_sync_push("received");
+
     require_book_member(&state, &auth.user_id, &book_id).await?;
     let mut receipts = Vec::new();
     for mutation in req.mutations {
@@ -266,6 +270,10 @@ async fn push(
         }
         receipts.push(receipt);
     }
+    let applied_count = receipts.iter().filter(|r| r.status == "applied").count();
+    let rejected_count = receipts.len() - applied_count;
+    span.record("applied_count", applied_count);
+    span.record("rejected_count", rejected_count);
     Ok(Json(SyncPushResponse { receipts }))
 }
 
@@ -949,7 +957,7 @@ fn db_error_receipt(mutation: &ledger_contracts::SyncMutationDto) -> MutationRec
 }
 
 /// Returns true when this mutation targets an auto-ledger transaction that
-/// carries a fingerprint payload — the only scenario in which surfacing a
+/// carries a fingerprint payload ? the only scenario in which surfacing a
 /// unique-violation as `AUTO_LEDGER_DEDUPED` is semantically correct.
 fn is_auto_ledger_fingerprint(mutation: &ledger_contracts::SyncMutationDto) -> bool {
     if mutation.entity_type != "transaction" {
@@ -981,7 +989,7 @@ fn classify_sync_db_error(error: &sqlx::Error) -> SyncDbErrorKind {
 #[derive(Debug)]
 enum SyncDbErrorKind {
     /// A unique constraint fired.  It may or may not be the auto-ledger
-    /// fingerprint index — confirmation is done at the call site via
+    /// fingerprint index ??confirmation is done at the call site via
     /// `is_auto_ledger_fingerprint` so we don't mislabel collisions on
     /// other tables (e.g. device_sessions) as dedup events.
     AutoLedgerDuplicate,
@@ -1306,9 +1314,13 @@ async fn pull(
     Path(book_id): Path<String>,
     Query(q): Query<PullQuery>,
 ) -> Result<Json<SyncPullResponse>, ApiError> {
-    require_book_member(&state, &auth.user_id, &book_id).await?;
     let cursor = q.cursor.unwrap_or(0);
     let limit = q.limit.unwrap_or(500).min(1000);
+    let span = crate::obs::sync_pull_span(&book_id, cursor, limit);
+    let _guard = span.enter();
+    crate::metrics::record_sync_pull("received");
+
+    require_book_member(&state, &auth.user_id, &book_id).await?;
 
     if let Some(pool) = &state.pool {
         let rows: Vec<PullChangeRow> = sqlx::query_as(
@@ -1387,6 +1399,8 @@ async fn pull(
         .fetch_one(pool)
         .await
         .map_err(db_err)?;
+        span.record("changes_returned", page.len());
+        span.record("has_more", has_more.0 > 0);
         return Ok(Json(SyncPullResponse {
             next_cursor: next_cursor.to_string(),
             has_more: has_more.0 > 0,
@@ -1423,6 +1437,8 @@ async fn pull(
         .iter()
         .any(|c| c.book_id == book_id && c.sequence > next_cursor);
 
+    span.record("changes_returned", page.len());
+    span.record("has_more", has_more);
     Ok(Json(SyncPullResponse {
         next_cursor: next_cursor.to_string(),
         has_more,
@@ -1462,6 +1478,10 @@ async fn bootstrap(
     auth: AuthUser,
     Path(book_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
+    let span = crate::obs::sync_bootstrap_span(&book_id);
+    let _guard = span.enter();
+    crate::metrics::record_sync_pull("received");
+
     require_book_member(&state, &auth.user_id, &book_id).await?;
     if let Some(pool) = &state.pool {
         let exists: Option<(String,)> = sqlx::query_as("SELECT id FROM books WHERE id=$1")
@@ -1523,6 +1543,10 @@ async fn bootstrap(
                 })).collect::<Vec<_>>(),
             }));
         }
+        let account_count = accounts.len();
+        let tx_count = out.len();
+        span.record("account_count", account_count);
+        span.record("tx_count", tx_count);
         return Ok(Json(serde_json::json!({
             "bootstrapId": Uuid::now_v7().to_string(),
             "highWaterCursor": high.0.to_string(),
@@ -1574,6 +1598,8 @@ async fn bootstrap(
             })
         })
         .collect::<Vec<_>>();
+    span.record("account_count", accounts.len());
+    span.record("tx_count", txs.len());
     Ok(Json(serde_json::json!({
         "bootstrapId": Uuid::now_v7().to_string(),
         "highWaterCursor": high_water.to_string(),
@@ -2337,7 +2363,7 @@ mod tests {
         assert_eq!(first_receipt.entity_version, Some(1));
 
         // Second device's entity_id is different (UUID collision is astronomically
-        // unlikely) — fingerprint dedup must find the existing tx by scanning.
+        // unlikely) ??fingerprint dedup must find the existing tx by scanning.
         let mut second = transaction_mutation(json!({
             "description": "WeChat 1.00",
             "source": "auto_ledger",
@@ -2385,7 +2411,7 @@ mod tests {
             {"accountId": "book-1:cash", "amountMinor": "-100", "currency": "CNY"}
         ]);
 
-        // sha256("a") and sha256("b") — both are valid 64-char hex.
+        // sha256("a") and sha256("b") ??both are valid 64-char hex.
         let fingerprint_a = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
         let fingerprint_b = "3e23e8160039594a33894f6564e1b1348bbd7a0088d42c4acb73eeaed59c009d";
 
@@ -2400,7 +2426,7 @@ mod tests {
         let first_receipt = process_mutation_mem(&state, "book-1", &first).await;
         assert_eq!(first_receipt.status, "applied");
 
-        // Different fingerprint → second transaction is created (no dedup).
+        // Different fingerprint ??second transaction is created (no dedup).
         let mut second = transaction_mutation(json!({
             "source": "auto_ledger",
             "sourceEventFingerprint": fingerprint_b,
@@ -2442,7 +2468,7 @@ mod tests {
             {"accountId": "book-1:cash", "amountMinor": "-100", "currency": "CNY"}
         ]);
 
-        // Same fingerprint but source is "manual" — no dedup (fingerprint format: sha256("same")).
+        // Same fingerprint but source is "manual" ??no dedup (fingerprint format: sha256("same")).
         let mut first = transaction_mutation(json!({
             "source": "manual",
             "sourceEventFingerprint": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",

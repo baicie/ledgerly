@@ -2,6 +2,8 @@ pub mod bootstrap;
 pub mod config;
 pub mod error;
 pub mod infrastructure;
+pub mod metrics;
+pub mod obs;
 pub mod state;
 pub mod transport;
 

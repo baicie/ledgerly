@@ -87,6 +87,8 @@ async fn put_object(
     Query(q): Query<SignedQuery>,
     body: Bytes,
 ) -> Result<StatusCode, ApiError> {
+    let span = crate::obs::object_store_put_span(&key, body.len());
+    let _guard = span.enter();
     let method = q.method.as_deref().unwrap_or("PUT");
     if method != "PUT" || !verify(&state.config, "PUT", &key, q.expires, &q.sig) {
         return Err(ApiError::new(
@@ -119,6 +121,7 @@ async fn get_object(
     let path = disk_path(&state.config, &key)?;
     let bytes = std::fs::read(&path)
         .map_err(|_| ApiError::new(StatusCode::NOT_FOUND, "NOT_FOUND", "object missing"))?;
+    crate::obs::object_store_get_event(&key, true);
     let mut headers = HeaderMap::new();
     headers.insert(
         header::CONTENT_TYPE,
