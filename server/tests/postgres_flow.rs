@@ -953,3 +953,177 @@ async fn postgres_refresh_rotation_is_atomic_and_expires_idle_tokens() {
     .await;
     assert_eq!(expired_response.status(), StatusCode::UNAUTHORIZED);
 }
+
+/// Verifies that two devices capturing the same payment notification event
+/// (same fingerprint) result in exactly one committed transaction — the second
+/// push receives AUTO_LEDGER_DEDUPED without touching the database.
+///
+/// This is the Postgres-side counterpart to the `memory_auto_ledger_dedup_*`
+/// unit tests in `sync.rs`.  It exercises the `uq_transactions_auto_event`
+/// partial unique index which only applies when `source = 'auto_ledger' AND
+/// deleted_at IS NULL AND source_event_fingerprint IS NOT NULL`.
+#[tokio::test]
+async fn postgres_auto_ledger_dedup_same_fingerprint_rejected() {
+    let Some(url) = pg_url() else {
+        if std::env::var("REQUIRE_POSTGRES_TESTS").ok().as_deref() == Some("true") {
+            panic!("DATABASE_URL is required for PostgreSQL integration tests");
+        }
+        eprintln!(
+            "skip postgres_auto_ledger_dedup_same_fingerprint_rejected: DATABASE_URL unset"
+        );
+        return;
+    };
+
+    let mut config = Config::for_test();
+    config.database_url = Some(url);
+    migrate(&config).await.expect("migrate");
+    let state = AppState::new_async(config).await.expect("state");
+    let app = app_router(state.clone());
+
+    // Register + login to get a real book with default accounts.
+    let email = format!("auto_dedup_{}@test.com", uuid::Uuid::now_v7());
+    let register = post_json(
+        &app,
+        "/v1/auth/register",
+        json!({
+            "email": email,
+            "password": "password123",
+            "displayName": "Auto Dedup"
+        }),
+    )
+    .await;
+    assert_eq!(register.status(), StatusCode::OK);
+
+    let login = post_json(
+        &app,
+        "/v1/auth/login",
+        json!({
+            "email": email,
+            "password": "password123",
+            "deviceId": "auto-dedup-login"
+        }),
+    )
+    .await;
+    assert_eq!(login.status(), StatusCode::OK);
+    let login = json_body(login).await;
+    let token = login["accessToken"].as_str().unwrap().to_string();
+    let book_id = login["bookId"].as_str().unwrap().to_string();
+    let food = format!("{book_id}:acc_food");
+    let cash = format!("{book_id}:acc_cash");
+
+    // Canonical SHA-256 of "test" — matches `memory_auto_ledger_dedup_*` in sync.rs.
+    let fingerprint = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
+    let occurred_at = "2025-01-15T12:00:00+08:00";
+
+    let auto_mutation = |device_id: &str, entity_id: &str| {
+        json!({
+            "deviceId": device_id,
+            "mutations": [{
+                "mutationId": format!("mut_{}", uuid::Uuid::now_v7()),
+                "entityType": "transaction",
+                "entityId": entity_id,
+                "operation": "create",
+                "baseVersion": 0,
+                "schemaVersion": 1,
+                "payload": {
+                    "description": "WeChat 1.00",
+                    "source": "auto_ledger",
+                    "sourceEventFingerprint": fingerprint,
+                    "occurredAt": occurred_at,
+                    "entries": [
+                        {"accountId": food, "amountMinor": "100", "currency": "CNY"},
+                        {"accountId": cash, "amountMinor": "-100", "currency": "CNY"}
+                    ]
+                }
+            }]
+        })
+    };
+
+    let request = |body: serde_json::Value| {
+        app.clone().oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/v1/books/{book_id}/sync/push"))
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+    };
+
+    // Both devices capture the same event simultaneously; entity IDs differ
+    // but the fingerprint is identical.  The partial unique index ensures only
+    // one row is written.
+    let first_entity_id = format!("tx_auto_{}", uuid::Uuid::now_v7().simple());
+    let second_entity_id = format!("tx_auto_{}", uuid::Uuid::now_v7().simple());
+
+    let (res_first, res_second) = tokio::join!(
+        request(auto_mutation("dev-auto-1", &first_entity_id)),
+        request(auto_mutation("dev-auto-2", &second_entity_id)),
+    );
+
+    let first = json_body(res_first.unwrap()).await;
+    let second = json_body(res_second.unwrap()).await;
+
+    let first_status = first["receipts"][0]["status"].as_str().unwrap();
+    let second_status = second["receipts"][0]["status"].as_str().unwrap();
+
+    // Exactly one applied, one rejected.
+    assert_eq!(
+        [first_status, second_status]
+            .iter()
+            .filter(|s| **s == "applied")
+            .count(),
+        1,
+        "expected exactly one applied receipt"
+    );
+    assert_eq!(
+        [first_status, second_status]
+            .iter()
+            .filter(|s| **s == "rejected")
+            .count(),
+        1,
+        "expected exactly one rejected receipt"
+    );
+
+    // The rejected receipt carries AUTO_LEDGER_DEDUPED.
+    let (deduped_receipt, _applied_receipt) = if first_status == "rejected" {
+        (&first["receipts"][0], &second["receipts"][0])
+    } else {
+        (&second["receipts"][0], &first["receipts"][0])
+    };
+    assert_eq!(
+        deduped_receipt["resultCode"].as_str().unwrap(),
+        "AUTO_LEDGER_DEDUPED",
+        "rejected receipt should carry AUTO_LEDGER_DEDUPED resultCode"
+    );
+    assert_eq!(
+        deduped_receipt["entityVersion"].as_i64().unwrap(),
+        1,
+        "deduped receipt should report entityVersion 1"
+    );
+
+    // Confirm exactly one transaction row exists in the database with the
+    // matching fingerprint and source.
+    let pool = state.pool.as_ref().expect("using postgres");
+    let count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM transactions WHERE book_id=$1 AND source_event_fingerprint=$2 AND deleted_at IS NULL")
+            .bind(&book_id)
+            .bind(fingerprint)
+            .fetch_one(pool)
+            .await
+            .expect("count auto-ledger transactions by fingerprint");
+    assert_eq!(count, 1, "exactly one committed transaction should exist for this fingerprint");
+
+    // Also verify source and fingerprint columns on the persisted row.
+    let row: (String, String) = sqlx::query_as(
+        "SELECT source, source_event_fingerprint FROM transactions
+         WHERE book_id=$1 AND deleted_at IS NULL",
+    )
+    .bind(&book_id)
+    .fetch_one(pool)
+    .await
+    .expect("read source columns");
+    assert_eq!(row.0, "auto_ledger");
+    assert_eq!(row.1, fingerprint);
+}
