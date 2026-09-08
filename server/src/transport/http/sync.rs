@@ -972,10 +972,7 @@ fn classify_sync_db_error(error: &sqlx::Error) -> SyncDbErrorKind {
     // Postgres unique_violation = SQLSTATE 23505.  We inspect the formatted
     // SQLSTATE rather than reaching into sqlx's private enum surface (which
     // differs across 0.7 / 0.8 feature permutations).
-    if !db_error
-        .code()
-        .is_some_and(|code| code.contains("23505"))
-    {
+    if !db_error.code().is_some_and(|code| code.contains("23505")) {
         return SyncDbErrorKind::Other;
     }
     SyncDbErrorKind::AutoLedgerDuplicate
