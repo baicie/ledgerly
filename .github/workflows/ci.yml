@@ -172,3 +172,43 @@ jobs:
       - name: Live sync test
         run: flutter test test/live_sync_test.dart
         working-directory: apps/client
+
+  integration:
+    name: Integration tests (Flutter web / Chrome)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: Resolve workspace
+        run: dart pub get
+
+      - name: Enable web & build assets
+        run: |
+          flutter config --enable-web
+          flutter build web --release
+        working-directory: apps/client
+
+      - name: Run integration tests on Chrome
+        # flutter_driver is no longer required; integration_test boots a real
+        # Flutter web engine against the built app.
+        run: flutter test -d chrome integration_test
+        working-directory: apps/client
+
+      - name: Upload web coverage report (optional)
+        if: always()
+        uses: actions/upload-artifact@v8
+        with:
+          name: integration-web-logs
+          path: |
+            apps/client/build/web
+          if-no-files-found: ignore
