@@ -1433,6 +1433,7 @@ async fn bootstrap(
         .fetch_one(pool)
         .await
         .map_err(db_err)?;
+        #[allow(clippy::type_complexity)]
         let txs: Vec<(String, i64, Option<String>, OffsetDateTime, Option<String>)> =
             sqlx::query_as(
                 "SELECT id, version, description, occurred_at, source
@@ -1442,6 +1443,7 @@ async fn bootstrap(
             .fetch_all(pool)
             .await
             .map_err(db_err)?;
+        #[allow(clippy::type_complexity)]
         let accounts: Vec<(String, i64, String, String, String, Option<String>)> = sqlx::query_as(
             "SELECT id, version, name, account_type, currency_code, parent_account_id
              FROM accounts WHERE book_id=$1 ORDER BY id",
