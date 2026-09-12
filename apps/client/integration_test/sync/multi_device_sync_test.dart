@@ -12,6 +12,8 @@
 //   5. B cold-start with seeded server              → bootstrap path
 //   6. Replay same mutationId                       → idempotency
 //   7. Multiple round trips                         → cursor monotonic
+//   8. Push transient failure                       → retry + recovery
+//   9. Pull drops the latest change                 → cursor doesn't skip
 //
 // No production code is modified by these tests. The SyncService
 // keeps its real (LedgerRepository, SyncApi, AuthGateway) signature;
@@ -485,6 +487,154 @@ void main() {
     expect(serverSequences, 3);
     expect(observed.last, serverSequences);
     expect(bObserved.last, serverSequences);
+  });
+
+  // -----------------------------------------------------------------
+  // Scenario 8: Push transient failure -> retry -> recovery
+  // -----------------------------------------------------------------
+  test('sync #8: when push throws, syncNow reports failure, keeps the '
+      'pending queue, and the next syncNow drains it', () async {
+    final harness = await _bootHarness();
+    addTearDown(harness.close);
+
+    final a = harness.deviceA;
+
+    await a.appService.createExpense(
+      expenseAccountId: accountKeyFood(defaultBookId),
+      fundingAccountId: accountKeyBank(defaultBookId),
+      amountMinor: BigInt.from(700),
+      description: 'transient-fail',
+      occurredAt: DateTime.utc(2026, 9, 12, 15),
+    );
+
+    // One pending row queued, not yet drained.
+    final prePending = await a.repository.listPending(defaultBookId);
+    expect(prePending, hasLength(1));
+
+    // Inject a one-shot push failure on the fake server. Mirrors a
+    // transient HTTP 500 / network reset that the SyncService should
+    // surface to the caller while keeping the mutation queued.
+    harness.server.failNextPush('injected push failure');
+
+    final failed = await a.syncService.syncNow();
+    expect(failed.ok, isFalse,
+        reason: 'syncNow must surface the failure to its caller');
+    expect(failed.message, contains('injected push failure'));
+    expect(failed.pendingCount, 1,
+        reason: 'pending queue must survive a transient push failure');
+
+    // sync_states.last_error is captured for the sync center UI to
+    // show the user.
+    final stateAfterFail = await a.repository.syncState(defaultBookId);
+    expect(stateAfterFail?.lastError, isNotNull);
+    expect(stateAfterFail!.lastError, contains('injected push failure'));
+    expect(stateAfterFail.cursor, 0,
+        reason: 'no pull succeeded yet, cursor must stay at 0');
+    expect(harness.server.transactionsSnapshot, isEmpty,
+        reason: 'failed push must not have applied server-side');
+
+    // Failure injection is one-shot: retry without re-injecting.
+    final recovered = await a.syncService.syncNow();
+    expect(recovered.ok, isTrue, reason: recovered.message);
+    expect(recovered.pendingCount, 0,
+        reason: 'recovered sync must drain the queue');
+    expect(harness.server.transactionsSnapshot, hasLength(1));
+    expect(harness.server.transactionsSnapshot.single.description,
+        'transient-fail');
+
+    // last_error is cleared on a successful run.
+    final stateAfterRecover =
+        await a.repository.syncState(defaultBookId);
+    expect(stateAfterRecover?.lastError, isNull);
+    expect(stateAfterRecover!.cursor, greaterThan(0),
+        reason: 'successful pull advances the local cursor');
+  });
+
+  // -----------------------------------------------------------------
+  // Scenario 9: Pull drops a change -> cursor doesn't skip past it
+  // -----------------------------------------------------------------
+  test('sync #9: when pull drops the latest change, the cursor stops '
+      'at the last successfully received sequence and the next pull '
+      'fills the gap', () async {
+    final harness = await _bootHarness();
+    addTearDown(harness.close);
+
+    final a = harness.deviceA;
+    final b = harness.deviceB;
+
+    // A creates and pushes two transactions. B pulls both, cursor=2.
+    for (var i = 0; i < 2; i++) {
+      await a.appService.createExpense(
+        expenseAccountId: accountKeyFood(defaultBookId),
+        fundingAccountId: accountKeyBank(defaultBookId),
+        amountMinor: BigInt.from(100 * (i + 1)),
+        description: 'phase1-$i',
+        occurredAt: DateTime.utc(2026, 9, 12, 16, i),
+      );
+    }
+    expect((await a.syncService.syncNow()).ok, isTrue);
+    final firstPull = await b.syncService.syncNow();
+    expect(firstPull.ok, isTrue);
+    expect(firstPull.cursor, 2);
+    final bSummaries0 =
+        await b.repository.watchSummariesSync(defaultBookId);
+    expect(bSummaries0, hasLength(2));
+
+    // A creates a third transaction and pushes it. Server now has
+    // three changes; B's local cursor is still 2.
+    await a.appService.createExpense(
+      expenseAccountId: accountKeyFood(defaultBookId),
+      fundingAccountId: accountKeyBank(defaultBookId),
+      amountMinor: BigInt.from(300),
+      description: 'phase2-dropped',
+      occurredAt: DateTime.utc(2026, 9, 12, 17),
+    );
+    expect((await a.syncService.syncNow()).ok, isTrue);
+
+    // Inject a one-shot pull drop. B's next pull should receive only
+    // the first two transactions (which B already has) and the cursor
+    // must NOT advance past them. Without the fake-server fix, the
+    // cursor would skip to sequence 3 and the dropped change would be
+    // permanently lost.
+    harness.server.dropNextChange();
+
+    final droppedPull = await b.syncService.syncNow();
+    expect(droppedPull.ok, isTrue, reason: droppedPull.message);
+    // The change log has three transaction rows; dropNextChange
+    // consumes the freshest one, so B receives nothing new but the
+    // server cursor doesn't jump over the missing entry.
+    expect(droppedPull.cursor, 2,
+        reason: 'cursor must stop at the last *delivered* sequence');
+    final bSummaries1 =
+        await b.repository.watchSummariesSync(defaultBookId);
+    expect(bSummaries1, hasLength(2),
+        reason: 'B must not gain the dropped transaction yet');
+    expect(
+      bSummaries1.map((s) => s.description).toSet(),
+      equals({'phase1-0', 'phase1-1'}),
+    );
+
+    // dropNextChange is one-shot. The next pull must deliver the
+    // missing transaction and bring the cursor to the server's tail.
+    final caughtUp = await b.syncService.syncNow();
+    expect(caughtUp.ok, isTrue);
+    expect(caughtUp.cursor, 3,
+        reason: 'next pull fills the gap and advances the cursor');
+    final bSummaries2 =
+        await b.repository.watchSummariesSync(defaultBookId);
+    expect(bSummaries2, hasLength(3));
+    expect(
+      bSummaries2.map((s) => s.description).toSet(),
+      equals({'phase1-0', 'phase1-1', 'phase2-dropped'}),
+    );
+
+    // The change log must still contain all three entries; dropping
+    // only affected *delivery* to the client, not server state.
+    final serverTransactions =
+        harness.server.changeLogSnapshot
+            .where((c) => c.entityType == 'transaction')
+            .length;
+    expect(serverTransactions, 3);
   });
 }
 

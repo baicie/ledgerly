@@ -174,8 +174,13 @@ class FakeSyncServer {
     final pageChanges = failure.dropChange && page.isNotEmpty
         ? page.sublist(0, page.length - 1)
         : page;
+    // The cursor returned to the client must reflect what was actually
+    // returned, not the original page. Otherwise `dropNextChange`
+    // would let the cursor skip over the dropped change, and the
+    // client would never ask for it again. Fix this so the next pull
+    // can re-deliver the missing entry.
     final nextSequence =
-        page.isEmpty ? effectiveCursor : page.last.sequence;
+        pageChanges.isEmpty ? effectiveCursor : pageChanges.last.sequence;
     return {
       'changes': pageChanges
           .map((c) => c.toJson(_bookId))
