@@ -395,7 +395,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get reportsBaseCurrency => 'Base';
 
   @override
-  String reportsUpdatedAgo(String time) => 'Updated $time ago';
+  String reportsUpdatedAgo(Object time) {
+    return 'Updated $time ago';
+  }
 
   @override
   String get reportsUpdatedJustNow => 'Updated just now';
@@ -455,7 +457,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiInsightPeriodMonth => 'This month';
 
   @override
-  String reportsAllCategories(int count) => 'All categories ($count)';
+  String reportsAllCategories(Object count) {
+    return 'All categories ($count)';
+  }
 
   @override
   String get reportsNoCategories => 'No matching categories.';
@@ -497,15 +501,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get reportsRangeEnd => 'End';
 
   @override
-  String get commonCancel => 'Cancel';
-
-  @override
-  String get commonConfirm => 'Confirm';
-
-  @override
-  String get commonRetry => 'Retry';
-
-  @override
   String get reportsExport => 'Export & Share';
 
   @override
@@ -525,6 +520,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get reportsTrendJumpToMonth => 'Go to this month';
+
+  @override
+  String get commonCancel => 'Cancel';
+
+  @override
+  String get commonConfirm => 'Confirm';
+
+  @override
+  String get commonRetry => 'Retry';
 
   @override
   String get localShort => 'Local';
@@ -876,10 +880,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncPendingLabel => 'Pending changes';
 
   @override
-  String syncPendingCount(int count) {
-    if (count == 0) return 'Nothing pending';
-    if (count == 1) return '1 change pending';
-    return '$count changes pending';
+  String syncPendingCount(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count changes pending',
+      one: '1 change pending',
+      zero: 'Nothing pending',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -906,7 +915,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get conflictResolved => 'Conflict resolved';
 
   @override
-  String conflictRemoteVersion(String version) => 'Remote version $version';
+  String conflictRemoteVersion(Object version) {
+    return 'Remote version $version';
+  }
 
   @override
   String get exportCsv => 'Export CSV';

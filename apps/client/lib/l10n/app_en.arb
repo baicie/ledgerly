@@ -472,7 +472,7 @@
   "syncPendingCount": "{count, plural, =0{Nothing pending} =1{1 change pending} other{{count} changes pending}}",
   "@syncPendingCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {"type": "num"}
     }
   },
   "syncLastError": "Last error",
@@ -485,7 +485,7 @@
   "conflictRemoteVersion": "Remote version {version}",
   "@conflictRemoteVersion": {
     "placeholders": {
-      "version": {"type": "String"}
+      "version": {"type": "Object"}
     }
   },
   "exportCsv": "Export CSV",

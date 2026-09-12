@@ -394,7 +394,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get reportsBaseCurrency => '基础货币';
 
   @override
-  String reportsUpdatedAgo(String time) => '$time前更新';
+  String reportsUpdatedAgo(Object time) {
+    return '$time前更新';
+  }
 
   @override
   String get reportsUpdatedJustNow => '刚刚更新';
@@ -451,7 +453,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiInsightPeriodMonth => '本月';
 
   @override
-  String reportsAllCategories(int count) => '全部类别（$count）';
+  String reportsAllCategories(Object count) {
+    return '全部类别（$count）';
+  }
 
   @override
   String get reportsNoCategories => '没有匹配的类别。';
@@ -493,15 +497,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get reportsRangeEnd => '结束';
 
   @override
-  String get commonCancel => '取消';
-
-  @override
-  String get commonConfirm => '确认';
-
-  @override
-  String get commonRetry => '重试';
-
-  @override
   String get reportsExport => '导出与分享';
 
   @override
@@ -521,6 +516,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get reportsTrendJumpToMonth => '跳转到该月';
+
+  @override
+  String get commonCancel => '取消';
+
+  @override
+  String get commonConfirm => '确认';
+
+  @override
+  String get commonRetry => '重试';
 
   @override
   String get localShort => '本地';
@@ -859,10 +863,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get syncPendingLabel => '待上传变更';
 
   @override
-  String syncPendingCount(int count) {
-    if (count == 0) return '无待上传';
-    if (count == 1) return '1 项待上传';
-    return '$count 项待上传';
+  String syncPendingCount(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 项待上传',
+      one: '1 项待上传',
+      zero: '无待上传',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -887,7 +896,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get conflictResolved => '冲突已处理';
 
   @override
-  String conflictRemoteVersion(String version) => '云端版本 $version';
+  String conflictRemoteVersion(Object version) {
+    return '云端版本 $version';
+  }
 
   @override
   String get exportCsv => '导出 CSV';

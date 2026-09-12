@@ -730,357 +730,357 @@ abstract class AppLocalizations {
 
   /// No description provided for @reportsSummarySection.
   ///
-  /// In en, this message translates to:
-  /// **'This month'**
+  /// In zh, this message translates to:
+  /// **'本月概览'**
   String get reportsSummarySection;
 
   /// No description provided for @reportsTrendSection.
   ///
-  /// In en, this message translates to:
-  /// **'Last 6 months'**
+  /// In zh, this message translates to:
+  /// **'近 6 个月趋势'**
   String get reportsTrendSection;
 
   /// No description provided for @reportsBudgetSection.
   ///
-  /// In en, this message translates to:
-  /// **'Budgets'**
+  /// In zh, this message translates to:
+  /// **'预算'**
   String get reportsBudgetSection;
 
   /// No description provided for @reportsBudgetEmptyTitle.
   ///
-  /// In en, this message translates to:
-  /// **'No budgets for this period'**
+  /// In zh, this message translates to:
+  /// **'该周期暂无预算'**
   String get reportsBudgetEmptyTitle;
 
   /// No description provided for @reportsBudgetEmptyAction.
   ///
-  /// In en, this message translates to:
-  /// **'Set a budget'**
+  /// In zh, this message translates to:
+  /// **'去设置预算'**
   String get reportsBudgetEmptyAction;
 
   /// No description provided for @reportsHeroIncome.
   ///
-  /// In en, this message translates to:
-  /// **'Income'**
+  /// In zh, this message translates to:
+  /// **'入账'**
   String get reportsHeroIncome;
 
   /// No description provided for @reportsHeroExpense.
   ///
-  /// In en, this message translates to:
-  /// **'Expense'**
+  /// In zh, this message translates to:
+  /// **'支出'**
   String get reportsHeroExpense;
 
   /// No description provided for @reportsHeroNet.
   ///
-  /// In en, this message translates to:
-  /// **'Net'**
+  /// In zh, this message translates to:
+  /// **'结余'**
   String get reportsHeroNet;
 
   /// No description provided for @reportsHeroBudgetLeft.
   ///
-  /// In en, this message translates to:
-  /// **'Budget left'**
+  /// In zh, this message translates to:
+  /// **'预算剩'**
   String get reportsHeroBudgetLeft;
 
   /// No description provided for @reportsHeroBudgetUnset.
   ///
-  /// In en, this message translates to:
-  /// **'Not set'**
+  /// In zh, this message translates to:
+  /// **'未设置'**
   String get reportsHeroBudgetUnset;
 
   /// No description provided for @budgetCreated.
   ///
-  /// In en, this message translates to:
-  /// **'Budget created'**
+  /// In zh, this message translates to:
+  /// **'已添加预算'**
   String get budgetCreated;
 
   /// No description provided for @budgetDeleted.
   ///
-  /// In en, this message translates to:
-  /// **'Budget deleted'**
+  /// In zh, this message translates to:
+  /// **'已删除预算'**
   String get budgetDeleted;
 
   /// No description provided for @reportsIncome.
   ///
-  /// In en, this message translates to:
-  /// **'Income'**
+  /// In zh, this message translates to:
+  /// **'收入'**
   String get reportsIncome;
 
   /// No description provided for @reportsExpense.
   ///
-  /// In en, this message translates to:
-  /// **'Expense'**
+  /// In zh, this message translates to:
+  /// **'支出'**
   String get reportsExpense;
 
   /// No description provided for @reportsNet.
   ///
-  /// In en, this message translates to:
-  /// **'Net'**
+  /// In zh, this message translates to:
+  /// **'净额'**
   String get reportsNet;
 
   /// No description provided for @reportsBaseCurrency.
   ///
-  /// In en, this message translates to:
-  /// **'Base'**
+  /// In zh, this message translates to:
+  /// **'基础货币'**
   String get reportsBaseCurrency;
 
   /// No description provided for @reportsUpdatedAgo.
   ///
-  /// In en, this message translates to:
-  /// **'Updated {time} ago'**
-  String reportsUpdatedAgo(String time);
+  /// In zh, this message translates to:
+  /// **'{time}前更新'**
+  String reportsUpdatedAgo(Object time);
 
   /// No description provided for @reportsUpdatedJustNow.
   ///
-  /// In en, this message translates to:
-  /// **'Updated just now'**
+  /// In zh, this message translates to:
+  /// **'刚刚更新'**
   String get reportsUpdatedJustNow;
 
   /// No description provided for @reportsCategories.
   ///
-  /// In en, this message translates to:
-  /// **'Top categories'**
+  /// In zh, this message translates to:
+  /// **'主要分类'**
   String get reportsCategories;
 
   /// No description provided for @reportsNoBudgets.
   ///
-  /// In en, this message translates to:
-  /// **'No budgets configured yet.'**
+  /// In zh, this message translates to:
+  /// **'尚未配置预算。'**
   String get reportsNoBudgets;
 
   /// No description provided for @reportsPrevMonth.
   ///
-  /// In en, this message translates to:
-  /// **'Previous month'**
+  /// In zh, this message translates to:
+  /// **'上一月'**
   String get reportsPrevMonth;
 
   /// No description provided for @reportsNextMonth.
   ///
-  /// In en, this message translates to:
-  /// **'Next month'**
+  /// In zh, this message translates to:
+  /// **'下一月'**
   String get reportsNextMonth;
 
   /// No description provided for @reportsRefresh.
   ///
-  /// In en, this message translates to:
-  /// **'Refresh'**
+  /// In zh, this message translates to:
+  /// **'刷新'**
   String get reportsRefresh;
 
   /// No description provided for @aiInsightCardTitle.
   ///
-  /// In en, this message translates to:
-  /// **'AI summary'**
+  /// In zh, this message translates to:
+  /// **'AI 总结'**
   String get aiInsightCardTitle;
 
   /// No description provided for @aiInsightHighlights.
   ///
-  /// In en, this message translates to:
-  /// **'Highlights'**
+  /// In zh, this message translates to:
+  /// **'重点'**
   String get aiInsightHighlights;
 
   /// No description provided for @aiInsightAdvice.
   ///
-  /// In en, this message translates to:
-  /// **'Suggestions'**
+  /// In zh, this message translates to:
+  /// **'建议'**
   String get aiInsightAdvice;
 
   /// No description provided for @aiInsightRegenerate.
   ///
-  /// In en, this message translates to:
-  /// **'Regenerate'**
+  /// In zh, this message translates to:
+  /// **'重新生成'**
   String get aiInsightRegenerate;
 
   /// No description provided for @aiInsightStale.
   ///
-  /// In en, this message translates to:
-  /// **'Stale — regenerate'**
+  /// In zh, this message translates to:
+  /// **'数据已变更 — 请重新生成'**
   String get aiInsightStale;
 
   /// No description provided for @aiInsightUnconfigured.
   ///
-  /// In en, this message translates to:
-  /// **'Connect an AI provider to see a monthly summary.'**
+  /// In zh, this message translates to:
+  /// **'接入 AI 服务即可生成本月洞察。'**
   String get aiInsightUnconfigured;
 
   /// No description provided for @aiInsightUnconfiguredDesc.
   ///
-  /// In en, this message translates to:
-  /// **'We\'ll analyze your income, expenses, and categories each month.'**
+  /// In zh, this message translates to:
+  /// **'我们将按月分析你的收入、支出和分类情况。'**
   String get aiInsightUnconfiguredDesc;
 
   /// No description provided for @aiInsightConfigure.
   ///
-  /// In en, this message translates to:
-  /// **'Configure AI'**
+  /// In zh, this message translates to:
+  /// **'去配置'**
   String get aiInsightConfigure;
 
   /// No description provided for @aiInsightEmpty.
   ///
-  /// In en, this message translates to:
-  /// **'Nothing to summarize yet.'**
+  /// In zh, this message translates to:
+  /// **'暂无可总结的内容。'**
   String get aiInsightEmpty;
 
   /// No description provided for @aiInsightEmptyDesc.
   ///
-  /// In en, this message translates to:
-  /// **'Once you log a few transactions this month, your summary will appear here.'**
+  /// In zh, this message translates to:
+  /// **'本月记几笔交易后，摘要会显示在这里。'**
   String get aiInsightEmptyDesc;
 
   /// No description provided for @aiInsightPeriodMenu.
   ///
-  /// In en, this message translates to:
-  /// **'Period'**
+  /// In zh, this message translates to:
+  /// **'周期'**
   String get aiInsightPeriodMenu;
 
   /// No description provided for @aiInsightPeriodMonth.
   ///
-  /// In en, this message translates to:
-  /// **'This month'**
+  /// In zh, this message translates to:
+  /// **'本月'**
   String get aiInsightPeriodMonth;
 
   /// No description provided for @reportsAllCategories.
   ///
-  /// In en, this message translates to:
-  /// **'All categories ({count})'**
-  String reportsAllCategories(int count);
+  /// In zh, this message translates to:
+  /// **'全部类别（{count}）'**
+  String reportsAllCategories(Object count);
 
   /// No description provided for @reportsNoCategories.
   ///
-  /// In en, this message translates to:
-  /// **'No matching categories.'**
+  /// In zh, this message translates to:
+  /// **'没有匹配的类别。'**
   String get reportsNoCategories;
 
   /// No description provided for @reportsSearchHint.
   ///
-  /// In en, this message translates to:
-  /// **'Search categories'**
+  /// In zh, this message translates to:
+  /// **'搜索类别'**
   String get reportsSearchHint;
 
   /// No description provided for @reportsRangeTitle.
   ///
-  /// In en, this message translates to:
-  /// **'Time range'**
+  /// In zh, this message translates to:
+  /// **'时间范围'**
   String get reportsRangeTitle;
 
   /// No description provided for @reportsRangeMonth.
   ///
-  /// In en, this message translates to:
-  /// **'This month'**
+  /// In zh, this message translates to:
+  /// **'本月'**
   String get reportsRangeMonth;
 
   /// No description provided for @reportsRangeLast3.
   ///
-  /// In en, this message translates to:
-  /// **'Last 3 months'**
+  /// In zh, this message translates to:
+  /// **'最近 3 个月'**
   String get reportsRangeLast3;
 
   /// No description provided for @reportsRangeLast6.
   ///
-  /// In en, this message translates to:
-  /// **'Last 6 months'**
+  /// In zh, this message translates to:
+  /// **'最近 6 个月'**
   String get reportsRangeLast6;
 
   /// No description provided for @reportsRangeLast7.
   ///
-  /// In en, this message translates to:
-  /// **'Last 7 days'**
+  /// In zh, this message translates to:
+  /// **'最近 7 天'**
   String get reportsRangeLast7;
 
   /// No description provided for @reportsRangeLast30.
   ///
-  /// In en, this message translates to:
-  /// **'Last 30 days'**
+  /// In zh, this message translates to:
+  /// **'最近 30 天'**
   String get reportsRangeLast30;
 
   /// No description provided for @reportsRangeLast90.
   ///
-  /// In en, this message translates to:
-  /// **'Last 90 days'**
+  /// In zh, this message translates to:
+  /// **'最近 90 天'**
   String get reportsRangeLast90;
 
   /// No description provided for @reportsRangeYear.
   ///
-  /// In en, this message translates to:
-  /// **'This year'**
+  /// In zh, this message translates to:
+  /// **'今年'**
   String get reportsRangeYear;
 
   /// No description provided for @reportsRangeCustom.
   ///
-  /// In en, this message translates to:
-  /// **'Custom range'**
+  /// In zh, this message translates to:
+  /// **'自定义范围'**
   String get reportsRangeCustom;
 
   /// No description provided for @reportsRangeStart.
   ///
-  /// In en, this message translates to:
-  /// **'Start'**
+  /// In zh, this message translates to:
+  /// **'起始'**
   String get reportsRangeStart;
 
   /// No description provided for @reportsRangeEnd.
   ///
-  /// In en, this message translates to:
-  /// **'End'**
+  /// In zh, this message translates to:
+  /// **'结束'**
   String get reportsRangeEnd;
-
-  /// No description provided for @commonCancel.
-  ///
-  /// In en, this message translates to:
-  /// **'Cancel'**
-  String get commonCancel;
-
-  /// No description provided for @commonConfirm.
-  ///
-  /// In en, this message translates to:
-  /// **'Confirm'**
-  String get commonConfirm;
-
-  /// No description provided for @commonRetry.
-  ///
-  /// In en, this message translates to:
-  /// **'Retry'**
-  String get commonRetry;
 
   /// No description provided for @reportsExport.
   ///
-  /// In en, this message translates to:
-  /// **'Export & Share'**
+  /// In zh, this message translates to:
+  /// **'导出与分享'**
   String get reportsExport;
 
   /// No description provided for @reportsExportCsv.
   ///
-  /// In en, this message translates to:
-  /// **'Export CSV'**
+  /// In zh, this message translates to:
+  /// **'导出 CSV'**
   String get reportsExportCsv;
 
   /// No description provided for @reportsShare.
   ///
-  /// In en, this message translates to:
-  /// **'Share Summary'**
+  /// In zh, this message translates to:
+  /// **'分享摘要'**
   String get reportsShare;
 
   /// No description provided for @reportsExportNoData.
   ///
-  /// In en, this message translates to:
-  /// **'No data to export.'**
+  /// In zh, this message translates to:
+  /// **'暂无数据可导出。'**
   String get reportsExportNoData;
 
   /// No description provided for @reportsExportCsvDone.
   ///
-  /// In en, this message translates to:
-  /// **'CSV exported successfully.'**
+  /// In zh, this message translates to:
+  /// **'CSV 导出成功。'**
   String get reportsExportCsvDone;
 
   /// No description provided for @reportsExportCsvError.
   ///
-  /// In en, this message translates to:
-  /// **'Export failed'**
+  /// In zh, this message translates to:
+  /// **'导出失败'**
   String get reportsExportCsvError;
 
   /// No description provided for @reportsTrendJumpToMonth.
   ///
-  /// In en, this message translates to:
-  /// **'Go to this month'**
+  /// In zh, this message translates to:
+  /// **'跳转到该月'**
   String get reportsTrendJumpToMonth;
+
+  /// No description provided for @commonCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
+  String get commonCancel;
+
+  /// No description provided for @commonConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认'**
+  String get commonConfirm;
+
+  /// No description provided for @commonRetry.
+  ///
+  /// In zh, this message translates to:
+  /// **'重试'**
+  String get commonRetry;
 
   /// No description provided for @localShort.
   ///
@@ -1698,7 +1698,7 @@ abstract class AppLocalizations {
   ///
   /// In zh, this message translates to:
   /// **'{count, plural, =0{无待上传} =1{1 项待上传} other{{count} 项待上传}}'**
-  String syncPendingCount(int count);
+  String syncPendingCount(num count);
 
   /// No description provided for @syncLastError.
   ///
@@ -1746,7 +1746,7 @@ abstract class AppLocalizations {
   ///
   /// In zh, this message translates to:
   /// **'云端版本 {version}'**
-  String conflictRemoteVersion(String version);
+  String conflictRemoteVersion(Object version);
 
   /// No description provided for @exportCsv.
   ///
