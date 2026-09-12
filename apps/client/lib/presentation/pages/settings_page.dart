@@ -139,6 +139,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           onLock: () => context.go('/settings/lock'),
           onAi: () => context.go('/settings/ai'),
           onAutoLedger: () => context.go('/settings/auto-ledger'),
+          onKeyboard: () => context.go('/settings/keyboard'),
           onLogout: _loggingOut || _changingEndpoint ? null : _confirmLogout,
         ),
       ),

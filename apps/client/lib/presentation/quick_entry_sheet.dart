@@ -11,6 +11,11 @@ import 'widgets/quick_entry_keypad.dart';
 
 enum QuickEntryMode { expense, income, transfer }
 
+/// Pure form for adding or editing a transaction.
+///
+/// Layout-agnostic: callers are expected to wrap this widget in either a
+/// bottom sheet (narrow screens) or a centered dialog (wide screens). See
+/// `openQuickEntry` in `quick_entry.dart`.
 class QuickEntrySheet extends ConsumerStatefulWidget {
   const QuickEntrySheet({super.key, this.transaction});
 
@@ -68,21 +73,11 @@ class _QuickEntrySheetState extends ConsumerState<QuickEntrySheet> {
   Widget build(BuildContext context) {
     final balances = ref.watch(accountBalancesProvider);
     final shortViewport = MediaQuery.sizeOf(context).height < 600;
-    return Material(
-      color: LedgerlyColors.surface,
-      clipBehavior: Clip.antiAlias,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: balances.when(
-          data: (rows) => _buildForm(rows, shortViewport: shortViewport),
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) =>
-              Center(child: Text(l10nOf(context).accountsLoadFailed('$error'))),
-        ),
-      ),
+    return balances.when(
+      data: (rows) => _buildForm(rows, shortViewport: shortViewport),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) =>
+          Center(child: Text(l10nOf(context).accountsLoadFailed('$error'))),
     );
   }
 

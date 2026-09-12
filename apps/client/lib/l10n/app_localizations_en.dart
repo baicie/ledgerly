@@ -2054,4 +2054,63 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get autoLedgerRuleDeleteBody =>
       'Future notifications that match this rule will fall back to the built-in defaults.';
+
+  @override
+  String get systemSection => 'System';
+
+  @override
+  String get keyboardShortcutsTitle => 'Keyboard shortcuts';
+
+  @override
+  String get keyboardShortcutsSubtitle =>
+      'Discover the shortcuts available across Ledgerly.';
+
+  @override
+  String get keyboardShortcutsGeneral => 'General';
+
+  @override
+  String get keyboardShortcutsBookkeeping => 'Bookkeeping';
+
+  @override
+  String get keyboardShortcutsSync => 'Sync';
+
+  @override
+  String get keyboardShortcutsOpenPalette => 'Open command palette';
+
+  @override
+  String get keyboardShortcutsOpenPaletteDescription =>
+      'Fuzzy search across all pages and actions.';
+
+  @override
+  String get keyboardShortcutsCloseDialog => 'Close dialog';
+
+  @override
+  String get keyboardShortcutsCloseDialogDescription =>
+      'Dismiss any open sheet or dialog.';
+
+  @override
+  String get keyboardShortcutsNewTransaction => 'New transaction';
+
+  @override
+  String get keyboardShortcutsNewTransactionDescription =>
+      'Open the quick entry editor.';
+
+  @override
+  String get keyboardShortcutsTriggerSync => 'Sync now';
+
+  @override
+  String get keyboardShortcutsTriggerSyncDescription =>
+      'Trigger an immediate sync from the command palette.';
+
+  @override
+  String get commandPaletteTitle => 'Command palette';
+
+  @override
+  String get commandPaletteHint => 'Type a command or search…';
+
+  @override
+  String get commandPaletteNoResults => 'No matching commands';
+
+  @override
+  String get commandPaletteStatus => 'Esc close · ↑↓ select · ↵ run';
 }

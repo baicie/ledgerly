@@ -3739,6 +3739,114 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'以后匹配该规则的通知将回落到内置默认。'**
   String get autoLedgerRuleDeleteBody;
+
+  /// No description provided for @systemSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统'**
+  String get systemSection;
+
+  /// No description provided for @keyboardShortcutsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'键盘快捷键'**
+  String get keyboardShortcutsTitle;
+
+  /// No description provided for @keyboardShortcutsSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看 Ledgerly 支持的全部快捷键。'**
+  String get keyboardShortcutsSubtitle;
+
+  /// No description provided for @keyboardShortcutsGeneral.
+  ///
+  /// In zh, this message translates to:
+  /// **'通用'**
+  String get keyboardShortcutsGeneral;
+
+  /// No description provided for @keyboardShortcutsBookkeeping.
+  ///
+  /// In zh, this message translates to:
+  /// **'记账'**
+  String get keyboardShortcutsBookkeeping;
+
+  /// No description provided for @keyboardShortcutsSync.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步'**
+  String get keyboardShortcutsSync;
+
+  /// No description provided for @keyboardShortcutsOpenPalette.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开命令面板'**
+  String get keyboardShortcutsOpenPalette;
+
+  /// No description provided for @keyboardShortcutsOpenPaletteDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'跨页面和动作的模糊搜索。'**
+  String get keyboardShortcutsOpenPaletteDescription;
+
+  /// No description provided for @keyboardShortcutsCloseDialog.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭弹窗'**
+  String get keyboardShortcutsCloseDialog;
+
+  /// No description provided for @keyboardShortcutsCloseDialogDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'收起任何打开的弹层。'**
+  String get keyboardShortcutsCloseDialogDescription;
+
+  /// No description provided for @keyboardShortcutsNewTransaction.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建流水'**
+  String get keyboardShortcutsNewTransaction;
+
+  /// No description provided for @keyboardShortcutsNewTransactionDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开快速记账编辑器。'**
+  String get keyboardShortcutsNewTransactionDescription;
+
+  /// No description provided for @keyboardShortcutsTriggerSync.
+  ///
+  /// In zh, this message translates to:
+  /// **'立即同步'**
+  String get keyboardShortcutsTriggerSync;
+
+  /// No description provided for @keyboardShortcutsTriggerSyncDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'在命令面板里触发一次立即同步。'**
+  String get keyboardShortcutsTriggerSyncDescription;
+
+  /// No description provided for @commandPaletteTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'命令面板'**
+  String get commandPaletteTitle;
+
+  /// No description provided for @commandPaletteHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入命令或搜索…'**
+  String get commandPaletteHint;
+
+  /// No description provided for @commandPaletteNoResults.
+  ///
+  /// In zh, this message translates to:
+  /// **'未找到匹配的命令'**
+  String get commandPaletteNoResults;
+
+  /// No description provided for @commandPaletteStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'Esc 关闭 · ↑↓ 选择 · ↵ 执行'**
+  String get commandPaletteStatus;
 }
 
 class _AppLocalizationsDelegate

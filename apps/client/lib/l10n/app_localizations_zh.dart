@@ -1981,4 +1981,58 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get autoLedgerRuleDeleteBody => '以后匹配该规则的通知将回落到内置默认。';
+
+  @override
+  String get systemSection => '系统';
+
+  @override
+  String get keyboardShortcutsTitle => '键盘快捷键';
+
+  @override
+  String get keyboardShortcutsSubtitle => '查看 Ledgerly 支持的全部快捷键。';
+
+  @override
+  String get keyboardShortcutsGeneral => '通用';
+
+  @override
+  String get keyboardShortcutsBookkeeping => '记账';
+
+  @override
+  String get keyboardShortcutsSync => '同步';
+
+  @override
+  String get keyboardShortcutsOpenPalette => '打开命令面板';
+
+  @override
+  String get keyboardShortcutsOpenPaletteDescription => '跨页面和动作的模糊搜索。';
+
+  @override
+  String get keyboardShortcutsCloseDialog => '关闭弹窗';
+
+  @override
+  String get keyboardShortcutsCloseDialogDescription => '收起任何打开的弹层。';
+
+  @override
+  String get keyboardShortcutsNewTransaction => '新建流水';
+
+  @override
+  String get keyboardShortcutsNewTransactionDescription => '打开快速记账编辑器。';
+
+  @override
+  String get keyboardShortcutsTriggerSync => '立即同步';
+
+  @override
+  String get keyboardShortcutsTriggerSyncDescription => '在命令面板里触发一次立即同步。';
+
+  @override
+  String get commandPaletteTitle => '命令面板';
+
+  @override
+  String get commandPaletteHint => '输入命令或搜索…';
+
+  @override
+  String get commandPaletteNoResults => '未找到匹配的命令';
+
+  @override
+  String get commandPaletteStatus => 'Esc 关闭 · ↑↓ 选择 · ↵ 执行';
 }

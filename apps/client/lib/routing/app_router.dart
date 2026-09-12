@@ -16,6 +16,7 @@ import '../presentation/pages/family_invite_page.dart';
 import '../presentation/pages/feed_page.dart';
 import '../presentation/pages/fx_rates_page.dart';
 import '../presentation/pages/import_page.dart';
+import '../presentation/pages/keyboard_shortcuts_page.dart';
 import '../presentation/pages/merchant_rules_page.dart';
 import '../presentation/pages/recurring_page.dart';
 import '../presentation/pages/reports_page.dart';
@@ -185,6 +186,10 @@ GoRouter createAppRouter(
                   GoRoute(
                     path: 'lock',
                     builder: (context, state) => const AppLockPage(),
+                  ),
+                  GoRoute(
+                    path: 'keyboard',
+                    builder: (context, state) => const KeyboardShortcutsPage(),
                   ),
                   GoRoute(
                     path: 'import',
