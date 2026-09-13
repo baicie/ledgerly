@@ -35,7 +35,8 @@ cargo test --manifest-path server/Cargo.toml --test postgres_backup_restore -- -
 ```
 
 测试会创建独立源库和目标库，写入恢复前/恢复后标记，执行 dump 和 restore，
-校验表数量、备份边界和 4 小时 RTO，然后删除临时数据库与 dump 文件。
+同时备份并恢复对象存储附件目录，校验表数量、附件 size/SHA-256、备份边界
+和 4 小时 RTO，然后删除临时数据库、对象目录与 dump 文件。
 
 ## 客户端灾难恢复演练
 

@@ -169,4 +169,4 @@ ledger-server restore \
 - [x] 上传完成回写真实附件 size/hash；
 - [x] CLI 支持对象备份和恢复参数；
 - [x] PostgreSQL 演练同时恢复并交叉校验附件对象；
-- [ ] `cargo fmt`、Clippy、workspace tests 和 CI 全部通过（待验证）。
+- [x] `cargo fmt`、Clippy、workspace tests 和 CI 全部通过。
