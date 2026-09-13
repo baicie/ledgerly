@@ -134,4 +134,4 @@ ledger-server restore-status
 - [x] 成败均持久化恢复审计；
 - [x] `/health/backup` 返回最近恢复摘要；
 - [x] CLI 强制 `--confirm`；
-- [ ] workspace 与 CI 联合恢复演练全部通过（待验证）。
+- [x] workspace 与 CI 联合恢复演练全部通过。
