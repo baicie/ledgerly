@@ -185,12 +185,15 @@ docker compose -f infrastructure/docker/docker-compose.prod.yml --env-file .env.
 # 目标机默认只监听回环地址，先通过 SSH 登录后验收
 ssh ubuntu@82.156.234.84 'curl -sf http://127.0.0.1:8081/health/ready'
 ssh ubuntu@82.156.234.84 'curl -sf http://127.0.0.1:8081/health/backup'
+ssh ubuntu@82.156.234.84 'curl -sf http://127.0.0.1:8081/metrics | grep "^backup_"'
 # 客户端：Release 页下载 web/apk；验证空地址本地模式及可选 HTTPS/原生 HTTP API 模式
 ```
 
 `/health/backup` 首次部署可能为 `never_run`。自动 job 成功后应为 `ready`；
 超过 `BACKUP_INTERVAL_HOURS` 为 `stale`，运行失败为 `failed`。
 定时恢复演练结果位于 `/health/backup.lastRecoveryDrill`。
+Prometheus 指标和容量告警见
+[备份可观测性与容量告警 Runbook](backup-observability.md)。
 
 ## 五、回滚
 

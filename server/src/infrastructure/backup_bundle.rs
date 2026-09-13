@@ -63,6 +63,13 @@ pub struct BackupBundleSummary {
     pub file_count: usize,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct BackupBundleStorageStats {
+    pub bundle_count: usize,
+    pub total_bytes: u64,
+    pub invalid_count: usize,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct BackupBundleManifest {
@@ -378,6 +385,47 @@ pub fn cleanup_backup_bundles(
         kept_count,
         freed_bytes,
     })
+}
+
+pub fn backup_bundle_storage_stats(root: &Path) -> anyhow::Result<BackupBundleStorageStats> {
+    if !root.exists() {
+        return Ok(BackupBundleStorageStats::default());
+    }
+    if !root.is_dir() {
+        bail!("backup bundle root is not a directory: {}", root.display());
+    }
+
+    let mut stats = BackupBundleStorageStats::default();
+    for entry in
+        fs::read_dir(root).with_context(|| format!("read backup bundle root {}", root.display()))?
+    {
+        let entry = entry.context("read backup bundle root entry")?;
+        let file_type = entry.file_type().context("read backup bundle entry type")?;
+        if !file_type.is_dir() || file_type.is_symlink() {
+            continue;
+        }
+        let path = entry.path();
+        let Ok(manifest) = read_manifest(&path) else {
+            stats.invalid_count = stats.invalid_count.saturating_add(1);
+            stats.total_bytes = stats.total_bytes.saturating_add(directory_size(&path)?);
+            continue;
+        };
+        if OffsetDateTime::parse(&manifest.created_at, &Rfc3339).is_err() {
+            stats.invalid_count = stats.invalid_count.saturating_add(1);
+            stats.total_bytes = stats.total_bytes.saturating_add(directory_size(&path)?);
+            continue;
+        }
+        let mut bundle_bytes = 0_u64;
+        for file in &manifest.files {
+            bundle_bytes = bundle_bytes.saturating_add(file.stored_size_bytes);
+        }
+        if let Ok(metadata) = fs::metadata(path.join(BUNDLE_MANIFEST_FILE)) {
+            bundle_bytes = bundle_bytes.saturating_add(metadata.len());
+        }
+        stats.bundle_count = stats.bundle_count.saturating_add(1);
+        stats.total_bytes = stats.total_bytes.saturating_add(bundle_bytes);
+    }
+    Ok(stats)
 }
 
 pub fn find_latest_backup_bundle(root: &Path) -> anyhow::Result<Option<BackupBundleSummary>> {

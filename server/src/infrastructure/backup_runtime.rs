@@ -11,8 +11,8 @@ use uuid::Uuid;
 use crate::config::Config;
 
 use super::backup_bundle::{
-    cleanup_backup_bundles, create_backup_bundle, find_latest_backup_bundle,
-    replicate_backup_bundle, unpack_backup_bundle, verify_backup_bundle,
+    backup_bundle_storage_stats, cleanup_backup_bundles, create_backup_bundle,
+    find_latest_backup_bundle, replicate_backup_bundle, unpack_backup_bundle, verify_backup_bundle,
 };
 use super::backup_status::{
     duration_millis, evaluate_backup_readiness, rfc3339, BackupReadinessSnapshot, BackupRunOutcome,
@@ -149,6 +149,10 @@ pub async fn run_backup(config: &Config) -> anyhow::Result<BackupRunReport> {
             error_summary: Some(truncate_error(&error.to_string())),
         },
     };
+    crate::metrics::record_backup_run(match &result {
+        Ok(_) => "success",
+        Err(_) => "failure",
+    });
     let status_result = BackupStatusStore::new(backup_dir).write(&status);
     match (result, status_result) {
         (Ok(report), Ok(())) => Ok(report),
@@ -183,6 +187,196 @@ pub fn recovery_drill_status(config: &Config) -> anyhow::Result<Option<RecoveryD
         .map(|store| store.read())
         .transpose()
         .map(Option::flatten)
+}
+
+/// Refreshes on-demand backup metrics from the latest persisted state.
+///
+/// Collection failures are isolated by component so one corrupt status file or
+/// unreadable storage root does not make the whole `/metrics` endpoint fail.
+pub fn record_backup_metrics(config: &Config) {
+    let now = OffsetDateTime::now_utc();
+
+    match backup_readiness(config) {
+        Ok(snapshot) => {
+            let (outcome, completed_at, duration_seconds) = snapshot
+                .status
+                .as_ref()
+                .map(|status| {
+                    (
+                        Some(match status.outcome {
+                            BackupRunOutcome::Success => "success",
+                            BackupRunOutcome::Failed => "failure",
+                        }),
+                        parse_timestamp_seconds(&status.completed_at).ok(),
+                        Some(status.duration_ms as f64 / 1_000.0),
+                    )
+                })
+                .unwrap_or((None, None, None));
+            crate::metrics::record_backup_status(
+                snapshot.readiness.as_str(),
+                outcome,
+                completed_at,
+                duration_seconds,
+                snapshot.age_seconds.map(|age| age as f64),
+            );
+        }
+        Err(_) => {
+            crate::metrics::record_backup_metrics_collection_error("backup_status");
+        }
+    }
+
+    if config.recovery_drill_enabled {
+        match recovery_drill_status(config) {
+            Ok(status) => {
+                let (state, outcome, completed_at, duration_seconds, age_seconds) =
+                    recovery_drill_metric_values(config, status.as_ref(), now);
+                crate::metrics::record_recovery_drill_status(
+                    state,
+                    outcome,
+                    completed_at,
+                    duration_seconds,
+                    age_seconds,
+                );
+            }
+            Err(_) => {
+                crate::metrics::record_backup_metrics_collection_error("recovery_drill_status");
+            }
+        }
+    } else {
+        crate::metrics::record_recovery_drill_status("disabled", None, None, None, None);
+    }
+
+    match restore_status(config) {
+        Ok(Some(status)) => {
+            let completed_at = match parse_timestamp_seconds(&status.completed_at) {
+                Ok(timestamp) => Some(timestamp),
+                Err(_) => {
+                    crate::metrics::record_backup_metrics_collection_error("restore_status");
+                    None
+                }
+            };
+            let age_seconds =
+                completed_at.map(|timestamp| (now.unix_timestamp() as f64 - timestamp).max(0.0));
+            crate::metrics::record_restore_status(
+                match (completed_at, status.outcome) {
+                    (None, _) | (_, RestoreRunOutcome::Failed) => "failed",
+                    (_, RestoreRunOutcome::Success) => "ready",
+                },
+                Some(match status.outcome {
+                    RestoreRunOutcome::Success => "success",
+                    RestoreRunOutcome::Failed => "failure",
+                }),
+                completed_at,
+                Some(status.duration_ms as f64 / 1_000.0),
+                age_seconds,
+            );
+        }
+        Ok(None) => {
+            crate::metrics::record_restore_status("never_run", None, None, None, None);
+        }
+        Err(_) => {
+            crate::metrics::record_backup_metrics_collection_error("restore_status");
+        }
+    }
+
+    crate::metrics::record_replication_enabled(config.backup_offsite_dir.is_some());
+    if let Some(backup_dir) = config.backup_dir.as_deref() {
+        record_storage_metrics(
+            "local",
+            &backup_dir.join("bundles"),
+            config.backup_capacity_warn_bytes,
+            config.backup_capacity_critical_bytes,
+        );
+    }
+    if let Some(offsite_dir) = config.backup_offsite_dir.as_deref() {
+        record_storage_metrics(
+            "offsite",
+            offsite_dir,
+            config.backup_capacity_warn_bytes,
+            config.backup_capacity_critical_bytes,
+        );
+    }
+}
+
+fn record_storage_metrics(
+    location: &'static str,
+    root: &Path,
+    warn_bytes: u64,
+    critical_bytes: u64,
+) {
+    match backup_bundle_storage_stats(root) {
+        Ok(stats) => {
+            crate::metrics::record_backup_storage(
+                location,
+                stats.bundle_count,
+                stats.total_bytes,
+                stats.invalid_count,
+            );
+            crate::metrics::record_backup_capacity(
+                location,
+                stats.total_bytes,
+                warn_bytes,
+                critical_bytes,
+            );
+        }
+        Err(_) => {
+            crate::metrics::record_backup_metrics_collection_error("storage");
+        }
+    }
+}
+
+fn recovery_drill_metric_values(
+    config: &Config,
+    status: Option<&RecoveryDrillStatus>,
+    now: OffsetDateTime,
+) -> (
+    &'static str,
+    Option<&'static str>,
+    Option<f64>,
+    Option<f64>,
+    Option<f64>,
+) {
+    let Some(status) = status else {
+        return ("never_run", None, None, None, None);
+    };
+    let completed_at = match parse_timestamp_seconds(&status.completed_at) {
+        Ok(timestamp) => Some(timestamp),
+        Err(_) => {
+            crate::metrics::record_backup_metrics_collection_error("recovery_drill_status");
+            None
+        }
+    };
+    let age_seconds =
+        completed_at.map(|timestamp| (now.unix_timestamp() as f64 - timestamp).max(0.0));
+    let state = match status.outcome {
+        RecoveryDrillOutcome::Failed => "failed",
+        RecoveryDrillOutcome::Success => {
+            let interval_seconds = (config.recovery_drill_interval_hours as i64)
+                .saturating_mul(60 * 60)
+                .max(1);
+            if age_seconds.unwrap_or(f64::MAX) > interval_seconds as f64 {
+                "stale"
+            } else {
+                "ready"
+            }
+        }
+    };
+    (
+        state,
+        Some(match status.outcome {
+            RecoveryDrillOutcome::Success => "success",
+            RecoveryDrillOutcome::Failed => "failure",
+        }),
+        completed_at,
+        Some(status.duration_ms as f64 / 1_000.0),
+        age_seconds,
+    )
+}
+
+fn parse_timestamp_seconds(value: &str) -> anyhow::Result<f64> {
+    let timestamp = OffsetDateTime::parse(value, &time::format_description::well_known::Rfc3339)?
+        .unix_timestamp();
+    Ok(timestamp as f64)
 }
 
 pub async fn run_recovery_drill(config: Config) -> anyhow::Result<RecoveryDrillReport> {
@@ -296,6 +490,10 @@ pub async fn run_recovery_drill(config: Config) -> anyhow::Result<RecoveryDrillR
             error_summary: Some(truncate_error(&error.to_string())),
         },
     };
+    crate::metrics::record_recovery_drill_run(match &result {
+        Ok(_) => "success",
+        Err(_) => "failure",
+    });
     let status_result = RecoveryDrillStatusStore::new(&backup_dir).write(&status);
     match (result, status_result) {
         (Ok(report), Ok(())) => Ok(report),
@@ -437,6 +635,10 @@ pub async fn restore_backup_bundle(
             error_summary: Some(truncate_error(&error.to_string())),
         },
     };
+    crate::metrics::record_restore_run(match &result {
+        Ok(_) => "success",
+        Err(_) => "failure",
+    });
     let status_result = RestoreStatusStore::new(backup_dir).write(&status);
     match (result, status_result) {
         (Ok(report), Ok(())) => Ok(report),
@@ -555,10 +757,18 @@ async fn run_backup_steps(
             .with_context(|| format!("create offsite backup root {}", offsite_root.display()))?;
         let offsite_bundle = offsite_root.join(run_id);
         replicate_backup_bundle(bundle_path, &offsite_bundle)?;
-        offsite_retained = cleanup_backup_bundles(offsite_root, config.backup_keep)?.kept_count;
+        offsite_retained = cleanup_backup_bundles(offsite_root, config.backup_keep)
+            .inspect_err(|_| {
+                crate::metrics::record_backup_cleanup_failure("offsite");
+            })?
+            .kept_count;
         replicated = true;
     }
-    let local_retained = cleanup_backup_bundles(bundles_root, config.backup_keep)?.kept_count;
+    let local_retained = cleanup_backup_bundles(bundles_root, config.backup_keep)
+        .inspect_err(|_| {
+            crate::metrics::record_backup_cleanup_failure("local");
+        })?
+        .kept_count;
 
     Ok(BackupRunReport {
         run_id: run_id.to_string(),

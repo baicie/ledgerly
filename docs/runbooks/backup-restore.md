@@ -100,6 +100,8 @@ export BACKUP_DIR=/var/lib/ledgerly-backups
 export BACKUP_OFFSITE_DIR=/mnt/offsite/ledgerly
 export BACKUP_KEEP=4
 export BACKUP_INTERVAL_HOURS=24
+export BACKUP_CAPACITY_WARN_BYTES=21474836480
+export BACKUP_CAPACITY_CRITICAL_BYTES=53687091200
 export LEDGER_BACKUP_PASSWORD='use-a-long-random-password'
 ```
 
@@ -111,6 +113,9 @@ ledger-server backup-run
 ledger-server backup-status
 curl -s http://127.0.0.1:8080/health/backup
 ```
+
+Prometheus 抓取、容量告警、Grafana 查询和故障处置见
+[备份可观测性与容量告警 Runbook](backup-observability.md)。
 
 ## 客户端灾难恢复演练
 

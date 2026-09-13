@@ -6,6 +6,9 @@ use ed25519_dalek::SigningKey;
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use sha2::{Digest, Sha256};
 
+const DEFAULT_BACKUP_CAPACITY_WARN_BYTES: u64 = 20 * 1024 * 1024 * 1024;
+const DEFAULT_BACKUP_CAPACITY_CRITICAL_BYTES: u64 = 50 * 1024 * 1024 * 1024;
+
 #[derive(Clone)]
 pub struct Config {
     pub listen_addr: String,
@@ -21,6 +24,8 @@ pub struct Config {
     pub backup_keep: usize,
     pub backup_interval_hours: u64,
     pub backup_password: Option<String>,
+    pub backup_capacity_warn_bytes: u64,
+    pub backup_capacity_critical_bytes: u64,
     pub recovery_drill_enabled: bool,
     pub recovery_drill_interval_hours: u64,
     pub recovery_drill_database_url: Option<String>,
@@ -85,6 +90,14 @@ impl Config {
             backup_password: env::var("LEDGER_BACKUP_PASSWORD")
                 .ok()
                 .filter(|password| !password.is_empty()),
+            backup_capacity_warn_bytes: parse_positive_u64_env(
+                "BACKUP_CAPACITY_WARN_BYTES",
+                DEFAULT_BACKUP_CAPACITY_WARN_BYTES,
+            )?,
+            backup_capacity_critical_bytes: parse_positive_u64_env(
+                "BACKUP_CAPACITY_CRITICAL_BYTES",
+                DEFAULT_BACKUP_CAPACITY_CRITICAL_BYTES,
+            )?,
             recovery_drill_enabled: env::var("RECOVERY_DRILL_ENABLED")
                 .ok()
                 .map(|value| parse_bool("RECOVERY_DRILL_ENABLED", &value))
@@ -124,6 +137,15 @@ impl Config {
     }
 
     pub fn validate(&self) -> anyhow::Result<()> {
+        if self.backup_capacity_warn_bytes == 0
+            || self.backup_capacity_critical_bytes == 0
+            || self.backup_capacity_critical_bytes < self.backup_capacity_warn_bytes
+        {
+            anyhow::bail!(
+                "BACKUP_CAPACITY_CRITICAL_BYTES must be greater than or equal to \
+                 BACKUP_CAPACITY_WARN_BYTES, and both values must be positive"
+            );
+        }
         if !self.is_production {
             return Ok(());
         }
@@ -187,6 +209,8 @@ impl Config {
             backup_keep: 3,
             backup_interval_hours: 24,
             backup_password: None,
+            backup_capacity_warn_bytes: DEFAULT_BACKUP_CAPACITY_WARN_BYTES,
+            backup_capacity_critical_bytes: DEFAULT_BACKUP_CAPACITY_CRITICAL_BYTES,
             recovery_drill_enabled: false,
             recovery_drill_interval_hours: 720,
             recovery_drill_database_url: None,
@@ -208,6 +232,20 @@ fn parse_bool(name: &str, value: &str) -> anyhow::Result<bool> {
         "false" | "0" => Ok(false),
         _ => anyhow::bail!("{name} must be true or false"),
     }
+}
+
+fn parse_positive_u64_env(name: &str, default: u64) -> anyhow::Result<u64> {
+    let Ok(value) = env::var(name) else {
+        return Ok(default);
+    };
+    let value = value
+        .trim()
+        .parse::<u64>()
+        .map_err(|_| anyhow::anyhow!("{name} must be a positive integer"))?;
+    if value == 0 {
+        anyhow::bail!("{name} must be greater than zero");
+    }
+    Ok(value)
 }
 
 fn parse_origins(value: &str) -> anyhow::Result<Vec<String>> {
@@ -321,6 +359,15 @@ mod tests {
         config.cors_allowed_origins = vec!["https://app.ledgerly.example".into()];
         config.auth_cookie_secure = true;
         config.backup_dir = Some(std::path::PathBuf::from("/var/lib/ledgerly-backups"));
+
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn backup_capacity_thresholds_must_be_ordered() {
+        let mut config = Config::for_test();
+        config.backup_capacity_warn_bytes = 2_000;
+        config.backup_capacity_critical_bytes = 1_000;
 
         assert!(config.validate().is_err());
     }
