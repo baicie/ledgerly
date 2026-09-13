@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/auto_backup.dart';
 import '../../application/backup_encryption.dart';
 import '../../application/backup_catalog_store.dart';
+import '../../application/backup_health.dart';
 import '../../application/backup_metadata_store.dart';
 import '../../application/backup_restore_audit.dart';
 import '../../application/backup_schedule.dart';
@@ -157,6 +158,28 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
     if (encrypted && next.enabled) await _runAutoBackupTick();
   }
 
+  Future<void> _handleBackupHealthAction(
+    BackupHealthAction action,
+  ) async {
+    switch (action) {
+      case BackupHealthAction.createBackup:
+        await _exportBackup();
+        break;
+      case BackupHealthAction.enableAutoBackup:
+        await _setAutoBackupEnabled(true);
+        break;
+      case BackupHealthAction.configureAutoPassword:
+        await _setAutoBackupEncrypted(true);
+        break;
+      case BackupHealthAction.inspectFiles:
+        await _verifyBackups();
+        break;
+      case BackupHealthAction.none:
+        return;
+    }
+    if (mounted) ref.invalidate(backupHealthProvider);
+  }
+
   /// User-initiated check from the data-governance page. Silent launch
   /// ticks live in [autoBackupTickProvider]; this path also refreshes
   /// the shareable last-path so the status card and share button update.
@@ -172,6 +195,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
       });
       if (result.ran) ref.invalidate(backupMetadataProvider);
       if (result.ran) ref.invalidate(backupCatalogProvider);
+      if (result.ran) ref.invalidate(backupHealthProvider);
       if (result.skipReason == AutoBackupSkipReason.encryptedPasswordMissing) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(l10n.dataGovernanceAutoEncryptNeedsPassword)),
@@ -231,6 +255,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
       // banner refresh immediately after a successful export.
       ref.invalidate(backupMetadataProvider);
       ref.invalidate(backupCatalogProvider);
+      ref.invalidate(backupHealthProvider);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.dataGovernanceBackupSuccess(path))),
       );
@@ -283,6 +308,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
       if (!mounted) return;
       setState(() => _busy = false);
       ref.invalidate(backupCatalogProvider);
+      ref.invalidate(backupHealthProvider);
       final size = _formatMegabytes(result.freedBytes);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -340,6 +366,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
       });
       ref.invalidate(backupMetadataProvider);
       ref.invalidate(backupCatalogProvider);
+      ref.invalidate(backupHealthProvider);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -369,6 +396,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
       if (!mounted) return;
       setState(() => _busy = false);
       ref.invalidate(backupCatalogProvider);
+      ref.invalidate(backupHealthProvider);
       if (report.entries.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(l10n.dataGovernanceVerifyNoBackups)),
@@ -510,6 +538,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
     }
     ref.invalidate(backupMetadataProvider);
     ref.invalidate(backupCatalogProvider);
+    ref.invalidate(backupHealthProvider);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -588,6 +617,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
       if (!mounted) return;
       setState(() => _busy = false);
       ref.invalidate(backupCatalogProvider);
+      ref.invalidate(backupHealthProvider);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -642,6 +672,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
       setState(() => _busy = false);
       ref.invalidate(backupRestoreAuditsProvider);
       ref.invalidate(backupCatalogProvider);
+      ref.invalidate(backupHealthProvider);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -826,6 +857,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
     );
     invalidateLedgerViews(ref);
     ref.invalidate(backupCatalogProvider);
+    ref.invalidate(backupHealthProvider);
   }
 
   Future<void> _recordRestoreAudit({
@@ -851,6 +883,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
             skippedBooks: mergeResult?.skippedBooks ?? 0,
           );
       ref.invalidate(backupRestoreAuditsProvider);
+      ref.invalidate(backupHealthProvider);
     } catch (_) {
       // Audit is auxiliary; a restore result must not fail because of it.
     }
@@ -886,6 +919,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
       SnackBar(content: Text(l10n.dataGovernanceWipeSuccess)),
     );
     ref.invalidate(backupMetadataProvider);
+    ref.invalidate(backupHealthProvider);
     invalidateLedgerViews(ref);
   }
 
@@ -913,6 +947,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
           data: (value) => value,
           orElse: () => const <BackupRestoreAudit>[],
         );
+    final healthAsync = ref.watch(backupHealthProvider);
     final localBackupBytes = catalog.fold<int>(
       0,
       (sum, artifact) => sum + artifact.sizeBytes,
@@ -951,6 +986,21 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
                   l10n: l10n,
                   metadata: metadata,
                   now: now,
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              sliver: SliverToBoxAdapter(
+                child: _BackupHealthCard(
+                  l10n: l10n,
+                  snapshot: healthAsync.valueOrNull,
+                  loading: healthAsync.isLoading,
+                  onRefresh: () => ref.invalidate(backupHealthProvider),
+                  onAction: _busy
+                      ? null
+                      : (action) =>
+                          unawaited(_handleBackupHealthAction(action)),
                 ),
               ),
             ),
@@ -2540,6 +2590,188 @@ class _RecoveryDrillResultDialog extends StatelessWidget {
           child: Text(l10n.confirm),
         ),
       ],
+    );
+  }
+}
+
+class _BackupHealthCard extends StatelessWidget {
+  const _BackupHealthCard({
+    required this.l10n,
+    required this.snapshot,
+    required this.loading,
+    required this.onRefresh,
+    required this.onAction,
+  });
+
+  final AppLocalizations l10n;
+  final BackupHealthSnapshot? snapshot;
+  final bool loading;
+  final VoidCallback onRefresh;
+  final ValueChanged<BackupHealthAction>? onAction;
+
+  Color _levelColor(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return switch (snapshot?.level) {
+      BackupHealthLevel.critical => scheme.error,
+      BackupHealthLevel.warning => scheme.tertiary,
+      BackupHealthLevel.healthy => scheme.primary,
+      null => scheme.onSurfaceVariant,
+    };
+  }
+
+  String _levelLabel() => switch (snapshot?.level) {
+        BackupHealthLevel.critical => l10n.dataGovernanceHealthCritical,
+        BackupHealthLevel.warning => l10n.dataGovernanceHealthWarning,
+        BackupHealthLevel.healthy => l10n.dataGovernanceHealthHealthy,
+        null => l10n.dataGovernanceHealthChecking,
+      };
+
+  String _issueText(BackupHealthIssue issue) => switch (issue.code) {
+        BackupHealthIssueCode.noBackup =>
+          l10n.dataGovernanceHealthIssueNoBackup,
+        BackupHealthIssueCode.staleBackup =>
+          l10n.dataGovernanceHealthIssueStale(issue.value ?? 0),
+        BackupHealthIssueCode.autoBackupDisabled =>
+          l10n.dataGovernanceHealthIssueAutoDisabled,
+        BackupHealthIssueCode.encryptedPasswordMissing =>
+          l10n.dataGovernanceHealthIssuePasswordMissing,
+        BackupHealthIssueCode.secureStorageUnavailable =>
+          l10n.dataGovernanceHealthIssueSecureStorage,
+        BackupHealthIssueCode.verificationFailed =>
+          l10n.dataGovernanceHealthIssueVerificationFailed,
+        BackupHealthIssueCode.filesMissing =>
+          l10n.dataGovernanceHealthIssueMissing(issue.value ?? 0),
+        BackupHealthIssueCode.filesCorrupted =>
+          l10n.dataGovernanceHealthIssueCorrupted(issue.value ?? 0),
+        BackupHealthIssueCode.latestBackupNotCataloged =>
+          l10n.dataGovernanceHealthIssueNotCataloged,
+        BackupHealthIssueCode.latestIncremental =>
+          l10n.dataGovernanceHealthIssueLatestIncremental,
+        BackupHealthIssueCode.incrementalBaseMissing =>
+          l10n.dataGovernanceHealthIssueBaseMissing,
+        BackupHealthIssueCode.recentRestoreFailed =>
+          l10n.dataGovernanceHealthIssueRestoreFailed,
+      };
+
+  String _actionLabel(BackupHealthAction action) => switch (action) {
+        BackupHealthAction.createBackup =>
+          l10n.dataGovernanceHealthActionBackup,
+        BackupHealthAction.enableAutoBackup =>
+          l10n.dataGovernanceHealthActionEnableAuto,
+        BackupHealthAction.configureAutoPassword =>
+          l10n.dataGovernanceHealthActionPassword,
+        BackupHealthAction.inspectFiles =>
+          l10n.dataGovernanceHealthActionInspect,
+        BackupHealthAction.none => l10n.confirm,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final localizations = MaterialLocalizations.of(context);
+    final color = _levelColor(context);
+    final action = snapshot?.recommendedAction ?? BackupHealthAction.none;
+    return Container(
+      key: const Key('data-governance-health-card'),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                switch (snapshot?.level) {
+                  BackupHealthLevel.critical => Icons.error_outline,
+                  BackupHealthLevel.warning => Icons.warning_amber_outlined,
+                  BackupHealthLevel.healthy => Icons.verified_outlined,
+                  null => Icons.hourglass_empty,
+                },
+                color: color,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  l10n.dataGovernanceHealthTitle,
+                  style: theme.textTheme.titleMedium,
+                ),
+              ),
+              IconButton(
+                key: const Key('data-governance-health-refresh'),
+                tooltip: l10n.dataGovernanceHealthRefresh,
+                onPressed: loading ? null : onRefresh,
+                icon: const Icon(Icons.refresh),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _levelLabel(),
+            key: const Key('data-governance-health-level'),
+            style: theme.textTheme.labelLarge?.copyWith(color: color),
+          ),
+          if (snapshot == null && loading) ...[
+            const SizedBox(height: 14),
+            const LinearProgressIndicator(),
+          ] else if (snapshot != null) ...[
+            const SizedBox(height: 10),
+            if (snapshot!.issues.isEmpty)
+              Text(l10n.dataGovernanceHealthNoIssues)
+            else
+              for (final issue in snapshot!.issues)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Icon(
+                          issue.level == BackupHealthLevel.critical
+                              ? Icons.error_outline
+                              : Icons.info_outline,
+                          size: 16,
+                          color: issue.level == BackupHealthLevel.critical
+                              ? theme.colorScheme.error
+                              : theme.colorScheme.tertiary,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(_issueText(issue))),
+                    ],
+                  ),
+                ),
+            const SizedBox(height: 8),
+            Text(
+              l10n.dataGovernanceHealthSummary(
+                snapshot!.catalogCount,
+                snapshot!.nextDueAt == null
+                    ? l10n.dataGovernanceHealthNotScheduled
+                    : localizations.formatMediumDate(
+                        snapshot!.nextDueAt!.toLocal(),
+                      ),
+              ),
+              style: theme.textTheme.bodySmall,
+            ),
+            if (action != BackupHealthAction.none && onAction != null) ...[
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FilledButton.tonalIcon(
+                  key: const Key('data-governance-health-action'),
+                  onPressed: () => onAction!(action),
+                  icon: const Icon(Icons.build_circle_outlined),
+                  label: Text(_actionLabel(action)),
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
     );
   }
 }

@@ -2575,6 +2575,89 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get dataGovernanceHealthTitle => '备份策略健康';
+
+  @override
+  String get dataGovernanceHealthChecking => '检查中…';
+
+  @override
+  String get dataGovernanceHealthHealthy => '健康';
+
+  @override
+  String get dataGovernanceHealthWarning => '需要关注';
+
+  @override
+  String get dataGovernanceHealthCritical => '存在风险';
+
+  @override
+  String get dataGovernanceHealthNoIssues => '备份策略当前正常。';
+
+  @override
+  String get dataGovernanceHealthRefresh => '重新检查';
+
+  @override
+  String dataGovernanceHealthSummary(int count, String nextDue) {
+    return '备份目录 $count 份 · 下次计划 $nextDue';
+  }
+
+  @override
+  String get dataGovernanceHealthNotScheduled => '未启用';
+
+  @override
+  String get dataGovernanceHealthIssueNoBackup => '尚无本机备份。';
+
+  @override
+  String dataGovernanceHealthIssueStale(int days) {
+    return '最近备份已过去 $days 天。';
+  }
+
+  @override
+  String get dataGovernanceHealthIssueAutoDisabled => '自动备份未启用。';
+
+  @override
+  String get dataGovernanceHealthIssuePasswordMissing => '加密自动备份缺少可用密码。';
+
+  @override
+  String get dataGovernanceHealthIssueSecureStorage => '系统安全存储当前不可用。';
+
+  @override
+  String get dataGovernanceHealthIssueVerificationFailed => '备份目录完整性检查失败。';
+
+  @override
+  String dataGovernanceHealthIssueMissing(int count) {
+    return '$count 份备份文件缺失。';
+  }
+
+  @override
+  String dataGovernanceHealthIssueCorrupted(int count) {
+    return '$count 份备份文件损坏。';
+  }
+
+  @override
+  String get dataGovernanceHealthIssueNotCataloged => '最近备份未登记到本机目录。';
+
+  @override
+  String get dataGovernanceHealthIssueLatestIncremental => '最近备份是仅本机可恢复的增量文件。';
+
+  @override
+  String get dataGovernanceHealthIssueBaseMissing => '增量恢复所需的 base 不在备份目录中。';
+
+  @override
+  String get dataGovernanceHealthIssueRestoreFailed => '最近一次恢复操作失败，请检查恢复历史。';
+
+  @override
+  String get dataGovernanceHealthActionBackup => '立即备份';
+
+  @override
+  String get dataGovernanceHealthActionEnableAuto => '启用自动备份';
+
+  @override
+  String get dataGovernanceHealthActionPassword => '设置自动备份密码';
+
+  @override
+  String get dataGovernanceHealthActionInspect => '检查备份文件';
+
+  @override
   String get dataGovernanceAutoBackup => '自动备份';
 
   @override

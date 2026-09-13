@@ -4729,6 +4729,156 @@ abstract class AppLocalizations {
   /// **'恢复演练失败：{error}'**
   String dataGovernanceRecoveryDrillFailed(String error);
 
+  /// No description provided for @dataGovernanceHealthTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份策略健康'**
+  String get dataGovernanceHealthTitle;
+
+  /// No description provided for @dataGovernanceHealthChecking.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查中…'**
+  String get dataGovernanceHealthChecking;
+
+  /// No description provided for @dataGovernanceHealthHealthy.
+  ///
+  /// In zh, this message translates to:
+  /// **'健康'**
+  String get dataGovernanceHealthHealthy;
+
+  /// No description provided for @dataGovernanceHealthWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要关注'**
+  String get dataGovernanceHealthWarning;
+
+  /// No description provided for @dataGovernanceHealthCritical.
+  ///
+  /// In zh, this message translates to:
+  /// **'存在风险'**
+  String get dataGovernanceHealthCritical;
+
+  /// No description provided for @dataGovernanceHealthNoIssues.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份策略当前正常。'**
+  String get dataGovernanceHealthNoIssues;
+
+  /// No description provided for @dataGovernanceHealthRefresh.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新检查'**
+  String get dataGovernanceHealthRefresh;
+
+  /// No description provided for @dataGovernanceHealthSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份目录 {count} 份 · 下次计划 {nextDue}'**
+  String dataGovernanceHealthSummary(int count, String nextDue);
+
+  /// No description provided for @dataGovernanceHealthNotScheduled.
+  ///
+  /// In zh, this message translates to:
+  /// **'未启用'**
+  String get dataGovernanceHealthNotScheduled;
+
+  /// No description provided for @dataGovernanceHealthIssueNoBackup.
+  ///
+  /// In zh, this message translates to:
+  /// **'尚无本机备份。'**
+  String get dataGovernanceHealthIssueNoBackup;
+
+  /// No description provided for @dataGovernanceHealthIssueStale.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近备份已过去 {days} 天。'**
+  String dataGovernanceHealthIssueStale(int days);
+
+  /// No description provided for @dataGovernanceHealthIssueAutoDisabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动备份未启用。'**
+  String get dataGovernanceHealthIssueAutoDisabled;
+
+  /// No description provided for @dataGovernanceHealthIssuePasswordMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'加密自动备份缺少可用密码。'**
+  String get dataGovernanceHealthIssuePasswordMissing;
+
+  /// No description provided for @dataGovernanceHealthIssueSecureStorage.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统安全存储当前不可用。'**
+  String get dataGovernanceHealthIssueSecureStorage;
+
+  /// No description provided for @dataGovernanceHealthIssueVerificationFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份目录完整性检查失败。'**
+  String get dataGovernanceHealthIssueVerificationFailed;
+
+  /// No description provided for @dataGovernanceHealthIssueMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 份备份文件缺失。'**
+  String dataGovernanceHealthIssueMissing(int count);
+
+  /// No description provided for @dataGovernanceHealthIssueCorrupted.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 份备份文件损坏。'**
+  String dataGovernanceHealthIssueCorrupted(int count);
+
+  /// No description provided for @dataGovernanceHealthIssueNotCataloged.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近备份未登记到本机目录。'**
+  String get dataGovernanceHealthIssueNotCataloged;
+
+  /// No description provided for @dataGovernanceHealthIssueLatestIncremental.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近备份是仅本机可恢复的增量文件。'**
+  String get dataGovernanceHealthIssueLatestIncremental;
+
+  /// No description provided for @dataGovernanceHealthIssueBaseMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'增量恢复所需的 base 不在备份目录中。'**
+  String get dataGovernanceHealthIssueBaseMissing;
+
+  /// No description provided for @dataGovernanceHealthIssueRestoreFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近一次恢复操作失败，请检查恢复历史。'**
+  String get dataGovernanceHealthIssueRestoreFailed;
+
+  /// No description provided for @dataGovernanceHealthActionBackup.
+  ///
+  /// In zh, this message translates to:
+  /// **'立即备份'**
+  String get dataGovernanceHealthActionBackup;
+
+  /// No description provided for @dataGovernanceHealthActionEnableAuto.
+  ///
+  /// In zh, this message translates to:
+  /// **'启用自动备份'**
+  String get dataGovernanceHealthActionEnableAuto;
+
+  /// No description provided for @dataGovernanceHealthActionPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置自动备份密码'**
+  String get dataGovernanceHealthActionPassword;
+
+  /// No description provided for @dataGovernanceHealthActionInspect.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查备份文件'**
+  String get dataGovernanceHealthActionInspect;
+
   /// No description provided for @dataGovernanceAutoBackup.
   ///
   /// In zh, this message translates to:

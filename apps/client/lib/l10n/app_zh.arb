@@ -1666,6 +1666,62 @@
       }
     }
   },
+  "dataGovernanceHealthTitle": "备份策略健康",
+  "dataGovernanceHealthChecking": "检查中…",
+  "dataGovernanceHealthHealthy": "健康",
+  "dataGovernanceHealthWarning": "需要关注",
+  "dataGovernanceHealthCritical": "存在风险",
+  "dataGovernanceHealthNoIssues": "备份策略当前正常。",
+  "dataGovernanceHealthRefresh": "重新检查",
+  "dataGovernanceHealthSummary": "备份目录 {count} 份 · 下次计划 {nextDue}",
+  "@dataGovernanceHealthSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "nextDue": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceHealthNotScheduled": "未启用",
+  "dataGovernanceHealthIssueNoBackup": "尚无本机备份。",
+  "dataGovernanceHealthIssueStale": "最近备份已过去 {days} 天。",
+  "@dataGovernanceHealthIssueStale": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceHealthIssueAutoDisabled": "自动备份未启用。",
+  "dataGovernanceHealthIssuePasswordMissing": "加密自动备份缺少可用密码。",
+  "dataGovernanceHealthIssueSecureStorage": "系统安全存储当前不可用。",
+  "dataGovernanceHealthIssueVerificationFailed": "备份目录完整性检查失败。",
+  "dataGovernanceHealthIssueMissing": "{count} 份备份文件缺失。",
+  "@dataGovernanceHealthIssueMissing": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceHealthIssueCorrupted": "{count} 份备份文件损坏。",
+  "@dataGovernanceHealthIssueCorrupted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceHealthIssueNotCataloged": "最近备份未登记到本机目录。",
+  "dataGovernanceHealthIssueLatestIncremental": "最近备份是仅本机可恢复的增量文件。",
+  "dataGovernanceHealthIssueBaseMissing": "增量恢复所需的 base 不在备份目录中。",
+  "dataGovernanceHealthIssueRestoreFailed": "最近一次恢复操作失败，请检查恢复历史。",
+  "dataGovernanceHealthActionBackup": "立即备份",
+  "dataGovernanceHealthActionEnableAuto": "启用自动备份",
+  "dataGovernanceHealthActionPassword": "设置自动备份密码",
+  "dataGovernanceHealthActionInspect": "检查备份文件",
   "dataGovernanceAutoBackup": "自动备份",
   "dataGovernanceAutoBackupSubtitle": "打开应用时检查；到期则写入本地快照",
   "dataGovernanceAutoBackupWarning": "自动备份不加密。敏感账本请继续使用密码导出。",
