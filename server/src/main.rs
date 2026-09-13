@@ -1,4 +1,7 @@
+use std::path::Path;
+
 use clap::{Parser, Subcommand};
+use ledger_server::infrastructure::object_store;
 use ledger_server::{backup, migrate, restore, run_api, run_worker_only, Config};
 use tracing_subscriber::EnvFilter;
 
@@ -19,10 +22,14 @@ enum Commands {
     Backup {
         #[arg(long)]
         out: String,
+        #[arg(long)]
+        objects_out: Option<String>,
     },
     Restore {
         #[arg(long)]
         from: String,
+        #[arg(long)]
+        objects_from: Option<String>,
     },
 }
 
@@ -52,11 +59,25 @@ async fn main() -> anyhow::Result<()> {
         Commands::Api => run_api(config, false).await?,
         Commands::All => run_api(config, true).await?,
         Commands::Worker => run_worker_only(config).await?,
-        Commands::Backup { out } => {
+        Commands::Backup { out, objects_out } => {
             backup(&config, &out).await?;
             println!("backup written to {out}");
+            if let Some(objects_out) = objects_out {
+                let report = object_store::backup_object_store(&config, Path::new(&objects_out))?;
+                println!(
+                    "object store backup written to {objects_out} ({} objects, {} bytes)",
+                    report.object_count, report.total_size_bytes
+                );
+            }
         }
-        Commands::Restore { from } => {
+        Commands::Restore { from, objects_from } => {
+            if let Some(objects_from) = objects_from {
+                let report = object_store::restore_object_store(&config, Path::new(&objects_from))?;
+                println!(
+                    "object store restored from {objects_from} ({} objects, {} bytes)",
+                    report.object_count, report.total_size_bytes
+                );
+            }
             restore(&config, &from).await?;
             println!("restore from {from} complete");
         }

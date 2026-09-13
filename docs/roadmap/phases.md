@@ -241,6 +241,16 @@
 - [x] 断言 restore + migrate 小于 4 小时 RTO
 - [x] CI 安装 PostgreSQL client 并强制执行
 
+## 对象存储附件灾备（Phase 32）
+
+- [x] 对象目录 manifest 记录 key、大小和 SHA-256
+- [x] 备份复制后重新校验对象元数据
+- [x] 恢复到 staging 后原子替换目标目录
+- [x] 损坏备份失败且不覆盖现有对象
+- [x] 上传完成回写真实附件 size/hash
+- [x] CLI 支持 `--objects-out` / `--objects-from`
+- [x] PostgreSQL 演练联合恢复并交叉校验附件
+
 ### 待后续完善
 
 - 扩大商户分类覆盖（目前第一版关键词匹配）

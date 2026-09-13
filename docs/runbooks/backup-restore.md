@@ -6,7 +6,9 @@
 
 ```bash
 export DATABASE_URL=postgres://ledgerly:ledgerly@127.0.0.1:5432/ledgerly
-cargo run --manifest-path server/Cargo.toml -- backup --out /tmp/ledgerly.dump
+cargo run --manifest-path server/Cargo.toml -- backup \
+  --out /tmp/ledgerly.dump \
+  --objects-out /tmp/ledgerly-objects
 ```
 
 建议 cron 每日执行，并将 dump 异地保存（加密可选）。
@@ -14,7 +16,9 @@ cargo run --manifest-path server/Cargo.toml -- backup --out /tmp/ledgerly.dump
 ## 恢复
 
 ```bash
-cargo run --manifest-path server/Cargo.toml -- restore --from /tmp/ledgerly.dump
+cargo run --manifest-path server/Cargo.toml -- restore \
+  --from /tmp/ledgerly.dump \
+  --objects-from /tmp/ledgerly-objects
 ```
 
 恢复后执行 `cargo run -- migrate` 确认 schema，并跑 `cargo test --test postgres_flow`。

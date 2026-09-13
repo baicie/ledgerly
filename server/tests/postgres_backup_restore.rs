@@ -1,7 +1,9 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use ledger_server::infrastructure::object_store::{backup_object_store, restore_object_store};
 use ledger_server::{backup, migrate, restore, Config};
+use sha2::{Digest, Sha256};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use tokio::time::Instant;
@@ -45,6 +47,16 @@ fn temporary_database_name(prefix: &str) -> String {
 
 fn dump_path() -> PathBuf {
     std::env::temp_dir().join(format!("ledgerly-backup-drill-{}.dump", Uuid::now_v7()))
+}
+
+fn temporary_directory(prefix: &str) -> PathBuf {
+    std::env::temp_dir().join(format!("ledgerly-{prefix}-{}", Uuid::now_v7()))
+}
+
+fn write_object(root: &Path, key: &str, bytes: &[u8]) {
+    let path = root.join(key);
+    std::fs::create_dir_all(path.parent().expect("object parent")).expect("create object parent");
+    std::fs::write(path, bytes).expect("write object");
 }
 
 async fn table_count(pool: &PgPool, table: &str) -> i64 {
@@ -98,6 +110,9 @@ async fn postgres_backup_restore_drill_preserves_pre_backup_snapshot() {
     let source_url = database_url(&base_url, &source_database);
     let target_url = database_url(&base_url, &target_database);
     let dump = dump_path();
+    let source_objects = temporary_directory("drill-objects-source");
+    let target_objects = temporary_directory("drill-objects-target");
+    let objects_backup = temporary_directory("drill-objects-backup");
 
     for database in [&source_database, &target_database] {
         sqlx::query(&format!("CREATE DATABASE \"{database}\""))
@@ -106,9 +121,20 @@ async fn postgres_backup_restore_drill_preserves_pre_backup_snapshot() {
             .unwrap_or_else(|error| panic!("create database {database}: {error}"));
     }
 
-    let result = run_backup_restore_drill(&source_url, &target_url, &dump).await;
+    let result = run_backup_restore_drill(
+        &source_url,
+        &target_url,
+        &dump,
+        &source_objects,
+        &target_objects,
+        &objects_backup,
+    )
+    .await;
 
     let _ = tokio::fs::remove_file(&dump).await;
+    let _ = tokio::fs::remove_dir_all(&source_objects).await;
+    let _ = tokio::fs::remove_dir_all(&target_objects).await;
+    let _ = tokio::fs::remove_dir_all(&objects_backup).await;
     for database in [&target_database, &source_database] {
         let _ = sqlx::query(&format!(
             "DROP DATABASE IF EXISTS \"{database}\" WITH (FORCE)"
@@ -124,11 +150,16 @@ async fn run_backup_restore_drill(
     source_url: &str,
     target_url: &str,
     dump: &Path,
+    source_objects: &Path,
+    target_objects: &Path,
+    objects_backup: &Path,
 ) -> anyhow::Result<()> {
     let mut source_config = Config::for_test();
     source_config.database_url = Some(source_url.to_string());
+    source_config.object_store_dir = source_objects.to_path_buf();
     let mut target_config = Config::for_test();
     target_config.database_url = Some(target_url.to_string());
+    target_config.object_store_dir = target_objects.to_path_buf();
 
     migrate(&source_config).await?;
     let source = PgPoolOptions::new()
@@ -136,7 +167,7 @@ async fn run_backup_restore_drill(
         .connect(source_url)
         .await?;
 
-    let fixture = seed_source(&source).await?;
+    let fixture = seed_source(&source, source_objects).await?;
     // The server migration runner is idempotent SQL rather than a
     // version table. Run it once more after the book exists so the
     // snapshot includes the default categories a real deployed book has.
@@ -145,15 +176,32 @@ async fn run_backup_restore_drill(
 
     let backup_started = Instant::now();
     backup(&source_config, dump.to_str().expect("dump path")).await?;
+    let object_backup = backup_object_store(&source_config, objects_backup)?;
     let backup_elapsed = backup_started.elapsed();
 
     let post_backup_transaction_id = seed_post_backup_marker(&source, &fixture.book_id).await?;
     assert!(table_count(&source, "transactions").await > fixture.pre_backup_transaction_count);
+    write_object(
+        source_objects,
+        "books/post-backup/object",
+        b"post-backup object",
+    );
 
     let recovery_started = Instant::now();
+    let restored_objects = restore_object_store(&target_config, objects_backup)?;
     restore(&target_config, dump.to_str().expect("dump path")).await?;
     migrate(&target_config).await?;
     let recovery_elapsed = recovery_started.elapsed();
+    assert_eq!(restored_objects.object_count, object_backup.object_count);
+    assert_eq!(
+        restored_objects.total_size_bytes,
+        object_backup.total_size_bytes
+    );
+    assert_eq!(
+        std::fs::read(target_objects.join(&fixture.attachment_object_key))?,
+        fixture.attachment_bytes
+    );
+    assert!(!target_objects.join("books/post-backup/object").exists());
 
     let target = PgPoolOptions::new()
         .max_connections(4)
@@ -161,6 +209,19 @@ async fn run_backup_restore_drill(
         .await?;
     let restored_counts = snapshot_counts(&target).await;
     assert_eq!(restored_counts, expected_counts);
+    let restored_attachment: (Option<String>, Option<i64>) =
+        sqlx::query_as("SELECT content_hash, size_bytes FROM attachments WHERE id = $1")
+            .bind(&fixture.attachment_id)
+            .fetch_one(&target)
+            .await?;
+    assert_eq!(
+        restored_attachment.0.as_deref(),
+        Some(fixture.attachment_sha256.as_str())
+    );
+    assert_eq!(
+        restored_attachment.1,
+        Some(fixture.attachment_bytes.len() as i64)
+    );
 
     let restored_description: Option<String> =
         sqlx::query_scalar("SELECT description FROM transactions WHERE id = $1")
@@ -203,12 +264,16 @@ async fn run_backup_restore_drill(
 }
 
 struct DrillFixture {
+    attachment_id: String,
+    attachment_object_key: String,
+    attachment_bytes: Vec<u8>,
+    attachment_sha256: String,
     book_id: String,
     pre_backup_transaction_id: String,
     pre_backup_transaction_count: i64,
 }
 
-async fn seed_source(pool: &PgPool) -> anyhow::Result<DrillFixture> {
+async fn seed_source(pool: &PgPool, object_store_dir: &Path) -> anyhow::Result<DrillFixture> {
     let suffix = Uuid::now_v7().simple().to_string();
     let user_id = format!("user_{suffix}");
     let book_id = format!("book_{suffix}");
@@ -217,6 +282,9 @@ async fn seed_source(pool: &PgPool) -> anyhow::Result<DrillFixture> {
     let pre_transaction_id = format!("tx_pre_{suffix}");
     let recurring_id = format!("recurring_{suffix}");
     let attachment_id = format!("attachment_{suffix}");
+    let attachment_object_key = format!("books/{book_id}/{attachment_id}");
+    let attachment_bytes = b"ledgerly attachment recovery payload".to_vec();
+    let attachment_sha256 = hex::encode(Sha256::digest(&attachment_bytes));
     let job_id = format!("job_{suffix}");
     let sync_mutation_id = format!("mutation_{suffix}");
     let device_id = format!("device_{suffix}");
@@ -327,14 +395,17 @@ async fn seed_source(pool: &PgPool) -> anyhow::Result<DrillFixture> {
     sqlx::query(
         "INSERT INTO attachments
            (id, book_id, transaction_id, object_key, content_hash, mime_type, size_bytes)
-         VALUES ($1, $2, $3, $4, 'sha256-drill', 'application/octet-stream', 32)",
+         VALUES ($1, $2, $3, $4, $5, 'application/octet-stream', $6)",
     )
     .bind(&attachment_id)
     .bind(&book_id)
     .bind(&pre_transaction_id)
-    .bind(format!("objects/{attachment_id}"))
+    .bind(&attachment_object_key)
+    .bind(&attachment_sha256)
+    .bind(attachment_bytes.len() as i64)
     .execute(pool)
     .await?;
+    write_object(object_store_dir, &attachment_object_key, &attachment_bytes);
     sqlx::query(
         "INSERT INTO jobs (id, job_type, payload, status)
          VALUES ($1, 'recovery_drill', '{\"source\":\"test\"}'::jsonb, 'pending')",
@@ -365,6 +436,10 @@ async fn seed_source(pool: &PgPool) -> anyhow::Result<DrillFixture> {
 
     let pre_backup_transaction_count = table_count(pool, "transactions").await;
     Ok(DrillFixture {
+        attachment_id,
+        attachment_object_key,
+        attachment_bytes,
+        attachment_sha256,
         book_id,
         pre_backup_transaction_id: pre_transaction_id,
         pre_backup_transaction_count,
