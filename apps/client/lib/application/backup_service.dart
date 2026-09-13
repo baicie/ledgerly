@@ -7,6 +7,8 @@ import '../data/database.dart';
 import '../data/local_attachment_repository.dart';
 import '../data/local_budget_repository.dart';
 import '../data/local_recurring_repository.dart';
+import '../domain/default_categories.dart';
+import '../domain/ids.dart' as local_ids;
 import 'backup_encryption.dart';
 import 'backup_metadata_store.dart';
 import 'merchant_classifier.dart';
@@ -235,6 +237,40 @@ class BackupSummary {
         attachments: (json['attachments'] as num?)?.toInt() ?? 0,
         merchantRules: (json['merchantRules'] as num?)?.toInt() ?? 0,
       );
+}
+
+/// Restore semantics shown in the data-governance preview.
+enum BackupRestoreMode { replace, merge }
+
+/// Summary of a merge-restore operation.
+@immutable
+class BackupMergeResult {
+  const BackupMergeResult({
+    required this.addedBooks,
+    required this.replacedBooks,
+    required this.skippedBooks,
+    required this.addedAccounts,
+    required this.addedTransactions,
+    required this.addedRecurringRules,
+    required this.addedBudgets,
+    required this.addedAttachments,
+    required this.addedMerchantRules,
+  });
+
+  final int addedBooks;
+  final int replacedBooks;
+  final int skippedBooks;
+  final int addedAccounts;
+  final int addedTransactions;
+  final int addedRecurringRules;
+  final int addedBudgets;
+  final int addedAttachments;
+  final int addedMerchantRules;
+
+  int get mergedBooks => addedBooks + replacedBooks;
+
+  bool get changed =>
+      mergedBooks > 0 || addedMerchantRules > 0 || addedAttachments > 0;
 }
 
 /// Thrown when a backup file is structurally invalid.
@@ -561,6 +597,219 @@ class BackupService {
     }
   }
 
+  /// Merge books from [document] into the current local database.
+  ///
+  /// Unlike [restore], this never wipes current books. A backup book is
+  /// added when its ID is new; an untouched default placeholder with the
+  /// same ID is replaced; a book that already contains business data is
+  /// skipped as a whole. Database writes are atomic.
+  Future<BackupMergeResult> merge(
+    BackupDocument document, {
+    String? password,
+  }) async {
+    final resolved = document.encrypted != null
+        ? await _unwrapEncrypted(document, password: password)
+        : document;
+    final data = resolved.payload;
+    final books = _asList(data['books'], 'books');
+    final accounts = _asList(data['accounts'], 'accounts');
+    final transactions = _asList(data['transactions'], 'transactions');
+    final entries = _asList(data['transactionEntries'], 'transactionEntries');
+    final recurringRules = _asList(data['recurringRules'], 'recurringRules');
+    final budgets = _asList(data['budgets'], 'budgets');
+    final attachments = _asList(data['attachments'], 'attachments');
+    final merchantRules = _asList(data['merchantRules'], 'merchantRules');
+
+    final backupBooks = <String, Map<String, dynamic>>{};
+    for (final raw in books) {
+      final id = raw['id'];
+      if (id is! String || id.isEmpty) {
+        throw const BackupFormatException('备份中存在缺少 id 的账本');
+      }
+      if (backupBooks.containsKey(id)) {
+        throw BackupFormatException('备份中存在重复账本：$id');
+      }
+      backupBooks[id] = raw;
+    }
+
+    final existingBookIds = {
+      for (final book in await _db.select(_db.books).get()) book.id,
+    };
+    final addedBookIds = <String>{};
+    final replacedBookIds = <String>{};
+    final skippedBookIds = <String>{};
+    for (final bookId in backupBooks.keys) {
+      if (!existingBookIds.contains(bookId)) {
+        addedBookIds.add(bookId);
+      } else if (await _isReplaceablePlaceholderBook(bookId)) {
+        replacedBookIds.add(bookId);
+      } else {
+        skippedBookIds.add(bookId);
+      }
+    }
+    final selectedBookIds = {...addedBookIds, ...replacedBookIds};
+
+    final selectedAccounts = accounts
+        .where((raw) => selectedBookIds.contains(raw['bookId']))
+        .toList();
+    final selectedTransactions = transactions
+        .where((raw) => selectedBookIds.contains(raw['bookId']))
+        .toList();
+    final selectedTransactionIds = {
+      for (final raw in selectedTransactions)
+        if (raw['id'] is String) raw['id'] as String,
+    };
+    final selectedEntries = entries
+        .where(
+          (raw) => selectedTransactionIds.contains(raw['transactionId']),
+        )
+        .toList();
+    final selectedRecurring = recurringRules
+        .where((raw) => selectedBookIds.contains(raw['bookId']))
+        .toList();
+    final selectedBudgets = budgets
+        .where((raw) => selectedBookIds.contains(raw['bookId']))
+        .toList();
+    final selectedAttachments = attachments
+        .where((raw) => selectedBookIds.contains(raw['bookId']))
+        .toList();
+    final selectedAttachmentIds = {
+      for (final raw in selectedAttachments)
+        if (raw['id'] is String) raw['id'] as String,
+    };
+
+    final existingRules = await _merchantRules.load();
+    final mergedRules = <String, MerchantRule>{
+      for (final rule in existingRules)
+        if (rule.id != null) rule.id!: rule,
+    };
+    var addedMerchantRules = 0;
+    for (final raw in merchantRules) {
+      final rule = _merchantRuleFromJson(raw);
+      final ruleId = rule?.id;
+      if (rule == null || ruleId == null || mergedRules.containsKey(ruleId)) {
+        continue;
+      }
+      mergedRules[ruleId] = rule;
+      addedMerchantRules++;
+    }
+    if (addedMerchantRules > 0) {
+      await _merchantRules.save(mergedRules.values.toList());
+    }
+
+    final deviceId = await _deviceIdLoader();
+    try {
+      await _db.transaction(() async {
+        for (final bookId in replacedBookIds) {
+          await (_db.delete(_db.accounts)
+                ..where((account) => account.bookId.equals(bookId)))
+              .go();
+          await (_db.delete(_db.syncStates)
+                ..where((state) => state.bookId.equals(bookId)))
+              .go();
+          await (_db.delete(_db.books)..where((book) => book.id.equals(bookId)))
+              .go();
+        }
+
+        for (final raw in books) {
+          if (!selectedBookIds.contains(raw['id'])) continue;
+          await _db.into(_db.books).insert(
+                BooksCompanion.insert(
+                  id: raw['id'] as String,
+                  name: raw['name'] as String,
+                  currencyCode: raw['currencyCode'] as String,
+                  createdAt:
+                      DateTime.parse(raw['createdAt'] as String).toLocal(),
+                ),
+              );
+        }
+        for (final raw in selectedAccounts) {
+          await _db.into(_db.accounts).insert(
+                AccountsCompanion.insert(
+                  id: raw['id'] as String,
+                  bookId: raw['bookId'] as String,
+                  name: raw['name'] as String,
+                  type: raw['type'] as String,
+                  currencyCode: raw['currencyCode'] as String? ?? 'CNY',
+                  parentAccountId: Value(raw['parentAccountId'] as String?),
+                ),
+              );
+        }
+        for (final raw in selectedTransactions) {
+          await _db.into(_db.transactions).insert(
+                TransactionsCompanion.insert(
+                  id: raw['id'] as String,
+                  bookId: raw['bookId'] as String,
+                  occurredAt:
+                      DateTime.parse(raw['occurredAt'] as String).toLocal(),
+                  description: Value(raw['description'] as String?),
+                  version: Value((raw['version'] as num?)?.toInt() ?? 1),
+                  createdAt:
+                      DateTime.parse(raw['createdAt'] as String).toLocal(),
+                  deletedAt:
+                      Value(_parseNullableDate(raw['deletedAt'] as String?)),
+                  source: Value(raw['source'] as String?),
+                  sourceEventFingerprint:
+                      Value(raw['sourceEventFingerprint'] as String?),
+                ),
+              );
+        }
+        for (final raw in selectedEntries) {
+          await _db.into(_db.transactionEntries).insert(
+                TransactionEntriesCompanion.insert(
+                  id: raw['id'] as String,
+                  transactionId: raw['transactionId'] as String,
+                  accountId: raw['accountId'] as String,
+                  amountMinor: raw['amountMinor'] as String,
+                  currencyCode: raw['currencyCode'] as String? ?? 'CNY',
+                  entryIndex: (raw['entryIndex'] as num).toInt(),
+                ),
+              );
+        }
+        for (final raw in selectedRecurring) {
+          await _recurring.insertRaw(raw);
+        }
+        for (final raw in selectedBudgets) {
+          await _budgets.insertRaw(raw);
+        }
+        for (final raw in selectedAttachments) {
+          await _attachments.insertRaw(raw);
+        }
+        for (final bookId in selectedBookIds) {
+          await _db.into(_db.syncStates).insert(
+                SyncStatesCompanion.insert(
+                  bookId: bookId,
+                  deviceId: deviceId,
+                  updatedAt: DateTime.now().toUtc(),
+                ),
+              );
+        }
+      });
+    } catch (error) {
+      if (addedMerchantRules > 0) {
+        await _merchantRules.save(existingRules);
+      }
+      rethrow;
+    }
+
+    for (final binary in resolved.attachmentBinaries) {
+      if (!selectedAttachmentIds.contains(binary.id)) continue;
+      await _attachments.writeBytes(id: binary.id, bytes: binary.bytes);
+    }
+
+    return BackupMergeResult(
+      addedBooks: addedBookIds.length,
+      replacedBooks: replacedBookIds.length,
+      skippedBooks: skippedBookIds.length,
+      addedAccounts: selectedAccounts.length,
+      addedTransactions: selectedTransactions.length,
+      addedRecurringRules: selectedRecurring.length,
+      addedBudgets: selectedBudgets.length,
+      addedAttachments: selectedAttachments.length,
+      addedMerchantRules: addedMerchantRules,
+    );
+  }
+
   /// Delete every user-owned row. Pending sync mutations and conflict
   /// markers are cleared too so the local database is truly empty.
   Future<void> wipeLocalData() async {
@@ -734,6 +983,64 @@ class BackupService {
       if (rule != null) rules.add(rule);
     }
     await _merchantRules.save(rules);
+  }
+
+  /// True when [bookId] only contains the accounts created by
+  /// `LedgerRepository.seedIfEmpty()` or `createBook()`, and has no
+  /// transactions, recurring rules, budgets, or attachments.
+  Future<bool> _isReplaceablePlaceholderBook(String bookId) async {
+    final counts = await _db.customSelect(
+      '''
+SELECT
+  (SELECT COUNT(*) FROM transactions WHERE book_id = ?) AS transactions,
+  (SELECT COUNT(*) FROM local_recurring_rules WHERE book_id = ?) AS recurring,
+  (SELECT COUNT(*) FROM local_budgets WHERE book_id = ?) AS budgets,
+  (SELECT COUNT(*) FROM local_attachments WHERE book_id = ?) AS attachments,
+  (SELECT COUNT(*) FROM pending_mutations WHERE book_id = ?) AS pending,
+  (SELECT COUNT(*) FROM sync_conflicts WHERE book_id = ?) AS conflicts
+''',
+      variables: [
+        Variable<String>(bookId),
+        Variable<String>(bookId),
+        Variable<String>(bookId),
+        Variable<String>(bookId),
+        Variable<String>(bookId),
+        Variable<String>(bookId),
+      ],
+      readsFrom: {},
+    ).getSingle();
+    if (counts.read<int>('transactions') > 0 ||
+        counts.read<int>('recurring') > 0 ||
+        counts.read<int>('budgets') > 0 ||
+        counts.read<int>('attachments') > 0 ||
+        counts.read<int>('pending') > 0 ||
+        counts.read<int>('conflicts') > 0) {
+      return false;
+    }
+
+    final accounts = await (_db.select(_db.accounts)
+          ..where((account) => account.bookId.equals(bookId)))
+        .get();
+    if (accounts.isEmpty) return false;
+    final expectedAccounts = <String, (String, String, String?)>{
+      local_ids.accountKeyCash(bookId): ('Cash', 'asset', null),
+      local_ids.accountKeyBank(bookId): ('Bank', 'asset', null),
+      for (final category in defaultCategoryDefinitions)
+        local_ids.accountId(bookId, category.key): (
+          category.name,
+          category.type,
+          category.parentKey == null
+              ? null
+              : local_ids.accountId(bookId, category.parentKey!),
+        ),
+    };
+    return accounts.every((account) {
+      final expected = expectedAccounts[account.id];
+      return expected != null &&
+          account.name == expected.$1 &&
+          account.type == expected.$2 &&
+          account.parentAccountId == expected.$3;
+    });
   }
 
   /// Decrypt an encrypted document using the user-supplied password

@@ -3905,7 +3905,7 @@ abstract class AppLocalizations {
   /// No description provided for @dataGovernanceRestoreSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'选择备份文件，预览后再覆盖本机数据。'**
+  /// **'选择备份文件，预览后替换或合并到本机数据。'**
   String get dataGovernanceRestoreSubtitle;
 
   /// No description provided for @dataGovernanceRestoreAction.
@@ -3946,6 +3946,36 @@ abstract class AppLocalizations {
   /// **'备份里没有任何数据，恢复后本机会变空。'**
   String get dataGovernanceRestorePreviewEmpty;
 
+  /// No description provided for @dataGovernanceRestoreModeReplace.
+  ///
+  /// In zh, this message translates to:
+  /// **'替换本机数据'**
+  String get dataGovernanceRestoreModeReplace;
+
+  /// No description provided for @dataGovernanceRestoreModeMerge.
+  ///
+  /// In zh, this message translates to:
+  /// **'合并新账本'**
+  String get dataGovernanceRestoreModeMerge;
+
+  /// No description provided for @dataGovernanceRestoreMergeHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'同 ID 且已有数据的账本会整本跳过；仅空占位账本会被替换。'**
+  String get dataGovernanceRestoreMergeHint;
+
+  /// No description provided for @dataGovernanceRestoreReplaceAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'替换本机数据'**
+  String get dataGovernanceRestoreReplaceAction;
+
+  /// No description provided for @dataGovernanceRestoreMergeAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'合并到本机'**
+  String get dataGovernanceRestoreMergeAction;
+
   /// No description provided for @dataGovernanceRestoreConfirmTitle.
   ///
   /// In zh, this message translates to:
@@ -3957,6 +3987,31 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'恢复会覆盖本机的全部账本。已自动写入安全备份到 {path}，出问题可以回滚。'**
   String dataGovernanceRestoreConfirmBody(String path);
+
+  /// No description provided for @dataGovernanceRestoreConfirmMergeTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认合并到本机？'**
+  String get dataGovernanceRestoreConfirmMergeTitle;
+
+  /// No description provided for @dataGovernanceRestoreConfirmMergeBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'只会新增账本或替换空占位账本；同 ID 且已有数据的账本会跳过。安全备份已写入 {path}。'**
+  String dataGovernanceRestoreConfirmMergeBody(String path);
+
+  /// No description provided for @dataGovernanceRestoreMergeSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已合并 {added} 个新账本，替换 {replaced} 个空账本，跳过 {skipped} 个已有账本。'**
+  String dataGovernanceRestoreMergeSuccess(
+      int added, int replaced, int skipped);
+
+  /// No description provided for @dataGovernanceRestoreMergeNoChanges.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有可合并的新账本，已有账本保持不变。'**
+  String get dataGovernanceRestoreMergeNoChanges;
 
   /// No description provided for @dataGovernanceRestoreSuccess.
   ///

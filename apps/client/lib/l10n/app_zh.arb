@@ -1166,7 +1166,7 @@
   },
   "dataGovernanceBackupShare": "分享 / 另存到其他位置",
   "dataGovernanceRestore": "恢复",
-  "dataGovernanceRestoreSubtitle": "选择备份文件，预览后再覆盖本机数据。",
+  "dataGovernanceRestoreSubtitle": "选择备份文件，预览后替换或合并到本机数据。",
   "dataGovernanceRestoreAction": "选择备份文件",
   "dataGovernanceRestoreInProgress": "正在恢复…",
   "dataGovernanceRestorePreview": "预览",
@@ -1200,6 +1200,11 @@
     }
   },
   "dataGovernanceRestorePreviewEmpty": "备份里没有任何数据，恢复后本机会变空。",
+  "dataGovernanceRestoreModeReplace": "替换本机数据",
+  "dataGovernanceRestoreModeMerge": "合并新账本",
+  "dataGovernanceRestoreMergeHint": "同 ID 且已有数据的账本会整本跳过；仅空占位账本会被替换。",
+  "dataGovernanceRestoreReplaceAction": "替换本机数据",
+  "dataGovernanceRestoreMergeAction": "合并到本机",
   "dataGovernanceRestoreConfirmTitle": "确认覆盖本机数据？",
   "dataGovernanceRestoreConfirmBody": "恢复会覆盖本机的全部账本。已自动写入安全备份到 {path}，出问题可以回滚。",
   "@dataGovernanceRestoreConfirmBody": {
@@ -1209,6 +1214,30 @@
       }
     }
   },
+  "dataGovernanceRestoreConfirmMergeTitle": "确认合并到本机？",
+  "dataGovernanceRestoreConfirmMergeBody": "只会新增账本或替换空占位账本；同 ID 且已有数据的账本会跳过。安全备份已写入 {path}。",
+  "@dataGovernanceRestoreConfirmMergeBody": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreMergeSuccess": "已合并 {added} 个新账本，替换 {replaced} 个空账本，跳过 {skipped} 个已有账本。",
+  "@dataGovernanceRestoreMergeSuccess": {
+    "placeholders": {
+      "added": {
+        "type": "int"
+      },
+      "replaced": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceRestoreMergeNoChanges": "没有可合并的新账本，已有账本保持不变。",
   "dataGovernanceRestoreSuccess": "恢复完成，正在刷新…",
   "dataGovernanceWipe": "清空本机数据",
   "dataGovernanceWipeSubtitle": "删除全部流水、预算、规则和附件，无法撤销。",
