@@ -53,9 +53,14 @@ ledger-server bundle verify --from /tmp/ledgerly-bundle
 ledger-server bundle replicate \
   --from /tmp/ledgerly-bundle \
   --to /mnt/offsite/ledgerly-bundle-2026-09-13
+
+ledger-server bundle cleanup \
+  --root /mnt/offsite \
+  --keep 4
 ```
 
 `LEDGER_BACKUP_PASSWORD` 丢失后无法解包，必须与备份分开保存在密钥管理系统中。
+新建 bundle 使用 1 MiB 分块 AES-256-GCM；旧 schema v1 bundle 仍可验证和解包。
 
 ## 客户端灾难恢复演练
 

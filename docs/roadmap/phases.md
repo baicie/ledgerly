@@ -261,6 +261,16 @@
 - [x] 复制完成后重新校验再发布
 - [x] PostgreSQL 联合演练经过加密 bundle 全链路
 
+## 流式加密 bundle 与保留策略（Phase 34）
+
+- [x] schema v2 使用 1 MiB 分块 AES-256-GCM
+- [x] 每文件随机 nonce 前缀加 chunk index
+- [x] 逻辑路径和 chunk index 作为 AAD
+- [x] 支持无密码密文验证与有密码明文验证
+- [x] 保持 Phase 33 schema v1 bundle 可读
+- [x] 新增 bundle cleanup 保留最新 N 份
+- [x] CI 联合恢复链路覆盖新格式
+
 ### 待后续完善
 
 - 扩大商户分类覆盖（目前第一版关键词匹配）
