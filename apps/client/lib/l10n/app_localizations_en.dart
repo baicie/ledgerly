@@ -2687,6 +2687,20 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get dataGovernanceHealthRecoveryDrillNever =>
+      'Recovery drill: not run yet';
+
+  @override
+  String dataGovernanceHealthRecoveryDrillSuccess(String date) {
+    return 'Last recovery drill passed: $date';
+  }
+
+  @override
+  String dataGovernanceHealthRecoveryDrillFailed(String date) {
+    return 'Last recovery drill failed: $date';
+  }
+
+  @override
   String get dataGovernanceHealthTitle => 'Backup policy health';
 
   @override
@@ -2791,6 +2805,19 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get dataGovernanceHealthIssueRecoveryDrillNever =>
+      'No recovery drill has been completed for the latest backup policy.';
+
+  @override
+  String get dataGovernanceHealthIssueRecoveryDrillFailed =>
+      'The latest recovery drill failed; run it again.';
+
+  @override
+  String dataGovernanceHealthIssueRecoveryDrillStale(int days) {
+    return 'The last successful recovery drill was $days days ago.';
+  }
+
+  @override
   String get dataGovernanceHealthActionBackup => 'Back up now';
 
   @override
@@ -2806,6 +2833,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get dataGovernanceHealthActionExternalDirectory =>
       'Check external backup directory';
+
+  @override
+  String get dataGovernanceHealthActionRecoveryDrill => 'Run recovery drill';
 
   @override
   String get dataGovernanceHealthExportReport => 'Export governance report';

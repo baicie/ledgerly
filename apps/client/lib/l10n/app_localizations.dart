@@ -4729,6 +4729,24 @@ abstract class AppLocalizations {
   /// **'恢复演练失败：{error}'**
   String dataGovernanceRecoveryDrillFailed(String error);
 
+  /// No description provided for @dataGovernanceHealthRecoveryDrillNever.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复演练：尚未执行'**
+  String get dataGovernanceHealthRecoveryDrillNever;
+
+  /// No description provided for @dataGovernanceHealthRecoveryDrillSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近恢复演练通过：{date}'**
+  String dataGovernanceHealthRecoveryDrillSuccess(String date);
+
+  /// No description provided for @dataGovernanceHealthRecoveryDrillFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近恢复演练失败：{date}'**
+  String dataGovernanceHealthRecoveryDrillFailed(String date);
+
   /// No description provided for @dataGovernanceHealthTitle.
   ///
   /// In zh, this message translates to:
@@ -4885,6 +4903,24 @@ abstract class AppLocalizations {
   /// **'外部目录有 {count} 份未登记备份。'**
   String dataGovernanceHealthIssueMirrorExtra(int count);
 
+  /// No description provided for @dataGovernanceHealthIssueRecoveryDrillNever.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前备份策略尚未完成恢复演练。'**
+  String get dataGovernanceHealthIssueRecoveryDrillNever;
+
+  /// No description provided for @dataGovernanceHealthIssueRecoveryDrillFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近一次恢复演练失败，请重新执行。'**
+  String get dataGovernanceHealthIssueRecoveryDrillFailed;
+
+  /// No description provided for @dataGovernanceHealthIssueRecoveryDrillStale.
+  ///
+  /// In zh, this message translates to:
+  /// **'上次成功恢复演练已过去 {days} 天。'**
+  String dataGovernanceHealthIssueRecoveryDrillStale(int days);
+
   /// No description provided for @dataGovernanceHealthActionBackup.
   ///
   /// In zh, this message translates to:
@@ -4914,6 +4950,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'检查外部备份目录'**
   String get dataGovernanceHealthActionExternalDirectory;
+
+  /// No description provided for @dataGovernanceHealthActionRecoveryDrill.
+  ///
+  /// In zh, this message translates to:
+  /// **'执行恢复演练'**
+  String get dataGovernanceHealthActionRecoveryDrill;
 
   /// No description provided for @dataGovernanceHealthExportReport.
   ///

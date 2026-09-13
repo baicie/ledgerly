@@ -4,9 +4,10 @@ import 'package:flutter/foundation.dart';
 
 import 'backup_catalog_store.dart';
 import 'backup_health.dart';
+import 'backup_recovery_drill_audit.dart';
 import 'backup_restore_audit.dart';
 
-const int kBackupGovernanceReportSchemaVersion = 1;
+const int kBackupGovernanceReportSchemaVersion = 2;
 
 enum BackupGovernanceReportFormat { json, csv }
 
@@ -17,12 +18,14 @@ class BackupGovernanceReport {
     required this.health,
     required this.catalog,
     required this.audits,
+    required this.recoveryDrills,
   });
 
   final DateTime generatedAt;
   final BackupHealthSnapshot health;
   final List<BackupArtifact> catalog;
   final List<BackupRestoreAudit> audits;
+  final List<BackupRecoveryDrillAudit> recoveryDrills;
 
   Map<String, dynamic> toJson() {
     final metadata = health.metadata;
@@ -62,6 +65,7 @@ class BackupGovernanceReport {
       },
       'catalog': _catalogSummary(),
       'restoreAudit': _auditSummary(),
+      'recoveryDrill': _recoveryDrillSummary(),
     };
   }
 
@@ -76,6 +80,7 @@ class BackupGovernanceReport {
     final scheduleJson = json['schedule'] as Map<String, dynamic>;
     final catalogJson = json['catalog'] as Map<String, dynamic>;
     final auditJson = json['restoreAudit'] as Map<String, dynamic>;
+    final drillJson = json['recoveryDrill'] as Map<String, dynamic>;
     final rows = <List<String>>[
       ['metric', 'value'],
       ['schemaVersion', '$kBackupGovernanceReportSchemaVersion'],
@@ -98,6 +103,9 @@ class BackupGovernanceReport {
       ['restoreAuditCount', '${auditJson['count']}'],
       ['restoreAuditSuccesses', '${auditJson['successCount']}'],
       ['restoreAuditFailures', '${auditJson['failureCount']}'],
+      ['recoveryDrillCount', '${drillJson['count']}'],
+      ['recoveryDrillSuccesses', '${drillJson['successCount']}'],
+      ['recoveryDrillFailures', '${drillJson['failureCount']}'],
     ];
     return '${rows.map((row) => row.map(_csvCell).join(',')).join('\n')}\n';
   }
@@ -135,6 +143,25 @@ class BackupGovernanceReport {
     };
   }
 
+  Map<String, dynamic> _recoveryDrillSummary() {
+    final latest = recoveryDrills.isEmpty ? null : recoveryDrills.first;
+    return {
+      'count': recoveryDrills.length,
+      'successCount': recoveryDrills
+          .where(
+            (audit) => audit.status == BackupRecoveryDrillAuditStatus.success,
+          )
+          .length,
+      'failureCount': recoveryDrills
+          .where(
+            (audit) => audit.status == BackupRecoveryDrillAuditStatus.failed,
+          )
+          .length,
+      if (latest != null) 'lastAt': latest.at.toUtc().toIso8601String(),
+      if (latest != null) 'lastStatus': latest.status.name,
+    };
+  }
+
   int _countKind(BackupArtifactKind kind) =>
       catalog.where((artifact) => artifact.kind == kind).length;
 
@@ -147,23 +174,28 @@ class BackupGovernanceReportService {
     required BackupHealthService health,
     required BackupCatalogStore catalog,
     required BackupRestoreAuditStore audits,
+    required BackupRecoveryDrillAuditStore recoveryDrills,
   })  : _health = health,
         _catalog = catalog,
-        _audits = audits;
+        _audits = audits,
+        _recoveryDrills = recoveryDrills;
 
   final BackupHealthService _health;
   final BackupCatalogStore _catalog;
   final BackupRestoreAuditStore _audits;
+  final BackupRecoveryDrillAuditStore _recoveryDrills;
 
   Future<BackupGovernanceReport> build({DateTime? now}) async {
     final health = await _health.check(now: now);
     final catalog = await _catalog.read();
     final audits = await _audits.read();
+    final recoveryDrills = await _recoveryDrills.read();
     return BackupGovernanceReport(
       generatedAt: health.checkedAt,
       health: health,
       catalog: catalog,
       audits: audits,
+      recoveryDrills: recoveryDrills,
     );
   }
 }

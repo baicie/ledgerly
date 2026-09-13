@@ -7,6 +7,7 @@ import 'package:ledgerly_client/application/backup_catalog_store.dart';
 import 'package:ledgerly_client/application/backup_health.dart';
 import 'package:ledgerly_client/application/backup_metadata_store.dart';
 import 'package:ledgerly_client/application/backup_mirror_store.dart';
+import 'package:ledgerly_client/application/backup_recovery_drill_audit.dart';
 import 'package:ledgerly_client/application/backup_restore_audit.dart';
 import 'package:ledgerly_client/application/backup_schedule.dart';
 import 'package:ledgerly_client/application/backup_service.dart';
@@ -40,11 +41,19 @@ void main() {
     expect(snapshot.recommendedAction, BackupHealthAction.createBackup);
   });
 
-  test('healthy backup policy has no issues', () async {
+  test('healthy backup policy with a recent drill has no issues', () async {
     final fixture = _Fixture();
     addTearDown(fixture.close);
     await fixture.seed();
     await fixture.service.exportToFile();
+    await fixture.drills.recordSuccess(
+      at: DateTime.now().toUtc(),
+      encrypted: false,
+      incremental: false,
+      bookCount: 1,
+      transactionCount: 0,
+      attachmentCount: 0,
+    );
     await fixture.schedule.save(
       const BackupSchedule(enabled: true, intervalDays: 30),
     );
@@ -55,6 +64,78 @@ void main() {
     expect(snapshot.issues, isEmpty);
     expect(snapshot.catalogCount, 1);
     expect(snapshot.nextDueAt, isNotNull);
+  });
+
+  test('reports a backup policy that has never run a recovery drill', () async {
+    final fixture = _Fixture();
+    addTearDown(fixture.close);
+    await fixture.seed();
+    await fixture.service.exportToFile();
+    await fixture.schedule.save(
+      const BackupSchedule(enabled: true, intervalDays: 30),
+    );
+
+    final snapshot = await fixture.health.check();
+
+    expect(snapshot.level, BackupHealthLevel.warning);
+    expect(
+      snapshot.issues.map((issue) => issue.code),
+      contains(BackupHealthIssueCode.recoveryDrillNeverRun),
+    );
+    expect(snapshot.recommendedAction, BackupHealthAction.runRecoveryDrill);
+  });
+
+  test('reports a failed recovery drill', () async {
+    final fixture = _Fixture();
+    addTearDown(fixture.close);
+    await fixture.seed();
+    await fixture.service.exportToFile();
+    await fixture.schedule.save(
+      const BackupSchedule(enabled: true, intervalDays: 30),
+    );
+    await fixture.drills.recordFailure(at: DateTime.utc(2026, 1, 2));
+
+    final snapshot = await fixture.health.check(
+      now: DateTime.utc(2026, 1, 3),
+    );
+
+    expect(
+      snapshot.issues.map((issue) => issue.code),
+      contains(BackupHealthIssueCode.recoveryDrillFailed),
+    );
+    expect(snapshot.recommendedAction, BackupHealthAction.runRecoveryDrill);
+  });
+
+  test('reports a stale recovery drill', () async {
+    final fixture = _Fixture();
+    addTearDown(fixture.close);
+    await fixture.seed();
+    await fixture.service.exportToFile();
+    await fixture.schedule.save(
+      const BackupSchedule(enabled: true, intervalDays: 30),
+    );
+    await fixture.drills.recordSuccess(
+      at: DateTime.utc(2026, 1, 1),
+      encrypted: false,
+      incremental: false,
+      bookCount: 1,
+      transactionCount: 0,
+      attachmentCount: 0,
+    );
+    await fixture.metadata.record(
+      path: fixture.filePort.envelopes.keys.single,
+      at: DateTime.utc(2026, 11, 15),
+    );
+
+    final snapshot = await fixture.health.check(
+      now: DateTime.utc(2026, 12, 1),
+    );
+
+    expect(
+      snapshot.issues.map((issue) => issue.code),
+      contains(BackupHealthIssueCode.recoveryDrillStale),
+    );
+    expect(snapshot.recommendedAction, BackupHealthAction.runRecoveryDrill);
   });
 
   test('reports stale backup against the configured cadence', () async {
@@ -140,6 +221,7 @@ class _Fixture {
     passwords = MemoryBackupAutoPasswordStore();
     catalog = BackupCatalogStore();
     audits = BackupRestoreAuditStore();
+    drills = BackupRecoveryDrillAuditStore();
     mirror = BackupMirrorStore();
     service = BackupService(
       database: db,
@@ -156,6 +238,7 @@ class _Fixture {
       catalog: catalog,
       audits: audits,
       mirror: mirror,
+      drillAudits: drills,
     );
     health = BackupHealthService(
       metadata: metadata,
@@ -166,6 +249,7 @@ class _Fixture {
       mirror: mirror,
       filePort: filePort,
       backups: service,
+      drillAudits: drills,
     );
   }
 
@@ -177,6 +261,7 @@ class _Fixture {
   late final MemoryBackupAutoPasswordStore passwords;
   late final BackupCatalogStore catalog;
   late final BackupRestoreAuditStore audits;
+  late final BackupRecoveryDrillAuditStore drills;
   late final BackupMirrorStore mirror;
   late final BackupService service;
   late final BackupHealthService health;

@@ -17,6 +17,7 @@ import 'backup_catalog_store.dart';
 import 'backup_metadata_store.dart';
 import 'backup_mirror_store.dart';
 import 'backup_mirror_verification.dart';
+import 'backup_recovery_drill_audit.dart';
 import 'backup_restore_audit.dart';
 import 'merchant_classifier.dart';
 import 'merchant_rule_store.dart';
@@ -515,6 +516,7 @@ class BackupService {
     BackupCatalogStore? catalog,
     BackupRestoreAuditStore? audits,
     BackupMirrorStore? mirror,
+    BackupRecoveryDrillAuditStore? drillAudits,
   })  : _db = database,
         _recurring = recurring,
         _budgets = budgets,
@@ -526,7 +528,8 @@ class BackupService {
         _encryption = encryption ?? BackupEncryption(),
         _catalog = catalog ?? BackupCatalogStore(),
         _audits = audits ?? BackupRestoreAuditStore(),
-        _mirror = mirror ?? BackupMirrorStore();
+        _mirror = mirror ?? BackupMirrorStore(),
+        _drillAudits = drillAudits ?? BackupRecoveryDrillAuditStore();
 
   final AppDatabase _db;
   final LocalRecurringRepository _recurring;
@@ -540,6 +543,7 @@ class BackupService {
   final BackupCatalogStore _catalog;
   final BackupRestoreAuditStore _audits;
   final BackupMirrorStore _mirror;
+  final BackupRecoveryDrillAuditStore _drillAudits;
 
   /// Read every entity into a memory [BackupDocument]. The document holds
   /// raw row payloads — file I/O is delegated to [BackupFilePort].
@@ -1035,6 +1039,7 @@ class BackupService {
     await _budgets.deleteAll();
     await _attachments.deleteAll();
     await _merchantRules.clear();
+    await _drillAudits.clear();
 
     // Drop other app-owned SharedPreferences keys that we shouldn't carry
     // across a wipe (selected book, sync state hints).
@@ -1365,17 +1370,19 @@ class BackupService {
   /// without writing to the live database.
   Future<BackupRecoveryDrillResult> runRecoveryDrill({
     String? password,
-  }) async {
-    final metadata = await _metadata.read();
-    final path = metadata.lastBackupPath;
-    if (path == null) {
-      throw const BackupFormatException('本机没有可演练的最近备份。');
-    }
-    return _runRecoveryDrillForPath(
-      path: path,
-      password: password,
-      resolveBaseFromCatalog: false,
-    );
+  }) {
+    return _runAuditedRecoveryDrill(() async {
+      final metadata = await _metadata.read();
+      final path = metadata.lastBackupPath;
+      if (path == null) {
+        throw const BackupFormatException('本机没有可演练的最近备份。');
+      }
+      return _runRecoveryDrillForPath(
+        path: path,
+        password: password,
+        resolveBaseFromCatalog: false,
+      );
+    });
   }
 
   /// Read a catalog artifact for preview. Plaintext incremental artifacts
@@ -1470,10 +1477,12 @@ class BackupService {
     BackupArtifact artifact, {
     String? password,
   }) {
-    return _runRecoveryDrillForPath(
-      path: artifact.path,
-      password: password,
-      resolveBaseFromCatalog: true,
+    return _runAuditedRecoveryDrill(
+      () => _runRecoveryDrillForPath(
+        path: artifact.path,
+        password: password,
+        resolveBaseFromCatalog: true,
+      ),
     );
   }
 
@@ -1573,6 +1582,34 @@ class BackupService {
       bundledAttachmentCount: resolved.attachmentBinaries.length,
       attachmentSizeBytes: resolved.attachmentSizeBytes,
     );
+  }
+
+  Future<BackupRecoveryDrillResult> _runAuditedRecoveryDrill(
+    Future<BackupRecoveryDrillResult> Function() run,
+  ) async {
+    try {
+      final result = await run();
+      try {
+        await _drillAudits.recordSuccess(
+          at: DateTime.now().toUtc(),
+          encrypted: result.encrypted,
+          incremental: result.incremental,
+          bookCount: result.summary.books,
+          transactionCount: result.summary.transactions,
+          attachmentCount: result.summary.attachments,
+        );
+      } catch (_) {
+        // Audit persistence is auxiliary; the drill result still stands.
+      }
+      return result;
+    } catch (_) {
+      try {
+        await _drillAudits.recordFailure(at: DateTime.now().toUtc());
+      } catch (_) {
+        // Preserve the original drill exception.
+      }
+      rethrow;
+    }
   }
 
   /// Pass-through helpers so the page does not need to depend on the

@@ -10,6 +10,7 @@ import '../application/backup_governance_report.dart';
 import '../application/backup_health.dart';
 import '../application/backup_metadata_store.dart';
 import '../application/backup_mirror_store.dart';
+import '../application/backup_recovery_drill_audit.dart';
 import '../application/backup_restore_audit.dart';
 import '../application/backup_schedule.dart';
 import '../application/backup_service.dart';
@@ -245,7 +246,13 @@ final backupServiceProvider = Provider<BackupService>((ref) {
     catalog: ref.watch(backupCatalogStoreProvider),
     audits: ref.watch(backupRestoreAuditStoreProvider),
     mirror: ref.watch(backupMirrorStoreProvider),
+    drillAudits: ref.watch(backupRecoveryDrillAuditStoreProvider),
   );
+});
+
+final backupRecoveryDrillAuditStoreProvider =
+    Provider<BackupRecoveryDrillAuditStore>((ref) {
+  return BackupRecoveryDrillAuditStore();
 });
 
 final backupRestoreAuditStoreProvider =
@@ -276,6 +283,7 @@ final backupHealthServiceProvider = Provider<BackupHealthService>((ref) {
     mirror: ref.watch(backupMirrorStoreProvider),
     filePort: ref.watch(backupFilePortProvider),
     backups: ref.watch(backupServiceProvider),
+    drillAudits: ref.watch(backupRecoveryDrillAuditStoreProvider),
   );
 });
 
@@ -289,6 +297,7 @@ final backupGovernanceReportServiceProvider =
     health: ref.watch(backupHealthServiceProvider),
     catalog: ref.watch(backupCatalogStoreProvider),
     audits: ref.watch(backupRestoreAuditStoreProvider),
+    recoveryDrills: ref.watch(backupRecoveryDrillAuditStoreProvider),
   );
 });
 

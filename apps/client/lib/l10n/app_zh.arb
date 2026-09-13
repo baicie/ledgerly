@@ -1666,6 +1666,23 @@
       }
     }
   },
+  "dataGovernanceHealthRecoveryDrillNever": "恢复演练：尚未执行",
+  "dataGovernanceHealthRecoveryDrillSuccess": "最近恢复演练通过：{date}",
+  "@dataGovernanceHealthRecoveryDrillSuccess": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceHealthRecoveryDrillFailed": "最近恢复演练失败：{date}",
+  "@dataGovernanceHealthRecoveryDrillFailed": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "dataGovernanceHealthTitle": "备份策略健康",
   "dataGovernanceHealthChecking": "检查中…",
   "dataGovernanceHealthHealthy": "健康",
@@ -1744,11 +1761,22 @@
       }
     }
   },
+  "dataGovernanceHealthIssueRecoveryDrillNever": "当前备份策略尚未完成恢复演练。",
+  "dataGovernanceHealthIssueRecoveryDrillFailed": "最近一次恢复演练失败，请重新执行。",
+  "dataGovernanceHealthIssueRecoveryDrillStale": "上次成功恢复演练已过去 {days} 天。",
+  "@dataGovernanceHealthIssueRecoveryDrillStale": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
   "dataGovernanceHealthActionBackup": "立即备份",
   "dataGovernanceHealthActionEnableAuto": "启用自动备份",
   "dataGovernanceHealthActionPassword": "设置自动备份密码",
   "dataGovernanceHealthActionInspect": "检查备份文件",
   "dataGovernanceHealthActionExternalDirectory": "检查外部备份目录",
+  "dataGovernanceHealthActionRecoveryDrill": "执行恢复演练",
   "dataGovernanceHealthExportReport": "导出治理报告",
   "dataGovernanceHealthReportJson": "JSON 完整报告",
   "dataGovernanceHealthReportCsv": "CSV 摘要",
