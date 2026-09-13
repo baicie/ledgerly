@@ -151,4 +151,4 @@ smoke test 验证：
 - [x] 部署脚本验证 `/health/backup`；
 - [x] 部署脚本验证备份目录和 pg_dump 版本；
 - [x] PR CI 构建并 smoke test 服务端镜像；
-- [ ] workspace、镜像 smoke 和部署 workflow 全部通过（待验证）。
+- [x] workspace、镜像 smoke 和部署 workflow 全部通过。
