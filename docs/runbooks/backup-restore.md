@@ -19,6 +19,20 @@ cargo run --manifest-path server/Cargo.toml -- restore --from /tmp/ledgerly.dump
 
 恢复后执行 `cargo run -- migrate` 确认 schema，并跑 `cargo test --test postgres_flow`。
 
+### 自动化恢复演练
+
+先提供一个具有 `CREATEDB` 权限的 PostgreSQL 管理连接，并确保本机存在
+`pg_dump` / `pg_restore`：
+
+```bash
+export DATABASE_URL=postgres://ledgerly:ledgerly@127.0.0.1:5432/ledgerly
+export REQUIRE_POSTGRES_TESTS=true
+cargo test --manifest-path server/Cargo.toml --test postgres_backup_restore -- --nocapture
+```
+
+测试会创建独立源库和目标库，写入恢复前/恢复后标记，执行 dump 和 restore，
+校验表数量、备份边界和 4 小时 RTO，然后删除临时数据库与 dump 文件。
+
 ## 客户端灾难恢复演练
 
 客户端使用隔离内存数据库执行四条完整恢复路径，不会读写本机正式账本：
