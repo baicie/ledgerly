@@ -1447,6 +1447,10 @@
     }
   },
   "dataGovernanceConsolidateBackup": "生成便携备份",
+  "dataGovernanceConsolidatePasswordTitle": "设置便携备份密码",
+  "dataGovernanceConsolidatePasswordBody": "可选设置密码；留空将生成未加密备份。",
+  "dataGovernanceConsolidatePasswordLabel": "备份密码（可选）",
+  "dataGovernanceConsolidatePasswordConfirm": "确认备份密码",
   "dataGovernanceConsolidateSuccess": "已生成便携备份：{path}（{size}）",
   "@dataGovernanceConsolidateSuccess": {
     "placeholders": {

@@ -935,14 +935,78 @@ void main() {
 
     await tester.tap(consolidate);
     await tester.pump();
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('data-governance-portable-password-dialog')),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const Key('data-governance-portable-password-submit')),
+    );
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pumpAndSettle();
 
     expect(consolidate, findsNothing);
+    final metadata = await BackupMetadataStore().read();
+    expect(metadata.lastBackupEncrypted, isFalse);
     final share = tester.widget<OutlinedButton>(
       find.byKey(const Key('data-governance-export-share')),
     );
     expect(share.onPressed, isNotNull);
+  });
+
+  testWidgets('portable backup can be encrypted with a password',
+      (tester) async {
+    final basePath = await backupService.exportToFile();
+    final base = filePort.envelopes[basePath]!;
+    await backupService.exportToFile(incremental: true);
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-consolidate-action')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('data-governance-portable-password')),
+      'short',
+    );
+    await tester.pump();
+    expect(
+      find.text(l10n.dataGovernancePasswordTooShort),
+      findsOneWidget,
+    );
+    final disabledSubmit = tester.widget<FilledButton>(
+      find.byKey(const Key('data-governance-portable-password-submit')),
+    );
+    expect(disabledSubmit.onPressed, isNull);
+
+    await tester.enterText(
+      find.byKey(const Key('data-governance-portable-password')),
+      'password123',
+    );
+    await tester.enterText(
+      find.byKey(const Key('data-governance-portable-password-confirm')),
+      'password123',
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const Key('data-governance-portable-password-submit')),
+    );
+    await tester.pump();
+    await _flushBackupCrypto(tester);
+    await tester.pumpAndSettle();
+
+    final metadata = await BackupMetadataStore().read();
+    expect(metadata.lastBackupEncrypted, isTrue);
+    expect(metadata.lastBackupIncremental, isFalse);
+    expect(metadata.baseBackupId, base.backupId);
+    expect(metadata.baseBackupPath, basePath);
+    final portable = filePort.envelopes[metadata.lastBackupPath!]!;
+    expect(portable.isEncrypted, isTrue);
+    expect(portable.isIncremental, isFalse);
   });
 
   testWidgets('integrity check reports corrupted catalog files',

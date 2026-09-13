@@ -1462,6 +1462,10 @@
     }
   },
   "dataGovernanceConsolidateBackup": "Create portable full backup",
+  "dataGovernanceConsolidatePasswordTitle": "Set a portable backup password",
+  "dataGovernanceConsolidatePasswordBody": "You can set a password; leave it blank for an unencrypted backup.",
+  "dataGovernanceConsolidatePasswordLabel": "Backup password (optional)",
+  "dataGovernanceConsolidatePasswordConfirm": "Confirm backup password",
   "dataGovernanceConsolidateSuccess": "Portable backup created: {path} ({size})",
   "@dataGovernanceConsolidateSuccess": {
     "placeholders": {

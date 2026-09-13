@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:ledgerly_client/application/backup_catalog_store.dart';
+import 'package:ledgerly_client/application/backup_encryption.dart';
 import 'package:ledgerly_client/application/backup_metadata_store.dart';
 import 'package:ledgerly_client/application/backup_service.dart';
 import 'package:ledgerly_client/application/ledger_app_service.dart';
@@ -65,6 +66,64 @@ void main() {
     expect((picked.payload['books'] as List).single['name'], 'Portable book');
   });
 
+  test('encrypted portable backup is standalone and keeps the plaintext base',
+      () async {
+    final fixture = _Fixture();
+    addTearDown(fixture.close);
+    await fixture.seed();
+
+    final basePath = await fixture.service.exportToFile();
+    final base = fixture.filePort.envelopes[basePath]!;
+    await fixture.db.update(fixture.db.books).write(
+          const BooksCompanion(name: Value('Encrypted portable book')),
+        );
+    await _addExpense(fixture, description: 'encrypted transaction');
+    final deltaPath = await fixture.service.exportToFile(incremental: true);
+
+    final result = await fixture.service.consolidateLatest(
+      password: 'password123',
+    );
+    expect(result, isNotNull);
+    final portable = fixture.filePort.envelopes[result!.path]!;
+    expect(portable.isIncremental, isFalse);
+    expect(portable.isEncrypted, isTrue);
+    expect(
+      (portable.payload['books'] as List).single['name'],
+      'Encrypted portable book',
+    );
+    expect(portable.summary.transactions, 1);
+
+    final metadata = await BackupMetadataStore().read();
+    expect(metadata.lastBackupId, result.backupId);
+    expect(metadata.lastBackupEncrypted, isTrue);
+    expect(metadata.lastBackupIncremental, isFalse);
+    expect(metadata.baseBackupId, base.backupId);
+    expect(metadata.baseBackupPath, basePath);
+
+    final catalog = await BackupCatalogStore().read();
+    final artifact = catalog.firstWhere(
+      (artifact) => artifact.backupId == result.backupId,
+    );
+    expect(artifact.source, BackupArtifactSource.manual);
+    expect(artifact.kind, BackupArtifactKind.encrypted);
+
+    await fixture.filePort.deleteBackup(basePath);
+    await fixture.filePort.deleteBackup(deltaPath);
+    fixture.filePort.pickResult = result.path;
+    await expectLater(
+      fixture.service.pickAndRead(password: 'wrong-password'),
+      throwsA(isA<BackupPasswordException>()),
+    );
+
+    final picked = await fixture.service.pickAndRead(password: 'password123');
+    expect(picked, isNotNull);
+    expect(picked!.isIncremental, isFalse);
+    expect(
+      (picked.payload['books'] as List).single['name'],
+      'Encrypted portable book',
+    );
+  });
+
   test('consolidation is a no-op when latest backup is already full', () async {
     final fixture = _Fixture();
     addTearDown(fixture.close);
@@ -105,6 +164,7 @@ class _Fixture {
       merchantRules: MerchantRuleStore(),
       filePort: filePort,
       deviceIdLoader: () async => 'consolidation-test-device',
+      encryption: BackupEncryption.testing(),
     );
   }
 

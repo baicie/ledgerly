@@ -2448,6 +2448,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dataGovernanceConsolidateBackup => 'Create portable full backup';
 
   @override
+  String get dataGovernanceConsolidatePasswordTitle =>
+      'Set a portable backup password';
+
+  @override
+  String get dataGovernanceConsolidatePasswordBody =>
+      'You can set a password; leave it blank for an unencrypted backup.';
+
+  @override
+  String get dataGovernanceConsolidatePasswordLabel =>
+      'Backup password (optional)';
+
+  @override
+  String get dataGovernanceConsolidatePasswordConfirm =>
+      'Confirm backup password';
+
+  @override
   String dataGovernanceConsolidateSuccess(String path, String size) {
     return 'Portable backup created: $path ($size)';
   }
