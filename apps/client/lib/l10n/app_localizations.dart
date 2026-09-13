@@ -4867,6 +4867,24 @@ abstract class AppLocalizations {
   /// **'最近备份尚未成功镜像到外部目录。'**
   String get dataGovernanceHealthIssueMirrorFailed;
 
+  /// No description provided for @dataGovernanceHealthIssueMirrorMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 份外部镜像缺失。'**
+  String dataGovernanceHealthIssueMirrorMissing(int count);
+
+  /// No description provided for @dataGovernanceHealthIssueMirrorCorrupted.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 份外部镜像损坏。'**
+  String dataGovernanceHealthIssueMirrorCorrupted(int count);
+
+  /// No description provided for @dataGovernanceHealthIssueMirrorExtra.
+  ///
+  /// In zh, this message translates to:
+  /// **'外部目录有 {count} 份未登记备份。'**
+  String dataGovernanceHealthIssueMirrorExtra(int count);
+
   /// No description provided for @dataGovernanceHealthActionBackup.
   ///
   /// In zh, this message translates to:
@@ -5040,6 +5058,73 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'立即镜像'**
   String get dataGovernanceExternalBackupMirrorNow;
+
+  /// No description provided for @dataGovernanceExternalBackupVerify.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查镜像'**
+  String get dataGovernanceExternalBackupVerify;
+
+  /// No description provided for @dataGovernanceExternalBackupVerifyHealthy.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 份外部镜像正常。'**
+  String dataGovernanceExternalBackupVerifyHealthy(int count);
+
+  /// No description provided for @dataGovernanceExternalBackupVerifyIssuesTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'外部镜像异常'**
+  String get dataGovernanceExternalBackupVerifyIssuesTitle;
+
+  /// No description provided for @dataGovernanceExternalBackupVerifyIssueSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'{healthy} 份正常 · {missing} 份缺失 · {corrupted} 份损坏 · {extra} 份额外文件'**
+  String dataGovernanceExternalBackupVerifyIssueSummary(
+      int healthy, int missing, int corrupted, int extra);
+
+  /// No description provided for @dataGovernanceExternalBackupVerifyMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'外部副本缺失'**
+  String get dataGovernanceExternalBackupVerifyMissing;
+
+  /// No description provided for @dataGovernanceExternalBackupVerifyCorrupted.
+  ///
+  /// In zh, this message translates to:
+  /// **'外部副本大小或 SHA-256 不一致'**
+  String get dataGovernanceExternalBackupVerifyCorrupted;
+
+  /// No description provided for @dataGovernanceExternalBackupVerifyExtra.
+  ///
+  /// In zh, this message translates to:
+  /// **'外部文件未登记到本机目录'**
+  String get dataGovernanceExternalBackupVerifyExtra;
+
+  /// No description provided for @dataGovernanceExternalBackupVerifyFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查外部镜像失败：{error}'**
+  String dataGovernanceExternalBackupVerifyFailed(String error);
+
+  /// No description provided for @dataGovernanceExternalBackupImport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入本机'**
+  String get dataGovernanceExternalBackupImport;
+
+  /// No description provided for @dataGovernanceExternalBackupImported.
+  ///
+  /// In zh, this message translates to:
+  /// **'已导入外部备份：{backupId}'**
+  String dataGovernanceExternalBackupImported(String backupId);
+
+  /// No description provided for @dataGovernanceExternalBackupImportFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入外部备份失败：{error}'**
+  String dataGovernanceExternalBackupImportFailed(String error);
 
   /// No description provided for @dataGovernanceExternalBackupSelected.
   ///

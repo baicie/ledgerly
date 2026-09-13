@@ -1720,6 +1720,30 @@
   "dataGovernanceHealthIssueRestoreFailed": "最近一次恢复操作失败，请检查恢复历史。",
   "dataGovernanceHealthIssueExternalUnavailable": "外部备份目录当前不可用。",
   "dataGovernanceHealthIssueMirrorFailed": "最近备份尚未成功镜像到外部目录。",
+  "dataGovernanceHealthIssueMirrorMissing": "{count} 份外部镜像缺失。",
+  "@dataGovernanceHealthIssueMirrorMissing": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceHealthIssueMirrorCorrupted": "{count} 份外部镜像损坏。",
+  "@dataGovernanceHealthIssueMirrorCorrupted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceHealthIssueMirrorExtra": "外部目录有 {count} 份未登记备份。",
+  "@dataGovernanceHealthIssueMirrorExtra": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "dataGovernanceHealthActionBackup": "立即备份",
   "dataGovernanceHealthActionEnableAuto": "启用自动备份",
   "dataGovernanceHealthActionPassword": "设置自动备份密码",
@@ -1770,6 +1794,61 @@
   "dataGovernanceExternalBackupChoose": "选择目录",
   "dataGovernanceExternalBackupClear": "移除外部目录",
   "dataGovernanceExternalBackupMirrorNow": "立即镜像",
+  "dataGovernanceExternalBackupVerify": "检查镜像",
+  "dataGovernanceExternalBackupVerifyHealthy": "{count} 份外部镜像正常。",
+  "@dataGovernanceExternalBackupVerifyHealthy": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupVerifyIssuesTitle": "外部镜像异常",
+  "dataGovernanceExternalBackupVerifyIssueSummary": "{healthy} 份正常 · {missing} 份缺失 · {corrupted} 份损坏 · {extra} 份额外文件",
+  "@dataGovernanceExternalBackupVerifyIssueSummary": {
+    "placeholders": {
+      "healthy": {
+        "type": "int"
+      },
+      "missing": {
+        "type": "int"
+      },
+      "corrupted": {
+        "type": "int"
+      },
+      "extra": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupVerifyMissing": "外部副本缺失",
+  "dataGovernanceExternalBackupVerifyCorrupted": "外部副本大小或 SHA-256 不一致",
+  "dataGovernanceExternalBackupVerifyExtra": "外部文件未登记到本机目录",
+  "dataGovernanceExternalBackupVerifyFailed": "检查外部镜像失败：{error}",
+  "@dataGovernanceExternalBackupVerifyFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupImport": "导入本机",
+  "dataGovernanceExternalBackupImported": "已导入外部备份：{backupId}",
+  "@dataGovernanceExternalBackupImported": {
+    "placeholders": {
+      "backupId": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupImportFailed": "导入外部备份失败：{error}",
+  "@dataGovernanceExternalBackupImportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "dataGovernanceExternalBackupSelected": "目录已设置：镜像 {mirrored} 份，失败 {failed} 份。",
   "@dataGovernanceExternalBackupSelected": {
     "placeholders": {

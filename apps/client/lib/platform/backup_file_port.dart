@@ -211,9 +211,49 @@ class PluginBackupFilePort implements BackupFilePort {
     }
   }
 
+  @override
+  Future<List<String>> listBackupFiles(String directory) async {
+    final dir = Directory(directory);
+    if (!await dir.exists()) {
+      throw FileSystemException('外部备份目录不存在', directory);
+    }
+    final files = <String>[];
+    await for (final entity in dir.list(followLinks: false)) {
+      if (entity is! File) continue;
+      final name = _basename(entity.path);
+      if (_looksLikeBackupFile(name)) files.add(entity.path);
+    }
+    files.sort();
+    return files;
+  }
+
+  @override
+  Future<String> importBackupFile(String source) async {
+    final sourceFile = File(source);
+    if (!await sourceFile.exists()) {
+      throw BackupFormatException('外部备份不存在：$source');
+    }
+    final dir = await _documentsDirectoryLoader();
+    final micros = DateTime.now().toUtc().microsecondsSinceEpoch;
+    final target = File(
+      '${dir.path}/ledgerly-imported-$micros-${_basename(source)}',
+    );
+    await _atomicWriter.write(target, await sourceFile.readAsBytes());
+    return target.path;
+  }
+
   String _basename(String path) {
-    final index = path.lastIndexOf(Platform.pathSeparator);
+    final slash = path.lastIndexOf('/');
+    final backslash = path.lastIndexOf(r'\');
+    final index = slash > backslash ? slash : backslash;
     return index < 0 ? path : path.substring(index + 1);
+  }
+
+  bool _looksLikeBackupFile(String name) {
+    return name.startsWith('ledgerly-') &&
+        (name.endsWith('.ledgerly.zip') ||
+            name.endsWith('.ledgerly.enc.zip') ||
+            name.endsWith('.ledgerly.inc.zip'));
   }
 }
 
@@ -539,6 +579,7 @@ class InMemoryBackupFilePort implements BackupFilePort {
         rawFiles = <String, Uint8List>{},
         reportFiles = <String, String>{},
         mirroredFiles = <String, String>{},
+        externalExtraFiles = <String>{},
         unavailableDirectories = <String>{};
 
   /// Stored envelopes keyed by the source identifier returned by
@@ -558,6 +599,9 @@ class InMemoryBackupFilePort implements BackupFilePort {
 
   /// Mirrored backup source paths mapped to their external destination.
   Map<String, String> mirroredFiles;
+
+  /// Files that exist externally but are not linked to a catalog artifact.
+  Set<String> externalExtraFiles;
 
   /// Directory paths treated as unavailable in tests.
   Set<String> unavailableDirectories;
@@ -654,6 +698,10 @@ class InMemoryBackupFilePort implements BackupFilePort {
       throw BackupFormatException('InMemoryBackupFilePort: missing $source');
     }
     final target = '$directory/${source.split(RegExp(r'[/\\]')).last}';
+    final sourceRaw = rawFiles[source];
+    if (sourceRaw != null) {
+      rawFiles[target] = Uint8List.fromList(sourceRaw);
+    }
     mirroredFiles[source] = target;
     return target;
   }
@@ -661,6 +709,30 @@ class InMemoryBackupFilePort implements BackupFilePort {
   @override
   Future<bool> isBackupDirectoryAvailable(String directory) async {
     return !unavailableDirectories.contains(directory);
+  }
+
+  @override
+  Future<List<String>> listBackupFiles(String directory) async {
+    final prefix = directory.endsWith('/') ? directory : '$directory/';
+    final files = <String>{
+      for (final path in mirroredFiles.values)
+        if (path.startsWith(prefix)) path,
+      for (final path in externalExtraFiles)
+        if (path.startsWith(prefix)) path,
+    }.toList()
+      ..sort();
+    return files;
+  }
+
+  @override
+  Future<String> importBackupFile(String source) async {
+    final raw = rawFiles[source];
+    if (raw == null) {
+      throw BackupFormatException('InMemoryBackupFilePort: missing $source');
+    }
+    final id = 'memory-imported-${++_counter}';
+    rawFiles[id] = Uint8List.fromList(raw);
+    return id;
   }
 
   @override

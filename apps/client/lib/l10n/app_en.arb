@@ -1735,6 +1735,30 @@
   "dataGovernanceHealthIssueRestoreFailed": "The latest restore attempt failed; review restore history.",
   "dataGovernanceHealthIssueExternalUnavailable": "The external backup directory is unavailable.",
   "dataGovernanceHealthIssueMirrorFailed": "The latest backup has not been mirrored successfully.",
+  "dataGovernanceHealthIssueMirrorMissing": "{count} external mirror files are missing.",
+  "@dataGovernanceHealthIssueMirrorMissing": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceHealthIssueMirrorCorrupted": "{count} external mirror files are corrupted.",
+  "@dataGovernanceHealthIssueMirrorCorrupted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceHealthIssueMirrorExtra": "The external directory has {count} unregistered backups.",
+  "@dataGovernanceHealthIssueMirrorExtra": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "dataGovernanceHealthActionBackup": "Back up now",
   "dataGovernanceHealthActionEnableAuto": "Enable automatic backup",
   "dataGovernanceHealthActionPassword": "Set automatic backup password",
@@ -1785,6 +1809,61 @@
   "dataGovernanceExternalBackupChoose": "Choose directory",
   "dataGovernanceExternalBackupClear": "Remove external directory",
   "dataGovernanceExternalBackupMirrorNow": "Mirror now",
+  "dataGovernanceExternalBackupVerify": "Check mirror",
+  "dataGovernanceExternalBackupVerifyHealthy": "{count} external mirror files are healthy.",
+  "@dataGovernanceExternalBackupVerifyHealthy": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupVerifyIssuesTitle": "External mirror issues",
+  "dataGovernanceExternalBackupVerifyIssueSummary": "{healthy} healthy · {missing} missing · {corrupted} corrupted · {extra} extra",
+  "@dataGovernanceExternalBackupVerifyIssueSummary": {
+    "placeholders": {
+      "healthy": {
+        "type": "int"
+      },
+      "missing": {
+        "type": "int"
+      },
+      "corrupted": {
+        "type": "int"
+      },
+      "extra": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupVerifyMissing": "External copy is missing",
+  "dataGovernanceExternalBackupVerifyCorrupted": "External copy size or SHA-256 differs",
+  "dataGovernanceExternalBackupVerifyExtra": "External file is not registered locally",
+  "dataGovernanceExternalBackupVerifyFailed": "Could not verify external mirror: {error}",
+  "@dataGovernanceExternalBackupVerifyFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupImport": "Import locally",
+  "dataGovernanceExternalBackupImported": "Imported external backup: {backupId}",
+  "@dataGovernanceExternalBackupImported": {
+    "placeholders": {
+      "backupId": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupImportFailed": "Could not import external backup: {error}",
+  "@dataGovernanceExternalBackupImportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "dataGovernanceExternalBackupSelected": "Directory set: {mirrored} mirrored, {failed} failed.",
   "@dataGovernanceExternalBackupSelected": {
     "placeholders": {
