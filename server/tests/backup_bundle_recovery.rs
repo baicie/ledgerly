@@ -2,8 +2,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use ledger_server::infrastructure::backup_bundle::{
-    cleanup_backup_bundles, create_backup_bundle, replicate_backup_bundle, unpack_backup_bundle,
-    verify_backup_bundle,
+    backup_bundle_storage_stats, cleanup_backup_bundles, create_backup_bundle,
+    replicate_backup_bundle, unpack_backup_bundle, verify_backup_bundle,
 };
 use ledger_server::infrastructure::object_store::backup_object_store;
 use ledger_server::Config;
@@ -220,6 +220,29 @@ fn cleanup_keeps_newest_bundles_only() {
     assert!(!root.path().join("oldest").exists());
     assert!(!root.path().join("middle").exists());
     assert!(root.path().join("newest").exists());
+}
+
+#[test]
+fn storage_stats_count_valid_bundles_and_flag_invalid_directories() {
+    let fixture = BundleFixture::new("bundle-storage-stats");
+    let database_dump = fixture.database_dump.path().join("database.dump");
+    fs::write(&database_dump, b"storage statistics database dump").expect("write database dump");
+    backup_object_store(&fixture.source_config, fixture.object_backup.path())
+        .expect("back up empty objects");
+
+    let root = TestDirectory::new("bundle-storage-stats-root");
+    let valid = root.path().join("valid");
+    create_backup_bundle(&database_dump, fixture.object_backup.path(), &valid, None)
+        .expect("create valid bundle");
+    let invalid = root.path().join("partial");
+    fs::create_dir_all(&invalid).unwrap();
+    fs::write(invalid.join("manifest.json"), b"not-json").unwrap();
+
+    let stats = backup_bundle_storage_stats(root.path()).expect("collect storage stats");
+
+    assert_eq!(stats.bundle_count, 1);
+    assert_eq!(stats.invalid_count, 1);
+    assert!(stats.total_bytes > 0);
 }
 
 struct BundleFixture {

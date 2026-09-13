@@ -31,6 +31,7 @@ async fn metrics_handler(
         .metrics_handle
         .as_ref()
         .ok_or(axum::http::StatusCode::SERVICE_UNAVAILABLE)?;
+    crate::infrastructure::backup_runtime::record_backup_metrics(&state.config);
     let body = handle.0.render();
     Ok(axum::response::Response::builder()
         .header(

@@ -310,6 +310,16 @@
 - [x] health 暴露 lastRecoveryDrill
 - [x] CI 真实执行生产演练执行器
 
+## 备份告警与容量治理（Phase 39）
+
+- [x] `/metrics` 导出备份、恢复和恢复演练状态
+- [x] 备份年龄、耗时和最近运行结果可视化
+- [x] 本地/异地 bundle 数量、实际字节和无效目录分离统计
+- [x] 容量 warning/critical 阈值可通过环境变量配置
+- [x] 运行结果、保留清理失败和采集失败具有 counter
+- [x] 提供 Prometheus 告警规则和 Alertmanager/Grafana 示例
+- [x] Runbook 明确容量处置和故障排查流程
+
 ### 待后续完善
 
 - 扩大商户分类覆盖（目前第一版关键词匹配）

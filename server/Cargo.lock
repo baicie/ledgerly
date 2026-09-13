@@ -1262,7 +1262,7 @@ dependencies = [
  "jsonwebtoken",
  "ledger-contracts",
  "ledger-domain",
- "metrics 0.22.4",
+ "metrics",
  "metrics-exporter-prometheus",
  "password-hash",
  "rand",
@@ -1370,16 +1370,6 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
 name = "metrics"
-version = "0.22.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56d05972e8cbac2671e85aa9d04d9160d193f8bebd1a5c1a2f4542c62e65d1d0"
-dependencies = [
- "ahash",
- "portable-atomic",
-]
-
-[[package]]
-name = "metrics"
 version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3045b4193fbdc5b5681f32f11070da9be3609f189a79f3390706d42587f46bb5"
@@ -1401,7 +1391,7 @@ dependencies = [
  "hyper-util",
  "indexmap",
  "ipnet",
- "metrics 0.23.1",
+ "metrics",
  "metrics-util",
  "quanta",
  "thiserror 1.0.69",
@@ -1418,7 +1408,7 @@ dependencies = [
  "crossbeam-epoch",
  "crossbeam-utils",
  "hashbrown 0.14.5",
- "metrics 0.23.1",
+ "metrics",
  "num_cpus",
  "quanta",
  "sketches-ddsketch",
