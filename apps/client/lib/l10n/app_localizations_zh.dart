@@ -2349,6 +2349,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dataGovernanceConsolidateBackup => '生成便携备份';
 
   @override
+  String get dataGovernanceConsolidatePasswordTitle => '设置便携备份密码';
+
+  @override
+  String get dataGovernanceConsolidatePasswordBody => '可选设置密码；留空将生成未加密备份。';
+
+  @override
+  String get dataGovernanceConsolidatePasswordLabel => '备份密码（可选）';
+
+  @override
+  String get dataGovernanceConsolidatePasswordConfirm => '确认备份密码';
+
+  @override
   String dataGovernanceConsolidateSuccess(String path, String size) {
     return '已生成便携备份：$path（$size）';
   }

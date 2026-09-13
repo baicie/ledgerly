@@ -588,24 +588,11 @@ class BackupService {
     // password.
     if (password != null && password.isNotEmpty) {
       final deviceId = await _deviceIdLoader();
-      final envelopeBytes = await _files.buildPlaintextZip(
+      document = await _encryptDocument(
         document,
+        password: password,
         deviceId: deviceId,
       );
-      final encrypted = await _encryption.encrypt(
-        envelopeBytes,
-        password: password,
-        publicMetadata: {
-          'exportedAt': DateTime.now().toUtc().toIso8601String(),
-          'deviceId': deviceId,
-          'summary': document.summary.toJson(),
-          if (document.bookIds != null)
-            'bookIds': document.bookIds!.toList()..sort(),
-          if (document.attachmentIndex.isNotEmpty)
-            'attachmentIndex': document.attachmentIndex,
-        },
-      );
-      document = document.withEncryption(encrypted);
     }
 
     return document;
@@ -1096,7 +1083,13 @@ class BackupService {
 
   /// Materialize the latest incremental backup into a new standalone full
   /// backup. Returns `null` when the latest backup is already full/absent.
-  Future<BackupConsolidationResult?> consolidateLatest() async {
+  ///
+  /// Pass [password] to write a password-encrypted `.enc.zip`; leaving it
+  /// null or empty keeps the Phase 16 plaintext `.ledgerly.zip` behavior.
+  /// Encrypted portable backups are not used as the incremental base.
+  Future<BackupConsolidationResult?> consolidateLatest({
+    String? password,
+  }) async {
     final metadata = await _metadata.read();
     final source = metadata.lastBackupPath;
     if (source == null) return null;
@@ -1105,7 +1098,7 @@ class BackupService {
     if (!latest.isIncremental || latest.isEncrypted) return null;
     final materialized = await _materializeIncremental(latest);
     final backupId = const Uuid().v4();
-    final full = BackupDocument(
+    var full = BackupDocument(
       summary: materialized.summary,
       payload: materialized.payload,
       bookIds: materialized.bookIds,
@@ -1116,6 +1109,13 @@ class BackupService {
     );
 
     final deviceId = await _deviceIdLoader();
+    if (password != null && password.isNotEmpty) {
+      full = await _encryptDocument(
+        full,
+        password: password,
+        deviceId: deviceId,
+      );
+    }
     final path = await _files.writeBackup(full, deviceId: deviceId);
     final createdAt = DateTime.now().toUtc();
     final size = await _files.fileSize(path);
@@ -1125,6 +1125,7 @@ class BackupService {
       backupId: backupId,
       attachmentCount: full.summary.attachments,
       attachmentSizeBytes: full.attachmentSizeBytes,
+      encrypted: full.encrypted != null,
     );
     await _recordCatalogArtifact(
       document: full,
@@ -1524,6 +1525,31 @@ SELECT
       );
     }
     return _applyIncremental(base: base, delta: document);
+  }
+
+  Future<BackupDocument> _encryptDocument(
+    BackupDocument document, {
+    required String password,
+    required String deviceId,
+  }) async {
+    final envelopeBytes = await _files.buildPlaintextZip(
+      document,
+      deviceId: deviceId,
+    );
+    final encrypted = await _encryption.encrypt(
+      envelopeBytes,
+      password: password,
+      publicMetadata: {
+        'exportedAt': DateTime.now().toUtc().toIso8601String(),
+        'deviceId': deviceId,
+        'summary': document.summary.toJson(),
+        if (document.bookIds != null)
+          'bookIds': document.bookIds!.toList()..sort(),
+        if (document.attachmentIndex.isNotEmpty)
+          'attachmentIndex': document.attachmentIndex,
+      },
+    );
+    return document.withEncryption(encrypted);
   }
 
   BackupDocument _applyIncremental({

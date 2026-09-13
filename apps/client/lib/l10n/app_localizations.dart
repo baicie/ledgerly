@@ -4361,6 +4361,30 @@ abstract class AppLocalizations {
   /// **'生成便携备份'**
   String get dataGovernanceConsolidateBackup;
 
+  /// No description provided for @dataGovernanceConsolidatePasswordTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置便携备份密码'**
+  String get dataGovernanceConsolidatePasswordTitle;
+
+  /// No description provided for @dataGovernanceConsolidatePasswordBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'可选设置密码；留空将生成未加密备份。'**
+  String get dataGovernanceConsolidatePasswordBody;
+
+  /// No description provided for @dataGovernanceConsolidatePasswordLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份密码（可选）'**
+  String get dataGovernanceConsolidatePasswordLabel;
+
+  /// No description provided for @dataGovernanceConsolidatePasswordConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认备份密码'**
+  String get dataGovernanceConsolidatePasswordConfirm;
+
   /// No description provided for @dataGovernanceConsolidateSuccess.
   ///
   /// In zh, this message translates to:

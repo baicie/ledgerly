@@ -255,9 +255,17 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
 
   Future<void> _consolidateLatestBackup() async {
     final l10n = l10nOf(context);
+    final password = await showDialogDialog<String>(
+      context: context,
+      builder: (dialogContext) => _PortableBackupPasswordDialog(l10n: l10n),
+    );
+    if (!mounted || password == null) return;
+
     _setBusy(true);
     try {
-      final result = await _service.consolidateLatest();
+      final result = await _service.consolidateLatest(
+        password: password.isEmpty ? null : password,
+      );
       if (!mounted) return;
       if (result == null) {
         setState(() => _busy = false);
@@ -1400,6 +1408,113 @@ class _CleanupConfirmDialog extends StatelessWidget {
           key: const Key('data-governance-cleanup-confirm'),
           onPressed: () => Navigator.pop(context, true),
           child: Text(l10n.dataGovernanceCleanupBackups),
+        ),
+      ],
+    );
+  }
+}
+
+class _PortableBackupPasswordDialog extends StatefulWidget {
+  const _PortableBackupPasswordDialog({required this.l10n});
+
+  final AppLocalizations l10n;
+
+  @override
+  State<_PortableBackupPasswordDialog> createState() =>
+      _PortableBackupPasswordDialogState();
+}
+
+class _PortableBackupPasswordDialogState
+    extends State<_PortableBackupPasswordDialog> {
+  final _passwordController = TextEditingController();
+  final _confirmController = TextEditingController();
+
+  @override
+  void dispose() {
+    _passwordController.dispose();
+    _confirmController.dispose();
+    super.dispose();
+  }
+
+  bool get _passwordTooShort {
+    final password = _passwordController.text;
+    return password.isNotEmpty && password.length < 8;
+  }
+
+  bool get _passwordMismatch {
+    final password = _passwordController.text;
+    final confirm = _confirmController.text;
+    return password.isNotEmpty && confirm.isNotEmpty && password != confirm;
+  }
+
+  bool get _canSubmit {
+    final password = _passwordController.text;
+    if (password.isEmpty) return true;
+    return !_passwordTooShort && password == _confirmController.text;
+  }
+
+  void _submit() {
+    if (!_canSubmit) return;
+    Navigator.pop(context, _passwordController.text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = widget.l10n;
+    return AlertDialog(
+      key: const Key('data-governance-portable-password-dialog'),
+      title: Text(l10n.dataGovernanceConsolidatePasswordTitle),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(l10n.dataGovernanceConsolidatePasswordBody),
+          const SizedBox(height: 16),
+          TextField(
+            key: const Key('data-governance-portable-password'),
+            controller: _passwordController,
+            autofocus: true,
+            obscureText: true,
+            onChanged: (value) {
+              if (value.isEmpty) _confirmController.clear();
+              setState(() {});
+            },
+            onSubmitted: (_) => _submit(),
+            decoration: InputDecoration(
+              labelText: l10n.dataGovernanceConsolidatePasswordLabel,
+              border: const OutlineInputBorder(),
+              errorText: _passwordTooShort
+                  ? l10n.dataGovernancePasswordTooShort
+                  : null,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const Key('data-governance-portable-password-confirm'),
+            controller: _confirmController,
+            enabled: _passwordController.text.isNotEmpty,
+            obscureText: true,
+            onChanged: (_) => setState(() {}),
+            onSubmitted: (_) => _submit(),
+            decoration: InputDecoration(
+              labelText: l10n.dataGovernanceConsolidatePasswordConfirm,
+              border: const OutlineInputBorder(),
+              errorText: _passwordMismatch
+                  ? l10n.dataGovernancePasswordMismatch
+                  : null,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n.cancel),
+        ),
+        FilledButton(
+          key: const Key('data-governance-portable-password-submit'),
+          onPressed: _canSubmit ? _submit : null,
+          child: Text(l10n.confirm),
         ),
       ],
     );
