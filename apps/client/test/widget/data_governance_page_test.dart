@@ -122,6 +122,30 @@ void main() {
     );
   });
 
+  testWidgets('health card exports a privacy-safe governance report',
+      (tester) async {
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-health-report-export')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('data-governance-health-report-json')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(filePort.reportFiles, hasLength(1));
+    final report = filePort.reportFiles.values.single;
+    expect(report, contains('ledgerly-governance-report'));
+    expect(report, isNot(contains('picked-backup')));
+  });
+
   testWidgets('export writes the snapshot through the file port',
       (tester) async {
     await _pumpPage(tester, backupService, booksLoader: loadBooks);

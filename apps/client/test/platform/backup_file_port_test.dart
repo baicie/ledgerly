@@ -116,4 +116,26 @@ void main() {
       isEmpty,
     );
   });
+
+  test('governance report is written atomically', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'ledgerly-governance-report-test-',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final port = PluginBackupFilePort(
+      documentsDirectoryLoader: () async => directory,
+    );
+
+    final path = await port.writeGovernanceReport(
+      '{"health":"healthy"}',
+      extension: 'json',
+    );
+
+    expect(path, endsWith('.json'));
+    expect(await File(path).readAsString(), '{"health":"healthy"}');
+    expect(
+      directory.listSync().where((entry) => entry.path.contains('.tmp-')),
+      isEmpty,
+    );
+  });
 }

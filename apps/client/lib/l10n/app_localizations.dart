@@ -4879,6 +4879,36 @@ abstract class AppLocalizations {
   /// **'检查备份文件'**
   String get dataGovernanceHealthActionInspect;
 
+  /// No description provided for @dataGovernanceHealthExportReport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出治理报告'**
+  String get dataGovernanceHealthExportReport;
+
+  /// No description provided for @dataGovernanceHealthReportJson.
+  ///
+  /// In zh, this message translates to:
+  /// **'JSON 完整报告'**
+  String get dataGovernanceHealthReportJson;
+
+  /// No description provided for @dataGovernanceHealthReportCsv.
+  ///
+  /// In zh, this message translates to:
+  /// **'CSV 摘要'**
+  String get dataGovernanceHealthReportCsv;
+
+  /// No description provided for @dataGovernanceHealthReportExported.
+  ///
+  /// In zh, this message translates to:
+  /// **'治理报告已生成：{path}'**
+  String dataGovernanceHealthReportExported(String path);
+
+  /// No description provided for @dataGovernanceHealthReportFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出治理报告失败：{error}'**
+  String dataGovernanceHealthReportFailed(String error);
+
   /// No description provided for @dataGovernanceAutoBackup.
   ///
   /// In zh, this message translates to:

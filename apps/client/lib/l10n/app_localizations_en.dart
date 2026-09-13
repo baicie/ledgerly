@@ -2781,6 +2781,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dataGovernanceHealthActionInspect => 'Inspect backup files';
 
   @override
+  String get dataGovernanceHealthExportReport => 'Export governance report';
+
+  @override
+  String get dataGovernanceHealthReportJson => 'Full JSON report';
+
+  @override
+  String get dataGovernanceHealthReportCsv => 'CSV summary';
+
+  @override
+  String dataGovernanceHealthReportExported(String path) {
+    return 'Governance report created: $path';
+  }
+
+  @override
+  String dataGovernanceHealthReportFailed(String error) {
+    return 'Could not export governance report: $error';
+  }
+
+  @override
   String get dataGovernanceAutoBackup => 'Automatic backup';
 
   @override

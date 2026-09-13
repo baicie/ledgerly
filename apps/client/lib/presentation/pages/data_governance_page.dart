@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/auto_backup.dart';
 import '../../application/backup_encryption.dart';
 import '../../application/backup_catalog_store.dart';
+import '../../application/backup_governance_report.dart';
 import '../../application/backup_health.dart';
 import '../../application/backup_metadata_store.dart';
 import '../../application/backup_restore_audit.dart';
@@ -178,6 +179,45 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
         return;
     }
     if (mounted) ref.invalidate(backupHealthProvider);
+  }
+
+  Future<void> _exportGovernanceReport(
+    BackupGovernanceReportFormat format,
+  ) async {
+    final l10n = l10nOf(context);
+    _setBusy(true);
+    try {
+      final report =
+          await ref.read(backupGovernanceReportServiceProvider).build();
+      final extension =
+          format == BackupGovernanceReportFormat.json ? 'json' : 'csv';
+      final contents = format == BackupGovernanceReportFormat.json
+          ? report.toJsonString()
+          : report.toCsv();
+      final path = await _service.writeGovernanceReport(
+        contents,
+        extension: extension,
+      );
+      if (!mounted) return;
+      setState(() => _busy = false);
+      await _service.shareFile(path);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.dataGovernanceHealthReportExported(path)),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.dataGovernanceHealthReportFailed('$error'),
+          ),
+        ),
+      );
+    }
   }
 
   /// User-initiated check from the data-governance page. Silent launch
@@ -1001,6 +1041,9 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
                       ? null
                       : (action) =>
                           unawaited(_handleBackupHealthAction(action)),
+                  onExportReport: _busy
+                      ? null
+                      : (format) => unawaited(_exportGovernanceReport(format)),
                 ),
               ),
             ),
@@ -2601,6 +2644,7 @@ class _BackupHealthCard extends StatelessWidget {
     required this.loading,
     required this.onRefresh,
     required this.onAction,
+    required this.onExportReport,
   });
 
   final AppLocalizations l10n;
@@ -2608,6 +2652,7 @@ class _BackupHealthCard extends StatelessWidget {
   final bool loading;
   final VoidCallback onRefresh;
   final ValueChanged<BackupHealthAction>? onAction;
+  final ValueChanged<BackupGovernanceReportFormat>? onExportReport;
 
   Color _levelColor(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -2700,6 +2745,25 @@ class _BackupHealthCard extends StatelessWidget {
                   style: theme.textTheme.titleMedium,
                 ),
               ),
+              if (onExportReport != null)
+                PopupMenuButton<BackupGovernanceReportFormat>(
+                  key: const Key('data-governance-health-report-export'),
+                  tooltip: l10n.dataGovernanceHealthExportReport,
+                  icon: const Icon(Icons.download_outlined),
+                  onSelected: (format) => onExportReport!(format),
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      key: const Key('data-governance-health-report-json'),
+                      value: BackupGovernanceReportFormat.json,
+                      child: Text(l10n.dataGovernanceHealthReportJson),
+                    ),
+                    PopupMenuItem(
+                      key: const Key('data-governance-health-report-csv'),
+                      value: BackupGovernanceReportFormat.csv,
+                      child: Text(l10n.dataGovernanceHealthReportCsv),
+                    ),
+                  ],
+                ),
               IconButton(
                 key: const Key('data-governance-health-refresh'),
                 tooltip: l10n.dataGovernanceHealthRefresh,

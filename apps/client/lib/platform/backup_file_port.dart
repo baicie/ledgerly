@@ -65,6 +65,11 @@ class PluginBackupFilePort implements BackupFilePort {
   String _safetyFileName(String suffix) =>
       'ledgerly-pre-restore-${_timestamp()}$suffix.ledgerly.zip';
 
+  String _reportFileName(String extension) {
+    final micros = DateTime.now().toUtc().microsecondsSinceEpoch;
+    return 'ledgerly-governance-${_timestamp()}-$micros.$extension';
+  }
+
   @override
   Future<String> writeBackup(
     BackupDocument document, {
@@ -162,6 +167,17 @@ class PluginBackupFilePort implements BackupFilePort {
   Future<void> deleteBackup(String source) async {
     final file = File(source);
     if (await file.exists()) await file.delete();
+  }
+
+  @override
+  Future<String> writeGovernanceReport(
+    String contents, {
+    required String extension,
+  }) async {
+    final dir = await _documentsDirectoryLoader();
+    final file = File('${dir.path}/${_reportFileName(extension)}');
+    await _atomicWriter.write(file, utf8.encode(contents));
+    return file.path;
   }
 
   String _basename(String path) {
@@ -488,7 +504,8 @@ class InMemoryBackupFilePort implements BackupFilePort {
     Map<String, BackupDocument>? envelopes,
     this.pickResult,
   })  : envelopes = envelopes ?? <String, BackupDocument>{},
-        rawFiles = <String, Uint8List>{};
+        rawFiles = <String, Uint8List>{},
+        reportFiles = <String, String>{};
 
   /// Stored envelopes keyed by the source identifier returned by
   /// [writeBackup] / [writePreRestoreSafetyBackup]. Defaults to an
@@ -501,6 +518,9 @@ class InMemoryBackupFilePort implements BackupFilePort {
   /// shape (manifest.json + attachments/{id}.bin) without rebuilding it
   /// in memory.
   Map<String, Uint8List> rawFiles;
+
+  /// Governance reports written during tests, keyed by returned id.
+  Map<String, String> reportFiles;
 
   /// What [pickBackupSource] returns. `null` means the user cancelled.
   String? pickResult;
@@ -569,6 +589,17 @@ class InMemoryBackupFilePort implements BackupFilePort {
   Future<void> deleteBackup(String source) async {
     rawFiles.remove(source);
     envelopes.remove(source);
+    reportFiles.remove(source);
+  }
+
+  @override
+  Future<String> writeGovernanceReport(
+    String contents, {
+    required String extension,
+  }) async {
+    final id = 'memory-report-${++_counter}.$extension';
+    reportFiles[id] = contents;
+    return id;
   }
 
   @override
