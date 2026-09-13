@@ -21,6 +21,11 @@ services:
       OBJECT_STORE_DIR: /var/lib/ledgerly/objects
       OBJECT_STORE_HMAC_SECRET: ${OBJECT_STORE_HMAC_SECRET}
       OBJECT_STORE_PUBLIC_BASE: ${OBJECT_STORE_PUBLIC_BASE:-http://127.0.0.1:8080}
+      BACKUP_DIR: /var/lib/ledgerly/backups
+      BACKUP_OFFSITE_DIR: /var/lib/ledgerly/backups-offsite
+      BACKUP_KEEP: ${BACKUP_KEEP:-4}
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
+      LEDGER_BACKUP_PASSWORD: ${LEDGER_BACKUP_PASSWORD:?set LEDGER_BACKUP_PASSWORD}
       RATE_LIMIT_RPS: ${RATE_LIMIT_RPS:-100}
       AUTH_RATE_LIMIT_RPS: ${AUTH_RATE_LIMIT_RPS:-20}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
@@ -29,6 +34,8 @@ services:
       RUST_LOG: ${RUST_LOG:-info}
     volumes:
       - ledgerly_objects:/var/lib/ledgerly/objects
+      - ledgerly_backups:/var/lib/ledgerly/backups
+      - ${BACKUP_OFFSITE_HOST_MOUNT:-ledgerly_backups_offsite}:/var/lib/ledgerly/backups-offsite
     extra_hosts:
       # Linux Docker: resolve host.docker.internal → host gateway (existing PG)
       - "host.docker.internal:host-gateway"
@@ -41,3 +48,5 @@ services:
 
 volumes:
   ledgerly_objects:
+  ledgerly_backups:
+  ledgerly_backups_offsite:

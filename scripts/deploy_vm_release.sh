@@ -33,6 +33,22 @@ compose() {
     "$@"
 }
 
+validate_backup_health_json() {
+  python3 -c '
+import json
+import sys
+
+data = json.load(sys.stdin)
+allowed = {"never_run", "failed", "stale", "ready"}
+assert data.get("status") in allowed, data.get("status")
+assert isinstance(data.get("intervalHours"), int) and data["intervalHours"] > 0
+assert "errorSummary" not in data
+assert "bundlePath" not in data
+assert "backupDir" not in data
+assert "offsiteDir" not in data
+'
+}
+
 activate_runtime() {
   local release_dir="${1:?release directory is required}"
   local current_runtime
@@ -72,7 +88,7 @@ read_deploy_input() {
 deploy_and_verify() {
   compose up -d --pull never --wait --wait-timeout 180 || return 1
 
-  local published port ready_url ready_body index_count
+  local published port ready_url ready_body backup_url backup_body backup_status index_count
   published=$(compose port ledger-server 8080) || return 1
   test -n "$published" || return 1
   port=${published##*:}
@@ -81,8 +97,19 @@ deploy_and_verify() {
   printf '%s' "$ready_body" | python3 -c \
     'import json,sys; data=json.load(sys.stdin); assert data == {"status":"ready","store":"postgres"}' || return 1
 
+  backup_url="http://127.0.0.1:${port}/health/backup"
+  backup_body=$(curl -fsS --retry 5 --retry-delay 2 --retry-connrefused "$backup_url") || return 1
+  printf '%s' "$backup_body" | validate_backup_health_json || return 1
+  backup_status=$(printf '%s' "$backup_body" | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["status"])') || return 1
+  if [[ "$backup_status" != "ready" ]]; then
+    printf 'WARNING: backup readiness is %s\n' "$backup_status" >&2
+  fi
+
   compose exec -T ledger-server sh -c \
-    'touch /var/lib/ledgerly/objects/.deploy-write-test && rm /var/lib/ledgerly/objects/.deploy-write-test' || return 1
+    'touch /var/lib/ledgerly/objects/.deploy-write-test && rm /var/lib/ledgerly/objects/.deploy-write-test && touch /var/lib/ledgerly/backups/.deploy-write-test && rm /var/lib/ledgerly/backups/.deploy-write-test && touch /var/lib/ledgerly/backups-offsite/.deploy-write-test && rm /var/lib/ledgerly/backups-offsite/.deploy-write-test' || return 1
+
+  compose exec -T ledger-server pg_dump --version | grep -Eq 'postgresql\) 16' || return 1
 
   index_count=$(compose exec -T postgres sh -c \
     'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT count(*) FROM pg_indexes WHERE schemaname = '\''public'\'' AND indexname IN ('\''idx_device_sessions_refresh_token_hash'\'', '\''idx_device_sessions_active_created_at'\'');"') || return 1

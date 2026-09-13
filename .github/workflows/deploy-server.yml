@@ -69,6 +69,9 @@ jobs:
         with:
           workspaces: server -> target
 
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
       - name: Test deployment runtime
         run: ../scripts/tests/deploy_vm_release_test.sh
 
