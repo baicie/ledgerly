@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use clap::{Parser, Subcommand};
-use ledger_server::infrastructure::{backup_bundle, object_store};
+use ledger_server::infrastructure::{backup_bundle, backup_runtime, object_store};
 use ledger_server::{backup, migrate, restore, run_api, run_worker_only, Config};
 use tracing_subscriber::EnvFilter;
 
@@ -25,6 +25,8 @@ enum Commands {
         #[arg(long)]
         objects_out: Option<String>,
     },
+    BackupRun,
+    BackupStatus,
     Restore {
         #[arg(long)]
         from: String,
@@ -113,6 +115,33 @@ async fn main() -> anyhow::Result<()> {
                     report.object_count, report.total_size_bytes
                 );
             }
+        }
+        Commands::BackupRun => {
+            let report = backup_runtime::run_backup(&config).await?;
+            println!(
+                "backup run {} complete: {} files, {} bytes, duration={} ms, replicated={}, local_retained={}, offsite_retained={}",
+                report.run_id,
+                report.file_count,
+                report.total_size_bytes,
+                report.duration_ms,
+                report.replicated,
+                report.local_retained,
+                report.offsite_retained
+            );
+        }
+        Commands::BackupStatus => {
+            let snapshot = backup_runtime::backup_readiness(&config)?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "status": snapshot.readiness.as_str(),
+                    "ageSeconds": snapshot.age_seconds,
+                    "lastCompletedAt": snapshot.status.as_ref().map(|status| status.completed_at.clone()),
+                    "fileCount": snapshot.status.as_ref().map(|status| status.file_count),
+                    "totalSizeBytes": snapshot.status.as_ref().map(|status| status.total_size_bytes),
+                    "replicated": snapshot.status.as_ref().map(|status| status.replicated),
+                }))?
+            );
         }
         Commands::Restore { from, objects_from } => {
             if let Some(objects_from) = objects_from {

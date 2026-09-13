@@ -16,6 +16,11 @@ pub struct Config {
     pub object_store_dir: PathBuf,
     pub object_store_hmac_secret: String,
     pub object_store_public_base: String,
+    pub backup_dir: Option<PathBuf>,
+    pub backup_offsite_dir: Option<PathBuf>,
+    pub backup_keep: usize,
+    pub backup_interval_hours: u64,
+    pub backup_password: Option<String>,
     pub rate_limit_rps: u32,
     pub auth_rate_limit_rps: u32,
     pub cors_allowed_origins: Vec<String>,
@@ -57,6 +62,21 @@ impl Config {
                 .unwrap_or_else(|_| "dev-object-hmac-secret".into()),
             object_store_public_base: env::var("OBJECT_STORE_PUBLIC_BASE")
                 .unwrap_or_else(|_| "http://127.0.0.1:8080".into()),
+            backup_dir: env::var("BACKUP_DIR").ok().map(PathBuf::from),
+            backup_offsite_dir: env::var("BACKUP_OFFSITE_DIR").ok().map(PathBuf::from),
+            backup_keep: env::var("BACKUP_KEEP")
+                .ok()
+                .and_then(|value| value.parse().ok())
+                .filter(|keep| *keep > 0)
+                .unwrap_or(3),
+            backup_interval_hours: env::var("BACKUP_INTERVAL_HOURS")
+                .ok()
+                .and_then(|value| value.parse().ok())
+                .filter(|hours| *hours > 0)
+                .unwrap_or(24),
+            backup_password: env::var("LEDGER_BACKUP_PASSWORD")
+                .ok()
+                .filter(|password| !password.is_empty()),
             rate_limit_rps: env::var("RATE_LIMIT_RPS")
                 .ok()
                 .and_then(|s| s.parse().ok())
@@ -119,6 +139,9 @@ impl Config {
         {
             anyhow::bail!("CORS_ALLOWED_ORIGINS must contain only HTTPS origins in production");
         }
+        if self.backup_dir.is_some() && self.backup_password.is_none() {
+            anyhow::bail!("LEDGER_BACKUP_PASSWORD is required when BACKUP_DIR is configured");
+        }
         Ok(())
     }
 
@@ -135,6 +158,11 @@ impl Config {
                 .join(format!("ledgerly-test-{}", uuid::Uuid::now_v7())),
             object_store_hmac_secret: "test-hmac".into(),
             object_store_public_base: "http://127.0.0.1:0".into(),
+            backup_dir: None,
+            backup_offsite_dir: None,
+            backup_keep: 3,
+            backup_interval_hours: 24,
+            backup_password: None,
             rate_limit_rps: 10_000,
             auth_rate_limit_rps: 10_000,
             cors_allowed_origins: Vec::new(),
@@ -251,6 +279,21 @@ mod tests {
         config.object_store_hmac_secret = "a-long-random-hmac-secret".into();
         config.cors_allowed_origins = vec!["http://app.ledgerly.example".into()];
         config.auth_cookie_secure = false;
+
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn production_validation_requires_backup_password() {
+        let mut config = Config::for_test();
+        config.is_production = true;
+        config.database_url = Some("postgres://ledgerly:test@db/ledgerly".into());
+        config.jwt_secret = "a-long-random-jwt-secret".into();
+        config.jwt_ed25519_seed = Some("a-long-random-ed25519-seed".into());
+        config.object_store_hmac_secret = "a-long-random-hmac-secret".into();
+        config.cors_allowed_origins = vec!["https://app.ledgerly.example".into()];
+        config.auth_cookie_secure = true;
+        config.backup_dir = Some(std::path::PathBuf::from("/var/lib/ledgerly-backups"));
 
         assert!(config.validate().is_err());
     }

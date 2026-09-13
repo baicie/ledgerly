@@ -4,6 +4,8 @@ use std::time::Duration;
 use ledger_server::infrastructure::backup_bundle::{
     create_backup_bundle, replicate_backup_bundle, unpack_backup_bundle, verify_backup_bundle,
 };
+use ledger_server::infrastructure::backup_runtime::{backup_readiness, run_backup};
+use ledger_server::infrastructure::backup_status::BackupReadiness;
 use ledger_server::infrastructure::object_store::{backup_object_store, restore_object_store};
 use ledger_server::{backup, migrate, restore, Config};
 use sha2::{Digest, Sha256};
@@ -120,6 +122,8 @@ async fn postgres_backup_restore_drill_preserves_pre_backup_snapshot() {
         bundle: temporary_directory("drill-bundle"),
         bundle_replica: temporary_directory("drill-bundle-replica"),
         unpacked: temporary_directory("drill-bundle-unpacked"),
+        scheduled_backup: temporary_directory("drill-scheduled-backup"),
+        scheduled_offsite: temporary_directory("drill-scheduled-offsite"),
     };
 
     for database in [&source_database, &target_database] {
@@ -139,6 +143,8 @@ async fn postgres_backup_restore_drill_preserves_pre_backup_snapshot() {
         &paths.bundle,
         &paths.bundle_replica,
         &paths.unpacked,
+        &paths.scheduled_backup,
+        &paths.scheduled_offsite,
     ] {
         let _ = tokio::fs::remove_dir_all(directory).await;
     }
@@ -168,6 +174,11 @@ async fn run_backup_restore_drill(
     let mut source_config = Config::for_test();
     source_config.database_url = Some(source_url.to_string());
     source_config.object_store_dir = source_objects.to_path_buf();
+    source_config.backup_dir = Some(paths.scheduled_backup.clone());
+    source_config.backup_offsite_dir = Some(paths.scheduled_offsite.clone());
+    source_config.backup_keep = 1;
+    source_config.backup_interval_hours = 24;
+    source_config.backup_password = Some("bundle-password-123".into());
     let mut target_config = Config::for_test();
     target_config.database_url = Some(target_url.to_string());
     target_config.object_store_dir = target_objects.to_path_buf();
@@ -197,6 +208,14 @@ async fn run_backup_restore_drill(
     let unpack_report =
         unpack_backup_bundle(bundle_replica, unpacked, Some("bundle-password-123"))?;
     assert_eq!(unpack_report.file_count, bundle_report.file_count);
+    let scheduled_report = run_backup(&source_config).await?;
+    assert!(scheduled_report.replicated);
+    assert_eq!(scheduled_report.local_retained, 1);
+    assert_eq!(scheduled_report.offsite_retained, 1);
+    assert_eq!(
+        backup_readiness(&source_config)?.readiness,
+        BackupReadiness::Ready
+    );
     let backup_elapsed = backup_started.elapsed();
 
     let post_backup_transaction_id = seed_post_backup_marker(&source, &fixture.book_id).await?;
@@ -307,6 +326,8 @@ struct DrillPaths {
     bundle: PathBuf,
     bundle_replica: PathBuf,
     unpacked: PathBuf,
+    scheduled_backup: PathBuf,
+    scheduled_offsite: PathBuf,
 }
 
 async fn seed_source(pool: &PgPool, object_store_dir: &Path) -> anyhow::Result<DrillFixture> {

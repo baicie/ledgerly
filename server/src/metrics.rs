@@ -118,6 +118,7 @@ static JOB_TYPES: &[&str] = &[
     "enqueue_recurring_scan",
     "generate_due_recurring",
     "auto_ledger_sweep",
+    "backup_bundle",
     "worker",
 ];
 

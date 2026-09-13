@@ -62,6 +62,25 @@ ledger-server bundle cleanup \
 `LEDGER_BACKUP_PASSWORD` 丢失后无法解包，必须与备份分开保存在密钥管理系统中。
 新建 bundle 使用 1 MiB 分块 AES-256-GCM；旧 schema v1 bundle 仍可验证和解包。
 
+### 自动备份
+
+```bash
+export BACKUP_DIR=/var/lib/ledgerly-backups
+export BACKUP_OFFSITE_DIR=/mnt/offsite/ledgerly
+export BACKUP_KEEP=4
+export BACKUP_INTERVAL_HOURS=24
+export LEDGER_BACKUP_PASSWORD='use-a-long-random-password'
+```
+
+`ledger-server worker` 或 `ledger-server all` 启动后会注册 `backup_bundle`
+job，成功后自动排下一次。手工执行和查看：
+
+```bash
+ledger-server backup-run
+ledger-server backup-status
+curl -s http://127.0.0.1:8080/health/backup
+```
+
 ## 客户端灾难恢复演练
 
 客户端使用隔离内存数据库执行四条完整恢复路径，不会读写本机正式账本：
