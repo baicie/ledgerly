@@ -137,6 +137,10 @@ async fn run_backup_restore_drill(
         .await?;
 
     let fixture = seed_source(&source).await?;
+    // The server migration runner is idempotent SQL rather than a
+    // version table. Run it once more after the book exists so the
+    // snapshot includes the default categories a real deployed book has.
+    migrate(&source_config).await?;
     let expected_counts = snapshot_counts(&source).await;
 
     let backup_started = Instant::now();
@@ -175,11 +179,18 @@ async fn run_backup_restore_drill(
         "restore must stop at the snapshot boundary"
     );
 
-    let migration_count: i64 =
-        sqlx::query_scalar("SELECT COUNT(*) FROM _sqlx_migrations WHERE success")
-            .fetch_one(&target)
-            .await?;
-    assert!(migration_count > 0, "restored schema has no migrations");
+    let latest_index_count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*)
+         FROM pg_indexes
+         WHERE schemaname = 'public'
+           AND indexname = 'uq_transactions_auto_event'",
+    )
+    .fetch_one(&target)
+    .await?;
+    assert_eq!(
+        latest_index_count, 1,
+        "restored schema is missing the latest migration"
+    );
 
     assert!(
         recovery_elapsed < Duration::from_secs(4 * 60 * 60),
