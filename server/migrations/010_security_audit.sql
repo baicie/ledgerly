@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS audit_events (
     metadata JSONB NOT NULL DEFAULT '{}',
     CONSTRAINT audit_actor_type_check CHECK (actor_type IN ('user', 'system')),
     CONSTRAINT audit_outcome_check CHECK (outcome IN ('success', 'failure', 'denied')),
-    CONSTRAINT audit_metadata_size_check CHECK (pg_column_size(metadata) <= 4096)
+    CONSTRAINT audit_metadata_size_check CHECK (octet_length(metadata::text) <= 4096)
 );
 
 CREATE INDEX IF NOT EXISTS idx_audit_events_actor
