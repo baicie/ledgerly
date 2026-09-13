@@ -41,5 +41,6 @@
 | [phase-25-atomic-backup-write.md](./phase-25-atomic-backup-write.md) | 原子备份写入与故障注入 |
 | [phase-26-governance-report.md](./phase-26-governance-report.md) | 备份治理报告导出 |
 | [phase-27-external-backup-mirror.md](./phase-27-external-backup-mirror.md) | 外部备份目录与镜像 |
+| [phase-28-external-mirror-verification.md](./phase-28-external-mirror-verification.md) | 外部镜像校验与恢复入口 |
 
 状态：文档在对应阶段分支创建并完善；基线阶段仅保留本索引。

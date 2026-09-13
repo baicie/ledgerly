@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -99,6 +101,71 @@ void main() {
       snapshot.issues.map((issue) => issue.code),
       contains(BackupHealthIssueCode.externalDirectoryUnavailable),
     );
+  });
+
+  test('external mirror verification reports healthy and corrupted copies',
+      () async {
+    final fixture = _Fixture();
+    addTearDown(fixture.close);
+    await fixture.seed();
+    await fixture.mirror.save('/external');
+    await fixture.service.exportToFile();
+
+    final healthy = await fixture.service.verifyExternalMirror();
+    expect(healthy, isNotNull);
+    expect(healthy!.healthyCount, 1);
+    expect(healthy.corruptedCount, 0);
+
+    final externalPath = fixture.filePort.mirroredFiles.values.single;
+    fixture.filePort.rawFiles[externalPath] = Uint8List.fromList([1, 2, 3]);
+    final corrupted = await fixture.service.verifyExternalMirror();
+    expect(corrupted!.corruptedCount, 1);
+  });
+
+  test('external mirror verification reports missing and extra files',
+      () async {
+    final fixture = _Fixture();
+    addTearDown(fixture.close);
+    await fixture.seed();
+    await fixture.mirror.save('/external');
+    await fixture.service.exportToFile();
+    final externalPath = fixture.filePort.mirroredFiles.values.single;
+    await fixture.filePort.deleteBackup(externalPath);
+    fixture.filePort.externalExtraFiles.add(
+      '/external/ledgerly-extra.ledgerly.zip',
+    );
+    fixture.filePort.rawFiles['/external/ledgerly-extra.ledgerly.zip'] =
+        Uint8List.fromList([9, 9, 9]);
+
+    final report = await fixture.service.verifyExternalMirror();
+
+    expect(report!.missingCount, 1);
+    expect(report.extraCount, 1);
+  });
+
+  test('external extra backup can be imported into the local catalog',
+      () async {
+    final fixture = _Fixture();
+    addTearDown(fixture.close);
+    await fixture.seed();
+    await fixture.service.exportToFile();
+    final document = await fixture.service.export();
+    final stagingPath = await fixture.filePort.writeBackup(
+      document,
+      deviceId: 'mirror-test-device',
+    );
+    final externalPath = '/external/ledgerly-extra.ledgerly.zip';
+    fixture.filePort.rawFiles[externalPath] =
+        Uint8List.fromList(fixture.filePort.rawFiles[stagingPath]!);
+    fixture.filePort.externalExtraFiles.add(externalPath);
+
+    final artifact = await fixture.service.importExternalBackup(externalPath);
+
+    expect(artifact.path, startsWith('memory-imported-'));
+    expect(artifact.mirrorPath, externalPath);
+    expect(artifact.mirrorStatus, BackupArtifactMirrorStatus.mirrored);
+    expect(await fixture.catalog.read(), hasLength(2));
+    expect(fixture.filePort.rawFiles.containsKey(artifact.path), isTrue);
   });
 }
 

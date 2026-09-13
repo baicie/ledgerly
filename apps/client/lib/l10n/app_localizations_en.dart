@@ -2776,6 +2776,21 @@ class AppLocalizationsEn extends AppLocalizations {
       'The latest backup has not been mirrored successfully.';
 
   @override
+  String dataGovernanceHealthIssueMirrorMissing(int count) {
+    return '$count external mirror files are missing.';
+  }
+
+  @override
+  String dataGovernanceHealthIssueMirrorCorrupted(int count) {
+    return '$count external mirror files are corrupted.';
+  }
+
+  @override
+  String dataGovernanceHealthIssueMirrorExtra(int count) {
+    return 'The external directory has $count unregistered backups.';
+  }
+
+  @override
   String get dataGovernanceHealthActionBackup => 'Back up now';
 
   @override
@@ -2882,6 +2897,54 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dataGovernanceExternalBackupMirrorNow => 'Mirror now';
+
+  @override
+  String get dataGovernanceExternalBackupVerify => 'Check mirror';
+
+  @override
+  String dataGovernanceExternalBackupVerifyHealthy(int count) {
+    return '$count external mirror files are healthy.';
+  }
+
+  @override
+  String get dataGovernanceExternalBackupVerifyIssuesTitle =>
+      'External mirror issues';
+
+  @override
+  String dataGovernanceExternalBackupVerifyIssueSummary(
+      int healthy, int missing, int corrupted, int extra) {
+    return '$healthy healthy · $missing missing · $corrupted corrupted · $extra extra';
+  }
+
+  @override
+  String get dataGovernanceExternalBackupVerifyMissing =>
+      'External copy is missing';
+
+  @override
+  String get dataGovernanceExternalBackupVerifyCorrupted =>
+      'External copy size or SHA-256 differs';
+
+  @override
+  String get dataGovernanceExternalBackupVerifyExtra =>
+      'External file is not registered locally';
+
+  @override
+  String dataGovernanceExternalBackupVerifyFailed(String error) {
+    return 'Could not verify external mirror: $error';
+  }
+
+  @override
+  String get dataGovernanceExternalBackupImport => 'Import locally';
+
+  @override
+  String dataGovernanceExternalBackupImported(String backupId) {
+    return 'Imported external backup: $backupId';
+  }
+
+  @override
+  String dataGovernanceExternalBackupImportFailed(String error) {
+    return 'Could not import external backup: $error';
+  }
 
   @override
   String dataGovernanceExternalBackupSelected(int mirrored, int failed) {

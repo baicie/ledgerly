@@ -25,6 +25,9 @@ enum BackupHealthIssueCode {
   recentRestoreFailed,
   externalDirectoryUnavailable,
   latestMirrorFailed,
+  externalMirrorMissing,
+  externalMirrorCorrupted,
+  externalMirrorExtra,
 }
 
 enum BackupHealthAction {
@@ -102,7 +105,10 @@ class BackupHealthSnapshot {
     if (issues.any(
       (issue) =>
           issue.code == BackupHealthIssueCode.externalDirectoryUnavailable ||
-          issue.code == BackupHealthIssueCode.latestMirrorFailed,
+          issue.code == BackupHealthIssueCode.latestMirrorFailed ||
+          issue.code == BackupHealthIssueCode.externalMirrorMissing ||
+          issue.code == BackupHealthIssueCode.externalMirrorCorrupted ||
+          issue.code == BackupHealthIssueCode.externalMirrorExtra,
     )) {
       return BackupHealthAction.configureExternalDirectory;
     }
@@ -276,8 +282,10 @@ class BackupHealthService {
 
     final mirrorDirectory = await _mirror.read();
     if (mirrorDirectory != null) {
+      var directoryAvailable = true;
       try {
         if (!await _filePort.isBackupDirectoryAvailable(mirrorDirectory)) {
+          directoryAvailable = false;
           issues.add(
             const BackupHealthIssue(
               code: BackupHealthIssueCode.externalDirectoryUnavailable,
@@ -286,12 +294,54 @@ class BackupHealthService {
           );
         }
       } catch (_) {
+        directoryAvailable = false;
         issues.add(
           const BackupHealthIssue(
             code: BackupHealthIssueCode.externalDirectoryUnavailable,
             level: BackupHealthLevel.warning,
           ),
         );
+      }
+      if (directoryAvailable) {
+        try {
+          final mirrorReport = await _backups.verifyExternalMirror();
+          if (mirrorReport != null) {
+            if (mirrorReport.missingCount > 0) {
+              issues.add(
+                BackupHealthIssue(
+                  code: BackupHealthIssueCode.externalMirrorMissing,
+                  level: BackupHealthLevel.warning,
+                  value: mirrorReport.missingCount,
+                ),
+              );
+            }
+            if (mirrorReport.corruptedCount > 0) {
+              issues.add(
+                BackupHealthIssue(
+                  code: BackupHealthIssueCode.externalMirrorCorrupted,
+                  level: BackupHealthLevel.warning,
+                  value: mirrorReport.corruptedCount,
+                ),
+              );
+            }
+            if (mirrorReport.extraCount > 0) {
+              issues.add(
+                BackupHealthIssue(
+                  code: BackupHealthIssueCode.externalMirrorExtra,
+                  level: BackupHealthLevel.warning,
+                  value: mirrorReport.extraCount,
+                ),
+              );
+            }
+          }
+        } catch (_) {
+          issues.add(
+            const BackupHealthIssue(
+              code: BackupHealthIssueCode.externalDirectoryUnavailable,
+              level: BackupHealthLevel.warning,
+            ),
+          );
+        }
       }
       final latestArtifact = catalog
           .where((artifact) => artifact.path == metadata.lastBackupPath)

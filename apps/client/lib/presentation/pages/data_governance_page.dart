@@ -9,6 +9,7 @@ import '../../application/backup_catalog_store.dart';
 import '../../application/backup_governance_report.dart';
 import '../../application/backup_health.dart';
 import '../../application/backup_metadata_store.dart';
+import '../../application/backup_mirror_verification.dart';
 import '../../application/backup_restore_audit.dart';
 import '../../application/backup_schedule.dart';
 import '../../application/backup_service.dart';
@@ -241,6 +242,85 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
         ),
       );
       return null;
+    }
+  }
+
+  Future<void> _verifyExternalMirror() async {
+    final l10n = l10nOf(context);
+    _setBusy(true);
+    try {
+      final report = await _service.verifyExternalMirror();
+      if (!mounted) return;
+      setState(() => _busy = false);
+      if (report == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(l10n.dataGovernanceExternalBackupNotConfigured)),
+        );
+        return;
+      }
+      if (report.missingCount == 0 &&
+          report.corruptedCount == 0 &&
+          report.extraCount == 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              l10n.dataGovernanceExternalBackupVerifyHealthy(
+                report.healthyCount,
+              ),
+            ),
+          ),
+        );
+        return;
+      }
+      final importPath = await showDialogDialog<String>(
+        context: context,
+        builder: (dialogContext) => _MirrorVerificationDialog(
+          l10n: l10n,
+          report: report,
+        ),
+      );
+      if (!mounted || importPath == null) return;
+      await _importExternalBackup(importPath);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.dataGovernanceExternalBackupVerifyFailed('$error'),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _importExternalBackup(String source) async {
+    final l10n = l10nOf(context);
+    _setBusy(true);
+    try {
+      final artifact = await _service.importExternalBackup(source);
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ref.invalidate(backupCatalogProvider);
+      ref.invalidate(backupHealthProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.dataGovernanceExternalBackupImported(artifact.backupId),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.dataGovernanceExternalBackupImportFailed('$error'),
+          ),
+        ),
+      );
     }
   }
 
@@ -1169,6 +1249,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
                       _busy ? null : _clearExternalBackupDirectory,
                   onMirrorAllBackups:
                       _busy ? null : () => unawaited(_mirrorAllBackups()),
+                  onVerifyExternalMirror: _busy ? null : _verifyExternalMirror,
                   onEncryptChanged: _busy
                       ? null
                       : (value) {
@@ -1285,6 +1366,7 @@ class _BackupSection extends StatelessWidget {
     required this.onChooseExternalDirectory,
     required this.onClearExternalDirectory,
     required this.onMirrorAllBackups,
+    required this.onVerifyExternalMirror,
     required this.onEncryptChanged,
     required this.onIncrementalChanged,
     required this.onPasswordChanged,
@@ -1338,6 +1420,7 @@ class _BackupSection extends StatelessWidget {
   final VoidCallback? onChooseExternalDirectory;
   final VoidCallback? onClearExternalDirectory;
   final VoidCallback? onMirrorAllBackups;
+  final VoidCallback? onVerifyExternalMirror;
   final ValueChanged<bool>? onEncryptChanged;
   final ValueChanged<bool>? onIncrementalChanged;
   final ValueChanged<String> onPasswordChanged;
@@ -1555,6 +1638,17 @@ class _BackupSection extends StatelessWidget {
                     onPressed: onMirrorAllBackups,
                     icon: const Icon(Icons.sync_outlined),
                     label: Text(l10n.dataGovernanceExternalBackupMirrorNow),
+                  ),
+                if (externalBackupDirectory != null)
+                  OutlinedButton.icon(
+                    key: const Key(
+                      'data-governance-external-directory-verify',
+                    ),
+                    onPressed: onVerifyExternalMirror,
+                    icon: const Icon(Icons.fact_check_outlined),
+                    label: Text(
+                      l10n.dataGovernanceExternalBackupVerify,
+                    ),
                   ),
               ],
             ),
@@ -2714,6 +2808,106 @@ class _IntegrityReportDialog extends StatelessWidget {
   }
 }
 
+class _MirrorVerificationDialog extends StatelessWidget {
+  const _MirrorVerificationDialog({
+    required this.l10n,
+    required this.report,
+  });
+
+  final AppLocalizations l10n;
+  final BackupMirrorVerificationReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final issues = [
+      for (final entry in report.entries)
+        if (entry.status != BackupMirrorVerificationStatus.healthy) entry,
+    ];
+    return AlertDialog(
+      key: const Key('data-governance-mirror-verification-dialog'),
+      title: Text(l10n.dataGovernanceExternalBackupVerifyIssuesTitle),
+      content: SizedBox(
+        width: 520,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              l10n.dataGovernanceExternalBackupVerifyIssueSummary(
+                report.healthyCount,
+                report.missingCount,
+                report.corruptedCount,
+                report.extraCount,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: issues.length,
+                itemBuilder: (context, index) {
+                  final entry = issues[index];
+                  final extra =
+                      entry.status == BackupMirrorVerificationStatus.extra;
+                  return ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      switch (entry.status) {
+                        BackupMirrorVerificationStatus.missing =>
+                          Icons.folder_off_outlined,
+                        BackupMirrorVerificationStatus.corrupted =>
+                          Icons.error_outline,
+                        BackupMirrorVerificationStatus.extra =>
+                          Icons.add_circle_outline,
+                        BackupMirrorVerificationStatus.healthy =>
+                          Icons.check_circle_outline,
+                      },
+                    ),
+                    title: Text(entry.externalPath),
+                    subtitle: Text(
+                      switch (entry.status) {
+                        BackupMirrorVerificationStatus.missing =>
+                          l10n.dataGovernanceExternalBackupVerifyMissing,
+                        BackupMirrorVerificationStatus.corrupted =>
+                          l10n.dataGovernanceExternalBackupVerifyCorrupted,
+                        BackupMirrorVerificationStatus.extra =>
+                          l10n.dataGovernanceExternalBackupVerifyExtra,
+                        BackupMirrorVerificationStatus.healthy =>
+                          l10n.dataGovernanceExternalBackupVerifyHealthy(1),
+                      },
+                    ),
+                    trailing: extra
+                        ? TextButton(
+                            key: Key(
+                              'data-governance-mirror-import-$index',
+                            ),
+                            onPressed: () => Navigator.pop(
+                              context,
+                              entry.externalPath,
+                            ),
+                            child: Text(
+                              l10n.dataGovernanceExternalBackupImport,
+                            ),
+                          )
+                        : null,
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n.confirm),
+        ),
+      ],
+    );
+  }
+}
+
 class _RecoveryDrillResultDialog extends StatelessWidget {
   const _RecoveryDrillResultDialog({
     required this.l10n,
@@ -2825,6 +3019,12 @@ class _BackupHealthCard extends StatelessWidget {
           l10n.dataGovernanceHealthIssueExternalUnavailable,
         BackupHealthIssueCode.latestMirrorFailed =>
           l10n.dataGovernanceHealthIssueMirrorFailed,
+        BackupHealthIssueCode.externalMirrorMissing =>
+          l10n.dataGovernanceHealthIssueMirrorMissing(issue.value ?? 0),
+        BackupHealthIssueCode.externalMirrorCorrupted =>
+          l10n.dataGovernanceHealthIssueMirrorCorrupted(issue.value ?? 0),
+        BackupHealthIssueCode.externalMirrorExtra =>
+          l10n.dataGovernanceHealthIssueMirrorExtra(issue.value ?? 0),
       };
 
   String _actionLabel(BackupHealthAction action) => switch (action) {

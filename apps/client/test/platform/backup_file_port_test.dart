@@ -144,7 +144,7 @@ void main() {
       'ledgerly-mirror-test-',
     );
     addTearDown(() => root.delete(recursive: true));
-    final source = File('${root.path}/source.ledgerly.zip');
+    final source = File('${root.path}/ledgerly-source.ledgerly.zip');
     final external = Directory('${root.path}/external')..createSync();
     await source.writeAsBytes([1, 2, 3], flush: true);
     final port = PluginBackupFilePort(
@@ -155,6 +155,12 @@ void main() {
 
     expect(await File(target).readAsBytes(), [1, 2, 3]);
     expect(await port.isBackupDirectoryAvailable(external.path), isTrue);
+    final listed = await port.listBackupFiles(external.path);
+    expect(listed, hasLength(1));
+    expect(await File(listed.single).readAsBytes(), [1, 2, 3]);
+    final imported = await port.importBackupFile(target);
+    expect(imported, startsWith(root.path));
+    expect(await File(imported).readAsBytes(), [1, 2, 3]);
     expect(
       root.listSync(recursive: true).where(
             (entry) => entry.path.contains('.tmp-'),

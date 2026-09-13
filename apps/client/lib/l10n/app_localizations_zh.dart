@@ -2652,6 +2652,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dataGovernanceHealthIssueMirrorFailed => '最近备份尚未成功镜像到外部目录。';
 
   @override
+  String dataGovernanceHealthIssueMirrorMissing(int count) {
+    return '$count 份外部镜像缺失。';
+  }
+
+  @override
+  String dataGovernanceHealthIssueMirrorCorrupted(int count) {
+    return '$count 份外部镜像损坏。';
+  }
+
+  @override
+  String dataGovernanceHealthIssueMirrorExtra(int count) {
+    return '外部目录有 $count 份未登记备份。';
+  }
+
+  @override
   String get dataGovernanceHealthActionBackup => '立即备份';
 
   @override
@@ -2744,6 +2759,51 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get dataGovernanceExternalBackupMirrorNow => '立即镜像';
+
+  @override
+  String get dataGovernanceExternalBackupVerify => '检查镜像';
+
+  @override
+  String dataGovernanceExternalBackupVerifyHealthy(int count) {
+    return '$count 份外部镜像正常。';
+  }
+
+  @override
+  String get dataGovernanceExternalBackupVerifyIssuesTitle => '外部镜像异常';
+
+  @override
+  String dataGovernanceExternalBackupVerifyIssueSummary(
+      int healthy, int missing, int corrupted, int extra) {
+    return '$healthy 份正常 · $missing 份缺失 · $corrupted 份损坏 · $extra 份额外文件';
+  }
+
+  @override
+  String get dataGovernanceExternalBackupVerifyMissing => '外部副本缺失';
+
+  @override
+  String get dataGovernanceExternalBackupVerifyCorrupted =>
+      '外部副本大小或 SHA-256 不一致';
+
+  @override
+  String get dataGovernanceExternalBackupVerifyExtra => '外部文件未登记到本机目录';
+
+  @override
+  String dataGovernanceExternalBackupVerifyFailed(String error) {
+    return '检查外部镜像失败：$error';
+  }
+
+  @override
+  String get dataGovernanceExternalBackupImport => '导入本机';
+
+  @override
+  String dataGovernanceExternalBackupImported(String backupId) {
+    return '已导入外部备份：$backupId';
+  }
+
+  @override
+  String dataGovernanceExternalBackupImportFailed(String error) {
+    return '导入外部备份失败：$error';
+  }
 
   @override
   String dataGovernanceExternalBackupSelected(int mirrored, int failed) {

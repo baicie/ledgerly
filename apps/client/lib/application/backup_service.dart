@@ -16,6 +16,7 @@ import 'backup_encryption.dart';
 import 'backup_catalog_store.dart';
 import 'backup_metadata_store.dart';
 import 'backup_mirror_store.dart';
+import 'backup_mirror_verification.dart';
 import 'backup_restore_audit.dart';
 import 'merchant_classifier.dart';
 import 'merchant_rule_store.dart';
@@ -1583,6 +1584,10 @@ class BackupService {
     return _files.isBackupDirectoryAvailable(directory);
   }
 
+  Future<List<String>> listExternalBackupFiles(String directory) {
+    return _files.listBackupFiles(directory);
+  }
+
   /// Mirror every local catalog artifact into the configured directory.
   Future<BackupMirrorBatchResult> mirrorAllBackups() async {
     final directory = await _mirror.read();
@@ -1622,6 +1627,112 @@ class BackupService {
       mirroredCount: mirroredCount,
       failedCount: failedCount,
     );
+  }
+
+  /// Compare catalog mirror records with the configured external directory.
+  Future<BackupMirrorVerificationReport?> verifyExternalMirror() async {
+    final directory = await _mirror.read();
+    if (directory == null) return null;
+    final artifacts = await _catalog.read();
+    final entries = <BackupMirrorVerificationEntry>[];
+    final knownPaths = <String>{};
+    for (final artifact in artifacts) {
+      final mirrorPath = artifact.mirrorPath;
+      if (artifact.mirrorStatus == null && mirrorPath == null) continue;
+      if (mirrorPath == null || mirrorPath.isEmpty) {
+        entries.add(
+          BackupMirrorVerificationEntry(
+            externalPath: '',
+            artifact: artifact,
+            status: BackupMirrorVerificationStatus.missing,
+          ),
+        );
+        continue;
+      }
+      knownPaths.add(mirrorPath);
+      final actualSha256 = await _files.fileSha256(mirrorPath);
+      if (actualSha256 == null) {
+        entries.add(
+          BackupMirrorVerificationEntry(
+            externalPath: mirrorPath,
+            artifact: artifact,
+            status: BackupMirrorVerificationStatus.missing,
+          ),
+        );
+        continue;
+      }
+      final actualSizeBytes = await _files.fileSize(mirrorPath);
+      final expectedSha256 = artifact.sha256;
+      if ((expectedSha256 != null && expectedSha256 != actualSha256) ||
+          actualSizeBytes != artifact.sizeBytes) {
+        entries.add(
+          BackupMirrorVerificationEntry(
+            externalPath: mirrorPath,
+            artifact: artifact,
+            status: BackupMirrorVerificationStatus.corrupted,
+            expectedSha256: expectedSha256,
+            actualSha256: actualSha256,
+            expectedSizeBytes: artifact.sizeBytes,
+            actualSizeBytes: actualSizeBytes,
+          ),
+        );
+        continue;
+      }
+      entries.add(
+        BackupMirrorVerificationEntry(
+          externalPath: mirrorPath,
+          artifact: artifact,
+          status: BackupMirrorVerificationStatus.healthy,
+          expectedSha256: expectedSha256,
+          actualSha256: actualSha256,
+          expectedSizeBytes: artifact.sizeBytes,
+          actualSizeBytes: actualSizeBytes,
+        ),
+      );
+    }
+
+    final externalFiles = await _files.listBackupFiles(directory);
+    for (final path in externalFiles) {
+      if (knownPaths.contains(path)) continue;
+      entries.add(
+        BackupMirrorVerificationEntry(
+          externalPath: path,
+          status: BackupMirrorVerificationStatus.extra,
+        ),
+      );
+    }
+    return BackupMirrorVerificationReport(entries);
+  }
+
+  /// Copy an external-only backup into local storage and catalog it.
+  Future<BackupArtifact> importExternalBackup(String source) async {
+    final localPath = await _files.importBackupFile(source);
+    try {
+      final document = await _files.readBackup(localPath);
+      final backupId = document.backupId ?? const Uuid().v4();
+      final kind = document.encrypted != null
+          ? BackupArtifactKind.encrypted
+          : document.isIncremental
+              ? BackupArtifactKind.incremental
+              : BackupArtifactKind.full;
+      final artifact = BackupArtifact(
+        backupId: backupId,
+        path: localPath,
+        createdAt: DateTime.now().toUtc(),
+        kind: kind,
+        source: BackupArtifactSource.manual,
+        sizeBytes: await _files.fileSize(localPath),
+        sha256: await _files.fileSha256(localPath),
+        baseBackupId: document.baseBackupId,
+        mirrorStatus: BackupArtifactMirrorStatus.mirrored,
+        mirrorPath: source,
+      );
+      await _catalog.upsert(artifact);
+      return artifact;
+    } catch (_) {
+      await _files.deleteBackup(localPath);
+      rethrow;
+    }
   }
 
   /// Convenience for callers that already have the [BackupDocument] in
@@ -2313,6 +2424,12 @@ abstract class BackupFilePort {
 
   /// Return whether [directory] currently exists and is accessible.
   Future<bool> isBackupDirectoryAvailable(String directory);
+
+  /// List backup-looking files directly inside [directory].
+  Future<List<String>> listBackupFiles(String directory);
+
+  /// Copy an external backup into app-owned storage and return the new path.
+  Future<String> importBackupFile(String source);
 
   /// Produce the v2-zip byte stream for [document] so the service can
   /// encrypt it before persisting.
