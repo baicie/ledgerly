@@ -1437,9 +1437,25 @@
   "dataGovernanceArtifactLatest": "Latest",
   "dataGovernanceArtifactShare": "Share",
   "dataGovernanceArtifactDrill": "Recovery drill",
+  "dataGovernanceArtifactRotate": "Change password",
   "dataGovernanceArtifactRestore": "Load into restore preview",
   "dataGovernanceArtifactDelete": "Delete this backup",
   "dataGovernanceArtifactUnlockPrompt": "Enter this backup's password",
+  "dataGovernanceArtifactRotateTitle": "Change backup password",
+  "dataGovernanceArtifactRotateOldPassword": "Old password",
+  "dataGovernanceArtifactRotateNewPassword": "New password",
+  "dataGovernanceArtifactRotateConfirmPassword": "Confirm new password",
+  "dataGovernanceArtifactRotateSuccess": "New encrypted backup created while keeping the original: {path} ({size})",
+  "@dataGovernanceArtifactRotateSuccess": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
   "dataGovernanceArtifactRestoreLoaded": "Loaded into the restore preview. Scroll down to choose a restore mode.",
   "dataGovernanceArtifactLoadFailed": "Could not load backup: {error}",
   "@dataGovernanceArtifactLoadFailed": {

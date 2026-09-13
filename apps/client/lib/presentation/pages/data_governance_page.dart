@@ -427,6 +427,41 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
     await _showRecoveryDrillResult(result);
   }
 
+  Future<void> _rotateCatalogArtifactPassword(
+    BackupArtifact artifact,
+  ) async {
+    final l10n = l10nOf(context);
+    final result = await showDialogDialog<BackupPasswordRotationResult>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => _PasswordRotationDialog(
+        l10n: l10n,
+        onRotate: (oldPassword, newPassword) =>
+            _service.rotateCatalogBackupPassword(
+          artifact,
+          oldPassword: oldPassword,
+          newPassword: newPassword,
+        ),
+      ),
+    );
+    if (!mounted || result == null) return;
+    if (result.updatedLatest) {
+      setState(() => _lastBackupPath = result.path);
+    }
+    ref.invalidate(backupMetadataProvider);
+    ref.invalidate(backupCatalogProvider);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          l10n.dataGovernanceArtifactRotateSuccess(
+            result.path,
+            _formatMegabytes(result.sizeBytes),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _loadCatalogArtifactForRestore(
     BackupArtifact artifact,
   ) async {
@@ -830,6 +865,8 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
                       : _drillLatestBackup,
                   onArtifactShare: _busy ? null : _shareCatalogArtifact,
                   onArtifactDrill: _busy ? null : _drillCatalogArtifact,
+                  onArtifactRotate:
+                      _busy ? null : _rotateCatalogArtifactPassword,
                   onArtifactRestore:
                       _busy ? null : _loadCatalogArtifactForRestore,
                   onArtifactDelete: _busy ? null : _deleteCatalogArtifact,
@@ -913,6 +950,7 @@ class _BackupSection extends StatelessWidget {
     required this.onRecoveryDrill,
     required this.onArtifactShare,
     required this.onArtifactDrill,
+    required this.onArtifactRotate,
     required this.onArtifactRestore,
     required this.onArtifactDelete,
     required this.onConsolidate,
@@ -956,6 +994,7 @@ class _BackupSection extends StatelessWidget {
   final VoidCallback? onRecoveryDrill;
   final ValueChanged<BackupArtifact>? onArtifactShare;
   final ValueChanged<BackupArtifact>? onArtifactDrill;
+  final ValueChanged<BackupArtifact>? onArtifactRotate;
   final ValueChanged<BackupArtifact>? onArtifactRestore;
   final ValueChanged<BackupArtifact>? onArtifactDelete;
   final VoidCallback? onConsolidate;
@@ -1204,6 +1243,7 @@ class _BackupSection extends StatelessWidget {
               busy: busy,
               onShare: onArtifactShare,
               onDrill: onArtifactDrill,
+              onRotate: onArtifactRotate,
               onRestore: onArtifactRestore,
               onDelete: onArtifactDelete,
             ),
@@ -1249,7 +1289,7 @@ class _BackupSection extends StatelessWidget {
   }
 }
 
-enum _BackupArtifactAction { share, drill, restore, delete }
+enum _BackupArtifactAction { share, drill, rotate, restore, delete }
 
 class _BackupArtifactList extends StatelessWidget {
   const _BackupArtifactList({
@@ -1260,6 +1300,7 @@ class _BackupArtifactList extends StatelessWidget {
     required this.busy,
     required this.onShare,
     required this.onDrill,
+    required this.onRotate,
     required this.onRestore,
     required this.onDelete,
   });
@@ -1271,6 +1312,7 @@ class _BackupArtifactList extends StatelessWidget {
   final bool busy;
   final ValueChanged<BackupArtifact>? onShare;
   final ValueChanged<BackupArtifact>? onDrill;
+  final ValueChanged<BackupArtifact>? onRotate;
   final ValueChanged<BackupArtifact>? onRestore;
   final ValueChanged<BackupArtifact>? onDelete;
 
@@ -1298,6 +1340,7 @@ class _BackupArtifactList extends StatelessWidget {
             busy: busy,
             onShare: onShare,
             onDrill: onDrill,
+            onRotate: onRotate,
             onRestore: onRestore,
             onDelete: onDelete,
           ),
@@ -1316,6 +1359,7 @@ class _BackupArtifactTile extends StatelessWidget {
     required this.busy,
     required this.onShare,
     required this.onDrill,
+    required this.onRotate,
     required this.onRestore,
     required this.onDelete,
   });
@@ -1328,6 +1372,7 @@ class _BackupArtifactTile extends StatelessWidget {
   final bool busy;
   final ValueChanged<BackupArtifact>? onShare;
   final ValueChanged<BackupArtifact>? onDrill;
+  final ValueChanged<BackupArtifact>? onRotate;
   final ValueChanged<BackupArtifact>? onRestore;
   final ValueChanged<BackupArtifact>? onDelete;
 
@@ -1401,6 +1446,9 @@ class _BackupArtifactTile extends StatelessWidget {
             case _BackupArtifactAction.drill:
               onDrill?.call(artifact);
               break;
+            case _BackupArtifactAction.rotate:
+              onRotate?.call(artifact);
+              break;
             case _BackupArtifactAction.restore:
               onRestore?.call(artifact);
               break;
@@ -1422,6 +1470,13 @@ class _BackupArtifactTile extends StatelessWidget {
             enabled: onDrill != null,
             child: Text(l10n.dataGovernanceArtifactDrill),
           ),
+          if (artifact.kind == BackupArtifactKind.encrypted)
+            PopupMenuItem(
+              key: Key('data-governance-artifact-${artifact.backupId}-rotate'),
+              value: _BackupArtifactAction.rotate,
+              enabled: onRotate != null,
+              child: Text(l10n.dataGovernanceArtifactRotate),
+            ),
           PopupMenuItem(
             key: Key('data-governance-artifact-${artifact.backupId}-restore'),
             value: _BackupArtifactAction.restore,
@@ -2360,6 +2415,207 @@ class _BookSelector extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _PasswordRotationDialog extends StatefulWidget {
+  const _PasswordRotationDialog({
+    required this.l10n,
+    required this.onRotate,
+  });
+
+  final AppLocalizations l10n;
+  final Future<BackupPasswordRotationResult> Function(
+    String oldPassword,
+    String newPassword,
+  ) onRotate;
+
+  @override
+  State<_PasswordRotationDialog> createState() =>
+      _PasswordRotationDialogState();
+}
+
+class _PasswordRotationDialogState extends State<_PasswordRotationDialog> {
+  final _oldController = TextEditingController();
+  final _newController = TextEditingController();
+  final _confirmController = TextEditingController();
+  int _failedAttempts = 0;
+  DateTime? _lockedUntil;
+  Timer? _ticker;
+  String? _oldError;
+  String? _newError;
+  String? _confirmError;
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    _oldController.dispose();
+    _newController.dispose();
+    _confirmController.dispose();
+    super.dispose();
+  }
+
+  bool get _isLocked {
+    final until = _lockedUntil;
+    return until != null && DateTime.now().isBefore(until);
+  }
+
+  int get _lockSecondsRemaining {
+    final until = _lockedUntil;
+    if (until == null) return 0;
+    final remaining = until.difference(DateTime.now()).inSeconds;
+    return remaining < 0 ? 0 : remaining;
+  }
+
+  bool get _canSubmit {
+    if (_busy || _isLocked) return false;
+    return _oldController.text.length >= 8 &&
+        _newController.text.length >= 8 &&
+        _newController.text == _confirmController.text;
+  }
+
+  void _ensureTicker() {
+    if (_ticker != null) return;
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      if (!_isLocked) {
+        _ticker?.cancel();
+        _ticker = null;
+      }
+      setState(() {});
+    });
+  }
+
+  Future<void> _submit() async {
+    if (_busy || _isLocked) return;
+    final oldPassword = _oldController.text;
+    final newPassword = _newController.text;
+    if (oldPassword.length < 8 || newPassword.length < 8) {
+      setState(() {
+        _oldError = oldPassword.length < 8
+            ? widget.l10n.dataGovernancePasswordTooShort
+            : null;
+        _newError = newPassword.length < 8
+            ? widget.l10n.dataGovernancePasswordTooShort
+            : null;
+      });
+      return;
+    }
+    if (newPassword != _confirmController.text) {
+      setState(() {
+        _confirmError = widget.l10n.dataGovernancePasswordMismatch;
+      });
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _oldError = null;
+      _newError = null;
+      _confirmError = null;
+    });
+    try {
+      final result = await widget.onRotate(oldPassword, newPassword);
+      if (!mounted) return;
+      Navigator.pop(context, result);
+    } on BackupPasswordException {
+      if (!mounted) return;
+      final nextFailed = _failedAttempts + 1;
+      DateTime? lockedUntil;
+      if (nextFailed >= kBackupUnlockMaxAttempts) {
+        lockedUntil = DateTime.now().add(kBackupUnlockLockDuration);
+        _ensureTicker();
+      }
+      setState(() {
+        _busy = false;
+        _failedAttempts =
+            nextFailed >= kBackupUnlockMaxAttempts ? 0 : nextFailed;
+        _lockedUntil = lockedUntil ?? _lockedUntil;
+        _oldError = widget.l10n.dataGovernanceUnlockWrongPassword;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _oldError = '$error';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = widget.l10n;
+    final locked = _isLocked;
+    final remaining = _lockSecondsRemaining;
+    return AlertDialog(
+      key: const Key('data-governance-artifact-rotate-dialog'),
+      title: Text(l10n.dataGovernanceArtifactRotateTitle),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            key: const Key('data-governance-artifact-rotate-old'),
+            controller: _oldController,
+            obscureText: true,
+            autofocus: true,
+            enabled: !locked && !_busy,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              labelText: l10n.dataGovernanceArtifactRotateOldPassword,
+              border: const OutlineInputBorder(),
+              errorText: locked
+                  ? l10n.dataGovernanceUnlockLockedFor(remaining)
+                  : _oldError,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const Key('data-governance-artifact-rotate-new'),
+            controller: _newController,
+            obscureText: true,
+            enabled: !locked && !_busy,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              labelText: l10n.dataGovernanceArtifactRotateNewPassword,
+              border: const OutlineInputBorder(),
+              errorText: _newError,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const Key('data-governance-artifact-rotate-confirm'),
+            controller: _confirmController,
+            obscureText: true,
+            enabled: !locked && !_busy,
+            onChanged: (_) => setState(() {}),
+            onSubmitted: (_) => _submit(),
+            decoration: InputDecoration(
+              labelText: l10n.dataGovernanceArtifactRotateConfirmPassword,
+              border: const OutlineInputBorder(),
+              errorText: _confirmError,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.pop(context),
+          child: Text(l10n.cancel),
+        ),
+        FilledButton(
+          key: const Key('data-governance-artifact-rotate-submit'),
+          onPressed: _canSubmit ? _submit : null,
+          child: _busy
+              ? const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(l10n.dataGovernanceArtifactRotate),
+        ),
+      ],
     );
   }
 }

@@ -2358,6 +2358,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dataGovernanceArtifactDrill => '恢复演练';
 
   @override
+  String get dataGovernanceArtifactRotate => '更改密码';
+
+  @override
   String get dataGovernanceArtifactRestore => '加载到恢复预览';
 
   @override
@@ -2365,6 +2368,23 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get dataGovernanceArtifactUnlockPrompt => '输入该备份的密码';
+
+  @override
+  String get dataGovernanceArtifactRotateTitle => '更改备份密码';
+
+  @override
+  String get dataGovernanceArtifactRotateOldPassword => '旧密码';
+
+  @override
+  String get dataGovernanceArtifactRotateNewPassword => '新密码';
+
+  @override
+  String get dataGovernanceArtifactRotateConfirmPassword => '确认新密码';
+
+  @override
+  String dataGovernanceArtifactRotateSuccess(String path, String size) {
+    return '已生成新密码备份并保留原文件：$path（$size）';
+  }
 
   @override
   String get dataGovernanceArtifactRestoreLoaded => '已加载到恢复预览，请向下确认恢复模式。';

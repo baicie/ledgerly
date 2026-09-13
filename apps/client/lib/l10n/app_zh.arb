@@ -1422,9 +1422,25 @@
   "dataGovernanceArtifactLatest": "最近备份",
   "dataGovernanceArtifactShare": "分享",
   "dataGovernanceArtifactDrill": "恢复演练",
+  "dataGovernanceArtifactRotate": "更改密码",
   "dataGovernanceArtifactRestore": "加载到恢复预览",
   "dataGovernanceArtifactDelete": "删除此备份",
   "dataGovernanceArtifactUnlockPrompt": "输入该备份的密码",
+  "dataGovernanceArtifactRotateTitle": "更改备份密码",
+  "dataGovernanceArtifactRotateOldPassword": "旧密码",
+  "dataGovernanceArtifactRotateNewPassword": "新密码",
+  "dataGovernanceArtifactRotateConfirmPassword": "确认新密码",
+  "dataGovernanceArtifactRotateSuccess": "已生成新密码备份并保留原文件：{path}（{size}）",
+  "@dataGovernanceArtifactRotateSuccess": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
   "dataGovernanceArtifactRestoreLoaded": "已加载到恢复预览，请向下确认恢复模式。",
   "dataGovernanceArtifactLoadFailed": "读取备份失败：{error}",
   "@dataGovernanceArtifactLoadFailed": {

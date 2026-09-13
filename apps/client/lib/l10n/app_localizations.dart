@@ -4391,6 +4391,12 @@ abstract class AppLocalizations {
   /// **'恢复演练'**
   String get dataGovernanceArtifactDrill;
 
+  /// No description provided for @dataGovernanceArtifactRotate.
+  ///
+  /// In zh, this message translates to:
+  /// **'更改密码'**
+  String get dataGovernanceArtifactRotate;
+
   /// No description provided for @dataGovernanceArtifactRestore.
   ///
   /// In zh, this message translates to:
@@ -4408,6 +4414,36 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'输入该备份的密码'**
   String get dataGovernanceArtifactUnlockPrompt;
+
+  /// No description provided for @dataGovernanceArtifactRotateTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'更改备份密码'**
+  String get dataGovernanceArtifactRotateTitle;
+
+  /// No description provided for @dataGovernanceArtifactRotateOldPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'旧密码'**
+  String get dataGovernanceArtifactRotateOldPassword;
+
+  /// No description provided for @dataGovernanceArtifactRotateNewPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'新密码'**
+  String get dataGovernanceArtifactRotateNewPassword;
+
+  /// No description provided for @dataGovernanceArtifactRotateConfirmPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认新密码'**
+  String get dataGovernanceArtifactRotateConfirmPassword;
+
+  /// No description provided for @dataGovernanceArtifactRotateSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已生成新密码备份并保留原文件：{path}（{size}）'**
+  String dataGovernanceArtifactRotateSuccess(String path, String size);
 
   /// No description provided for @dataGovernanceArtifactRestoreLoaded.
   ///
