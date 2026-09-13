@@ -251,6 +251,16 @@
 - [x] CLI 支持 `--objects-out` / `--objects-from`
 - [x] PostgreSQL 演练联合恢复并交叉校验附件
 
+## 加密备份包与异地复制（Phase 33）
+
+- [x] 数据库 dump 与对象备份统一 bundle manifest
+- [x] 原始和存储文件均记录大小与 SHA-256
+- [x] 可选 Argon2id + AES-256-GCM 加密
+- [x] 逻辑路径作为 AES-GCM AAD
+- [x] 支持 verify / unpack / replicate
+- [x] 复制完成后重新校验再发布
+- [x] PostgreSQL 联合演练经过加密 bundle 全链路
+
 ### 待后续完善
 
 - 扩大商户分类覆盖（目前第一版关键词匹配）

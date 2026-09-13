@@ -1,6 +1,9 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use ledger_server::infrastructure::backup_bundle::{
+    create_backup_bundle, replicate_backup_bundle, unpack_backup_bundle, verify_backup_bundle,
+};
 use ledger_server::infrastructure::object_store::{backup_object_store, restore_object_store};
 use ledger_server::{backup, migrate, restore, Config};
 use sha2::{Digest, Sha256};
@@ -109,10 +112,15 @@ async fn postgres_backup_restore_drill_preserves_pre_backup_snapshot() {
     let target_database = temporary_database_name("drill_target");
     let source_url = database_url(&base_url, &source_database);
     let target_url = database_url(&base_url, &target_database);
-    let dump = dump_path();
-    let source_objects = temporary_directory("drill-objects-source");
-    let target_objects = temporary_directory("drill-objects-target");
-    let objects_backup = temporary_directory("drill-objects-backup");
+    let paths = DrillPaths {
+        dump: dump_path(),
+        source_objects: temporary_directory("drill-objects-source"),
+        target_objects: temporary_directory("drill-objects-target"),
+        objects_backup: temporary_directory("drill-objects-backup"),
+        bundle: temporary_directory("drill-bundle"),
+        bundle_replica: temporary_directory("drill-bundle-replica"),
+        unpacked: temporary_directory("drill-bundle-unpacked"),
+    };
 
     for database in [&source_database, &target_database] {
         sqlx::query(&format!("CREATE DATABASE \"{database}\""))
@@ -121,20 +129,19 @@ async fn postgres_backup_restore_drill_preserves_pre_backup_snapshot() {
             .unwrap_or_else(|error| panic!("create database {database}: {error}"));
     }
 
-    let result = run_backup_restore_drill(
-        &source_url,
-        &target_url,
-        &dump,
-        &source_objects,
-        &target_objects,
-        &objects_backup,
-    )
-    .await;
+    let result = run_backup_restore_drill(&source_url, &target_url, &paths).await;
 
-    let _ = tokio::fs::remove_file(&dump).await;
-    let _ = tokio::fs::remove_dir_all(&source_objects).await;
-    let _ = tokio::fs::remove_dir_all(&target_objects).await;
-    let _ = tokio::fs::remove_dir_all(&objects_backup).await;
+    let _ = tokio::fs::remove_file(&paths.dump).await;
+    for directory in [
+        &paths.source_objects,
+        &paths.target_objects,
+        &paths.objects_backup,
+        &paths.bundle,
+        &paths.bundle_replica,
+        &paths.unpacked,
+    ] {
+        let _ = tokio::fs::remove_dir_all(directory).await;
+    }
     for database in [&target_database, &source_database] {
         let _ = sqlx::query(&format!(
             "DROP DATABASE IF EXISTS \"{database}\" WITH (FORCE)"
@@ -149,11 +156,15 @@ async fn postgres_backup_restore_drill_preserves_pre_backup_snapshot() {
 async fn run_backup_restore_drill(
     source_url: &str,
     target_url: &str,
-    dump: &Path,
-    source_objects: &Path,
-    target_objects: &Path,
-    objects_backup: &Path,
+    paths: &DrillPaths,
 ) -> anyhow::Result<()> {
+    let dump = &paths.dump;
+    let source_objects = &paths.source_objects;
+    let target_objects = &paths.target_objects;
+    let objects_backup = &paths.objects_backup;
+    let bundle = &paths.bundle;
+    let bundle_replica = &paths.bundle_replica;
+    let unpacked = &paths.unpacked;
     let mut source_config = Config::for_test();
     source_config.database_url = Some(source_url.to_string());
     source_config.object_store_dir = source_objects.to_path_buf();
@@ -177,6 +188,15 @@ async fn run_backup_restore_drill(
     let backup_started = Instant::now();
     backup(&source_config, dump.to_str().expect("dump path")).await?;
     let object_backup = backup_object_store(&source_config, objects_backup)?;
+    let bundle_report =
+        create_backup_bundle(dump, objects_backup, bundle, Some("bundle-password-123"))?;
+    let bundle_verification = verify_backup_bundle(bundle, Some("bundle-password-123"))?;
+    assert_eq!(bundle_verification.file_count, bundle_report.file_count);
+    assert!(bundle_verification.plaintext_verified);
+    replicate_backup_bundle(bundle, bundle_replica)?;
+    let unpack_report =
+        unpack_backup_bundle(bundle_replica, unpacked, Some("bundle-password-123"))?;
+    assert_eq!(unpack_report.file_count, bundle_report.file_count);
     let backup_elapsed = backup_started.elapsed();
 
     let post_backup_transaction_id = seed_post_backup_marker(&source, &fixture.book_id).await?;
@@ -188,8 +208,14 @@ async fn run_backup_restore_drill(
     );
 
     let recovery_started = Instant::now();
-    let restored_objects = restore_object_store(&target_config, objects_backup)?;
-    restore(&target_config, dump.to_str().expect("dump path")).await?;
+    let unpacked_objects = unpacked.join("object-store");
+    let unpacked_database = unpacked.join("database.dump");
+    let restored_objects = restore_object_store(&target_config, &unpacked_objects)?;
+    restore(
+        &target_config,
+        unpacked_database.to_str().expect("unpacked dump path"),
+    )
+    .await?;
     migrate(&target_config).await?;
     let recovery_elapsed = recovery_started.elapsed();
     assert_eq!(restored_objects.object_count, object_backup.object_count);
@@ -271,6 +297,16 @@ struct DrillFixture {
     book_id: String,
     pre_backup_transaction_id: String,
     pre_backup_transaction_count: i64,
+}
+
+struct DrillPaths {
+    dump: PathBuf,
+    source_objects: PathBuf,
+    target_objects: PathBuf,
+    objects_backup: PathBuf,
+    bundle: PathBuf,
+    bundle_replica: PathBuf,
+    unpacked: PathBuf,
 }
 
 async fn seed_source(pool: &PgPool, object_store_dir: &Path) -> anyhow::Result<DrillFixture> {

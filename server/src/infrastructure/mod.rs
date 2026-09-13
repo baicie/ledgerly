@@ -1,3 +1,4 @@
+pub mod backup_bundle;
 pub mod jobs;
 pub mod object_store;
 pub mod postgres;

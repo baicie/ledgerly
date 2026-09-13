@@ -46,5 +46,6 @@
 | [phase-30-recovery-drill-audit.md](./phase-30-recovery-drill-audit.md) | 恢复演练审计与就绪度 |
 | [phase-31-server-disaster-recovery-drill.md](./phase-31-server-disaster-recovery-drill.md) | 服务端 PostgreSQL 恢复演练 |
 | [phase-32-object-store-disaster-recovery.md](./phase-32-object-store-disaster-recovery.md) | 对象存储附件灾备与恢复 |
+| [phase-33-encrypted-backup-bundle.md](./phase-33-encrypted-backup-bundle.md) | 服务端加密备份包与异地复制 |
 
 状态：文档在对应阶段分支创建并完善；基线阶段仅保留本索引。

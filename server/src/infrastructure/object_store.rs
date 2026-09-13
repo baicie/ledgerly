@@ -48,6 +48,12 @@ pub struct ObjectStoreRestoreReport {
     pub total_size_bytes: u64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ObjectStoreVerificationReport {
+    pub object_count: usize,
+    pub total_size_bytes: u64,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ObjectStoreBackupManifest {
@@ -176,6 +182,33 @@ pub fn object_metadata(config: &Config, object_key: &str) -> anyhow::Result<Stor
     metadata_for_path(object_key, &path)
 }
 
+pub fn verify_object_store_backup(
+    from_dir: &Path,
+) -> anyhow::Result<ObjectStoreVerificationReport> {
+    let manifest = read_object_store_manifest(from_dir)?;
+    let mut total_size_bytes = 0_u64;
+    let mut seen = std::collections::HashSet::new();
+    for object in &manifest.objects {
+        let key = validated_key(&object.key)?;
+        if !seen.insert(key.clone()) {
+            bail!("duplicate object key in manifest: {key}");
+        }
+        let path = from_dir.join(OBJECT_STORE_OBJECTS_DIR).join(&key);
+        let actual = metadata_for_path(&key, &path)?;
+        if actual != *object {
+            bail!("object backup metadata mismatch: {key}");
+        }
+        total_size_bytes += object.size_bytes;
+    }
+    if total_size_bytes != manifest.total_size_bytes {
+        bail!("object store manifest total size mismatch");
+    }
+    Ok(ObjectStoreVerificationReport {
+        object_count: manifest.object_count,
+        total_size_bytes: manifest.total_size_bytes,
+    })
+}
+
 pub fn backup_object_store(
     config: &Config,
     out_dir: &Path,
@@ -264,23 +297,7 @@ pub fn restore_object_store(
     config: &Config,
     from_dir: &Path,
 ) -> anyhow::Result<ObjectStoreRestoreReport> {
-    let manifest_path = from_dir.join(OBJECT_STORE_MANIFEST_FILE);
-    let manifest_bytes = fs::read(&manifest_path)
-        .with_context(|| format!("read object store manifest {}", manifest_path.display()))?;
-    let manifest: ObjectStoreBackupManifest =
-        serde_json::from_slice(&manifest_bytes).context("decode object store manifest")?;
-    if manifest.kind != OBJECT_STORE_BACKUP_KIND {
-        bail!("unexpected object store backup kind: {}", manifest.kind);
-    }
-    if manifest.schema_version != OBJECT_STORE_BACKUP_SCHEMA_VERSION {
-        bail!(
-            "unsupported object store backup schema: {}",
-            manifest.schema_version
-        );
-    }
-    if manifest.object_count != manifest.objects.len() {
-        bail!("object store manifest count mismatch");
-    }
+    let manifest = read_object_store_manifest(from_dir)?;
 
     let target = &config.object_store_dir;
     if target.exists() && !target.is_dir() {
@@ -350,6 +367,27 @@ pub fn restore_object_store(
         let _ = fs::remove_dir_all(&staging);
     }
     restore_result
+}
+
+fn read_object_store_manifest(from_dir: &Path) -> anyhow::Result<ObjectStoreBackupManifest> {
+    let manifest_path = from_dir.join(OBJECT_STORE_MANIFEST_FILE);
+    let manifest_bytes = fs::read(&manifest_path)
+        .with_context(|| format!("read object store manifest {}", manifest_path.display()))?;
+    let manifest: ObjectStoreBackupManifest =
+        serde_json::from_slice(&manifest_bytes).context("decode object store manifest")?;
+    if manifest.kind != OBJECT_STORE_BACKUP_KIND {
+        bail!("unexpected object store backup kind: {}", manifest.kind);
+    }
+    if manifest.schema_version != OBJECT_STORE_BACKUP_SCHEMA_VERSION {
+        bail!(
+            "unsupported object store backup schema: {}",
+            manifest.schema_version
+        );
+    }
+    if manifest.object_count != manifest.objects.len() {
+        bail!("object store manifest count mismatch");
+    }
+    Ok(manifest)
 }
 
 fn collect_files(
