@@ -188,20 +188,26 @@ jobs:
         uses: browser-actions/setup-chrome@v1
         with:
           chrome-version: stable
+          install-chromedriver: true
 
       - name: Resolve workspace
         run: dart pub get
 
-      - name: Enable web & build assets
-        run: |
-          flutter config --enable-web
-          flutter build web --release
-        working-directory: apps/client
-
       - name: Run integration tests on Chrome
-        # flutter_driver is no longer required; integration_test boots a real
-        # Flutter web engine against the built app.
-        run: flutter test -d chrome integration_test
+        # `flutter test -d chrome` does not support integration_test yet.
+        # The supported web path is flutter_drive + the integration driver.
+        run: |
+          chromedriver --port=4444 > /tmp/chromedriver.log 2>&1 &
+          for target in \
+            integration_test/app_test.dart \
+            integration_test/journey_test.dart \
+            integration_test/sync/multi_device_sync_test.dart
+          do
+            flutter drive \
+              --driver=test_driver/integration_test.dart \
+              --target="$target" \
+              -d chrome
+          done
         working-directory: apps/client
 
       - name: Upload web coverage report (optional)

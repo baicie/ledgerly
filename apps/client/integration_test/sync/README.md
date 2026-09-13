@@ -37,7 +37,10 @@ cd apps/client
 flutter test integration_test/sync/
 
 # Chrome (matches the CI integration job)
-flutter test -d chrome integration_test/sync/
+flutter drive \
+  --driver=test_driver/integration_test.dart \
+  --target=integration_test/sync/multi_device_sync_test.dart \
+  -d chrome
 
 # Windows desktop — requires Developer Mode to be enabled in Windows
 # settings so Flutter can create plugin symlinks.
@@ -51,11 +54,15 @@ flutter test -d windows integration_test/sync/
 
 ## Running in CI
 
-The `integration` job in `.github/workflows/ci.yml` already runs
+The `integration` job in `.github/workflows/ci.yml` starts ChromeDriver
+and runs the supported web integration-test path:
 
 ```bash
-flutter test -d chrome integration_test
+flutter drive \
+  --driver=test_driver/integration_test.dart \
+  --target=integration_test/app_test.dart \
+  -d chrome
 ```
 
-which automatically includes `integration_test/sync/` alongside
-`app_test.dart` and `journey_test.dart`.
+The job repeats the command for `app_test.dart`, `journey_test.dart`,
+and `sync/multi_device_sync_test.dart`.
