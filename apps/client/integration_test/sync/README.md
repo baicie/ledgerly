@@ -36,11 +36,8 @@ cd apps/client
 # Linux / macOS host VM — no device flag needed
 flutter test integration_test/sync/
 
-# Chrome (matches the CI integration job)
-flutter drive \
-  --driver=test_driver/integration_test.dart \
-  --target=integration_test/sync/multi_device_sync_test.dart \
-  -d chrome
+# Headless Flutter VM (matches the CI integration job)
+flutter test -d flutter-tester integration_test/sync/
 
 # Windows desktop — requires Developer Mode to be enabled in Windows
 # settings so Flutter can create plugin symlinks.
@@ -54,15 +51,13 @@ flutter test -d windows integration_test/sync/
 
 ## Running in CI
 
-The `integration` job in `.github/workflows/ci.yml` starts ChromeDriver
-and runs the supported web integration-test path:
+The `integration` job in `.github/workflows/ci.yml` runs the sync suite
+against the headless Flutter tester:
 
 ```bash
-flutter drive \
-  --driver=test_driver/integration_test.dart \
-  --target=integration_test/app_test.dart \
-  -d chrome
+flutter test -d flutter-tester integration_test/sync/
 ```
 
-The job repeats the command for `app_test.dart`, `journey_test.dart`,
-and `sync/multi_device_sync_test.dart`.
+The widget-level `app_test.dart` and `journey_test.dart` remain device
+integration checks because their provider and platform setup is not
+supported by the headless sync runner.
