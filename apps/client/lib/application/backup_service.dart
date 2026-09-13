@@ -708,13 +708,18 @@ class BackupService {
     final budgets = _asList(data['budgets'], 'budgets');
     final attachments = _asList(data['attachments'], 'attachments');
     final merchantRules = _asList(data['merchantRules'], 'merchantRules');
+    final restoredDeviceId = await _deviceIdLoader();
 
     await _db.transaction(() async {
-      // Wipe in FK-safe order: leaves first, roots last.
+      // Wipe in FK-safe order: leaves first, roots last. Sync state is
+      // device-local and must not survive a replace restore.
       await _db.delete(_db.transactionEntries).go();
       await _db.delete(_db.transactions).go();
       await _db.delete(_db.accounts).go();
       await _db.delete(_db.books).go();
+      await _db.delete(_db.pendingMutations).go();
+      await _db.delete(_db.syncConflicts).go();
+      await _db.delete(_db.syncStates).go();
 
       for (final raw in books) {
         await _db.into(_db.books).insert(
@@ -723,6 +728,16 @@ class BackupService {
                 name: raw['name'] as String,
                 currencyCode: raw['currencyCode'] as String,
                 createdAt: DateTime.parse(raw['createdAt'] as String).toLocal(),
+              ),
+              mode: InsertMode.insertOrReplace,
+            );
+      }
+      for (final raw in books) {
+        await _db.into(_db.syncStates).insert(
+              SyncStatesCompanion.insert(
+                bookId: raw['id'] as String,
+                deviceId: restoredDeviceId,
+                updatedAt: DateTime.now().toUtc(),
               ),
               mode: InsertMode.insertOrReplace,
             );

@@ -19,6 +19,18 @@ cargo run --manifest-path server/Cargo.toml -- restore --from /tmp/ledgerly.dump
 
 恢复后执行 `cargo run -- migrate` 确认 schema，并跑 `cargo test --test postgres_flow`。
 
+## 客户端灾难恢复演练
+
+客户端使用隔离内存数据库执行四条完整恢复路径，不会读写本机正式账本：
+
+```powershell
+cd apps/client
+flutter test test/application/backup_disaster_recovery_test.dart
+```
+
+演练覆盖明文全量、明文增量链、密码加密和仅外部镜像文件导入。
+恢复完成后会核对全部业务域、附件字节，并确认旧同步会话已清除。
+
 ## 压测烟雾
 
 ```bash
