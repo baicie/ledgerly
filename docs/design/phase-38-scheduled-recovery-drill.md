@@ -159,4 +159,4 @@ restart after dead job:
 - [x] 临时数据库和目录强制清理；
 - [x] 成败均持久化审计；
 - [x] `/health/backup` 返回 lastRecoveryDrill；
-- [ ] workspace 和 CI 全链路验证通过（待验证）。
+- [x] workspace 和 CI 全链路验证通过。
