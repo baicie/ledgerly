@@ -141,7 +141,10 @@ class _LedgerlyAppState extends ConsumerState<LedgerlyApp>
     });
     ref.listen(autoBackupTickProvider, (previous, next) {
       next.whenData((result) {
-        if (result.ran) ref.invalidate(backupMetadataProvider);
+        if (result.ran) {
+          ref.invalidate(backupMetadataProvider);
+          ref.invalidate(backupCatalogProvider);
+        }
       });
     });
     ref.listen(autoLedgerSyncProvider, (previous, next) {

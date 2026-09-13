@@ -2311,6 +2311,41 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dataGovernanceStatusIncremental => '增量备份 · 需要本机基础文件';
 
   @override
+  String dataGovernanceLocalBackups(int count, String size) {
+    return '本机备份 $count 份 · $size';
+  }
+
+  @override
+  String get dataGovernanceCleanupBackups => '清理旧备份';
+
+  @override
+  String get dataGovernanceCleanupSubtitle => '保护手工备份、基础备份和最近备份；自动备份保留最新 3 份。';
+
+  @override
+  String get dataGovernanceCleanupConfirmTitle => '确认清理旧自动备份？';
+
+  @override
+  String get dataGovernanceCleanupConfirmBody => '手工导出以及增量恢复所依赖的基础备份不会被删除。';
+
+  @override
+  String dataGovernanceCleanupSuccess(int count, String size) {
+    return '已清理 $count 份备份，释放 $size。';
+  }
+
+  @override
+  String dataGovernanceCleanupPartial(int count, String size, int failed) {
+    return '已清理 $count 份备份并释放 $size；$failed 份删除失败。';
+  }
+
+  @override
+  String get dataGovernanceCleanupNoChanges => '没有需要清理的旧备份。';
+
+  @override
+  String dataGovernanceCleanupFailed(String error) {
+    return '清理备份失败：$error';
+  }
+
+  @override
   String get dataGovernanceAutoBackup => '自动备份';
 
   @override

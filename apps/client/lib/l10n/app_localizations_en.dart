@@ -2406,6 +2406,45 @@ class AppLocalizationsEn extends AppLocalizations {
       'Incremental backup · local base required';
 
   @override
+  String dataGovernanceLocalBackups(int count, String size) {
+    return '$count local backups · $size';
+  }
+
+  @override
+  String get dataGovernanceCleanupBackups => 'Clean old backups';
+
+  @override
+  String get dataGovernanceCleanupSubtitle =>
+      'Manual, base, and latest backups are protected; keep the newest 3 automatic backups.';
+
+  @override
+  String get dataGovernanceCleanupConfirmTitle =>
+      'Clean old automatic backups?';
+
+  @override
+  String get dataGovernanceCleanupConfirmBody =>
+      'Manual exports and the base required by incremental backups will not be deleted.';
+
+  @override
+  String dataGovernanceCleanupSuccess(int count, String size) {
+    return 'Deleted $count backups and freed $size.';
+  }
+
+  @override
+  String dataGovernanceCleanupPartial(int count, String size, int failed) {
+    return 'Deleted $count backups and freed $size; $failed could not be deleted.';
+  }
+
+  @override
+  String get dataGovernanceCleanupNoChanges =>
+      'No old backups needed cleaning.';
+
+  @override
+  String dataGovernanceCleanupFailed(String error) {
+    return 'Could not clean backups: $error';
+  }
+
+  @override
   String get dataGovernanceAutoBackup => 'Automatic backup';
 
   @override
