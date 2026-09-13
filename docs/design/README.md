@@ -50,5 +50,6 @@
 | [phase-34-streaming-bundle-and-retention.md](./phase-34-streaming-bundle-and-retention.md) | 流式加密 bundle 与保留策略 |
 | [phase-35-automated-backup-orchestration.md](./phase-35-automated-backup-orchestration.md) | 自动备份编排与验证状态 |
 | [phase-36-production-backup-deployment.md](./phase-36-production-backup-deployment.md) | 生产备份部署接线与监控 |
+| [phase-37-one-command-restore-audit.md](./phase-37-one-command-restore-audit.md) | 一键加密 Bundle 恢复与审计 |
 
 状态：文档在对应阶段分支创建并完善；基线阶段仅保留本索引。

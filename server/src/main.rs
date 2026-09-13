@@ -27,6 +27,7 @@ enum Commands {
     },
     BackupRun,
     BackupStatus,
+    RestoreStatus,
     Restore {
         #[arg(long)]
         from: String,
@@ -76,6 +77,14 @@ enum BundleCommands {
         root: String,
         #[arg(long, default_value_t = 3)]
         keep: usize,
+    },
+    Restore {
+        #[arg(long)]
+        from: String,
+        #[arg(long, env = "LEDGER_BACKUP_PASSWORD")]
+        password: Option<String>,
+        #[arg(long)]
+        confirm: bool,
     },
 }
 
@@ -143,6 +152,23 @@ async fn main() -> anyhow::Result<()> {
                 }))?
             );
         }
+        Commands::RestoreStatus => {
+            let status = backup_runtime::restore_status(&config)?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "status": status.as_ref().map(|value| match value.outcome {
+                        ledger_server::infrastructure::backup_status::RestoreRunOutcome::Success => "success",
+                        ledger_server::infrastructure::backup_status::RestoreRunOutcome::Failed => "failed",
+                    }),
+                    "completedAt": status.as_ref().map(|value| value.completed_at.clone()),
+                    "durationMs": status.as_ref().map(|value| value.duration_ms),
+                    "objectCount": status.as_ref().map(|value| value.object_count),
+                    "bookCount": status.as_ref().map(|value| value.book_count),
+                    "transactionCount": status.as_ref().map(|value| value.transaction_count),
+                }))?
+            );
+        }
         Commands::Restore { from, objects_from } => {
             if let Some(objects_from) = objects_from {
                 let report = object_store::restore_object_store(&config, Path::new(&objects_from))?;
@@ -207,6 +233,30 @@ async fn main() -> anyhow::Result<()> {
                 println!(
                     "backup bundle cleanup complete: deleted={}, kept={}, freed={} bytes",
                     report.deleted_count, report.kept_count, report.freed_bytes
+                );
+            }
+            BundleCommands::Restore {
+                from,
+                password,
+                confirm,
+            } => {
+                if !confirm {
+                    anyhow::bail!("bundle restore is destructive; pass --confirm");
+                }
+                let report = backup_runtime::restore_backup_bundle(
+                    &config,
+                    Path::new(&from),
+                    password.as_deref(),
+                )
+                .await?;
+                println!(
+                    "backup bundle restored: files={}, objects={}, books={}, transactions={}, duration={} ms, safety_backup={}",
+                    report.file_count,
+                    report.object_count,
+                    report.book_count,
+                    report.transaction_count,
+                    report.duration_ms,
+                    report.safety_backup_run_id
                 );
             }
         },

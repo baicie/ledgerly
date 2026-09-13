@@ -30,6 +30,13 @@ pub async fn backup(State(state): State<AppState>) -> Result<Json<serde_json::Va
             "backup status unavailable",
         )
     })?;
+    let restore = backup_runtime::restore_status(&state.config).map_err(|_| {
+        ApiError::new(
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            "RESTORE_STATUS_ERROR",
+            "restore status unavailable",
+        )
+    })?;
     let status = snapshot.readiness.as_str();
     let run = snapshot.status;
     Ok(Json(json!({
@@ -40,5 +47,16 @@ pub async fn backup(State(state): State<AppState>) -> Result<Json<serde_json::Va
         "fileCount": run.as_ref().map(|status| status.file_count),
         "totalSizeBytes": run.as_ref().map(|status| status.total_size_bytes),
         "replicated": run.as_ref().map(|status| status.replicated),
+        "lastRestore": restore.map(|status| json!({
+            "outcome": match status.outcome {
+                crate::infrastructure::backup_status::RestoreRunOutcome::Success => "success",
+                crate::infrastructure::backup_status::RestoreRunOutcome::Failed => "failed",
+            },
+            "completedAt": status.completed_at,
+            "durationMs": status.duration_ms,
+            "objectCount": status.object_count,
+            "bookCount": status.book_count,
+            "transactionCount": status.transaction_count,
+        })),
     })))
 }
