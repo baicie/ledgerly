@@ -2405,6 +2405,34 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get dataGovernanceRecoveryDrill => '恢复演练';
+
+  @override
+  String get dataGovernanceRecoveryDrillPasswordTitle => '输入密码以演练恢复';
+
+  @override
+  String get dataGovernanceRecoveryDrillSuccessTitle => '恢复演练通过';
+
+  @override
+  String dataGovernanceRecoveryDrillSuccess(
+      int books, int transactions, int attachments) {
+    return '已成功合成或解密备份：$books 个账本、$transactions 笔流水、$attachments 个附件。';
+  }
+
+  @override
+  String get dataGovernanceRecoveryDrillSuccessBody => '演练仅读取备份，不会修改本机数据。';
+
+  @override
+  String dataGovernanceRecoveryDrillPath(String path) {
+    return '备份路径：$path';
+  }
+
+  @override
+  String dataGovernanceRecoveryDrillFailed(String error) {
+    return '恢复演练失败：$error';
+  }
+
+  @override
   String get dataGovernanceAutoBackup => '自动备份';
 
   @override

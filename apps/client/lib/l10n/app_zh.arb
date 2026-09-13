@@ -1506,6 +1506,40 @@
       }
     }
   },
+  "dataGovernanceRecoveryDrill": "恢复演练",
+  "dataGovernanceRecoveryDrillPasswordTitle": "输入密码以演练恢复",
+  "dataGovernanceRecoveryDrillSuccessTitle": "恢复演练通过",
+  "dataGovernanceRecoveryDrillSuccess": "已成功合成或解密备份：{books} 个账本、{transactions} 笔流水、{attachments} 个附件。",
+  "@dataGovernanceRecoveryDrillSuccess": {
+    "placeholders": {
+      "books": {
+        "type": "int"
+      },
+      "transactions": {
+        "type": "int"
+      },
+      "attachments": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceRecoveryDrillSuccessBody": "演练仅读取备份，不会修改本机数据。",
+  "dataGovernanceRecoveryDrillPath": "备份路径：{path}",
+  "@dataGovernanceRecoveryDrillPath": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRecoveryDrillFailed": "恢复演练失败：{error}",
+  "@dataGovernanceRecoveryDrillFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "dataGovernanceAutoBackup": "自动备份",
   "dataGovernanceAutoBackupSubtitle": "打开应用时检查；到期则写入本地快照",
   "dataGovernanceAutoBackupWarning": "自动备份不加密。敏感账本请继续使用密码导出。",

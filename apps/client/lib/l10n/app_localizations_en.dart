@@ -2510,6 +2510,36 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get dataGovernanceRecoveryDrill => 'Recovery drill';
+
+  @override
+  String get dataGovernanceRecoveryDrillPasswordTitle =>
+      'Enter the password for the recovery drill';
+
+  @override
+  String get dataGovernanceRecoveryDrillSuccessTitle => 'Recovery drill passed';
+
+  @override
+  String dataGovernanceRecoveryDrillSuccess(
+      int books, int transactions, int attachments) {
+    return 'Successfully materialized or decrypted the backup: $books books, $transactions transactions, and $attachments attachments.';
+  }
+
+  @override
+  String get dataGovernanceRecoveryDrillSuccessBody =>
+      'The drill only reads the backup and does not modify local data.';
+
+  @override
+  String dataGovernanceRecoveryDrillPath(String path) {
+    return 'Backup path: $path';
+  }
+
+  @override
+  String dataGovernanceRecoveryDrillFailed(String error) {
+    return 'Recovery drill failed: $error';
+  }
+
+  @override
   String get dataGovernanceAutoBackup => 'Automatic backup';
 
   @override

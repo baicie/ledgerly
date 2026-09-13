@@ -340,6 +340,27 @@ class BackupConsolidationResult {
   final int sizeBytes;
 }
 
+@immutable
+class BackupRecoveryDrillResult {
+  const BackupRecoveryDrillResult({
+    required this.path,
+    required this.backupId,
+    required this.encrypted,
+    required this.incremental,
+    required this.summary,
+    required this.bundledAttachmentCount,
+    required this.attachmentSizeBytes,
+  });
+
+  final String path;
+  final String? backupId;
+  final bool encrypted;
+  final bool incremental;
+  final BackupSummary summary;
+  final int bundledAttachmentCount;
+  final int attachmentSizeBytes;
+}
+
 enum BackupVerificationStatus { healthy, missing, corrupted }
 
 @immutable
@@ -1250,6 +1271,40 @@ class BackupService {
     return BackupVerificationReport(entries);
   }
 
+  /// Perform a non-destructive recovery drill against the latest backup.
+  ///
+  /// Unlike [verifyBackups], which only proves that each container can be
+  /// parsed, this path materializes a plaintext incremental chain against
+  /// its base and decrypts an encrypted backup when [password] is supplied.
+  /// It then validates row IDs, summary counts, and attachment hashes
+  /// without writing to the live database.
+  Future<BackupRecoveryDrillResult> runRecoveryDrill({
+    String? password,
+  }) async {
+    final metadata = await _metadata.read();
+    final path = metadata.lastBackupPath;
+    if (path == null) {
+      throw const BackupFormatException('本机没有可演练的最近备份。');
+    }
+
+    final source = await _files.readBackup(path);
+    final unlocked = source.isEncrypted
+        ? await _unwrapEncrypted(source, password: password)
+        : source;
+    final resolved = await _materializeIncremental(unlocked);
+    _validateRecoverableDocument(resolved);
+
+    return BackupRecoveryDrillResult(
+      path: path,
+      backupId: unlocked.backupId,
+      encrypted: source.isEncrypted,
+      incremental: source.isIncremental,
+      summary: resolved.summary,
+      bundledAttachmentCount: resolved.attachmentBinaries.length,
+      attachmentSizeBytes: resolved.attachmentSizeBytes,
+    );
+  }
+
   /// Pass-through helpers so the page does not need to depend on the
   /// port directly. Keeps the layering tight.
   Future<String?> shareFile(String source) => _files.shareBackup(source);
@@ -1525,6 +1580,59 @@ SELECT
       );
     }
     return _applyIncremental(base: base, delta: document);
+  }
+
+  void _validateRecoverableDocument(BackupDocument document) {
+    final summary = document.summary.toJson();
+    for (final key in _deltaEntityKeys) {
+      final rawRows = document.payload[key];
+      final rows = _asList(rawRows, key);
+      if (rawRows != null && rows.length != rawRows.length) {
+        throw BackupFormatException('备份中的 $key 包含无效行');
+      }
+      _rowsById(rows, key);
+      if (summary[key] != rows.length) {
+        throw BackupFormatException(
+          '备份 summary 与 $key 数量不一致：'
+          '${summary[key]} != ${rows.length}',
+        );
+      }
+    }
+
+    final binaries = <String, AttachmentBinary>{};
+    for (final binary in document.attachmentBinaries) {
+      if (binaries.containsKey(binary.id)) {
+        throw BackupFormatException('备份中存在重复附件二进制：${binary.id}');
+      }
+      binaries[binary.id] = binary;
+    }
+
+    final indexedIds = <String>{};
+    for (final entry in document.attachmentIndex) {
+      final id = entry['id'];
+      if (id is! String || id.isEmpty) {
+        throw const BackupFormatException('备份附件索引缺少 id');
+      }
+      if (!indexedIds.add(id)) {
+        throw BackupFormatException('备份附件索引存在重复 id：$id');
+      }
+      final binary = binaries[id];
+      if (binary == null) {
+        throw BackupFormatException('备份附件索引缺少二进制：$id');
+      }
+      final size = entry['size'];
+      if (size is! num || size.toInt() != binary.bytes.length) {
+        throw BackupFormatException('备份附件大小不一致：$id');
+      }
+      final expectedSha = entry['sha256'];
+      if (expectedSha is! String || expectedSha.isEmpty) {
+        throw BackupFormatException('备份附件缺少 SHA-256：$id');
+      }
+      final actualSha = sha256.convert(binary.bytes).toString();
+      if (actualSha != expectedSha) {
+        throw BackupFormatException('备份附件 SHA-256 不一致：$id');
+      }
+    }
   }
 
   Future<BackupDocument> _encryptDocument(

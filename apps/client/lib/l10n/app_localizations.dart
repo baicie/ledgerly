@@ -4452,6 +4452,49 @@ abstract class AppLocalizations {
   /// **'检查备份失败：{error}'**
   String dataGovernanceVerifyFailed(String error);
 
+  /// No description provided for @dataGovernanceRecoveryDrill.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复演练'**
+  String get dataGovernanceRecoveryDrill;
+
+  /// No description provided for @dataGovernanceRecoveryDrillPasswordTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入密码以演练恢复'**
+  String get dataGovernanceRecoveryDrillPasswordTitle;
+
+  /// No description provided for @dataGovernanceRecoveryDrillSuccessTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复演练通过'**
+  String get dataGovernanceRecoveryDrillSuccessTitle;
+
+  /// No description provided for @dataGovernanceRecoveryDrillSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已成功合成或解密备份：{books} 个账本、{transactions} 笔流水、{attachments} 个附件。'**
+  String dataGovernanceRecoveryDrillSuccess(
+      int books, int transactions, int attachments);
+
+  /// No description provided for @dataGovernanceRecoveryDrillSuccessBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'演练仅读取备份，不会修改本机数据。'**
+  String get dataGovernanceRecoveryDrillSuccessBody;
+
+  /// No description provided for @dataGovernanceRecoveryDrillPath.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份路径：{path}'**
+  String dataGovernanceRecoveryDrillPath(String path);
+
+  /// No description provided for @dataGovernanceRecoveryDrillFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复演练失败：{error}'**
+  String dataGovernanceRecoveryDrillFailed(String error);
+
   /// No description provided for @dataGovernanceAutoBackup.
   ///
   /// In zh, this message translates to:

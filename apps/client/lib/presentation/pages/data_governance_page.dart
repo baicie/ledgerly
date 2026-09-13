@@ -343,6 +343,58 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
     }
   }
 
+  Future<void> _drillLatestBackup() async {
+    final l10n = l10nOf(context);
+    _setBusy(true);
+    try {
+      final result = await _service.runRecoveryDrill();
+      if (!mounted) return;
+      setState(() => _busy = false);
+      await _showRecoveryDrillResult(result);
+    } on BackupPasswordException {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      final result = await showDialogDialog<BackupRecoveryDrillResult>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) =>
+            _PasswordSubmitDialog<BackupRecoveryDrillResult>(
+          l10n: l10n,
+          title: l10n.dataGovernanceRecoveryDrillPasswordTitle,
+          dialogKey: const Key('data-governance-drill-password-dialog'),
+          passwordKey: const Key('data-governance-drill-password'),
+          submitKey: const Key('data-governance-drill-submit'),
+          onPassword: (password) => _service.runRecoveryDrill(
+            password: password,
+          ),
+        ),
+      );
+      if (!mounted || result == null) return;
+      await _showRecoveryDrillResult(result);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.dataGovernanceRecoveryDrillFailed('$error')),
+        ),
+      );
+    }
+  }
+
+  Future<void> _showRecoveryDrillResult(
+    BackupRecoveryDrillResult result,
+  ) {
+    final l10n = l10nOf(context);
+    return showDialogDialog<void>(
+      context: context,
+      builder: (dialogContext) => _RecoveryDrillResultDialog(
+        l10n: l10n,
+        result: result,
+      ),
+    );
+  }
+
   // -- Restore ----------------------------------------------------------
 
   Future<void> _pickRestoreFile() async {
@@ -398,9 +450,13 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
     return showDialog<BackupDocument>(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) => _UnlockDialog(
+      builder: (dialogContext) => _PasswordSubmitDialog<BackupDocument>(
         l10n: l10n,
-        onUnlock: (password) => _service.unlockEncrypted(
+        title: l10n.dataGovernanceUnlockPrompt,
+        dialogKey: const Key('data-governance-unlock-dialog'),
+        passwordKey: const Key('data-governance-unlock-password'),
+        submitKey: const Key('data-governance-unlock-submit'),
+        onPassword: (password) => _service.unlockEncrypted(
           document,
           password: password,
         ),
@@ -648,6 +704,9 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
                   onCleanup:
                       _busy || catalog.isEmpty ? null : _confirmCleanupBackups,
                   onVerify: _busy || catalog.isEmpty ? null : _verifyBackups,
+                  onRecoveryDrill: _busy || metadata.lastBackupPath == null
+                      ? null
+                      : _drillLatestBackup,
                   onConsolidate: _busy || !metadata.lastBackupIncremental
                       ? null
                       : _consolidateLatestBackup,
@@ -722,6 +781,7 @@ class _BackupSection extends StatelessWidget {
     required this.onShare,
     required this.onCleanup,
     required this.onVerify,
+    required this.onRecoveryDrill,
     required this.onConsolidate,
     required this.onPickRestore,
     required this.onRestoreModeChanged,
@@ -757,6 +817,7 @@ class _BackupSection extends StatelessWidget {
   final VoidCallback? onShare;
   final VoidCallback? onCleanup;
   final VoidCallback? onVerify;
+  final VoidCallback? onRecoveryDrill;
   final VoidCallback? onConsolidate;
   final VoidCallback? onPickRestore;
   final ValueChanged<BackupRestoreMode>? onRestoreModeChanged;
@@ -979,6 +1040,12 @@ class _BackupSection extends StatelessWidget {
                     onPressed: onVerify,
                     icon: const Icon(Icons.verified_outlined),
                     label: Text(l10n.dataGovernanceVerifyBackups),
+                  ),
+                  OutlinedButton.icon(
+                    key: const Key('data-governance-drill-action'),
+                    onPressed: onRecoveryDrill,
+                    icon: const Icon(Icons.health_and_safety_outlined),
+                    label: Text(l10n.dataGovernanceRecoveryDrill),
                   ),
                   OutlinedButton.icon(
                     key: const Key('data-governance-cleanup-action'),
@@ -1590,6 +1657,54 @@ class _IntegrityReportDialog extends StatelessWidget {
   }
 }
 
+class _RecoveryDrillResultDialog extends StatelessWidget {
+  const _RecoveryDrillResultDialog({
+    required this.l10n,
+    required this.result,
+  });
+
+  final AppLocalizations l10n;
+  final BackupRecoveryDrillResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      key: const Key('data-governance-drill-result-dialog'),
+      title: Text(l10n.dataGovernanceRecoveryDrillSuccessTitle),
+      content: SizedBox(
+        width: 480,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              l10n.dataGovernanceRecoveryDrillSuccess(
+                result.summary.books,
+                result.summary.transactions,
+                result.summary.attachments,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(l10n.dataGovernanceRecoveryDrillSuccessBody),
+            const SizedBox(height: 12),
+            Text(
+              l10n.dataGovernanceRecoveryDrillPath(result.path),
+              key: const Key('data-governance-drill-result-path'),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n.confirm),
+        ),
+      ],
+    );
+  }
+}
+
 /// Compact "上次备份: X" card rendered above the backup section.
 /// Shows the relative age, or "从未备份" when no record exists.
 class _BackupStatusCard extends StatelessWidget {
@@ -1871,22 +1986,31 @@ class _BookSelector extends StatelessWidget {
   }
 }
 
-/// Password prompt used when restoring a v3 encrypted backup. Lockout
-/// lives entirely in this dialog so [BackupService] stays pure.
-class _UnlockDialog extends StatefulWidget {
-  const _UnlockDialog({
+/// Shared password prompt for encrypted restore and recovery drill.
+/// Lockout lives in the dialog so [BackupService] stays pure.
+class _PasswordSubmitDialog<T> extends StatefulWidget {
+  const _PasswordSubmitDialog({
     required this.l10n,
-    required this.onUnlock,
+    required this.title,
+    required this.dialogKey,
+    required this.passwordKey,
+    required this.submitKey,
+    required this.onPassword,
   });
 
   final AppLocalizations l10n;
-  final Future<BackupDocument> Function(String password) onUnlock;
+  final String title;
+  final Key dialogKey;
+  final Key passwordKey;
+  final Key submitKey;
+  final Future<T> Function(String password) onPassword;
 
   @override
-  State<_UnlockDialog> createState() => _UnlockDialogState();
+  State<_PasswordSubmitDialog<T>> createState() =>
+      _PasswordSubmitDialogState<T>();
 }
 
-class _UnlockDialogState extends State<_UnlockDialog> {
+class _PasswordSubmitDialogState<T> extends State<_PasswordSubmitDialog<T>> {
   final _controller = TextEditingController();
   int _failedAttempts = 0;
   DateTime? _lockedUntil;
@@ -1937,9 +2061,9 @@ class _UnlockDialogState extends State<_UnlockDialog> {
       _error = null;
     });
     try {
-      final document = await widget.onUnlock(password);
+      final result = await widget.onPassword(password);
       if (!mounted) return;
-      Navigator.pop(context, document);
+      Navigator.pop(context, result);
     } on BackupPasswordException {
       if (!mounted) return;
       final nextFailed = _failedAttempts + 1;
@@ -1970,21 +2094,21 @@ class _UnlockDialogState extends State<_UnlockDialog> {
     final locked = _isLocked;
     final remaining = _lockSecondsRemaining;
     return AlertDialog(
-      key: const Key('data-governance-unlock-dialog'),
-      title: Text(l10n.dataGovernanceUnlockPrompt),
+      key: widget.dialogKey,
+      title: Text(widget.title),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           TextField(
-            key: const Key('data-governance-unlock-password'),
+            key: widget.passwordKey,
             controller: _controller,
             obscureText: true,
             autofocus: true,
             enabled: !locked && !_busy,
             onSubmitted: (_) => _submit(),
             decoration: InputDecoration(
-              labelText: l10n.dataGovernanceUnlockPrompt,
+              labelText: widget.title,
               border: const OutlineInputBorder(),
               errorText: locked
                   ? l10n.dataGovernanceUnlockLockedFor(remaining)
@@ -1999,7 +2123,7 @@ class _UnlockDialogState extends State<_UnlockDialog> {
           child: Text(l10n.cancel),
         ),
         FilledButton(
-          key: const Key('data-governance-unlock-submit'),
+          key: widget.submitKey,
           onPressed: locked || _busy ? null : _submit,
           child: _busy
               ? const SizedBox.square(
@@ -2022,6 +2146,11 @@ String _formatMegabytes(int bytes) {
 Future<T?> showDialogDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
+  bool barrierDismissible = true,
 }) {
-  return showDialog<T>(context: context, builder: builder);
+  return showDialog<T>(
+    context: context,
+    builder: builder,
+    barrierDismissible: barrierDismissible,
+  );
 }

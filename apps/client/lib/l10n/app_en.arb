@@ -1521,6 +1521,40 @@
       }
     }
   },
+  "dataGovernanceRecoveryDrill": "Recovery drill",
+  "dataGovernanceRecoveryDrillPasswordTitle": "Enter the password for the recovery drill",
+  "dataGovernanceRecoveryDrillSuccessTitle": "Recovery drill passed",
+  "dataGovernanceRecoveryDrillSuccess": "Successfully materialized or decrypted the backup: {books} books, {transactions} transactions, and {attachments} attachments.",
+  "@dataGovernanceRecoveryDrillSuccess": {
+    "placeholders": {
+      "books": {
+        "type": "int"
+      },
+      "transactions": {
+        "type": "int"
+      },
+      "attachments": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceRecoveryDrillSuccessBody": "The drill only reads the backup and does not modify local data.",
+  "dataGovernanceRecoveryDrillPath": "Backup path: {path}",
+  "@dataGovernanceRecoveryDrillPath": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRecoveryDrillFailed": "Recovery drill failed: {error}",
+  "@dataGovernanceRecoveryDrillFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "dataGovernanceAutoBackup": "Automatic backup",
   "dataGovernanceAutoBackupSubtitle": "Checked when you open the app; writes a local snapshot when due",
   "dataGovernanceAutoBackupWarning": "Automatic backups are not encrypted. Use a password export for sensitive books.",
