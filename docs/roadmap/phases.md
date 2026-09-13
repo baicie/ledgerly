@@ -320,6 +320,17 @@
 - [x] 提供 Prometheus 告警规则和 Alertmanager/Grafana 示例
 - [x] Runbook 明确容量处置和故障排查流程
 
+## 生产观测栈与告警闭环（Phase 40）
+
+- [x] 可选 Compose profile 部署 Prometheus、Alertmanager、Grafana
+- [x] 固定镜像版本、持久卷和容器健康检查
+- [x] Prometheus 自动抓取服务端并加载备份/平台告警
+- [x] Alertmanager 支持必填 webhook 和 resolved 通知
+- [x] Grafana 自动配置数据源和 Ledgerly Operations 仪表盘
+- [x] 部署脚本启用后验证目标健康、规则和三个观测服务
+- [x] CI 校验 Compose、Prometheus、Alertmanager 和 Grafana 配置
+- [x] Runbook 覆盖 SSH 访问、投递测试和故障排查
+
 ### 待后续完善
 
 - 扩大商户分类覆盖（目前第一版关键词匹配）

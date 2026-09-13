@@ -4,6 +4,9 @@ Phase 39 在现有 `/metrics` 上增加备份健康、保留容量、恢复演�
 指标只使用状态、位置和结果等低基数字段，不包含数据库 URL、bundle 路径、账本
 ID、金额或错误正文。
 
+Phase 40 的可选生产 Prometheus、Alertmanager 和 Grafana 部署见
+[生产观测栈 Runbook](observability-stack.md)。
+
 ## 采集
 
 Prometheus 可直接抓取服务端 `/metrics`：

@@ -9,8 +9,10 @@ on:
       - "infrastructure/docker/docker-compose.vm.yml"
       - "infrastructure/docker/env.prod.example"
       - "infrastructure/docker/env.vm.example"
+      - "infrastructure/observability/**"
       - "scripts/deploy_vm_release.sh"
       - "scripts/tests/deploy_vm_release_test.sh"
+      - "scripts/tests/observability_config_test.sh"
       - "scripts/tests/server_image_smoke_test.sh"
       - ".github/workflows/deploy-server.yml"
   workflow_dispatch:
@@ -74,6 +76,9 @@ jobs:
 
       - name: Test deployment runtime
         run: ../scripts/tests/deploy_vm_release_test.sh
+
+      - name: Validate observability configuration
+        run: bash ../scripts/tests/observability_config_test.sh
 
       - name: Format
         run: cargo fmt --all -- --check
@@ -189,10 +194,13 @@ jobs:
       - name: Package runtime files
         run: |
           bash -n scripts/deploy_vm_release.sh
-          scripts/tests/deploy_vm_release_test.sh
+          bash -n scripts/deploy_remote.sh
+          bash scripts/tests/deploy_vm_release_test.sh
           mkdir -p deploy
           cp infrastructure/docker/docker-compose.prod.yml deploy/
           cp infrastructure/docker/docker-compose.vm.yml deploy/
+          mkdir -p deploy/observability
+          cp -R infrastructure/observability/. deploy/observability/
           cp scripts/deploy_vm_release.sh deploy/
 
       - name: Sync, deploy, and verify on VM
@@ -264,7 +272,7 @@ jobs:
 
           for attempt in 1 2 3 4 5; do
             if ssh "${SSH_OPTS[@]}" "$DEPLOY_USER@$DEPLOY_HOST" \
-              "install -d -m 700 '$REMOTE_RELEASE'"; then
+              "install -d -m 700 '$REMOTE_RELEASE' '$REMOTE_RELEASE/observability'"; then
               break
             fi
             test "$attempt" -lt 5
@@ -272,9 +280,13 @@ jobs:
           done
 
           for attempt in 1 2 3 4 5; do
-            if scp "${SCP_OPTS[@]}" \
-              deploy/docker-compose.prod.yml deploy/docker-compose.vm.yml deploy/deploy_vm_release.sh \
+            if scp -r "${SCP_OPTS[@]}" \
+              deploy/docker-compose.prod.yml deploy/docker-compose.vm.yml \
+              deploy/deploy_vm_release.sh \
               "$DEPLOY_USER@$DEPLOY_HOST:$REMOTE_RELEASE/"; then
+              scp -r "${SCP_OPTS[@]}" \
+                deploy/observability/. \
+                "$DEPLOY_USER@$DEPLOY_HOST:$REMOTE_RELEASE/observability/"
               set +e
               ssh "${SSH_OPTS[@]}" "$DEPLOY_USER@$DEPLOY_HOST" \
                 "exec bash '$REMOTE_RELEASE/deploy_vm_release.sh' activate '$REMOTE_RELEASE' /opt/ledgerly"

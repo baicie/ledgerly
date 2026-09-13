@@ -13,6 +13,29 @@ runtime_is_valid() {
     [[ -f "$runtime_dir/docker-compose.vm.yml" ]]
 }
 
+runtime_has_observability() {
+  local runtime_dir="$1"
+  [[ -f "$runtime_dir/observability/docker-compose.observability.yml" ]] &&
+    [[ -f "$runtime_dir/observability/prometheus/prometheus.yml" ]] &&
+    [[ -f "$runtime_dir/observability/prometheus/backup-alerts.yml" ]] &&
+    [[ -f "$runtime_dir/observability/prometheus/platform-alerts.yml" ]] &&
+    [[ -f "$runtime_dir/observability/alertmanager/generate-config.sh" ]] &&
+    [[ -f "$runtime_dir/observability/alertmanager/entrypoint.sh" ]] &&
+    [[ -f "$runtime_dir/observability/grafana/provisioning/datasources/prometheus.yml" ]] &&
+    [[ -f "$runtime_dir/observability/grafana/provisioning/dashboards/ledgerly.yml" ]] &&
+    [[ -f "$runtime_dir/observability/grafana/dashboards/ledgerly-operations.json" ]]
+}
+
+observability_enabled() {
+  case "${OBSERVABILITY_ENABLED:-}" in
+    true|1) return 0 ;;
+    false|0) return 1 ;;
+  esac
+  [[ -f "$APP_DIR/.env.prod" ]] &&
+    grep -Eq '^[[:space:]]*OBSERVABILITY_ENABLED[[:space:]]*=[[:space:]]*(true|1)[[:space:]]*$' \
+      "$APP_DIR/.env.prod"
+}
+
 switch_runtime() {
   local runtime_dir="$1"
   local link_path="$APP_DIR/runtime-current"
@@ -25,12 +48,32 @@ switch_runtime() {
   mv -fh "$temporary_link" "$link_path"
 }
 
-compose() {
+compose_for_runtime() {
+  local runtime_dir="$1"
+  shift
+
+  local profile_args=()
+  local args=()
+  if observability_enabled; then
+    runtime_has_observability "$runtime_dir" || \
+      die "observability is enabled but runtime files are incomplete: $runtime_dir"
+    profile_args=(--profile observability)
+    args+=(-f "$runtime_dir/observability/docker-compose.observability.yml")
+  fi
+  args+=(
+    -f "$runtime_dir/docker-compose.prod.yml"
+    -f "$runtime_dir/docker-compose.vm.yml"
+  )
+
   docker compose \
-    -f "$APP_DIR/runtime-current/docker-compose.prod.yml" \
-    -f "$APP_DIR/runtime-current/docker-compose.vm.yml" \
+    "${profile_args[@]}" \
+    "${args[@]}" \
     --env-file "$APP_DIR/.env.prod" \
     "$@"
+}
+
+compose() {
+  compose_for_runtime "$APP_DIR/runtime-current" "$@"
 }
 
 validate_backup_health_json() {
@@ -54,6 +97,84 @@ if drill is not None:
 '
 }
 
+verify_observability() {
+  observability_enabled || return 0
+  runtime_has_observability "$APP_DIR/runtime-current" || return 1
+
+  local published
+  local prometheus_url alertmanager_url grafana_url
+  local prometheus_port alertmanager_port grafana_port
+  local targets rules target_ready attempt
+
+  published=$(compose port prometheus 9090) || return 1
+  test -n "$published" || return 1
+  prometheus_port=${published##*:}
+  prometheus_url="http://127.0.0.1:${prometheus_port}"
+  curl -fsS --retry 12 --retry-delay 5 --retry-connrefused \
+    "$prometheus_url/-/ready" >/dev/null || return 1
+
+  published=$(compose port alertmanager 9093) || return 1
+  test -n "$published" || return 1
+  alertmanager_port=${published##*:}
+  alertmanager_url="http://127.0.0.1:${alertmanager_port}"
+  curl -fsS --retry 12 --retry-delay 5 --retry-connrefused \
+    "$alertmanager_url/-/ready" >/dev/null || return 1
+
+  published=$(compose port grafana 3000) || return 1
+  test -n "$published" || return 1
+  grafana_port=${published##*:}
+  grafana_url="http://127.0.0.1:${grafana_port}"
+  curl -fsS --retry 12 --retry-delay 5 --retry-connrefused \
+    "$grafana_url/api/health" | \
+    python3 -c 'import json,sys; data=json.load(sys.stdin); assert data["database"] == "ok"' || return 1
+
+  target_ready=""
+  for attempt in $(seq 1 12); do
+    targets=$(curl -fsS "$prometheus_url/api/v1/targets?state=active") || return 1
+    if printf '%s' "$targets" | python3 -c '
+import json
+import sys
+
+data = json.load(sys.stdin)
+assert data["status"] == "success"
+targets = [
+    target
+    for target in data["data"]["activeTargets"]
+    if target["labels"].get("job") == "ledgerly-server"
+]
+assert targets
+assert all(target["health"] == "up" for target in targets)
+'; then
+      target_ready=1
+      break
+    fi
+    sleep 5
+  done
+  test -n "$target_ready" || return 1
+
+  rules=$(curl -fsS "$prometheus_url/api/v1/rules") || return 1
+  printf '%s' "$rules" | python3 -c '
+import json
+import sys
+
+data = json.load(sys.stdin)
+assert data["status"] == "success"
+names = {
+    rule["name"]
+    for group in data["data"]["groups"]
+    for rule in group["rules"]
+    if rule.get("type") == "alerting"
+}
+required = {
+    "LedgerlyBackupFailed",
+    "LedgerlyRecoveryDrillFailed",
+    "LedgerlyServerDown",
+    "LedgerlyHigh5xxRate",
+}
+assert required <= names, required - names
+' || return 1
+}
+
 activate_runtime() {
   local release_dir="${1:?release directory is required}"
   local current_runtime
@@ -61,11 +182,7 @@ activate_runtime() {
   test -f "$APP_DIR/.env.prod" || die "missing $APP_DIR/.env.prod"
   runtime_is_valid "$release_dir" || die "invalid runtime release: $release_dir"
 
-  COMPOSE_PROJECT_NAME=ledgerly docker compose \
-    -f "$release_dir/docker-compose.prod.yml" \
-    -f "$release_dir/docker-compose.vm.yml" \
-    --env-file "$APP_DIR/.env.prod" \
-    config --quiet
+  COMPOSE_PROJECT_NAME=ledgerly compose_for_runtime "$release_dir" config --quiet
 
   current_runtime=$(readlink "$APP_DIR/runtime-current" 2>/dev/null || true)
   if [[ "$current_runtime" == "$release_dir" ]]; then
@@ -119,6 +236,8 @@ deploy_and_verify() {
   index_count=$(compose exec -T postgres sh -c \
     'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT count(*) FROM pg_indexes WHERE schemaname = '\''public'\'' AND indexname IN ('\''idx_device_sessions_refresh_token_hash'\'', '\''idx_device_sessions_active_created_at'\'');"') || return 1
   test "$index_count" = "2" || return 1
+
+  verify_observability || return 1
 }
 
 deploy_release() {
@@ -158,9 +277,14 @@ deploy_release() {
   fi
 
   if ! deploy_and_verify; then
-    compose logs --tail=150 ledger-server postgres || true
+    compose logs --tail=150 ledger-server postgres prometheus alertmanager grafana || true
     if [[ -n "$previous_runtime" ]] && runtime_is_valid "$previous_runtime"; then
       printf 'Deployment failed; restoring runtime %s\n' "$previous_runtime"
+      if ! runtime_has_observability "$previous_runtime"; then
+        printf 'Previous runtime has no observability files; rolling back without the profile\n' >&2
+        compose stop prometheus alertmanager grafana || true
+        export OBSERVABILITY_ENABLED=false
+      fi
       switch_runtime "$previous_runtime"
     fi
     if [[ -n "$previous_image" ]] && docker image inspect "$previous_image" >/dev/null 2>&1; then

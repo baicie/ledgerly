@@ -141,6 +141,7 @@ async fn metrics_endpoint_exports_backup_health_and_capacity() {
     ledger_server::metrics::record_recovery_drill_run("failure");
     ledger_server::metrics::record_restore_run("success");
     ledger_server::metrics::record_backup_cleanup_failure("local");
+    ledger_server::metrics::record_postgres_pool_connections(4, 1, 8);
     let mut state = AppState::new(config);
     state.metrics_handle = Some(MetricsHandle::new(handle));
     let response = app_router(state)
@@ -219,6 +220,10 @@ async fn metrics_endpoint_exports_backup_health_and_capacity() {
             &[("location", "local")]
         ),
         Some(1.0)
+    );
+    assert_eq!(
+        metric_value(&body, "postgres_pool_connections", &[("role", "current")]),
+        Some(4.0)
     );
 
     record_backup_metrics(&Config::for_test());
