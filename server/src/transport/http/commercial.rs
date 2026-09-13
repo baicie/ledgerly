@@ -369,15 +369,26 @@ async fn complete_attachment(
             "object not found on disk",
         ));
     }
+    let metadata = object_store::object_metadata(&state.config, &object_key).map_err(|error| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "OBJECT_STORE_IO",
+            error.to_string(),
+        )
+    })?;
     if let Some(pool) = &state.pool {
-        sqlx::query("UPDATE attachments SET upload_status='ready' WHERE id=$1 AND book_id=$2")
-            .bind(&attachment_id)
-            .bind(&book_id)
-            .execute(pool)
-            .await
-            .map_err(|e| {
-                ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "DB_ERROR", e.to_string())
-            })?;
+        sqlx::query(
+            "UPDATE attachments
+             SET upload_status='ready', size_bytes=$3, content_hash=$4
+             WHERE id=$1 AND book_id=$2",
+        )
+        .bind(&attachment_id)
+        .bind(&book_id)
+        .bind(metadata.size_bytes as i64)
+        .bind(&metadata.sha256)
+        .execute(pool)
+        .await
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "DB_ERROR", e.to_string()))?;
         let _ = crate::infrastructure::jobs::enqueue(
             pool,
             "thumbnail_stub",

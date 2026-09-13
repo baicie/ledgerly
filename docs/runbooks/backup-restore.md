@@ -6,7 +6,9 @@
 
 ```bash
 export DATABASE_URL=postgres://ledgerly:ledgerly@127.0.0.1:5432/ledgerly
-cargo run --manifest-path server/Cargo.toml -- backup --out /tmp/ledgerly.dump
+cargo run --manifest-path server/Cargo.toml -- backup \
+  --out /tmp/ledgerly.dump \
+  --objects-out /tmp/ledgerly-objects
 ```
 
 建议 cron 每日执行，并将 dump 异地保存（加密可选）。
@@ -14,7 +16,9 @@ cargo run --manifest-path server/Cargo.toml -- backup --out /tmp/ledgerly.dump
 ## 恢复
 
 ```bash
-cargo run --manifest-path server/Cargo.toml -- restore --from /tmp/ledgerly.dump
+cargo run --manifest-path server/Cargo.toml -- restore \
+  --from /tmp/ledgerly.dump \
+  --objects-from /tmp/ledgerly-objects
 ```
 
 恢复后执行 `cargo run -- migrate` 确认 schema，并跑 `cargo test --test postgres_flow`。
@@ -31,7 +35,8 @@ cargo test --manifest-path server/Cargo.toml --test postgres_backup_restore -- -
 ```
 
 测试会创建独立源库和目标库，写入恢复前/恢复后标记，执行 dump 和 restore，
-校验表数量、备份边界和 4 小时 RTO，然后删除临时数据库与 dump 文件。
+同时备份并恢复对象存储附件目录，校验表数量、附件 size/SHA-256、备份边界
+和 4 小时 RTO，然后删除临时数据库、对象目录与 dump 文件。
 
 ## 客户端灾难恢复演练
 
