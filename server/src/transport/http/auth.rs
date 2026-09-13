@@ -1,7 +1,7 @@
 use argon2::Argon2;
 use axum::{
     extract::{DefaultBodyLimit, State},
-    http::{header, HeaderName, StatusCode},
+    http::{header, HeaderMap, HeaderName, StatusCode},
     response::{IntoResponse, Response},
     routing::post,
     Json, Router,
@@ -17,6 +17,7 @@ use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::error::ApiError;
+use crate::infrastructure::audit::{self, AuditEvent, AuditOutcome};
 use crate::state::{AppState, SessionRecord, UserRecord};
 use crate::transport::http::authz::{user_plan, AuthUser, Claims};
 
@@ -48,6 +49,7 @@ type TokenResponseHeaders = [(HeaderName, &'static str); 2];
 async fn logout(
     State(state): State<AppState>,
     jar: CookieJar,
+    headers: HeaderMap,
     auth: AuthUser,
 ) -> Result<(CookieJar, StatusCode), ApiError> {
     let span = crate::obs::auth_span("logout", &auth.user_id);
@@ -69,11 +71,18 @@ async fn logout(
             session.revoked = true;
         }
     }
+    audit::record(
+        &state,
+        AuditEvent::user(&auth.user_id, "auth.logout", AuditOutcome::Success)
+            .request_id(audit::request_id(&headers)),
+    )
+    .await;
     Ok((clear_refresh_cookie(jar, &state), StatusCode::NO_CONTENT))
 }
 
 async fn register(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(req): Json<RegisterRequest>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     let span = crate::obs::auth_span("register", "pending");
@@ -97,6 +106,13 @@ async fn register(
         .map_err(db_err)?;
         if result.rows_affected() == 0 {
             span.record("outcome", "email_taken");
+            audit::record(
+                &state,
+                AuditEvent::anonymous("auth.register", AuditOutcome::Failure)
+                    .request_id(audit::request_id(&headers))
+                    .metadata(serde_json::json!({ "reason": "email_taken" })),
+            )
+            .await;
             return Err(ApiError::new(
                 StatusCode::CONFLICT,
                 "EMAIL_TAKEN",
@@ -104,12 +120,27 @@ async fn register(
             ));
         }
         span.record("user_id", id.as_str());
+        audit::record(
+            &state,
+            AuditEvent::user(&id, "auth.register", AuditOutcome::Success)
+                .target("user", &id)
+                .request_id(audit::request_id(&headers)),
+        )
+        .await;
         return Ok(Json(serde_json::json!({ "userId": id })));
     }
 
     let mut store = state.store.write().await;
     if store.users_by_email.contains_key(&req.email) {
+        drop(store);
         span.record("outcome", "email_taken");
+        audit::record(
+            &state,
+            AuditEvent::anonymous("auth.register", AuditOutcome::Failure)
+                .request_id(audit::request_id(&headers))
+                .metadata(serde_json::json!({ "reason": "email_taken" })),
+        )
+        .await;
         return Err(ApiError::new(
             StatusCode::CONFLICT,
             "EMAIL_TAKEN",
@@ -127,12 +158,21 @@ async fn register(
             display_name: req.display_name,
         },
     );
+    drop(store);
+    audit::record(
+        &state,
+        AuditEvent::user(&id, "auth.register", AuditOutcome::Success)
+            .target("user", &id)
+            .request_id(audit::request_id(&headers)),
+    )
+    .await;
     Ok(Json(serde_json::json!({ "userId": id })))
 }
 
 async fn login(
     State(state): State<AppState>,
     jar: CookieJar,
+    headers: HeaderMap,
     Json(req): Json<LoginRequest>,
 ) -> Result<(CookieJar, TokenResponseHeaders, Json<TokenResponse>), ApiError> {
     let span = crate::obs::auth_span("login", "pending");
@@ -148,9 +188,20 @@ async fn login(
         .fetch_optional(pool)
         .await
         .map_err(db_err)?;
-        let (id, email, password_hash, display_name) = row.ok_or_else(|| {
-            ApiError::new(StatusCode::UNAUTHORIZED, "INVALID_CREDENTIALS", "bad login")
-        })?;
+        let Some((id, email, password_hash, display_name)) = row else {
+            audit::record(
+                &state,
+                AuditEvent::anonymous("auth.login", AuditOutcome::Failure)
+                    .request_id(audit::request_id(&headers))
+                    .metadata(serde_json::json!({ "reason": "invalid_credentials" })),
+            )
+            .await;
+            return Err(ApiError::new(
+                StatusCode::UNAUTHORIZED,
+                "INVALID_CREDENTIALS",
+                "bad login",
+            ));
+        };
         UserRecord {
             id,
             email,
@@ -159,19 +210,49 @@ async fn login(
         }
     } else {
         let store = state.store.read().await;
-        let id = store
-            .users_by_email
-            .get(&req.email)
-            .cloned()
-            .ok_or_else(|| {
-                ApiError::new(StatusCode::UNAUTHORIZED, "INVALID_CREDENTIALS", "bad login")
-            })?;
-        store.users.get(&id).cloned().ok_or_else(|| {
-            ApiError::new(StatusCode::UNAUTHORIZED, "INVALID_CREDENTIALS", "bad login")
-        })?
+        let Some(id) = store.users_by_email.get(&req.email).cloned() else {
+            drop(store);
+            audit::record(
+                &state,
+                AuditEvent::anonymous("auth.login", AuditOutcome::Failure)
+                    .request_id(audit::request_id(&headers))
+                    .metadata(serde_json::json!({ "reason": "invalid_credentials" })),
+            )
+            .await;
+            return Err(ApiError::new(
+                StatusCode::UNAUTHORIZED,
+                "INVALID_CREDENTIALS",
+                "bad login",
+            ));
+        };
+        let Some(user) = store.users.get(&id).cloned() else {
+            drop(store);
+            audit::record(
+                &state,
+                AuditEvent::anonymous("auth.login", AuditOutcome::Failure)
+                    .request_id(audit::request_id(&headers))
+                    .metadata(serde_json::json!({ "reason": "invalid_credentials" })),
+            )
+            .await;
+            return Err(ApiError::new(
+                StatusCode::UNAUTHORIZED,
+                "INVALID_CREDENTIALS",
+                "bad login",
+            ));
+        };
+        user
     };
 
-    verify_password(&req.password, &user.password_hash)?;
+    if let Err(error) = verify_password(&req.password, &user.password_hash) {
+        audit::record(
+            &state,
+            AuditEvent::anonymous("auth.login", AuditOutcome::Failure)
+                .request_id(audit::request_id(&headers))
+                .metadata(serde_json::json!({ "reason": "invalid_credentials" })),
+        )
+        .await;
+        return Err(error);
+    }
     let book_id = state.ensure_demo_book(&user.id).await.map_err(|_e| {
         ApiError::new(
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -190,16 +271,25 @@ async fn login(
         jar
     };
     span.record("outcome", "success");
+    audit::record(
+        &state,
+        AuditEvent::user(&user.id, "auth.login", AuditOutcome::Success)
+            .target("user", &user.id)
+            .request_id(audit::request_id(&headers)),
+    )
+    .await;
     Ok((jar, token_response_headers(), Json(tokens)))
 }
 
 async fn refresh(
     State(state): State<AppState>,
     jar: CookieJar,
+    headers: HeaderMap,
     Json(req): Json<RefreshRequest>,
 ) -> Result<(CookieJar, TokenResponseHeaders, Json<TokenResponse>), RefreshError> {
     let span = crate::obs::auth_span("refresh", "pending");
     let _guard = span.enter();
+    let request_id = audit::request_id(&headers);
 
     let cookie_mode = uses_cookie_session(req.session_mode).map_err(RefreshError::from)?;
     let refresh_token = if cookie_mode {
@@ -240,6 +330,13 @@ async fn refresh(
         }
     };
     if !valid_refresh_token(&refresh_token) {
+        audit::record(
+            &state,
+            AuditEvent::anonymous("auth.refresh", AuditOutcome::Failure)
+                .request_id(request_id)
+                .metadata(serde_json::json!({ "reason": "invalid_refresh" })),
+        )
+        .await;
         return Err(RefreshError::from(refresh_error_response(
             jar,
             &state,
@@ -252,20 +349,26 @@ async fn refresh(
         )));
     }
     let hash = hash_token(&refresh_token);
-    let mut tokens = rotate_refresh_token(&state, &hash).await.map_err(|error| {
-        RefreshError::from(refresh_error_response(
-            jar.clone(),
-            &state,
-            cookie_mode,
-            error,
-        ))
-    })?;
+    let mut tokens = rotate_refresh_token(&state, &hash, request_id)
+        .await
+        .map_err(|error| {
+            RefreshError::from(refresh_error_response(
+                jar.clone(),
+                &state,
+                cookie_mode,
+                error,
+            ))
+        })?;
     let _ = span.record("outcome", "success");
     let jar = finish_refresh(jar, &state, cookie_mode, &mut tokens);
     Ok((jar, token_response_headers(), Json(tokens)))
 }
 
-async fn rotate_refresh_token(state: &AppState, hash: &str) -> Result<TokenResponse, ApiError> {
+async fn rotate_refresh_token(
+    state: &AppState,
+    hash: &str,
+    request_id: Option<&str>,
+) -> Result<TokenResponse, ApiError> {
     let span = crate::obs::auth_span("rotate_refresh", "pending");
     let _guard = span.enter();
 
@@ -281,14 +384,28 @@ async fn rotate_refresh_token(state: &AppState, hash: &str) -> Result<TokenRespo
             .fetch_optional(pool)
             .await
             .map_err(db_err)?;
-        let (old_session_id, user_id, device_id, revoked_at, fresh) = row.ok_or_else(|| {
-            ApiError::new(
+        let Some((old_session_id, user_id, device_id, revoked_at, fresh)) = row else {
+            audit::record(
+                state,
+                AuditEvent::anonymous("auth.refresh", AuditOutcome::Failure)
+                    .request_id(request_id)
+                    .metadata(serde_json::json!({ "reason": "invalid_refresh" })),
+            )
+            .await;
+            return Err(ApiError::new(
                 StatusCode::UNAUTHORIZED,
                 "INVALID_REFRESH",
                 "refresh invalid",
-            )
-        })?;
+            ));
+        };
         if revoked_at.is_some() {
+            audit::record(
+                state,
+                AuditEvent::user(&user_id, "auth.refresh", AuditOutcome::Failure)
+                    .request_id(request_id)
+                    .metadata(serde_json::json!({ "reason": "refresh_reuse" })),
+            )
+            .await;
             return Err(ApiError::new(
                 StatusCode::UNAUTHORIZED,
                 "REFRESH_REUSE",
@@ -304,6 +421,13 @@ async fn rotate_refresh_token(state: &AppState, hash: &str) -> Result<TokenRespo
             .execute(pool)
             .await
             .map_err(db_err)?;
+            audit::record(
+                state,
+                AuditEvent::user(&user_id, "auth.refresh", AuditOutcome::Failure)
+                    .request_id(request_id)
+                    .metadata(serde_json::json!({ "reason": "expired" })),
+            )
+            .await;
             return Err(ApiError::new(
                 StatusCode::UNAUTHORIZED,
                 "INVALID_REFRESH",
@@ -336,6 +460,13 @@ async fn rotate_refresh_token(state: &AppState, hash: &str) -> Result<TokenRespo
         .map_err(db_err)?;
         if claimed.rows_affected() != 1 {
             tx.rollback().await.map_err(db_err)?;
+            audit::record(
+                state,
+                AuditEvent::user(&user_id, "auth.refresh", AuditOutcome::Failure)
+                    .request_id(request_id)
+                    .metadata(serde_json::json!({ "reason": "refresh_reuse" })),
+            )
+            .await;
             return Err(ApiError::new(
                 StatusCode::UNAUTHORIZED,
                 "REFRESH_REUSE",
@@ -366,18 +497,33 @@ async fn rotate_refresh_token(state: &AppState, hash: &str) -> Result<TokenRespo
         tokens.plan = Some(plan);
         span.record("user_id", user_id.as_str());
         span.record("outcome", "success");
+        audit::record(
+            state,
+            AuditEvent::user(&user_id, "auth.refresh", AuditOutcome::Success)
+                .target("user", &user_id)
+                .request_id(request_id),
+        )
+        .await;
         return Ok(tokens);
     }
 
     let (user_id, device_id) = {
         let mut store = state.store.write().await;
-        let session_id = store.refresh_to_session.remove(hash).ok_or_else(|| {
-            ApiError::new(
+        let Some(session_id) = store.refresh_to_session.remove(hash) else {
+            drop(store);
+            audit::record(
+                state,
+                AuditEvent::anonymous("auth.refresh", AuditOutcome::Failure)
+                    .request_id(request_id)
+                    .metadata(serde_json::json!({ "reason": "invalid_refresh" })),
+            )
+            .await;
+            return Err(ApiError::new(
                 StatusCode::UNAUTHORIZED,
                 "INVALID_REFRESH",
                 "refresh invalid",
-            )
-        })?;
+            ));
+        };
         let session = store.sessions.get_mut(&session_id).ok_or_else(|| {
             ApiError::new(
                 StatusCode::UNAUTHORIZED,
@@ -387,6 +533,15 @@ async fn rotate_refresh_token(state: &AppState, hash: &str) -> Result<TokenRespo
         })?;
         if session.revoked || session.refresh_hash != hash {
             session.revoked = true;
+            let user_id = session.user_id.clone();
+            drop(store);
+            audit::record(
+                state,
+                AuditEvent::user(&user_id, "auth.refresh", AuditOutcome::Failure)
+                    .request_id(request_id)
+                    .metadata(serde_json::json!({ "reason": "refresh_reuse" })),
+            )
+            .await;
             return Err(ApiError::new(
                 StatusCode::UNAUTHORIZED,
                 "REFRESH_REUSE",
@@ -408,6 +563,13 @@ async fn rotate_refresh_token(state: &AppState, hash: &str) -> Result<TokenRespo
     tokens.plan = Some(user_plan(state, &user_id).await);
     span.record("user_id", user_id.as_str());
     span.record("outcome", "success");
+    audit::record(
+        state,
+        AuditEvent::user(&user_id, "auth.refresh", AuditOutcome::Success)
+            .target("user", &user_id)
+            .request_id(request_id),
+    )
+    .await;
     Ok(tokens)
 }
 

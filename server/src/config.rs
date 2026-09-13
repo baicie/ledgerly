@@ -22,8 +22,10 @@ pub struct Config {
     /// Legacy env name kept as seed material for Ed25519 when JWT_ED25519_SEED unset.
     pub jwt_secret: String,
     pub jwt_ed25519_seed: Option<String>,
+    pub jwt_previous_ed25519_seed: Option<String>,
     pub object_store_dir: PathBuf,
     pub object_store_hmac_secret: String,
+    pub object_store_hmac_previous_secret: Option<String>,
     pub object_store_public_base: String,
     pub object_storage_backend: ObjectStoreBackend,
     pub s3_endpoint: Option<String>,
@@ -40,8 +42,10 @@ pub struct Config {
     pub backup_keep: usize,
     pub backup_interval_hours: u64,
     pub backup_password: Option<String>,
+    pub backup_password_previous: Option<String>,
     pub backup_capacity_warn_bytes: u64,
     pub backup_capacity_critical_bytes: u64,
+    pub audit_retention_days: u64,
     pub recovery_drill_enabled: bool,
     pub recovery_drill_interval_hours: u64,
     pub recovery_drill_database_url: Option<String>,
@@ -53,6 +57,7 @@ pub struct Config {
     pub is_production: bool,
     pub jwt_encoding_key: EncodingKey,
     pub jwt_decoding_key: DecodingKey,
+    pub jwt_previous_decoding_key: Option<DecodingKey>,
 }
 
 const _: fn() = || {
@@ -80,16 +85,26 @@ impl Config {
             env::var("JWT_SECRET").unwrap_or_else(|_| "dev-only-change-me-ledgerly-secret".into());
         let jwt_ed25519_seed = env::var("JWT_ED25519_SEED").ok();
         let (encoding, decoding) = build_ed25519_keys(&jwt_secret, jwt_ed25519_seed.as_deref());
+        let jwt_previous_ed25519_seed = env::var("JWT_ED25519_PREVIOUS_SEED")
+            .ok()
+            .filter(|seed| !seed.is_empty());
+        let jwt_previous_decoding_key = jwt_previous_ed25519_seed
+            .as_deref()
+            .map(|seed| build_ed25519_keys(&jwt_secret, Some(seed)).1);
         let config = Self {
             listen_addr: env::var("LEDGER_LISTEN").unwrap_or_else(|_| "0.0.0.0:8080".into()),
             database_url: env::var("DATABASE_URL").ok(),
             jwt_secret,
             jwt_ed25519_seed,
+            jwt_previous_ed25519_seed,
             object_store_dir: PathBuf::from(
                 env::var("OBJECT_STORE_DIR").unwrap_or_else(|_| "/tmp/ledgerly-objects".into()),
             ),
             object_store_hmac_secret: env::var("OBJECT_STORE_HMAC_SECRET")
                 .unwrap_or_else(|_| "dev-object-hmac-secret".into()),
+            object_store_hmac_previous_secret: env::var("OBJECT_STORE_HMAC_PREVIOUS_SECRET")
+                .ok()
+                .filter(|secret| !secret.is_empty()),
             object_store_public_base: env::var("OBJECT_STORE_PUBLIC_BASE")
                 .unwrap_or_else(|_| "http://127.0.0.1:8080".into()),
             object_storage_backend: parse_object_store_backend(
@@ -135,6 +150,9 @@ impl Config {
             backup_password: env::var("LEDGER_BACKUP_PASSWORD")
                 .ok()
                 .filter(|password| !password.is_empty()),
+            backup_password_previous: env::var("LEDGER_BACKUP_PASSWORD_PREVIOUS")
+                .ok()
+                .filter(|password| !password.is_empty()),
             backup_capacity_warn_bytes: parse_positive_u64_env(
                 "BACKUP_CAPACITY_WARN_BYTES",
                 DEFAULT_BACKUP_CAPACITY_WARN_BYTES,
@@ -143,6 +161,7 @@ impl Config {
                 "BACKUP_CAPACITY_CRITICAL_BYTES",
                 DEFAULT_BACKUP_CAPACITY_CRITICAL_BYTES,
             )?,
+            audit_retention_days: parse_positive_u64_env("AUDIT_RETENTION_DAYS", 365)?,
             recovery_drill_enabled: env::var("RECOVERY_DRILL_ENABLED")
                 .ok()
                 .map(|value| parse_bool("RECOVERY_DRILL_ENABLED", &value))
@@ -176,6 +195,7 @@ impl Config {
             is_production,
             jwt_encoding_key: encoding,
             jwt_decoding_key: decoding,
+            jwt_previous_decoding_key,
         };
         config.validate()?;
         Ok(config)
@@ -210,6 +230,13 @@ impl Config {
         };
         if seed.is_empty() || seed.contains("CHANGE_ME") {
             anyhow::bail!("JWT_ED25519_SEED must be replaced in production");
+        }
+        if self
+            .jwt_previous_ed25519_seed
+            .as_deref()
+            .is_some_and(|seed| seed.contains("CHANGE_ME"))
+        {
+            anyhow::bail!("JWT_ED25519_PREVIOUS_SEED must be replaced in production");
         }
         if self.object_store_hmac_secret.is_empty()
             || self.object_store_hmac_secret.contains("CHANGE_ME")
@@ -248,9 +275,11 @@ impl Config {
             database_url: None,
             jwt_secret,
             jwt_ed25519_seed: Some("test-ed25519-seed".into()),
+            jwt_previous_ed25519_seed: None,
             object_store_dir: std::env::temp_dir()
                 .join(format!("ledgerly-test-{}", uuid::Uuid::now_v7())),
             object_store_hmac_secret: "test-hmac".into(),
+            object_store_hmac_previous_secret: None,
             object_store_public_base: "http://127.0.0.1:0".into(),
             object_storage_backend: ObjectStoreBackend::Local,
             s3_endpoint: None,
@@ -267,8 +296,10 @@ impl Config {
             backup_keep: 3,
             backup_interval_hours: 24,
             backup_password: None,
+            backup_password_previous: None,
             backup_capacity_warn_bytes: DEFAULT_BACKUP_CAPACITY_WARN_BYTES,
             backup_capacity_critical_bytes: DEFAULT_BACKUP_CAPACITY_CRITICAL_BYTES,
+            audit_retention_days: 365,
             recovery_drill_enabled: false,
             recovery_drill_interval_hours: 720,
             recovery_drill_database_url: None,
@@ -280,7 +311,17 @@ impl Config {
             is_production: false,
             jwt_encoding_key: encoding,
             jwt_decoding_key: decoding,
+            jwt_previous_decoding_key: None,
         }
+    }
+
+    pub fn for_test_with_jwt_seed(seed: &str) -> Self {
+        let mut config = Self::for_test();
+        let (encoding, decoding) = build_ed25519_keys(&config.jwt_secret, Some(seed));
+        config.jwt_ed25519_seed = Some(seed.to_string());
+        config.jwt_encoding_key = encoding;
+        config.jwt_decoding_key = decoding;
+        config
     }
 
     fn validate_s3(&self) -> anyhow::Result<()> {

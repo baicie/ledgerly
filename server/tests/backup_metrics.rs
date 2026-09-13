@@ -143,6 +143,7 @@ async fn metrics_endpoint_exports_backup_health_and_capacity() {
     ledger_server::metrics::record_backup_cleanup_failure("local");
     ledger_server::metrics::record_postgres_pool_connections(4, 1, 8);
     ledger_server::metrics::record_object_store_operation("s3", "put", "success", 0.25);
+    ledger_server::metrics::record_audit_event("auth.login", "success");
     let mut state = AppState::new(config);
     state.metrics_handle = Some(MetricsHandle::new(handle));
     let response = app_router(state)
@@ -235,6 +236,14 @@ async fn metrics_endpoint_exports_backup_health_and_capacity() {
                 ("operation", "put"),
                 ("outcome", "success")
             ]
+        ),
+        Some(1.0)
+    );
+    assert_eq!(
+        metric_value(
+            &body,
+            "audit_events_total",
+            &[("action", "auth.login"), ("outcome", "success")]
         ),
         Some(1.0)
     );
