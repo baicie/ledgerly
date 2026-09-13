@@ -206,7 +206,7 @@ jobs:
 
       - name: Upload web coverage report (optional)
         if: always()
-        uses: actions/upload-artifact@v8
+        uses: actions/upload-artifact@v4
         with:
           name: integration-web-logs
           path: |
