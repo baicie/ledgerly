@@ -99,6 +99,9 @@ jobs:
         with:
           workspaces: server -> target
 
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
       - name: Format
         run: cargo fmt --all -- --check
 
