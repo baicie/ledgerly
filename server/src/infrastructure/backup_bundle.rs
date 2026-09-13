@@ -56,6 +56,13 @@ pub struct BackupBundleCleanupReport {
     pub freed_bytes: u64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BackupBundleSummary {
+    pub path: PathBuf,
+    pub created_at: String,
+    pub file_count: usize,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct BackupBundleManifest {
@@ -371,6 +378,43 @@ pub fn cleanup_backup_bundles(
         kept_count,
         freed_bytes,
     })
+}
+
+pub fn find_latest_backup_bundle(root: &Path) -> anyhow::Result<Option<BackupBundleSummary>> {
+    if !root.is_dir() {
+        return Ok(None);
+    }
+    let mut bundles = Vec::new();
+    for entry in
+        fs::read_dir(root).with_context(|| format!("read backup bundle root {}", root.display()))?
+    {
+        let entry = entry.context("read backup bundle root entry")?;
+        let file_type = entry.file_type().context("read backup bundle entry type")?;
+        if !file_type.is_dir() || file_type.is_symlink() {
+            continue;
+        }
+        let Ok(manifest) = read_manifest(&entry.path()) else {
+            continue;
+        };
+        let Ok(created_at) = OffsetDateTime::parse(&manifest.created_at, &Rfc3339) else {
+            continue;
+        };
+        bundles.push((
+            created_at,
+            BackupBundleSummary {
+                path: entry.path(),
+                created_at: manifest.created_at,
+                file_count: manifest.file_count,
+            },
+        ));
+    }
+    bundles.sort_by(|left, right| {
+        right
+            .0
+            .cmp(&left.0)
+            .then_with(|| right.1.path.cmp(&left.1.path))
+    });
+    Ok(bundles.into_iter().next().map(|(_, summary)| summary))
 }
 
 fn directory_size(root: &Path) -> anyhow::Result<u64> {

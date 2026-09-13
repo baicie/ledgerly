@@ -5,9 +5,9 @@ use ledger_server::infrastructure::backup_bundle::{
     create_backup_bundle, replicate_backup_bundle, unpack_backup_bundle, verify_backup_bundle,
 };
 use ledger_server::infrastructure::backup_runtime::{
-    backup_readiness, restore_backup_bundle, run_backup,
+    backup_readiness, recovery_drill_status, restore_backup_bundle, run_backup, run_recovery_drill,
 };
-use ledger_server::infrastructure::backup_status::BackupReadiness;
+use ledger_server::infrastructure::backup_status::{BackupReadiness, RecoveryDrillOutcome};
 use ledger_server::infrastructure::object_store::backup_object_store;
 use ledger_server::{backup, migrate, Config};
 use sha2::{Digest, Sha256};
@@ -224,6 +224,18 @@ async fn run_backup_restore_drill(
         backup_readiness(&source_config)?.readiness,
         BackupReadiness::Ready
     );
+    source_config.recovery_drill_enabled = true;
+    source_config.recovery_drill_interval_hours = 720;
+    source_config.recovery_drill_database_url = Some(source_url.to_string());
+    let drill = run_recovery_drill(source_config.clone()).await?;
+    assert_eq!(drill.object_count, object_backup.object_count);
+    assert_eq!(
+        drill.transaction_count,
+        fixture.pre_backup_transaction_count
+    );
+    let drill_status = recovery_drill_status(&source_config)?.expect("drill status");
+    assert_eq!(drill_status.outcome, RecoveryDrillOutcome::Success);
+    assert_eq!(drill_status.object_count, object_backup.object_count);
     let backup_elapsed = backup_started.elapsed();
 
     let post_backup_transaction_id = seed_post_backup_marker(&source, &fixture.book_id).await?;

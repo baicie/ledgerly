@@ -54,6 +54,9 @@ pub async fn run_api(config: Config, with_worker: bool) -> anyhow::Result<()> {
         if config.backup_dir.is_some() {
             let _ = jobs::enqueue_if_absent(pool, "backup_bundle", serde_json::json!({})).await;
         }
+        if config.recovery_drill_enabled {
+            let _ = jobs::enqueue_if_absent(pool, "recovery_drill", serde_json::json!({})).await;
+        }
     } else {
         crate::obs::app_event("boot", "degraded", "running with in-memory store");
     }
@@ -169,18 +172,21 @@ pub async fn run_worker_only(config: Config) -> anyhow::Result<()> {
     if config.backup_dir.is_some() {
         let _ = jobs::enqueue_if_absent(&pool, "backup_bundle", serde_json::json!({})).await;
     }
+    if config.recovery_drill_enabled {
+        let _ = jobs::enqueue_if_absent(&pool, "recovery_drill", serde_json::json!({})).await;
+    }
     let worker_id = format!("worker-{}", Uuid::now_v7());
     jobs::run_worker(pool, worker_id, config).await
 }
 
 pub async fn backup(config: &Config, out: &str) -> anyhow::Result<()> {
-    backup_runtime::run_pg_dump(config, std::path::Path::new(out)).await?;
+    backup_runtime::run_pg_dump(config, std::path::Path::new(out))?;
     crate::obs::app_event("backup", "ok", out);
     Ok(())
 }
 
 pub async fn restore(config: &Config, from: &str) -> anyhow::Result<()> {
-    backup_runtime::run_pg_restore(config, std::path::Path::new(from)).await?;
+    backup_runtime::run_pg_restore(config, std::path::Path::new(from))?;
     crate::obs::app_event("restore", "ok", from);
     Ok(())
 }

@@ -28,6 +28,8 @@ enum Commands {
     BackupRun,
     BackupStatus,
     RestoreStatus,
+    RecoveryDrill,
+    RecoveryDrillStatus,
     Restore {
         #[arg(long)]
         from: String,
@@ -163,6 +165,36 @@ async fn main() -> anyhow::Result<()> {
                     }),
                     "completedAt": status.as_ref().map(|value| value.completed_at.clone()),
                     "durationMs": status.as_ref().map(|value| value.duration_ms),
+                    "objectCount": status.as_ref().map(|value| value.object_count),
+                    "bookCount": status.as_ref().map(|value| value.book_count),
+                    "transactionCount": status.as_ref().map(|value| value.transaction_count),
+                }))?
+            );
+        }
+        Commands::RecoveryDrill => {
+            let report = backup_runtime::run_recovery_drill(config.clone()).await?;
+            println!(
+                "recovery drill passed: files={}, objects={}, books={}, transactions={}, duration={} ms, bundle_created_at={}",
+                report.file_count,
+                report.object_count,
+                report.book_count,
+                report.transaction_count,
+                report.duration_ms,
+                report.bundle_created_at
+            );
+        }
+        Commands::RecoveryDrillStatus => {
+            let status = backup_runtime::recovery_drill_status(&config)?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "status": status.as_ref().map(|value| match value.outcome {
+                        ledger_server::infrastructure::backup_status::RecoveryDrillOutcome::Success => "success",
+                        ledger_server::infrastructure::backup_status::RecoveryDrillOutcome::Failed => "failed",
+                    }),
+                    "completedAt": status.as_ref().map(|value| value.completed_at.clone()),
+                    "durationMs": status.as_ref().map(|value| value.duration_ms),
+                    "bundleCreatedAt": status.as_ref().map(|value| value.bundle_created_at.clone()),
                     "objectCount": status.as_ref().map(|value| value.object_count),
                     "bookCount": status.as_ref().map(|value| value.book_count),
                     "transactionCount": status.as_ref().map(|value| value.transaction_count),

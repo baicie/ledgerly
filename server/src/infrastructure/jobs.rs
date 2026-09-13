@@ -129,6 +129,33 @@ async fn execute_job(pool: &PgPool, config: &Config, job: &JobRow) -> anyhow::Re
                 .await;
             }
         }
+        "recovery_drill" => {
+            if config.recovery_drill_enabled {
+                let drill_config = config.clone();
+                tokio::task::spawn_blocking(move || {
+                    let runtime = tokio::runtime::Builder::new_current_thread()
+                        .enable_all()
+                        .build()
+                        .map_err(|error| {
+                            anyhow::anyhow!("create recovery drill runtime: {error}")
+                        })?;
+                    runtime.block_on(crate::infrastructure::backup_runtime::run_recovery_drill(
+                        drill_config,
+                    ))
+                })
+                .await
+                .map_err(|error| anyhow::anyhow!("recovery drill task failed: {error}"))??;
+                let interval_hours = config.recovery_drill_interval_hours.max(1);
+                let _ = enqueue_at(
+                    pool,
+                    "recovery_drill",
+                    serde_json::json!({}),
+                    0,
+                    &format!("now() + interval '{interval_hours} hours'"),
+                )
+                .await;
+            }
+        }
         other => {
             crate::obs::job_rule_skip(other, "UNKNOWN_JOB_TYPE");
             crate::metrics::record_job_rule_skip("UNKNOWN_JOB_TYPE");

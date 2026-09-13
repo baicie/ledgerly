@@ -21,6 +21,9 @@ pub struct Config {
     pub backup_keep: usize,
     pub backup_interval_hours: u64,
     pub backup_password: Option<String>,
+    pub recovery_drill_enabled: bool,
+    pub recovery_drill_interval_hours: u64,
+    pub recovery_drill_database_url: Option<String>,
     pub rate_limit_rps: u32,
     pub auth_rate_limit_rps: u32,
     pub cors_allowed_origins: Vec<String>,
@@ -30,6 +33,11 @@ pub struct Config {
     pub jwt_encoding_key: EncodingKey,
     pub jwt_decoding_key: DecodingKey,
 }
+
+const _: fn() = || {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<Config>();
+};
 
 impl std::fmt::Debug for Config {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -77,6 +85,19 @@ impl Config {
             backup_password: env::var("LEDGER_BACKUP_PASSWORD")
                 .ok()
                 .filter(|password| !password.is_empty()),
+            recovery_drill_enabled: env::var("RECOVERY_DRILL_ENABLED")
+                .ok()
+                .map(|value| parse_bool("RECOVERY_DRILL_ENABLED", &value))
+                .transpose()?
+                .unwrap_or(false),
+            recovery_drill_interval_hours: env::var("RECOVERY_DRILL_INTERVAL_HOURS")
+                .ok()
+                .and_then(|value| value.parse().ok())
+                .filter(|hours| *hours > 0)
+                .unwrap_or(720),
+            recovery_drill_database_url: env::var("RECOVERY_DRILL_DATABASE_URL")
+                .ok()
+                .filter(|url| !url.is_empty()),
             rate_limit_rps: env::var("RATE_LIMIT_RPS")
                 .ok()
                 .and_then(|s| s.parse().ok())
@@ -142,6 +163,9 @@ impl Config {
         if self.backup_dir.is_some() && self.backup_password.is_none() {
             anyhow::bail!("LEDGER_BACKUP_PASSWORD is required when BACKUP_DIR is configured");
         }
+        if self.recovery_drill_enabled && self.backup_dir.is_none() {
+            anyhow::bail!("BACKUP_DIR is required when RECOVERY_DRILL_ENABLED=true");
+        }
         Ok(())
     }
 
@@ -163,6 +187,9 @@ impl Config {
             backup_keep: 3,
             backup_interval_hours: 24,
             backup_password: None,
+            recovery_drill_enabled: false,
+            recovery_drill_interval_hours: 720,
+            recovery_drill_database_url: None,
             rate_limit_rps: 10_000,
             auth_rate_limit_rps: 10_000,
             cors_allowed_origins: Vec::new(),

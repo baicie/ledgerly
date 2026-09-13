@@ -182,6 +182,14 @@ pub fn object_metadata(config: &Config, object_key: &str) -> anyhow::Result<Stor
     metadata_for_path(object_key, &path)
 }
 
+pub fn object_metadata_from_root(
+    object_store_dir: &Path,
+    object_key: &str,
+) -> anyhow::Result<StoredObjectMetadata> {
+    let path = disk_path_anyhow(object_store_dir, object_key)?;
+    metadata_for_path(object_key, &path)
+}
+
 pub fn verify_object_store_backup(
     from_dir: &Path,
 ) -> anyhow::Result<ObjectStoreVerificationReport> {
