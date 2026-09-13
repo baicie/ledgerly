@@ -12,6 +12,7 @@ import 'package:ledgerly_client/application/backup_auto_password_store.dart';
 import 'package:ledgerly_client/application/backup_catalog_store.dart';
 import 'package:ledgerly_client/application/backup_encryption.dart';
 import 'package:ledgerly_client/application/backup_metadata_store.dart';
+import 'package:ledgerly_client/application/backup_mirror_store.dart';
 import 'package:ledgerly_client/application/backup_restore_audit.dart';
 import 'package:ledgerly_client/application/backup_schedule.dart';
 import 'package:ledgerly_client/application/backup_service.dart';
@@ -1489,6 +1490,45 @@ void main() {
       find.byKey(const Key('data-governance-auto-interval-14')),
     );
     expect(chip.selected, isTrue);
+  });
+
+  testWidgets('external backup directory can be selected and cleared',
+      (tester) async {
+    filePort.directoryPickResult = '/external/ledgerly';
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final choose = find.byKey(
+      const Key('data-governance-external-directory-choose'),
+    );
+
+    await tester.ensureVisible(choose);
+    await tester.tap(choose);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(
+      prefs.getString(BackupMirrorStore.preferencesKey),
+      '/external/ledgerly',
+    );
+    expect(find.text('/external/ledgerly'), findsOneWidget);
+    expect(
+      find.byKey(const Key('data-governance-external-directory-mirror')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(
+        const Key('data-governance-external-directory-clear'),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(
+      prefs.getString(BackupMirrorStore.preferencesKey),
+      isNull,
+    );
   });
 }
 

@@ -7,6 +7,8 @@ enum BackupArtifactKind { full, incremental, encrypted }
 
 enum BackupArtifactSource { manual, automatic, safety }
 
+enum BackupArtifactMirrorStatus { mirrored, failed }
+
 @immutable
 class BackupArtifact {
   const BackupArtifact({
@@ -18,6 +20,8 @@ class BackupArtifact {
     required this.sizeBytes,
     this.sha256,
     this.baseBackupId,
+    this.mirrorStatus,
+    this.mirrorPath,
   });
 
   final String backupId;
@@ -28,11 +32,16 @@ class BackupArtifact {
   final int sizeBytes;
   final String? sha256;
   final String? baseBackupId;
+  final BackupArtifactMirrorStatus? mirrorStatus;
+  final String? mirrorPath;
 
   BackupArtifact copyWith({
     int? sizeBytes,
     String? sha256,
     String? baseBackupId,
+    BackupArtifactMirrorStatus? mirrorStatus,
+    String? mirrorPath,
+    bool clearMirrorPath = false,
   }) {
     return BackupArtifact(
       backupId: backupId,
@@ -43,6 +52,8 @@ class BackupArtifact {
       sizeBytes: sizeBytes ?? this.sizeBytes,
       sha256: sha256 ?? this.sha256,
       baseBackupId: baseBackupId ?? this.baseBackupId,
+      mirrorStatus: mirrorStatus ?? this.mirrorStatus,
+      mirrorPath: clearMirrorPath ? null : mirrorPath ?? this.mirrorPath,
     );
   }
 
@@ -55,6 +66,8 @@ class BackupArtifact {
         'sizeBytes': sizeBytes,
         if (sha256 != null) 'sha256': sha256,
         if (baseBackupId != null) 'baseBackupId': baseBackupId,
+        if (mirrorStatus != null) 'mirrorStatus': mirrorStatus!.name,
+        if (mirrorPath != null) 'mirrorPath': mirrorPath,
       };
 
   static BackupArtifact? fromJson(Map<String, dynamic> json) {
@@ -77,6 +90,12 @@ class BackupArtifact {
     final source = BackupArtifactSource.values
         .where((value) => value.name == sourceRaw)
         .firstOrNull;
+    final mirrorRaw = json['mirrorStatus'];
+    final mirrorStatus = mirrorRaw is String
+        ? BackupArtifactMirrorStatus.values
+            .where((value) => value.name == mirrorRaw)
+            .firstOrNull
+        : null;
     if (createdAt == null || kind == null || source == null) return null;
     return BackupArtifact(
       backupId: backupId,
@@ -87,6 +106,8 @@ class BackupArtifact {
       sizeBytes: (json['sizeBytes'] as num?)?.toInt() ?? 0,
       sha256: json['sha256'] as String?,
       baseBackupId: json['baseBackupId'] as String?,
+      mirrorStatus: mirrorStatus,
+      mirrorPath: json['mirrorPath'] as String?,
     );
   }
 }

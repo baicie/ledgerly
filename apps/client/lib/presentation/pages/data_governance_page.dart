@@ -175,10 +175,73 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
       case BackupHealthAction.inspectFiles:
         await _verifyBackups();
         break;
+      case BackupHealthAction.configureExternalDirectory:
+        await _chooseExternalBackupDirectory();
+        break;
       case BackupHealthAction.none:
         return;
     }
     if (mounted) ref.invalidate(backupHealthProvider);
+  }
+
+  Future<void> _chooseExternalBackupDirectory() async {
+    final l10n = l10nOf(context);
+    final directory = await _service.pickBackupDirectory();
+    if (!mounted || directory == null) return;
+    await ref.read(backupMirrorStoreProvider).save(directory);
+    ref.invalidate(backupMirrorDirectoryProvider);
+    final result = await _mirrorAllBackups();
+    if (!mounted || result == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          l10n.dataGovernanceExternalBackupSelected(
+            result.mirroredCount,
+            result.failedCount,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _clearExternalBackupDirectory() async {
+    await ref.read(backupMirrorStoreProvider).clear();
+    if (!mounted) return;
+    ref.invalidate(backupMirrorDirectoryProvider);
+    ref.invalidate(backupHealthProvider);
+  }
+
+  Future<BackupMirrorBatchResult?> _mirrorAllBackups() async {
+    final l10n = l10nOf(context);
+    _setBusy(true);
+    try {
+      final result = await _service.mirrorAllBackups();
+      if (!mounted) return null;
+      setState(() => _busy = false);
+      ref.invalidate(backupCatalogProvider);
+      ref.invalidate(backupHealthProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.dataGovernanceExternalBackupMirrorResult(
+              result.mirroredCount,
+              result.failedCount,
+            ),
+          ),
+        ),
+      );
+      return result;
+    } catch (error) {
+      if (!mounted) return null;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content:
+              Text(l10n.dataGovernanceExternalBackupMirrorFailed('$error')),
+        ),
+      );
+      return null;
+    }
   }
 
   Future<void> _exportGovernanceReport(
@@ -988,6 +1051,8 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
           orElse: () => const <BackupRestoreAudit>[],
         );
     final healthAsync = ref.watch(backupHealthProvider);
+    final externalBackupDirectory =
+        ref.watch(backupMirrorDirectoryProvider).valueOrNull;
     final localBackupBytes = catalog.fold<int>(
       0,
       (sum, artifact) => sum + artifact.sizeBytes,
@@ -1087,6 +1152,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
                   autoBackupEnabled: schedule.enabled,
                   autoBackupIntervalDays: schedule.intervalDays,
                   autoBackupEncrypted: schedule.encrypted,
+                  externalBackupDirectory: externalBackupDirectory,
                   onAutoBackupChanged: _busy
                       ? null
                       : (enabled) => unawaited(_setAutoBackupEnabled(enabled)),
@@ -1097,6 +1163,12 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
                       ? null
                       : (encrypted) =>
                           unawaited(_setAutoBackupEncrypted(encrypted)),
+                  onChooseExternalDirectory:
+                      _busy ? null : _chooseExternalBackupDirectory,
+                  onClearExternalDirectory:
+                      _busy ? null : _clearExternalBackupDirectory,
+                  onMirrorAllBackups:
+                      _busy ? null : () => unawaited(_mirrorAllBackups()),
                   onEncryptChanged: _busy
                       ? null
                       : (value) {
@@ -1206,9 +1278,13 @@ class _BackupSection extends StatelessWidget {
     required this.autoBackupEnabled,
     required this.autoBackupIntervalDays,
     required this.autoBackupEncrypted,
+    required this.externalBackupDirectory,
     required this.onAutoBackupChanged,
     required this.onAutoBackupIntervalChanged,
     required this.onAutoBackupEncryptedChanged,
+    required this.onChooseExternalDirectory,
+    required this.onClearExternalDirectory,
+    required this.onMirrorAllBackups,
     required this.onEncryptChanged,
     required this.onIncrementalChanged,
     required this.onPasswordChanged,
@@ -1255,9 +1331,13 @@ class _BackupSection extends StatelessWidget {
   final bool autoBackupEnabled;
   final int autoBackupIntervalDays;
   final bool autoBackupEncrypted;
+  final String? externalBackupDirectory;
   final ValueChanged<bool>? onAutoBackupChanged;
   final ValueChanged<int>? onAutoBackupIntervalChanged;
   final ValueChanged<bool>? onAutoBackupEncryptedChanged;
+  final VoidCallback? onChooseExternalDirectory;
+  final VoidCallback? onClearExternalDirectory;
+  final VoidCallback? onMirrorAllBackups;
   final ValueChanged<bool>? onEncryptChanged;
   final ValueChanged<bool>? onIncrementalChanged;
   final ValueChanged<String> onPasswordChanged;
@@ -1436,6 +1516,47 @@ class _BackupSection extends StatelessWidget {
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
+            ),
+          ),
+          ListTile(
+            key: const Key('data-governance-external-directory'),
+            leading: const Icon(Icons.folder_copy_outlined),
+            title: Text(l10n.dataGovernanceExternalBackupDirectory),
+            subtitle: Text(
+              externalBackupDirectory ??
+                  l10n.dataGovernanceExternalBackupNotConfigured,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            trailing: externalBackupDirectory == null
+                ? null
+                : IconButton(
+                    key: const Key('data-governance-external-directory-clear'),
+                    tooltip: l10n.dataGovernanceExternalBackupClear,
+                    onPressed: onClearExternalDirectory,
+                    icon: const Icon(Icons.link_off_outlined),
+                  ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  key: const Key('data-governance-external-directory-choose'),
+                  onPressed: onChooseExternalDirectory,
+                  icon: const Icon(Icons.drive_file_move_outline),
+                  label: Text(l10n.dataGovernanceExternalBackupChoose),
+                ),
+                if (externalBackupDirectory != null)
+                  OutlinedButton.icon(
+                    key: const Key('data-governance-external-directory-mirror'),
+                    onPressed: onMirrorAllBackups,
+                    icon: const Icon(Icons.sync_outlined),
+                    label: Text(l10n.dataGovernanceExternalBackupMirrorNow),
+                  ),
+              ],
             ),
           ),
           Padding(
@@ -1705,6 +1826,10 @@ class _BackupArtifactTile extends StatelessWidget {
       _sourceLabel,
       if (isCurrentBase) l10n.dataGovernanceArtifactCurrentBase,
       if (isLatest) l10n.dataGovernanceArtifactLatest,
+      if (artifact.mirrorStatus == BackupArtifactMirrorStatus.mirrored)
+        l10n.dataGovernanceArtifactMirrored,
+      if (artifact.mirrorStatus == BackupArtifactMirrorStatus.failed)
+        l10n.dataGovernanceArtifactMirrorFailed,
     ];
     return ListTile(
       key: Key('data-governance-artifact-${artifact.backupId}'),
@@ -2696,6 +2821,10 @@ class _BackupHealthCard extends StatelessWidget {
           l10n.dataGovernanceHealthIssueBaseMissing,
         BackupHealthIssueCode.recentRestoreFailed =>
           l10n.dataGovernanceHealthIssueRestoreFailed,
+        BackupHealthIssueCode.externalDirectoryUnavailable =>
+          l10n.dataGovernanceHealthIssueExternalUnavailable,
+        BackupHealthIssueCode.latestMirrorFailed =>
+          l10n.dataGovernanceHealthIssueMirrorFailed,
       };
 
   String _actionLabel(BackupHealthAction action) => switch (action) {
@@ -2707,6 +2836,8 @@ class _BackupHealthCard extends StatelessWidget {
           l10n.dataGovernanceHealthActionPassword,
         BackupHealthAction.inspectFiles =>
           l10n.dataGovernanceHealthActionInspect,
+        BackupHealthAction.configureExternalDirectory =>
+          l10n.dataGovernanceHealthActionExternalDirectory,
         BackupHealthAction.none => l10n.confirm,
       };
 

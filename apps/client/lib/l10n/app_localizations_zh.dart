@@ -2646,6 +2646,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dataGovernanceHealthIssueRestoreFailed => '最近一次恢复操作失败，请检查恢复历史。';
 
   @override
+  String get dataGovernanceHealthIssueExternalUnavailable => '外部备份目录当前不可用。';
+
+  @override
+  String get dataGovernanceHealthIssueMirrorFailed => '最近备份尚未成功镜像到外部目录。';
+
+  @override
   String get dataGovernanceHealthActionBackup => '立即备份';
 
   @override
@@ -2656,6 +2662,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get dataGovernanceHealthActionInspect => '检查备份文件';
+
+  @override
+  String get dataGovernanceHealthActionExternalDirectory => '检查外部备份目录';
 
   @override
   String get dataGovernanceHealthExportReport => '导出治理报告';
@@ -2720,6 +2729,42 @@ class AppLocalizationsZh extends AppLocalizations {
   String dataGovernanceAutoEncryptFailed(String error) {
     return '保存自动备份密码失败：$error';
   }
+
+  @override
+  String get dataGovernanceExternalBackupDirectory => '外部备份目录';
+
+  @override
+  String get dataGovernanceExternalBackupNotConfigured => '未配置；备份仅保存在本机应用目录';
+
+  @override
+  String get dataGovernanceExternalBackupChoose => '选择目录';
+
+  @override
+  String get dataGovernanceExternalBackupClear => '移除外部目录';
+
+  @override
+  String get dataGovernanceExternalBackupMirrorNow => '立即镜像';
+
+  @override
+  String dataGovernanceExternalBackupSelected(int mirrored, int failed) {
+    return '目录已设置：镜像 $mirrored 份，失败 $failed 份。';
+  }
+
+  @override
+  String dataGovernanceExternalBackupMirrorResult(int mirrored, int failed) {
+    return '外部镜像完成：成功 $mirrored 份，失败 $failed 份。';
+  }
+
+  @override
+  String dataGovernanceExternalBackupMirrorFailed(String error) {
+    return '外部镜像失败：$error';
+  }
+
+  @override
+  String get dataGovernanceArtifactMirrored => '已镜像';
+
+  @override
+  String get dataGovernanceArtifactMirrorFailed => '镜像失败';
 
   @override
   String dataGovernanceAutoIntervalDays(int n) {

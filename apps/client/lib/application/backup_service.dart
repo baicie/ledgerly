@@ -15,6 +15,7 @@ import '../domain/ids.dart' as local_ids;
 import 'backup_encryption.dart';
 import 'backup_catalog_store.dart';
 import 'backup_metadata_store.dart';
+import 'backup_mirror_store.dart';
 import 'backup_restore_audit.dart';
 import 'merchant_classifier.dart';
 import 'merchant_rule_store.dart';
@@ -344,6 +345,17 @@ class BackupCleanupResult {
 }
 
 @immutable
+class BackupMirrorBatchResult {
+  const BackupMirrorBatchResult({
+    required this.mirroredCount,
+    required this.failedCount,
+  });
+
+  final int mirroredCount;
+  final int failedCount;
+}
+
+@immutable
 class BackupConsolidationResult {
   const BackupConsolidationResult({
     required this.path,
@@ -501,6 +513,7 @@ class BackupService {
     BackupEncryption? encryption,
     BackupCatalogStore? catalog,
     BackupRestoreAuditStore? audits,
+    BackupMirrorStore? mirror,
   })  : _db = database,
         _recurring = recurring,
         _budgets = budgets,
@@ -511,7 +524,8 @@ class BackupService {
         _metadata = metadata ?? BackupMetadataStore(),
         _encryption = encryption ?? BackupEncryption(),
         _catalog = catalog ?? BackupCatalogStore(),
-        _audits = audits ?? BackupRestoreAuditStore();
+        _audits = audits ?? BackupRestoreAuditStore(),
+        _mirror = mirror ?? BackupMirrorStore();
 
   final AppDatabase _db;
   final LocalRecurringRepository _recurring;
@@ -524,6 +538,7 @@ class BackupService {
   final BackupEncryption _encryption;
   final BackupCatalogStore _catalog;
   final BackupRestoreAuditStore _audits;
+  final BackupMirrorStore _mirror;
 
   /// Read every entity into a memory [BackupDocument]. The document holds
   /// raw row payloads — file I/O is delegated to [BackupFilePort].
@@ -1558,6 +1573,57 @@ class BackupService {
     );
   }
 
+  Future<String?> pickBackupDirectory() => _files.pickBackupDirectory();
+
+  Future<String> mirrorBackup(String source, String directory) {
+    return _files.mirrorBackup(source, directory);
+  }
+
+  Future<bool> isBackupDirectoryAvailable(String directory) {
+    return _files.isBackupDirectoryAvailable(directory);
+  }
+
+  /// Mirror every local catalog artifact into the configured directory.
+  Future<BackupMirrorBatchResult> mirrorAllBackups() async {
+    final directory = await _mirror.read();
+    if (directory == null) {
+      return const BackupMirrorBatchResult(
+        mirroredCount: 0,
+        failedCount: 0,
+      );
+    }
+    final artifacts = await _catalog.read();
+    var mirroredCount = 0;
+    var failedCount = 0;
+    for (final artifact in artifacts) {
+      try {
+        final mirrorPath = await _files.mirrorBackup(
+          artifact.path,
+          directory,
+        );
+        await _catalog.upsert(
+          artifact.copyWith(
+            mirrorStatus: BackupArtifactMirrorStatus.mirrored,
+            mirrorPath: mirrorPath,
+          ),
+        );
+        mirroredCount++;
+      } catch (_) {
+        await _catalog.upsert(
+          artifact.copyWith(
+            mirrorStatus: BackupArtifactMirrorStatus.failed,
+            clearMirrorPath: true,
+          ),
+        );
+        failedCount++;
+      }
+    }
+    return BackupMirrorBatchResult(
+      mirroredCount: mirroredCount,
+      failedCount: failedCount,
+    );
+  }
+
   /// Convenience for callers that already have the [BackupDocument] in
   /// memory (e.g. tests). Re-exports it through the configured port.
   Future<String> writeBackupToFile(
@@ -1580,6 +1646,21 @@ class BackupService {
         : document.isIncremental
             ? BackupArtifactKind.incremental
             : BackupArtifactKind.full;
+    BackupArtifactMirrorStatus? mirrorStatus;
+    String? mirrorPath;
+    try {
+      final directory = await _mirror.read();
+      if (directory != null) {
+        try {
+          mirrorPath = await _files.mirrorBackup(path, directory);
+          mirrorStatus = BackupArtifactMirrorStatus.mirrored;
+        } catch (_) {
+          mirrorStatus = BackupArtifactMirrorStatus.failed;
+        }
+      }
+    } catch (_) {
+      mirrorStatus = BackupArtifactMirrorStatus.failed;
+    }
     try {
       final sizeBytes = await _files.fileSize(path);
       final sha256Hex = await _files.fileSha256(path);
@@ -1593,6 +1674,8 @@ class BackupService {
           sizeBytes: sizeBytes,
           sha256: sha256Hex,
           baseBackupId: document.baseBackupId,
+          mirrorStatus: mirrorStatus,
+          mirrorPath: mirrorPath,
         ),
       );
     } catch (_) {
@@ -2221,6 +2304,15 @@ abstract class BackupFilePort {
     String contents, {
     required String extension,
   });
+
+  /// Ask the platform for a directory intended to mirror backup files.
+  Future<String?> pickBackupDirectory();
+
+  /// Copy one backup into [directory] atomically and return the target path.
+  Future<String> mirrorBackup(String source, String directory);
+
+  /// Return whether [directory] currently exists and is accessible.
+  Future<bool> isBackupDirectoryAvailable(String directory);
 
   /// Produce the v2-zip byte stream for [document] so the service can
   /// encrypt it before persisting.

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'backup_auto_password_store.dart';
 import 'backup_catalog_store.dart';
 import 'backup_metadata_store.dart';
+import 'backup_mirror_store.dart';
 import 'backup_restore_audit.dart';
 import 'backup_schedule.dart';
 import 'backup_service.dart';
@@ -22,6 +23,8 @@ enum BackupHealthIssueCode {
   latestIncremental,
   incrementalBaseMissing,
   recentRestoreFailed,
+  externalDirectoryUnavailable,
+  latestMirrorFailed,
 }
 
 enum BackupHealthAction {
@@ -29,6 +32,7 @@ enum BackupHealthAction {
   enableAutoBackup,
   configureAutoPassword,
   inspectFiles,
+  configureExternalDirectory,
   none,
 }
 
@@ -96,6 +100,13 @@ class BackupHealthSnapshot {
       return BackupHealthAction.inspectFiles;
     }
     if (issues.any(
+      (issue) =>
+          issue.code == BackupHealthIssueCode.externalDirectoryUnavailable ||
+          issue.code == BackupHealthIssueCode.latestMirrorFailed,
+    )) {
+      return BackupHealthAction.configureExternalDirectory;
+    }
+    if (issues.any(
       (issue) => issue.code == BackupHealthIssueCode.autoBackupDisabled,
     )) {
       return BackupHealthAction.enableAutoBackup;
@@ -111,12 +122,16 @@ class BackupHealthService {
     required BackupCatalogStore catalog,
     required BackupAutoPasswordStore passwords,
     required BackupRestoreAuditStore audits,
+    required BackupMirrorStore mirror,
+    required BackupFilePort filePort,
     required BackupService backups,
   })  : _metadata = metadata,
         _schedule = schedule,
         _catalog = catalog,
         _passwords = passwords,
         _audits = audits,
+        _mirror = mirror,
+        _filePort = filePort,
         _backups = backups;
 
   final BackupMetadataStore _metadata;
@@ -124,6 +139,8 @@ class BackupHealthService {
   final BackupCatalogStore _catalog;
   final BackupAutoPasswordStore _passwords;
   final BackupRestoreAuditStore _audits;
+  final BackupMirrorStore _mirror;
+  final BackupFilePort _filePort;
   final BackupService _backups;
 
   Future<BackupHealthSnapshot> check({DateTime? now}) async {
@@ -255,6 +272,38 @@ class BackupHealthService {
           level: BackupHealthLevel.warning,
         ),
       );
+    }
+
+    final mirrorDirectory = await _mirror.read();
+    if (mirrorDirectory != null) {
+      try {
+        if (!await _filePort.isBackupDirectoryAvailable(mirrorDirectory)) {
+          issues.add(
+            const BackupHealthIssue(
+              code: BackupHealthIssueCode.externalDirectoryUnavailable,
+              level: BackupHealthLevel.warning,
+            ),
+          );
+        }
+      } catch (_) {
+        issues.add(
+          const BackupHealthIssue(
+            code: BackupHealthIssueCode.externalDirectoryUnavailable,
+            level: BackupHealthLevel.warning,
+          ),
+        );
+      }
+      final latestArtifact = catalog
+          .where((artifact) => artifact.path == metadata.lastBackupPath)
+          .firstOrNull;
+      if (latestArtifact?.mirrorStatus == BackupArtifactMirrorStatus.failed) {
+        issues.add(
+          const BackupHealthIssue(
+            code: BackupHealthIssueCode.latestMirrorFailed,
+            level: BackupHealthLevel.warning,
+          ),
+        );
+      }
     }
 
     final level = issues.any(

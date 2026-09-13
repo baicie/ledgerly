@@ -1733,10 +1733,13 @@
   "dataGovernanceHealthIssueLatestIncremental": "The latest backup is a local-only incremental file.",
   "dataGovernanceHealthIssueBaseMissing": "The incremental base is missing from the backup catalog.",
   "dataGovernanceHealthIssueRestoreFailed": "The latest restore attempt failed; review restore history.",
+  "dataGovernanceHealthIssueExternalUnavailable": "The external backup directory is unavailable.",
+  "dataGovernanceHealthIssueMirrorFailed": "The latest backup has not been mirrored successfully.",
   "dataGovernanceHealthActionBackup": "Back up now",
   "dataGovernanceHealthActionEnableAuto": "Enable automatic backup",
   "dataGovernanceHealthActionPassword": "Set automatic backup password",
   "dataGovernanceHealthActionInspect": "Inspect backup files",
+  "dataGovernanceHealthActionExternalDirectory": "Check external backup directory",
   "dataGovernanceHealthExportReport": "Export governance report",
   "dataGovernanceHealthReportJson": "Full JSON report",
   "dataGovernanceHealthReportCsv": "CSV summary",
@@ -1777,6 +1780,43 @@
       }
     }
   },
+  "dataGovernanceExternalBackupDirectory": "External backup directory",
+  "dataGovernanceExternalBackupNotConfigured": "Not configured; backups stay only in the app directory",
+  "dataGovernanceExternalBackupChoose": "Choose directory",
+  "dataGovernanceExternalBackupClear": "Remove external directory",
+  "dataGovernanceExternalBackupMirrorNow": "Mirror now",
+  "dataGovernanceExternalBackupSelected": "Directory set: {mirrored} mirrored, {failed} failed.",
+  "@dataGovernanceExternalBackupSelected": {
+    "placeholders": {
+      "mirrored": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupMirrorResult": "External mirror complete: {mirrored} succeeded, {failed} failed.",
+  "@dataGovernanceExternalBackupMirrorResult": {
+    "placeholders": {
+      "mirrored": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupMirrorFailed": "External mirror failed: {error}",
+  "@dataGovernanceExternalBackupMirrorFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceArtifactMirrored": "Mirrored",
+  "dataGovernanceArtifactMirrorFailed": "Mirror failed",
   "dataGovernanceAutoIntervalDays": "{n} days",
   "@dataGovernanceAutoIntervalDays": {
     "placeholders": {

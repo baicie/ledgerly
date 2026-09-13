@@ -4855,6 +4855,18 @@ abstract class AppLocalizations {
   /// **'最近一次恢复操作失败，请检查恢复历史。'**
   String get dataGovernanceHealthIssueRestoreFailed;
 
+  /// No description provided for @dataGovernanceHealthIssueExternalUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'外部备份目录当前不可用。'**
+  String get dataGovernanceHealthIssueExternalUnavailable;
+
+  /// No description provided for @dataGovernanceHealthIssueMirrorFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近备份尚未成功镜像到外部目录。'**
+  String get dataGovernanceHealthIssueMirrorFailed;
+
   /// No description provided for @dataGovernanceHealthActionBackup.
   ///
   /// In zh, this message translates to:
@@ -4878,6 +4890,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'检查备份文件'**
   String get dataGovernanceHealthActionInspect;
+
+  /// No description provided for @dataGovernanceHealthActionExternalDirectory.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查外部备份目录'**
+  String get dataGovernanceHealthActionExternalDirectory;
 
   /// No description provided for @dataGovernanceHealthExportReport.
   ///
@@ -4992,6 +5010,66 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'保存自动备份密码失败：{error}'**
   String dataGovernanceAutoEncryptFailed(String error);
+
+  /// No description provided for @dataGovernanceExternalBackupDirectory.
+  ///
+  /// In zh, this message translates to:
+  /// **'外部备份目录'**
+  String get dataGovernanceExternalBackupDirectory;
+
+  /// No description provided for @dataGovernanceExternalBackupNotConfigured.
+  ///
+  /// In zh, this message translates to:
+  /// **'未配置；备份仅保存在本机应用目录'**
+  String get dataGovernanceExternalBackupNotConfigured;
+
+  /// No description provided for @dataGovernanceExternalBackupChoose.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择目录'**
+  String get dataGovernanceExternalBackupChoose;
+
+  /// No description provided for @dataGovernanceExternalBackupClear.
+  ///
+  /// In zh, this message translates to:
+  /// **'移除外部目录'**
+  String get dataGovernanceExternalBackupClear;
+
+  /// No description provided for @dataGovernanceExternalBackupMirrorNow.
+  ///
+  /// In zh, this message translates to:
+  /// **'立即镜像'**
+  String get dataGovernanceExternalBackupMirrorNow;
+
+  /// No description provided for @dataGovernanceExternalBackupSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'目录已设置：镜像 {mirrored} 份，失败 {failed} 份。'**
+  String dataGovernanceExternalBackupSelected(int mirrored, int failed);
+
+  /// No description provided for @dataGovernanceExternalBackupMirrorResult.
+  ///
+  /// In zh, this message translates to:
+  /// **'外部镜像完成：成功 {mirrored} 份，失败 {failed} 份。'**
+  String dataGovernanceExternalBackupMirrorResult(int mirrored, int failed);
+
+  /// No description provided for @dataGovernanceExternalBackupMirrorFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'外部镜像失败：{error}'**
+  String dataGovernanceExternalBackupMirrorFailed(String error);
+
+  /// No description provided for @dataGovernanceArtifactMirrored.
+  ///
+  /// In zh, this message translates to:
+  /// **'已镜像'**
+  String get dataGovernanceArtifactMirrored;
+
+  /// No description provided for @dataGovernanceArtifactMirrorFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像失败'**
+  String get dataGovernanceArtifactMirrorFailed;
 
   /// No description provided for @dataGovernanceAutoIntervalDays.
   ///
