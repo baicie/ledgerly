@@ -19,6 +19,8 @@ override，它会创建私有的 `ledgerly-postgres` 容器和独立卷：
 cp infrastructure/docker/env.vm.example /opt/ledgerly/.env.prod
 # 修改 POSTGRES_PASSWORD、DATABASE_URL、JWT_*、OBJECT_STORE_HMAC_SECRET、
 # CORS_ALLOWED_ORIGINS、OBJECT_STORE_PUBLIC_BASE 和 LEDGER_BACKUP_PASSWORD
+# 轮换期间可设置 JWT_ED25519_PREVIOUS_SEED、
+# OBJECT_STORE_HMAC_PREVIOUS_SECRET 和 LEDGER_BACKUP_PASSWORD_PREVIOUS
 ```
 
 如果复用已有 PG，则执行 `scripts/provision_host_pg.sh` 建库，并将
@@ -200,6 +202,8 @@ Prometheus 指标和容量告警见
 Prometheus、Alertmanager 和 Grafana 的可选生产部署见
 [生产观测栈 Runbook](observability-stack.md)。
 S3 对象存储配置和迁移见 [S3 对象存储 Runbook](s3-object-storage.md)。
+安全审计与密钥轮换见
+[安全审计与密钥轮换 Runbook](security-audit-and-key-rotation.md)。
 
 ## 五、回滚
 

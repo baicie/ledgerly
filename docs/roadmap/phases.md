@@ -352,6 +352,16 @@
 - [x] readiness 和 Prometheus 对象存储指标
 - [x] S3Mock 本地 profile 和 CI 集成测试
 
+## 安全审计与密钥轮换（Phase 43）
+
+- [x] append-only audit_events 表和索引
+- [x] 认证、邀请、附件和商业变更事件
+- [x] 定时备份和恢复演练 system 事件
+- [x] 用户分页查询 API 和 audit-query CLI
+- [x] JWT、对象 HMAC 和备份密码 previous 回退
+- [x] 审计写入指标和每日保留清理
+- [x] 密钥轮换与审计 Runbook
+
 ### 待后续完善
 
 - 扩大商户分类覆盖（目前第一版关键词匹配）

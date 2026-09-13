@@ -203,6 +203,16 @@ pub fn register_metrics() {
         Unit::Seconds,
         "Object storage operation latency, labelled by backend and operation."
     );
+    describe_counter!(
+        "audit_events_total",
+        Unit::Count,
+        "Security audit events, labelled by action and outcome."
+    );
+    describe_counter!(
+        "audit_write_failures_total",
+        Unit::Count,
+        "Security audit persistence failures."
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -240,6 +250,7 @@ static AUTH_ERROR_CODES: &[&str] = &[
 /// Known job types.
 static JOB_TYPES: &[&str] = &[
     "purge_expired_sessions",
+    "purge_audit_events",
     "enqueue_recurring_scan",
     "generate_due_recurring",
     "auto_ledger_sweep",
@@ -300,6 +311,20 @@ static METRIC_COMPONENTS: &[&str] = &[
 static OBJECT_STORE_BACKENDS: &[&str] = &["local", "s3"];
 static OBJECT_STORE_OPERATIONS: &[&str] =
     &["put", "get", "head", "list", "backup", "restore", "migrate"];
+static AUDIT_ACTIONS: &[&str] = &[
+    "auth.register",
+    "auth.login",
+    "auth.refresh",
+    "auth.logout",
+    "attachment.upload_session",
+    "attachment.complete",
+    "invite.create",
+    "billing.upgrade",
+    "backup.run",
+    "backup.restore",
+    "recovery_drill.run",
+];
+static AUDIT_OUTCOMES: &[&str] = &["success", "failure", "denied"];
 
 pub fn record_backup_status(
     state: &str,
@@ -487,6 +512,16 @@ pub fn record_object_store_operation(
     .record(duration_seconds);
 }
 
+pub fn record_audit_event(action: &str, outcome: &'static str) {
+    let action = static_label(AUDIT_ACTIONS, action);
+    let outcome = static_label(AUDIT_OUTCOMES, outcome);
+    counter!("audit_events_total", "action" => action, "outcome" => outcome).increment(1);
+}
+
+pub fn record_audit_write_failure() {
+    counter!("audit_write_failures_total").increment(1);
+}
+
 // ---------------------------------------------------------------------------
 // Helper
 // ---------------------------------------------------------------------------
@@ -519,6 +554,7 @@ static HTTP_ROUTES: &[&str] = &[
     "/v1/auth/refresh",
     "/v1/auth/logout",
     "/v1/auth/me",
+    "/v1/audit/events",
     "/v1/books",
     "/v1/transactions",
     "/v1/sync/push",

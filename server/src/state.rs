@@ -35,6 +35,7 @@ pub struct MemoryStore {
     pub subscriptions: HashMap<String, String>,
     pub fx_rates: Vec<FxRateRecord>,
     pub revisions: Vec<RevisionRecord>,
+    pub audit_events: Vec<AuditEventRecord>,
 }
 
 #[derive(Clone)]
@@ -292,6 +293,20 @@ pub struct RevisionRecord {
     pub version: i64,
     pub operation: String,
     pub payload: Value,
+}
+
+#[derive(Clone)]
+pub struct AuditEventRecord {
+    pub id: String,
+    pub occurred_at: time::OffsetDateTime,
+    pub actor_type: String,
+    pub actor_id: Option<String>,
+    pub action: String,
+    pub outcome: String,
+    pub target_type: Option<String>,
+    pub target_id: Option<String>,
+    pub request_id: Option<String>,
+    pub metadata: Value,
 }
 
 pub fn scoped_account_id(book_id: &str, key: &str) -> String {

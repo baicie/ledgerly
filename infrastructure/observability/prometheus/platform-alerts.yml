@@ -84,3 +84,12 @@ groups:
         annotations:
           summary: "Ledgerly object storage latency is high"
           description: "{{ $labels.backend }} {{ $labels.operation }} p95 latency exceeds two seconds."
+
+      - alert: LedgerlyAuditWriteFailures
+        expr: increase(audit_write_failures_total[10m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ledgerly security audit writes are failing"
+          description: "Audit events could not be persisted in the last ten minutes."

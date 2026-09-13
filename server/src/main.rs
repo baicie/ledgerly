@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
-use ledger_server::infrastructure::{backup_bundle, backup_runtime, object_store};
+use ledger_server::infrastructure::{audit, backup_bundle, backup_runtime, object_store};
 use ledger_server::{backup, migrate, restore, run_api, run_worker_only, Config};
 use tracing_subscriber::EnvFilter;
 
@@ -27,6 +27,18 @@ enum Commands {
     },
     BackupRun,
     BackupStatus,
+    AuditQuery {
+        #[arg(long)]
+        actor: Option<String>,
+        #[arg(long)]
+        action: Option<String>,
+        #[arg(long)]
+        outcome: Option<String>,
+        #[arg(long)]
+        before: Option<String>,
+        #[arg(long, default_value_t = 50)]
+        limit: usize,
+    },
     ObjectStore {
         #[command(subcommand)]
         command: ObjectStoreCommands,
@@ -193,6 +205,27 @@ async fn main() -> anyhow::Result<()> {
                 );
             }
         },
+        Commands::AuditQuery {
+            actor,
+            action,
+            outcome,
+            before,
+            limit,
+        } => {
+            let state = ledger_server::AppState::new_async(config).await?;
+            let page = audit::query(
+                &state,
+                audit::AuditQuery {
+                    actor_id: actor,
+                    action,
+                    outcome,
+                    before,
+                    limit,
+                },
+            )
+            .await?;
+            println!("{}", serde_json::to_string_pretty(&page)?);
+        }
         Commands::RestoreStatus => {
             let status = backup_runtime::restore_status(&config)?;
             println!(

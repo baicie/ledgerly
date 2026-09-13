@@ -186,6 +186,7 @@ names = {
 }
 required = {
     "LedgerlyBackupFailed",
+    "LedgerlyAuditWriteFailures",
     "LedgerlyContainerOom",
     "LedgerlyFilesystemSpaceLow",
     "LedgerlyObjectStoreOperationFailures",

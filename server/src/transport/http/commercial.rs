@@ -1,6 +1,6 @@
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     routing::post,
     Json, Router,
 };
@@ -9,6 +9,7 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::error::ApiError;
+use crate::infrastructure::audit::{self, AuditEvent, AuditOutcome};
 use crate::infrastructure::object_store;
 use crate::state::{AppState, BudgetRecord, InviteRecord};
 use crate::transport::http::authz::{require_book_member, require_plan, AuthUser};
@@ -46,6 +47,7 @@ struct CreateInviteRequest {
 async fn create_invite(
     State(state): State<AppState>,
     auth: AuthUser,
+    headers: HeaderMap,
     Path(book_id): Path<String>,
     Json(req): Json<CreateInviteRequest>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
@@ -78,6 +80,14 @@ async fn create_invite(
             token: token.clone(),
         });
     }
+    audit::record(
+        &state,
+        AuditEvent::user(&auth.user_id, "invite.create", AuditOutcome::Success)
+            .target("invite", &id)
+            .request_id(audit::request_id(&headers))
+            .metadata(serde_json::json!({ "bookId": book_id, "role": role })),
+    )
+    .await;
     Ok(Json(serde_json::json!({
         "inviteId": id,
         "token": token,
@@ -303,6 +313,7 @@ struct UploadSessionRequest {
 async fn create_upload_session(
     State(state): State<AppState>,
     auth: AuthUser,
+    headers: HeaderMap,
     Path(book_id): Path<String>,
     Json(req): Json<UploadSessionRequest>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
@@ -330,6 +341,18 @@ async fn create_upload_session(
     }
     let upload_url = object_store::sign_url(&state.config, "PUT", &object_key, 600);
     let download_url = object_store::sign_url(&state.config, "GET", &object_key, 3600);
+    audit::record(
+        &state,
+        AuditEvent::user(
+            &auth.user_id,
+            "attachment.upload_session",
+            AuditOutcome::Success,
+        )
+        .target("attachment", &attachment_id)
+        .request_id(audit::request_id(&headers))
+        .metadata(serde_json::json!({ "bookId": book_id })),
+    )
+    .await;
     Ok(Json(serde_json::json!({
         "attachmentId": attachment_id,
         "objectKey": object_key,
@@ -342,6 +365,7 @@ async fn create_upload_session(
 async fn complete_attachment(
     State(state): State<AppState>,
     auth: AuthUser,
+    headers: HeaderMap,
     Path((book_id, attachment_id)): Path<(String, String)>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     require_book_member(&state, &auth.user_id, &book_id).await?;
@@ -372,6 +396,14 @@ async fn complete_attachment(
             )
         })?
     {
+        audit::record(
+            &state,
+            AuditEvent::user(&auth.user_id, "attachment.complete", AuditOutcome::Failure)
+                .target("attachment", &attachment_id)
+                .request_id(audit::request_id(&headers))
+                .metadata(serde_json::json!({ "bookId": book_id, "reason": "upload_incomplete" })),
+        )
+        .await;
         return Err(ApiError::new(
             StatusCode::BAD_REQUEST,
             "UPLOAD_INCOMPLETE",
@@ -409,6 +441,14 @@ async fn complete_attachment(
         .await;
     }
     let download_url = object_store::sign_url(&state.config, "GET", &object_key, 3600);
+    audit::record(
+        &state,
+        AuditEvent::user(&auth.user_id, "attachment.complete", AuditOutcome::Success)
+            .target("attachment", &attachment_id)
+            .request_id(audit::request_id(&headers))
+            .metadata(serde_json::json!({ "bookId": book_id })),
+    )
+    .await;
     Ok(Json(serde_json::json!({
         "attachmentId": attachment_id,
         "uploadStatus": "ready",

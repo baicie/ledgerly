@@ -3,7 +3,7 @@ use axum::{routing::get, Router};
 use crate::infrastructure::object_store;
 use crate::state::AppState;
 
-use super::{auth, billing, books, commercial, health, ledger, reports, sync};
+use super::{audit, auth, billing, books, commercial, health, ledger, reports, sync};
 
 pub fn app_router(state: AppState) -> Router {
     Router::new()
@@ -13,6 +13,7 @@ pub fn app_router(state: AppState) -> Router {
         .route("/health/backup", get(health::backup))
         .route("/metrics", get(metrics_handler))
         .merge(auth::routes())
+        .merge(audit::routes())
         .merge(books::routes())
         .merge(ledger::routes())
         .merge(sync::routes())

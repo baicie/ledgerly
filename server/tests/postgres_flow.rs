@@ -2,6 +2,7 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use axum::Router;
 use http_body_util::BodyExt;
+use ledger_server::infrastructure::audit::{self, AuditEvent, AuditOutcome};
 use ledger_server::{app_router, migrate, AppState, Config};
 use serde_json::json;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -61,6 +62,38 @@ async fn postgres_migrate_applies_auth_session_indexes() {
     assert!(indexes
         .iter()
         .any(|name| name == "idx_device_sessions_active_created_at"));
+}
+
+#[tokio::test]
+async fn postgres_audit_events_persist() {
+    let Some(url) = pg_url() else {
+        if std::env::var("REQUIRE_POSTGRES_TESTS").ok().as_deref() == Some("true") {
+            panic!("DATABASE_URL is required for PostgreSQL integration tests");
+        }
+        eprintln!("skip postgres_audit_events_persist: DATABASE_URL unset");
+        return;
+    };
+
+    let mut config = Config::for_test();
+    config.database_url = Some(url);
+    migrate(&config).await.expect("migrate");
+    let state = AppState::new_async(config).await.expect("state");
+    audit::record(
+        &state,
+        AuditEvent::system("backup.run", AuditOutcome::Success)
+            .target("run", "audit-postgres-test"),
+    )
+    .await;
+
+    let pool = state.pool.as_ref().expect("postgres pool");
+    let count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM audit_events
+         WHERE action='backup.run' AND target_id='audit-postgres-test'",
+    )
+    .fetch_one(pool)
+    .await
+    .expect("query audit event");
+    assert_eq!(count, 1);
 }
 
 #[tokio::test]

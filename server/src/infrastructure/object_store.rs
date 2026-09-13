@@ -366,8 +366,16 @@ pub fn sign_url(config: &Config, method: &str, object_key: &str, ttl_secs: u64) 
 }
 
 fn sign(config: &Config, method: &str, object_key: &str, expires: u64) -> String {
-    let mut mac =
-        HmacSha256::new_from_slice(config.object_store_hmac_secret.as_bytes()).expect("hmac key");
+    sign_with_secret(
+        &config.object_store_hmac_secret,
+        method,
+        object_key,
+        expires,
+    )
+}
+
+fn sign_with_secret(secret: &str, method: &str, object_key: &str, expires: u64) -> String {
+    let mut mac = HmacSha256::new_from_slice(secret.as_bytes()).expect("hmac key");
     mac.update(method.as_bytes());
     mac.update(b"\n");
     mac.update(object_key.as_bytes());
@@ -380,8 +388,19 @@ fn verify(config: &Config, method: &str, object_key: &str, expires: u64, sig: &s
     if expires < now_secs() {
         return false;
     }
-    let expected = sign(config, method, object_key, expires);
-    expected.as_bytes().ct_eq(sig.as_bytes()).into()
+    let verify_secret = |secret: &str| {
+        sign_with_secret(secret, method, object_key, expires)
+            .as_bytes()
+            .ct_eq(sig.as_bytes())
+            .into()
+    };
+    if verify_secret(&config.object_store_hmac_secret) {
+        return true;
+    }
+    config
+        .object_store_hmac_previous_secret
+        .as_deref()
+        .is_some_and(verify_secret)
 }
 
 fn now_secs() -> u64 {
@@ -1034,4 +1053,50 @@ fn object_store_api_err(_: anyhow::Error) -> ApiError {
         "OBJECT_STORE_IO",
         "object store unavailable",
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{sign, verify};
+    use crate::config::Config;
+
+    #[test]
+    fn previous_hmac_secret_keeps_existing_signed_urls_valid() {
+        let mut previous = Config::for_test();
+        previous.object_store_hmac_secret = "previous-signing-secret".into();
+        let expires = super::now_secs() + 60;
+        let signature = sign(&previous, "GET", "books/book/attachment", expires);
+
+        let mut current = Config::for_test();
+        current.object_store_hmac_secret = "current-signing-secret".into();
+        current.object_store_hmac_previous_secret = Some("previous-signing-secret".into());
+
+        assert!(verify(
+            &current,
+            "GET",
+            "books/book/attachment",
+            expires,
+            &signature
+        ));
+    }
+
+    #[test]
+    fn previous_hmac_secret_does_not_authorize_unrelated_signature() {
+        let mut attacker = Config::for_test();
+        attacker.object_store_hmac_secret = "attacker-secret".into();
+        let expires = super::now_secs() + 60;
+        let signature = sign(&attacker, "GET", "books/book/attachment", expires);
+
+        let mut current = Config::for_test();
+        current.object_store_hmac_secret = "current-signing-secret".into();
+        current.object_store_hmac_previous_secret = Some("previous-signing-secret".into());
+
+        assert!(!verify(
+            &current,
+            "GET",
+            "books/book/attachment",
+            expires,
+            &signature
+        ));
+    }
 }

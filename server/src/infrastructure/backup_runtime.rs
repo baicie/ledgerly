@@ -10,6 +10,7 @@ use uuid::Uuid;
 
 use crate::config::{Config, ObjectStoreBackend};
 
+use super::audit::{self, AuditEvent, AuditOutcome};
 use super::backup_bundle::{
     backup_bundle_storage_stats, cleanup_backup_bundles, create_backup_bundle,
     find_latest_backup_bundle, replicate_backup_bundle, unpack_backup_bundle, verify_backup_bundle,
@@ -153,6 +154,7 @@ pub async fn run_backup(config: &Config) -> anyhow::Result<BackupRunReport> {
         Ok(_) => "success",
         Err(_) => "failure",
     });
+    record_runtime_audit(config, "backup.run", result.is_ok(), Some(&run_id)).await;
     let status_result = BackupStatusStore::new(backup_dir).write(&status);
     match (result, status_result) {
         (Ok(report), Ok(())) => Ok(report),
@@ -392,7 +394,6 @@ pub async fn run_recovery_drill(config: Config) -> anyhow::Result<RecoveryDrillR
     let unpacked = work_dir.join("unpacked");
     let drill_objects = work_dir.join("objects");
     let offsite_root = config.backup_offsite_dir.clone();
-    let password = config.backup_password.clone();
     let database_url = config
         .recovery_drill_database_url
         .clone()
@@ -408,6 +409,7 @@ pub async fn run_recovery_drill(config: Config) -> anyhow::Result<RecoveryDrillR
         bundle_created_at = bundle.created_at.clone();
         let bundle_created = bundle.created_at;
         let bundle_file_count = bundle.file_count;
+        let password = resolve_backup_password(&config, &bundle_path, None)?;
         let verification = verify_backup_bundle(&bundle_path, password.as_deref())?;
         if !verification.plaintext_verified {
             bail!("backup password is required for recovery drill");
@@ -483,7 +485,7 @@ pub async fn run_recovery_drill(config: Config) -> anyhow::Result<RecoveryDrillR
             started_at: rfc3339(started_at)?,
             completed_at: rfc3339(completed_at)?,
             duration_ms,
-            bundle_created_at,
+            bundle_created_at: bundle_created_at.clone(),
             file_count: 0,
             object_count: 0,
             book_count: 0,
@@ -495,6 +497,13 @@ pub async fn run_recovery_drill(config: Config) -> anyhow::Result<RecoveryDrillR
         Ok(_) => "success",
         Err(_) => "failure",
     });
+    record_runtime_audit(
+        &config,
+        "recovery_drill.run",
+        result.is_ok(),
+        Some(&bundle_created_at),
+    )
+    .await;
     let status_result = RecoveryDrillStatusStore::new(&backup_dir).write(&status);
     match (result, status_result) {
         (Ok(report), Ok(())) => Ok(report),
@@ -570,6 +579,8 @@ pub async fn restore_backup_bundle(
         .backup_dir
         .as_deref()
         .context("BACKUP_DIR is required for bundle restore")?;
+    let resolved_password = resolve_backup_password(config, bundle_dir, password)?;
+    let password = resolved_password.as_deref();
     let started_at = OffsetDateTime::now_utc();
     let started = Instant::now();
     let work_dir = backup_dir
@@ -639,6 +650,11 @@ pub async fn restore_backup_bundle(
         Ok(_) => "success",
         Err(_) => "failure",
     });
+    let audit_target = result
+        .as_ref()
+        .ok()
+        .map(|report| report.safety_backup_run_id.as_str());
+    record_runtime_audit(config, "backup.restore", result.is_ok(), audit_target).await;
     let status_result = RestoreStatusStore::new(backup_dir).write(&status);
     match (result, status_result) {
         (Ok(report), Ok(())) => Ok(report),
@@ -790,4 +806,130 @@ fn truncate_error(error: &str) -> String {
         summary.push_str("...");
     }
     summary
+}
+
+fn resolve_backup_password(
+    config: &Config,
+    bundle_dir: &Path,
+    override_password: Option<&str>,
+) -> anyhow::Result<Option<String>> {
+    if verify_backup_bundle(bundle_dir, None)
+        .map(|verification| verification.plaintext_verified)
+        .unwrap_or(false)
+    {
+        return Ok(None);
+    }
+
+    let mut candidates = Vec::new();
+    for candidate in [
+        override_password,
+        config.backup_password.as_deref(),
+        config.backup_password_previous.as_deref(),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        if !candidates.contains(&candidate) {
+            candidates.push(candidate);
+        }
+    }
+    for candidate in candidates {
+        if verify_backup_bundle(bundle_dir, Some(candidate))
+            .map(|verification| verification.plaintext_verified)
+            .unwrap_or(false)
+        {
+            return Ok(Some(candidate.to_string()));
+        }
+    }
+    bail!("backup password is required or no configured password matches")
+}
+
+async fn record_runtime_audit(
+    config: &Config,
+    action: &'static str,
+    success: bool,
+    target_id: Option<&str>,
+) {
+    let Ok(Some(pool)) = postgres::connect(config).await else {
+        crate::metrics::record_audit_write_failure();
+        return;
+    };
+    let mut event = AuditEvent::system(
+        action,
+        if success {
+            AuditOutcome::Success
+        } else {
+            AuditOutcome::Failure
+        },
+    );
+    if let Some(target_id) = target_id {
+        event = event.target("run", target_id);
+    }
+    audit::record_on_pool(&pool, event).await;
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use std::path::{Path, PathBuf};
+
+    use uuid::Uuid;
+
+    use super::resolve_backup_password;
+    use crate::config::Config;
+    use crate::infrastructure::backup_bundle::create_backup_bundle;
+    use crate::infrastructure::object_store::backup_object_store;
+
+    struct TestDirectory {
+        path: PathBuf,
+    }
+
+    impl TestDirectory {
+        fn new(prefix: &str) -> Self {
+            let path = std::env::temp_dir().join(format!("ledgerly-{prefix}-{}", Uuid::now_v7()));
+            fs::create_dir_all(&path).unwrap();
+            Self { path }
+        }
+
+        fn path(&self) -> &Path {
+            &self.path
+        }
+    }
+
+    impl Drop for TestDirectory {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.path);
+        }
+    }
+
+    #[test]
+    fn previous_backup_password_is_used_during_rotation() {
+        let source = TestDirectory::new("backup-password-rotation");
+        let objects = TestDirectory::new("backup-password-objects");
+        let object_backup = TestDirectory::new("backup-password-object-backup");
+        let bundle = TestDirectory::new("backup-password-bundle");
+        let database_dump = source.path().join("database.dump");
+        fs::write(&database_dump, b"database dump").unwrap();
+
+        let mut config = Config::for_test();
+        config.object_store_dir = objects.path().to_path_buf();
+        fs::remove_dir(object_backup.path()).unwrap();
+        let bundle_path = bundle.path().join("bundle");
+        backup_object_store(&config, object_backup.path()).unwrap();
+        create_backup_bundle(
+            &database_dump,
+            object_backup.path(),
+            &bundle_path,
+            Some("previous-password"),
+        )
+        .unwrap();
+
+        config.backup_password = Some("current-password".into());
+        config.backup_password_previous = Some("previous-password".into());
+        let resolved = resolve_backup_password(&config, &bundle_path, None)
+            .expect("resolve previous password")
+            .expect("encrypted bundle password");
+
+        assert_eq!(resolved, "previous-password");
+    }
 }

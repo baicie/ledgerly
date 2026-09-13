@@ -1,3 +1,4 @@
+pub mod audit;
 pub mod backup_bundle;
 pub mod backup_runtime;
 pub mod backup_status;

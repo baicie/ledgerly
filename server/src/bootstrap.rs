@@ -50,6 +50,7 @@ pub async fn run_api(config: Config, with_worker: bool) -> anyhow::Result<()> {
         postgres::migrate(pool).await?;
         crate::obs::app_event("boot", "ok", "postgres connected and migrated");
         let _ = jobs::enqueue(pool, "purge_expired_sessions", serde_json::json!({}), 0).await;
+        let _ = jobs::enqueue_if_absent(pool, "purge_audit_events", serde_json::json!({})).await;
         let _ = jobs::enqueue(pool, "enqueue_recurring_scan", serde_json::json!({}), 0).await;
         if config.backup_dir.is_some() {
             let _ = jobs::enqueue_if_absent(pool, "backup_bundle", serde_json::json!({})).await;
@@ -114,7 +115,7 @@ pub async fn run_api(config: Config, with_worker: bool) -> anyhow::Result<()> {
 /// ID. We deliberately run this before `TraceLayer` so HTTP-level spans
 /// nest inside the request span rather than racing with it.
 async fn request_id_middleware(
-    req: axum::extract::Request,
+    mut req: axum::extract::Request,
     next: axum::middleware::Next,
 ) -> axum::response::Response {
     // Inbound `x-request-id` is treated as opaque user input:
@@ -134,6 +135,9 @@ async fn request_id_middleware(
         })
         .map(|s| s.to_string());
     let request_id = header_id.unwrap_or_else(|| format!("req_{}", Uuid::now_v7()));
+    if let Ok(value) = axum::http::HeaderValue::from_str(&request_id) {
+        req.headers_mut().insert("x-request-id", value);
+    }
     let method = req.method().as_str().to_string();
     let path = req.uri().path().to_string();
     let span = crate::obs::http_request_span(&request_id, &method, &path);
@@ -169,6 +173,7 @@ pub async fn run_worker_only(config: Config) -> anyhow::Result<()> {
         anyhow::bail!("DATABASE_URL required for worker mode");
     };
     postgres::migrate(&pool).await?;
+    let _ = jobs::enqueue_if_absent(&pool, "purge_audit_events", serde_json::json!({})).await;
     if config.backup_dir.is_some() {
         let _ = jobs::enqueue_if_absent(&pool, "backup_bundle", serde_json::json!({})).await;
     }

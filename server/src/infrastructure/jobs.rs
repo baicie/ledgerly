@@ -95,6 +95,23 @@ async fn execute_job(pool: &PgPool, config: &Config, job: &JobRow) -> anyhow::Re
             .execute(pool)
             .await?;
         }
+        "purge_audit_events" => {
+            let retention_days = config.audit_retention_days.max(1);
+            sqlx::query(&format!(
+                "DELETE FROM audit_events
+                 WHERE occurred_at < now() - interval '{retention_days} days'"
+            ))
+            .execute(pool)
+            .await?;
+            let _ = enqueue_at(
+                pool,
+                "purge_audit_events",
+                serde_json::json!({}),
+                0,
+                "now() + interval '24 hours'",
+            )
+            .await;
+        }
         "compact_sync_log" => {
             sqlx::query(
                 "DELETE FROM sync_changes
