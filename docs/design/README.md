@@ -36,5 +36,6 @@
 | [phase-20-backup-catalog-actions.md](./phase-20-backup-catalog-actions.md) | 备份目录逐项操作 |
 | [phase-21-password-rotation.md](./phase-21-password-rotation.md) | 加密备份密码轮换 |
 | [phase-22-encrypted-auto-backup.md](./phase-22-encrypted-auto-backup.md) | 加密自动备份 |
+| [phase-23-restore-audit.md](./phase-23-restore-audit.md) | 恢复审计与安全备份历史 |
 
 状态：文档在对应阶段分支创建并完善；基线阶段仅保留本索引。

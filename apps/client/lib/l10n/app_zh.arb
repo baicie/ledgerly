@@ -1239,6 +1239,67 @@
   },
   "dataGovernanceRestoreMergeNoChanges": "没有可合并的新账本，已有账本保持不变。",
   "dataGovernanceRestoreSuccess": "恢复完成，正在刷新…",
+  "dataGovernanceRestoreHistory": "恢复历史 · {count} 次",
+  "@dataGovernanceRestoreHistory": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceRestoreAuditSuccess": "成功",
+  "dataGovernanceRestoreAuditFailed": "失败",
+  "dataGovernanceRestoreAuditBackup": "来源备份：{backupId}",
+  "@dataGovernanceRestoreAuditBackup": {
+    "placeholders": {
+      "backupId": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreAuditSafety": "安全备份：{path}",
+  "@dataGovernanceRestoreAuditSafety": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreAuditError": "错误：{error}",
+  "@dataGovernanceRestoreAuditError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreAuditDelete": "删除记录和安全备份",
+  "dataGovernanceRestoreAuditDeleteConfirmTitle": "删除恢复记录？",
+  "dataGovernanceRestoreAuditDeleteConfirmBody": "将同时删除关联安全备份：{path}",
+  "@dataGovernanceRestoreAuditDeleteConfirmBody": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreAuditDeleteHistoryOnly": "这条记录没有关联安全备份，只删除恢复历史。",
+  "dataGovernanceRestoreAuditDeleteSuccess": "已删除恢复记录，释放 {size}。",
+  "@dataGovernanceRestoreAuditDeleteSuccess": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreAuditDeleteFailed": "删除恢复记录失败：{error}",
+  "@dataGovernanceRestoreAuditDeleteFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "dataGovernanceWipe": "清空本机数据",
   "dataGovernanceWipeSubtitle": "删除全部流水、预算、规则和附件，无法撤销。",
   "dataGovernanceWipeAction": "全部清空",

@@ -15,6 +15,7 @@ import '../domain/ids.dart' as local_ids;
 import 'backup_encryption.dart';
 import 'backup_catalog_store.dart';
 import 'backup_metadata_store.dart';
+import 'backup_restore_audit.dart';
 import 'merchant_classifier.dart';
 import 'merchant_rule_store.dart';
 
@@ -499,6 +500,7 @@ class BackupService {
     BackupMetadataStore? metadata,
     BackupEncryption? encryption,
     BackupCatalogStore? catalog,
+    BackupRestoreAuditStore? audits,
   })  : _db = database,
         _recurring = recurring,
         _budgets = budgets,
@@ -508,7 +510,8 @@ class BackupService {
         _deviceIdLoader = deviceIdLoader,
         _metadata = metadata ?? BackupMetadataStore(),
         _encryption = encryption ?? BackupEncryption(),
-        _catalog = catalog ?? BackupCatalogStore();
+        _catalog = catalog ?? BackupCatalogStore(),
+        _audits = audits ?? BackupRestoreAuditStore();
 
   final AppDatabase _db;
   final LocalRecurringRepository _recurring;
@@ -520,6 +523,7 @@ class BackupService {
   final BackupMetadataStore _metadata;
   final BackupEncryption _encryption;
   final BackupCatalogStore _catalog;
+  final BackupRestoreAuditStore _audits;
 
   /// Read every entity into a memory [BackupDocument]. The document holds
   /// raw row payloads — file I/O is delegated to [BackupFilePort].
@@ -1212,9 +1216,15 @@ class BackupService {
   }) async {
     final artifacts = await _catalog.read();
     final metadata = await _metadata.read();
+    final audits = await _audits.read();
+    final latestAuditSafetyPath = audits
+        .where((audit) => audit.safetyPath != null)
+        .map((audit) => audit.safetyPath!)
+        .firstOrNull;
     final protectedPaths = <String>{
       if (metadata.lastBackupPath != null) metadata.lastBackupPath!,
       if (metadata.baseBackupPath != null) metadata.baseBackupPath!,
+      if (latestAuditSafetyPath != null) latestAuditSafetyPath,
     };
 
     int firstAutomaticToKeep = keepAutomatic < 0 ? 0 : keepAutomatic;
@@ -1440,10 +1450,15 @@ class BackupService {
   /// another incremental artifact still depends on it.
   Future<int> deleteCatalogArtifact(BackupArtifact artifact) async {
     final metadata = await _metadata.read();
+    final auditSafetyPaths = {
+      for (final audit in await _audits.read())
+        if (audit.safetyPath != null) audit.safetyPath!,
+    };
     if (artifact.path == metadata.lastBackupPath ||
-        artifact.path == metadata.baseBackupPath) {
+        artifact.path == metadata.baseBackupPath ||
+        auditSafetyPaths.contains(artifact.path)) {
       throw const BackupArtifactProtectedException(
-        '当前基础或最近备份不能单独删除。',
+        '当前基础、最近备份或恢复审计关联的安全备份不能单独删除。',
       );
     }
     final artifacts = await _catalog.read();
@@ -1481,6 +1496,26 @@ class BackupService {
     final freedBytes = await _files.fileSize(artifact.path);
     await _files.deleteBackup(artifact.path);
     await _catalog.removeByPath(artifact.path);
+    return freedBytes;
+  }
+
+  /// Delete an audited safety backup and remove its history entry.
+  Future<int> deleteRestoreAudit(BackupRestoreAudit audit) async {
+    final safetyPath = audit.safetyPath;
+    var freedBytes = 0;
+    if (safetyPath != null) {
+      final metadata = await _metadata.read();
+      if (safetyPath == metadata.lastBackupPath ||
+          safetyPath == metadata.baseBackupPath) {
+        throw const BackupArtifactProtectedException(
+          '当前基础或最近备份不能通过恢复历史删除。',
+        );
+      }
+      freedBytes = await _files.fileSize(safetyPath);
+      await _files.deleteBackup(safetyPath);
+      await _catalog.removeByPath(safetyPath);
+    }
+    await _audits.remove(audit.id);
     return freedBytes;
   }
 
