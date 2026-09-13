@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../application/auto_backup.dart';
+import '../application/backup_auto_password_store.dart';
 import '../application/backup_catalog_store.dart';
 import '../application/backup_metadata_store.dart';
 import '../application/backup_schedule.dart';
@@ -245,6 +246,10 @@ final backupScheduleStoreProvider = Provider<BackupScheduleStore>((ref) {
   return BackupScheduleStore();
 });
 
+final backupAutoPasswordStoreProvider = Provider<BackupAutoPasswordStore>(
+  (ref) => PlatformBackupAutoPasswordStore(),
+);
+
 final backupScheduleProvider = FutureProvider<BackupSchedule>((ref) async {
   return ref.watch(backupScheduleStoreProvider).read();
 });
@@ -254,6 +259,7 @@ final autoBackupCoordinatorProvider = Provider<AutoBackupCoordinator>((ref) {
     schedule: ref.watch(backupScheduleStoreProvider),
     metadata: ref.watch(backupMetadataStoreProvider),
     backups: ref.watch(backupServiceProvider),
+    passwords: ref.watch(backupAutoPasswordStoreProvider),
   );
 });
 

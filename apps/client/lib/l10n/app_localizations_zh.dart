@@ -2533,6 +2533,42 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dataGovernanceAutoBackupWarning => '自动备份不加密。敏感账本请继续使用密码导出。';
 
   @override
+  String get dataGovernanceAutoEncrypt => '加密自动备份';
+
+  @override
+  String get dataGovernanceAutoEncryptEnabled => '密码保存在系统安全存储中；每次生成独立加密全量';
+
+  @override
+  String get dataGovernanceAutoEncryptDisabled => '关闭时自动备份继续使用明文增量';
+
+  @override
+  String get dataGovernanceAutoEncryptWarning => '密码保存在系统安全存储中；忘记密码将无法恢复自动备份。';
+
+  @override
+  String get dataGovernanceAutoEncryptPasswordTitle => '设置自动备份密码';
+
+  @override
+  String get dataGovernanceAutoEncryptPasswordBody =>
+      '密码将保存在系统安全存储中，仅用于自动备份加密。';
+
+  @override
+  String get dataGovernanceAutoEncryptPasswordLabel => '自动备份密码';
+
+  @override
+  String get dataGovernanceAutoEncryptPasswordConfirm => '确认自动备份密码';
+
+  @override
+  String get dataGovernanceAutoEncryptNeedsPassword => '加密自动备份缺少密码，本次未生成备份。';
+
+  @override
+  String get dataGovernanceAutoEncryptUnavailable => '系统安全存储不可用，本次未生成备份。';
+
+  @override
+  String dataGovernanceAutoEncryptFailed(String error) {
+    return '保存自动备份密码失败：$error';
+  }
+
+  @override
   String dataGovernanceAutoIntervalDays(int n) {
     return '$n 天';
   }

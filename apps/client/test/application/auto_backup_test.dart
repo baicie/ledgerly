@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:ledgerly_client/application/auto_backup.dart';
+import 'package:ledgerly_client/application/backup_auto_password_store.dart';
 import 'package:ledgerly_client/application/backup_metadata_store.dart';
 import 'package:ledgerly_client/application/backup_schedule.dart';
 import 'package:ledgerly_client/application/backup_service.dart';
@@ -52,16 +53,22 @@ void main() {
       final schedule = await store.read();
       expect(schedule.enabled, isFalse);
       expect(schedule.intervalDays, kBackupAutoDefaultIntervalDays);
+      expect(schedule.encrypted, isFalse);
     });
 
     test('persists the switch and interval', () async {
       final store = BackupScheduleStore();
       await store.save(
-        const BackupSchedule(enabled: true, intervalDays: 14),
+        const BackupSchedule(
+          enabled: true,
+          intervalDays: 14,
+          encrypted: true,
+        ),
       );
       final roundTrip = await store.read();
       expect(roundTrip.enabled, isTrue);
       expect(roundTrip.intervalDays, 14);
+      expect(roundTrip.encrypted, isTrue);
     });
 
     test('falls back when a persisted interval is not in the allow-list',
@@ -100,6 +107,7 @@ void main() {
     late BackupService backups;
     late BackupScheduleStore schedule;
     late BackupMetadataStore metadata;
+    late MemoryBackupAutoPasswordStore passwords;
     late AutoBackupCoordinator coordinator;
 
     setUp(() async {
@@ -112,6 +120,7 @@ void main() {
       await ledgerRepository.seedIfEmpty();
       filePort = InMemoryBackupFilePort();
       metadata = BackupMetadataStore();
+      passwords = MemoryBackupAutoPasswordStore();
       schedule = BackupScheduleStore();
       backups = BackupService(
         database: database,
@@ -130,6 +139,7 @@ void main() {
         schedule: schedule,
         metadata: metadata,
         backups: backups,
+        passwords: passwords,
       );
     });
 
@@ -206,6 +216,60 @@ void main() {
       expect((await metadata.read()).lastBackupIncremental, isTrue);
     });
 
+    test('encrypted mode skips when no password is stored', () async {
+      await schedule.save(
+        const BackupSchedule(enabled: true, encrypted: true),
+      );
+
+      final result = await coordinator.tick();
+
+      expect(result.ran, isFalse);
+      expect(
+        result.skipReason,
+        AutoBackupSkipReason.encryptedPasswordMissing,
+      );
+      expect(filePort.envelopes, isEmpty);
+    });
+
+    test('encrypted mode writes a standalone encrypted full backup', () async {
+      await passwords.write('password123');
+      await schedule.save(
+        const BackupSchedule(enabled: true, encrypted: true),
+      );
+
+      final result = await coordinator.tick();
+
+      expect(result.ran, isTrue);
+      expect(filePort.envelopes.values.single.encrypted, isNotNull);
+      expect(filePort.envelopes.values.single.isIncremental, isFalse);
+      final stored = await metadata.read();
+      expect(stored.lastBackupEncrypted, isTrue);
+      expect(stored.lastBackupIncremental, isFalse);
+      expect(stored.baseBackupId, isNull);
+    });
+
+    test('encrypted mode skips when secure storage is unavailable', () async {
+      final unavailable = _ThrowingPasswordStore();
+      final unavailableCoordinator = AutoBackupCoordinator(
+        schedule: schedule,
+        metadata: metadata,
+        backups: backups,
+        passwords: unavailable,
+      );
+      await schedule.save(
+        const BackupSchedule(enabled: true, encrypted: true),
+      );
+
+      final result = await unavailableCoordinator.tick();
+
+      expect(result.ran, isFalse);
+      expect(
+        result.skipReason,
+        AutoBackupSkipReason.encryptedPasswordUnavailable,
+      );
+      expect(filePort.envelopes, isEmpty);
+    });
+
     test('swallows export failures instead of throwing', () async {
       final failing = BackupService(
         database: database,
@@ -224,6 +288,7 @@ void main() {
         schedule: schedule,
         metadata: metadata,
         backups: failing,
+        passwords: passwords,
       );
       await schedule.save(const BackupSchedule(enabled: true));
 
@@ -253,6 +318,7 @@ void main() {
         schedule: schedule,
         metadata: metadata,
         backups: gatedBackups,
+        passwords: passwords,
       );
       await schedule.save(const BackupSchedule(enabled: true));
 
@@ -290,4 +356,17 @@ class _GatedBackupFilePort extends InMemoryBackupFilePort {
     await _gate.future;
     return super.writeBackup(document, deviceId: deviceId);
   }
+}
+
+class _ThrowingPasswordStore implements BackupAutoPasswordStore {
+  @override
+  Future<void> clear() async {}
+
+  @override
+  Future<String?> read() {
+    throw StateError('secure storage unavailable');
+  }
+
+  @override
+  Future<void> write(String password) async {}
 }

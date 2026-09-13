@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../application/auto_backup.dart';
 import '../../application/backup_encryption.dart';
 import '../../application/backup_catalog_store.dart';
 import '../../application/backup_metadata_store.dart';
@@ -108,10 +109,58 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
     if (next.enabled) await _runAutoBackupTick();
   }
 
+  Future<void> _setAutoBackupEncrypted(bool encrypted) async {
+    final l10n = l10nOf(context);
+    final passwordStore = ref.read(backupAutoPasswordStoreProvider);
+    if (encrypted) {
+      final password = await showDialogDialog<String>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => _BackupPasswordSetupDialog(
+          l10n: l10n,
+          title: l10n.dataGovernanceAutoEncryptPasswordTitle,
+          body: l10n.dataGovernanceAutoEncryptPasswordBody,
+          passwordLabel: l10n.dataGovernanceAutoEncryptPasswordLabel,
+          confirmLabel: l10n.dataGovernanceAutoEncryptPasswordConfirm,
+          dialogKey: const Key('data-governance-auto-encrypt-password-dialog'),
+          passwordKey: const Key('data-governance-auto-encrypt-password'),
+          confirmKey:
+              const Key('data-governance-auto-encrypt-password-confirm'),
+          submitKey: const Key('data-governance-auto-encrypt-password-submit'),
+          allowEmpty: false,
+        ),
+      );
+      if (!mounted || password == null || password.isEmpty) return;
+      try {
+        await passwordStore.write(password);
+      } catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.dataGovernanceAutoEncryptFailed('$error')),
+          ),
+        );
+        return;
+      }
+    }
+
+    final store = ref.read(backupScheduleStoreProvider);
+    final current = await store.read();
+    final next = current.copyWith(encrypted: encrypted);
+    await store.save(next);
+    if (!encrypted) {
+      await passwordStore.clear();
+    }
+    if (!mounted) return;
+    ref.invalidate(backupScheduleProvider);
+    if (encrypted && next.enabled) await _runAutoBackupTick();
+  }
+
   /// User-initiated check from the data-governance page. Silent launch
   /// ticks live in [autoBackupTickProvider]; this path also refreshes
   /// the shareable last-path so the status card and share button update.
   Future<void> _runAutoBackupTick() async {
+    final l10n = l10nOf(context);
     _setBusy(true);
     try {
       final result = await ref.read(autoBackupCoordinatorProvider).tick();
@@ -122,6 +171,16 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
       });
       if (result.ran) ref.invalidate(backupMetadataProvider);
       if (result.ran) ref.invalidate(backupCatalogProvider);
+      if (result.skipReason == AutoBackupSkipReason.encryptedPasswordMissing) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.dataGovernanceAutoEncryptNeedsPassword)),
+        );
+      } else if (result.skipReason ==
+          AutoBackupSkipReason.encryptedPasswordUnavailable) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.dataGovernanceAutoEncryptUnavailable)),
+        );
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() => _busy = false);
@@ -257,7 +316,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
     final l10n = l10nOf(context);
     final password = await showDialogDialog<String>(
       context: context,
-      builder: (dialogContext) => _PortableBackupPasswordDialog(l10n: l10n),
+      builder: (dialogContext) => _BackupPasswordSetupDialog(l10n: l10n),
     );
     if (!mounted || password == null) return;
 
@@ -826,12 +885,17 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
                   passwordConfirmController: _passwordConfirmController,
                   autoBackupEnabled: schedule.enabled,
                   autoBackupIntervalDays: schedule.intervalDays,
+                  autoBackupEncrypted: schedule.encrypted,
                   onAutoBackupChanged: _busy
                       ? null
                       : (enabled) => unawaited(_setAutoBackupEnabled(enabled)),
                   onAutoBackupIntervalChanged: _busy
                       ? null
                       : (days) => unawaited(_setAutoBackupInterval(days)),
+                  onAutoBackupEncryptedChanged: _busy
+                      ? null
+                      : (encrypted) =>
+                          unawaited(_setAutoBackupEncrypted(encrypted)),
                   onEncryptChanged: _busy
                       ? null
                       : (value) {
@@ -937,8 +1001,10 @@ class _BackupSection extends StatelessWidget {
     required this.passwordConfirmController,
     required this.autoBackupEnabled,
     required this.autoBackupIntervalDays,
+    required this.autoBackupEncrypted,
     required this.onAutoBackupChanged,
     required this.onAutoBackupIntervalChanged,
+    required this.onAutoBackupEncryptedChanged,
     required this.onEncryptChanged,
     required this.onIncrementalChanged,
     required this.onPasswordChanged,
@@ -981,8 +1047,10 @@ class _BackupSection extends StatelessWidget {
   final TextEditingController passwordConfirmController;
   final bool autoBackupEnabled;
   final int autoBackupIntervalDays;
+  final bool autoBackupEncrypted;
   final ValueChanged<bool>? onAutoBackupChanged;
   final ValueChanged<int>? onAutoBackupIntervalChanged;
+  final ValueChanged<bool>? onAutoBackupEncryptedChanged;
   final ValueChanged<bool>? onEncryptChanged;
   final ValueChanged<bool>? onIncrementalChanged;
   final ValueChanged<String> onPasswordChanged;
@@ -1120,6 +1188,17 @@ class _BackupSection extends StatelessWidget {
             title: Text(l10n.dataGovernanceAutoBackup),
             subtitle: Text(l10n.dataGovernanceAutoBackupSubtitle),
           ),
+          SwitchListTile(
+            key: const Key('data-governance-auto-encrypt-switch'),
+            value: autoBackupEncrypted,
+            onChanged: onAutoBackupEncryptedChanged,
+            title: Text(l10n.dataGovernanceAutoEncrypt),
+            subtitle: Text(
+              autoBackupEncrypted
+                  ? l10n.dataGovernanceAutoEncryptEnabled
+                  : l10n.dataGovernanceAutoEncryptDisabled,
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Wrap(
@@ -1141,7 +1220,9 @@ class _BackupSection extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: Text(
-              l10n.dataGovernanceAutoBackupWarning,
+              autoBackupEncrypted
+                  ? l10n.dataGovernanceAutoEncryptWarning
+                  : l10n.dataGovernanceAutoBackupWarning,
               key: const Key('data-governance-auto-backup-warning'),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
@@ -1914,18 +1995,38 @@ class _ArtifactDeleteConfirmDialog extends StatelessWidget {
   }
 }
 
-class _PortableBackupPasswordDialog extends StatefulWidget {
-  const _PortableBackupPasswordDialog({required this.l10n});
+class _BackupPasswordSetupDialog extends StatefulWidget {
+  const _BackupPasswordSetupDialog({
+    required this.l10n,
+    this.title,
+    this.body,
+    this.passwordLabel,
+    this.confirmLabel,
+    this.dialogKey = const Key('data-governance-portable-password-dialog'),
+    this.passwordKey = const Key('data-governance-portable-password'),
+    this.confirmKey = const Key('data-governance-portable-password-confirm'),
+    this.submitKey = const Key('data-governance-portable-password-submit'),
+    this.allowEmpty = true,
+  });
 
   final AppLocalizations l10n;
+  final String? title;
+  final String? body;
+  final String? passwordLabel;
+  final String? confirmLabel;
+  final Key dialogKey;
+  final Key passwordKey;
+  final Key confirmKey;
+  final Key submitKey;
+  final bool allowEmpty;
 
   @override
-  State<_PortableBackupPasswordDialog> createState() =>
-      _PortableBackupPasswordDialogState();
+  State<_BackupPasswordSetupDialog> createState() =>
+      _BackupPasswordSetupDialogState();
 }
 
-class _PortableBackupPasswordDialogState
-    extends State<_PortableBackupPasswordDialog> {
+class _BackupPasswordSetupDialogState
+    extends State<_BackupPasswordSetupDialog> {
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
 
@@ -1949,7 +2050,7 @@ class _PortableBackupPasswordDialogState
 
   bool get _canSubmit {
     final password = _passwordController.text;
-    if (password.isEmpty) return true;
+    if (password.isEmpty) return widget.allowEmpty;
     return !_passwordTooShort && password == _confirmController.text;
   }
 
@@ -1962,16 +2063,20 @@ class _PortableBackupPasswordDialogState
   Widget build(BuildContext context) {
     final l10n = widget.l10n;
     return AlertDialog(
-      key: const Key('data-governance-portable-password-dialog'),
-      title: Text(l10n.dataGovernanceConsolidatePasswordTitle),
+      key: widget.dialogKey,
+      title: Text(
+        widget.title ?? l10n.dataGovernanceConsolidatePasswordTitle,
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(l10n.dataGovernanceConsolidatePasswordBody),
+          Text(
+            widget.body ?? l10n.dataGovernanceConsolidatePasswordBody,
+          ),
           const SizedBox(height: 16),
           TextField(
-            key: const Key('data-governance-portable-password'),
+            key: widget.passwordKey,
             controller: _passwordController,
             autofocus: true,
             obscureText: true,
@@ -1981,7 +2086,8 @@ class _PortableBackupPasswordDialogState
             },
             onSubmitted: (_) => _submit(),
             decoration: InputDecoration(
-              labelText: l10n.dataGovernanceConsolidatePasswordLabel,
+              labelText: widget.passwordLabel ??
+                  l10n.dataGovernanceConsolidatePasswordLabel,
               border: const OutlineInputBorder(),
               errorText: _passwordTooShort
                   ? l10n.dataGovernancePasswordTooShort
@@ -1990,14 +2096,15 @@ class _PortableBackupPasswordDialogState
           ),
           const SizedBox(height: 12),
           TextField(
-            key: const Key('data-governance-portable-password-confirm'),
+            key: widget.confirmKey,
             controller: _confirmController,
             enabled: _passwordController.text.isNotEmpty,
             obscureText: true,
             onChanged: (_) => setState(() {}),
             onSubmitted: (_) => _submit(),
             decoration: InputDecoration(
-              labelText: l10n.dataGovernanceConsolidatePasswordConfirm,
+              labelText: widget.confirmLabel ??
+                  l10n.dataGovernanceConsolidatePasswordConfirm,
               border: const OutlineInputBorder(),
               errorText: _passwordMismatch
                   ? l10n.dataGovernancePasswordMismatch
@@ -2012,7 +2119,7 @@ class _PortableBackupPasswordDialogState
           child: Text(l10n.cancel),
         ),
         FilledButton(
-          key: const Key('data-governance-portable-password-submit'),
+          key: widget.submitKey,
           onPressed: _canSubmit ? _submit : null,
           child: Text(l10n.confirm),
         ),

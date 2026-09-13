@@ -4675,6 +4675,72 @@ abstract class AppLocalizations {
   /// **'自动备份不加密。敏感账本请继续使用密码导出。'**
   String get dataGovernanceAutoBackupWarning;
 
+  /// No description provided for @dataGovernanceAutoEncrypt.
+  ///
+  /// In zh, this message translates to:
+  /// **'加密自动备份'**
+  String get dataGovernanceAutoEncrypt;
+
+  /// No description provided for @dataGovernanceAutoEncryptEnabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码保存在系统安全存储中；每次生成独立加密全量'**
+  String get dataGovernanceAutoEncryptEnabled;
+
+  /// No description provided for @dataGovernanceAutoEncryptDisabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭时自动备份继续使用明文增量'**
+  String get dataGovernanceAutoEncryptDisabled;
+
+  /// No description provided for @dataGovernanceAutoEncryptWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码保存在系统安全存储中；忘记密码将无法恢复自动备份。'**
+  String get dataGovernanceAutoEncryptWarning;
+
+  /// No description provided for @dataGovernanceAutoEncryptPasswordTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置自动备份密码'**
+  String get dataGovernanceAutoEncryptPasswordTitle;
+
+  /// No description provided for @dataGovernanceAutoEncryptPasswordBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码将保存在系统安全存储中，仅用于自动备份加密。'**
+  String get dataGovernanceAutoEncryptPasswordBody;
+
+  /// No description provided for @dataGovernanceAutoEncryptPasswordLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动备份密码'**
+  String get dataGovernanceAutoEncryptPasswordLabel;
+
+  /// No description provided for @dataGovernanceAutoEncryptPasswordConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认自动备份密码'**
+  String get dataGovernanceAutoEncryptPasswordConfirm;
+
+  /// No description provided for @dataGovernanceAutoEncryptNeedsPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'加密自动备份缺少密码，本次未生成备份。'**
+  String get dataGovernanceAutoEncryptNeedsPassword;
+
+  /// No description provided for @dataGovernanceAutoEncryptUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统安全存储不可用，本次未生成备份。'**
+  String get dataGovernanceAutoEncryptUnavailable;
+
+  /// No description provided for @dataGovernanceAutoEncryptFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存自动备份密码失败：{error}'**
+  String dataGovernanceAutoEncryptFailed(String error);
+
   /// No description provided for @dataGovernanceAutoIntervalDays.
   ///
   /// In zh, this message translates to:
