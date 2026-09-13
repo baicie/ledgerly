@@ -2645,6 +2645,50 @@ class AppLocalizationsEn extends AppLocalizations {
       'Automatic backups are not encrypted. Use a password export for sensitive books.';
 
   @override
+  String get dataGovernanceAutoEncrypt => 'Encrypt automatic backups';
+
+  @override
+  String get dataGovernanceAutoEncryptEnabled =>
+      'Password stays in system secure storage; each run writes an independent encrypted full backup';
+
+  @override
+  String get dataGovernanceAutoEncryptDisabled =>
+      'When off, automatic backups continue as plaintext incrementals';
+
+  @override
+  String get dataGovernanceAutoEncryptWarning =>
+      'The password stays in system secure storage; losing it makes automatic backups unrecoverable.';
+
+  @override
+  String get dataGovernanceAutoEncryptPasswordTitle =>
+      'Set automatic backup password';
+
+  @override
+  String get dataGovernanceAutoEncryptPasswordBody =>
+      'The password is stored in system secure storage and used only for automatic backup encryption.';
+
+  @override
+  String get dataGovernanceAutoEncryptPasswordLabel =>
+      'Automatic backup password';
+
+  @override
+  String get dataGovernanceAutoEncryptPasswordConfirm =>
+      'Confirm automatic backup password';
+
+  @override
+  String get dataGovernanceAutoEncryptNeedsPassword =>
+      'The encrypted automatic backup password is missing, so no backup was written.';
+
+  @override
+  String get dataGovernanceAutoEncryptUnavailable =>
+      'System secure storage is unavailable, so no backup was written.';
+
+  @override
+  String dataGovernanceAutoEncryptFailed(String error) {
+    return 'Could not save the automatic backup password: $error';
+  }
+
+  @override
   String dataGovernanceAutoIntervalDays(int n) {
     return '$n days';
   }

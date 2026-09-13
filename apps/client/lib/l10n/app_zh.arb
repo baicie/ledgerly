@@ -1608,6 +1608,24 @@
   "dataGovernanceAutoBackup": "自动备份",
   "dataGovernanceAutoBackupSubtitle": "打开应用时检查；到期则写入本地快照",
   "dataGovernanceAutoBackupWarning": "自动备份不加密。敏感账本请继续使用密码导出。",
+  "dataGovernanceAutoEncrypt": "加密自动备份",
+  "dataGovernanceAutoEncryptEnabled": "密码保存在系统安全存储中；每次生成独立加密全量",
+  "dataGovernanceAutoEncryptDisabled": "关闭时自动备份继续使用明文增量",
+  "dataGovernanceAutoEncryptWarning": "密码保存在系统安全存储中；忘记密码将无法恢复自动备份。",
+  "dataGovernanceAutoEncryptPasswordTitle": "设置自动备份密码",
+  "dataGovernanceAutoEncryptPasswordBody": "密码将保存在系统安全存储中，仅用于自动备份加密。",
+  "dataGovernanceAutoEncryptPasswordLabel": "自动备份密码",
+  "dataGovernanceAutoEncryptPasswordConfirm": "确认自动备份密码",
+  "dataGovernanceAutoEncryptNeedsPassword": "加密自动备份缺少密码，本次未生成备份。",
+  "dataGovernanceAutoEncryptUnavailable": "系统安全存储不可用，本次未生成备份。",
+  "dataGovernanceAutoEncryptFailed": "保存自动备份密码失败：{error}",
+  "@dataGovernanceAutoEncryptFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "dataGovernanceAutoIntervalDays": "{n} 天",
   "@dataGovernanceAutoIntervalDays": {
     "placeholders": {

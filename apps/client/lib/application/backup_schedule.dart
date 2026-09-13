@@ -14,10 +14,12 @@ class BackupSchedule {
   const BackupSchedule({
     this.enabled = false,
     this.intervalDays = kBackupAutoDefaultIntervalDays,
+    this.encrypted = false,
   });
 
   final bool enabled;
   final int intervalDays;
+  final bool encrypted;
 
   static const BackupSchedule disabled = BackupSchedule();
 
@@ -31,10 +33,15 @@ class BackupSchedule {
     return age.inDays >= intervalDays;
   }
 
-  BackupSchedule copyWith({bool? enabled, int? intervalDays}) {
+  BackupSchedule copyWith({
+    bool? enabled,
+    int? intervalDays,
+    bool? encrypted,
+  }) {
     return BackupSchedule(
       enabled: enabled ?? this.enabled,
       intervalDays: intervalDays ?? this.intervalDays,
+      encrypted: encrypted ?? this.encrypted,
     );
   }
 }
@@ -52,6 +59,7 @@ class BackupScheduleStore {
 
   static const String kEnabled = 'ledgerly.backup.autoEnabled';
   static const String kIntervalDays = 'ledgerly.backup.autoIntervalDays';
+  static const String kEncrypted = 'ledgerly.backup.autoEncrypted';
 
   final Future<SharedPreferences> Function() _prefsLoader;
 
@@ -59,11 +67,13 @@ class BackupScheduleStore {
     final prefs = await _prefsLoader();
     final enabled = prefs.getBool(kEnabled) ?? false;
     final rawDays = prefs.getInt(kIntervalDays);
+    final encrypted = prefs.getBool(kEncrypted) ?? false;
     return BackupSchedule(
       enabled: enabled,
       intervalDays: normalizeBackupAutoIntervalDays(
         rawDays ?? kBackupAutoDefaultIntervalDays,
       ),
+      encrypted: encrypted,
     );
   }
 
@@ -74,5 +84,6 @@ class BackupScheduleStore {
       kIntervalDays,
       normalizeBackupAutoIntervalDays(schedule.intervalDays),
     );
+    await prefs.setBool(kEncrypted, schedule.encrypted);
   }
 }

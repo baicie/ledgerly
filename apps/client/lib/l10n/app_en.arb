@@ -1623,6 +1623,24 @@
   "dataGovernanceAutoBackup": "Automatic backup",
   "dataGovernanceAutoBackupSubtitle": "Checked when you open the app; writes a local snapshot when due",
   "dataGovernanceAutoBackupWarning": "Automatic backups are not encrypted. Use a password export for sensitive books.",
+  "dataGovernanceAutoEncrypt": "Encrypt automatic backups",
+  "dataGovernanceAutoEncryptEnabled": "Password stays in system secure storage; each run writes an independent encrypted full backup",
+  "dataGovernanceAutoEncryptDisabled": "When off, automatic backups continue as plaintext incrementals",
+  "dataGovernanceAutoEncryptWarning": "The password stays in system secure storage; losing it makes automatic backups unrecoverable.",
+  "dataGovernanceAutoEncryptPasswordTitle": "Set automatic backup password",
+  "dataGovernanceAutoEncryptPasswordBody": "The password is stored in system secure storage and used only for automatic backup encryption.",
+  "dataGovernanceAutoEncryptPasswordLabel": "Automatic backup password",
+  "dataGovernanceAutoEncryptPasswordConfirm": "Confirm automatic backup password",
+  "dataGovernanceAutoEncryptNeedsPassword": "The encrypted automatic backup password is missing, so no backup was written.",
+  "dataGovernanceAutoEncryptUnavailable": "System secure storage is unavailable, so no backup was written.",
+  "dataGovernanceAutoEncryptFailed": "Could not save the automatic backup password: {error}",
+  "@dataGovernanceAutoEncryptFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "dataGovernanceAutoIntervalDays": "{n} days",
   "@dataGovernanceAutoIntervalDays": {
     "placeholders": {

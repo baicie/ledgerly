@@ -35,5 +35,6 @@
 | [phase-19-recovery-drill.md](./phase-19-recovery-drill.md) | 备份恢复演练 |
 | [phase-20-backup-catalog-actions.md](./phase-20-backup-catalog-actions.md) | 备份目录逐项操作 |
 | [phase-21-password-rotation.md](./phase-21-password-rotation.md) | 加密备份密码轮换 |
+| [phase-22-encrypted-auto-backup.md](./phase-22-encrypted-auto-backup.md) | 加密自动备份 |
 
 状态：文档在对应阶段分支创建并完善；基线阶段仅保留本索引。

@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:ledgerly_client/application/backup_auto_password_store.dart';
 import 'package:ledgerly_client/application/backup_catalog_store.dart';
 import 'package:ledgerly_client/application/backup_encryption.dart';
 import 'package:ledgerly_client/application/backup_metadata_store.dart';
@@ -1228,6 +1229,70 @@ void main() {
       find.byKey(const Key('data-governance-auto-backup-switch')),
     );
     expect(toggle.value, isFalse);
+    final encryptedToggle = tester.widget<SwitchListTile>(
+      find.byKey(const Key('data-governance-auto-encrypt-switch')),
+    );
+    expect(encryptedToggle.value, isFalse);
+  });
+
+  testWidgets('encrypted auto backup stores and clears its password',
+      (tester) async {
+    final passwordStore = MemoryBackupAutoPasswordStore();
+    await _pumpPage(
+      tester,
+      backupService,
+      booksLoader: loadBooks,
+      autoPasswordStore: passwordStore,
+    );
+    final switchFinder = find.byKey(
+      const Key('data-governance-auto-encrypt-switch'),
+    );
+
+    await tester.ensureVisible(switchFinder);
+    await tester.tap(switchFinder);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('data-governance-auto-encrypt-password-dialog')),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('data-governance-auto-encrypt-password')),
+      'password123',
+    );
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(
+        const Key('data-governance-auto-encrypt-password-confirm'),
+      ),
+      'password123',
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(
+        const Key('data-governance-auto-encrypt-password-submit'),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('data-governance-auto-encrypt-password-dialog')),
+      findsNothing,
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool(BackupScheduleStore.kEncrypted), isTrue);
+    expect(passwordStore.password, 'password123');
+
+    await tester.ensureVisible(switchFinder);
+    await tester.tap(switchFinder);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(prefs.getBool(BackupScheduleStore.kEncrypted), isFalse);
+    expect(passwordStore.password, isNull);
   });
 
   testWidgets('enabling auto backup persists and writes a baseline snapshot',
@@ -1287,6 +1352,7 @@ Future<void> _pumpPage(
   WidgetTester tester,
   BackupService service, {
   BooksLoader? booksLoader,
+  BackupAutoPasswordStore? autoPasswordStore,
 }) async {
   // The page renders both the backup section and a danger section.
   // The wipe button lives at the bottom of the layout, so we use a
@@ -1303,6 +1369,8 @@ Future<void> _pumpPage(
         booksProvider.overrideWith(
           (ref) => booksLoader?.call() ?? Future.value(const <Book>[]),
         ),
+        if (autoPasswordStore != null)
+          backupAutoPasswordStoreProvider.overrideWithValue(autoPasswordStore),
       ],
       child: const MaterialApp(
         home: DataGovernancePage(),
