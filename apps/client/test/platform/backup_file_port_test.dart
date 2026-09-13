@@ -138,4 +138,28 @@ void main() {
       isEmpty,
     );
   });
+
+  test('backup is mirrored atomically into an external directory', () async {
+    final root = await Directory.systemTemp.createTemp(
+      'ledgerly-mirror-test-',
+    );
+    addTearDown(() => root.delete(recursive: true));
+    final source = File('${root.path}/source.ledgerly.zip');
+    final external = Directory('${root.path}/external')..createSync();
+    await source.writeAsBytes([1, 2, 3], flush: true);
+    final port = PluginBackupFilePort(
+      documentsDirectoryLoader: () async => root,
+    );
+
+    final target = await port.mirrorBackup(source.path, external.path);
+
+    expect(await File(target).readAsBytes(), [1, 2, 3]);
+    expect(await port.isBackupDirectoryAvailable(external.path), isTrue);
+    expect(
+      root.listSync(recursive: true).where(
+            (entry) => entry.path.contains('.tmp-'),
+          ),
+      isEmpty,
+    );
+  });
 }

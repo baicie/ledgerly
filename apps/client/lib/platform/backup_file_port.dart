@@ -138,6 +138,11 @@ class PluginBackupFilePort implements BackupFilePort {
   }
 
   @override
+  Future<String?> pickBackupDirectory() {
+    return FilePicker.getDirectoryPath();
+  }
+
+  @override
   Future<String?> shareBackup(String source) async {
     final file = XFile(source, mimeType: 'application/zip');
     await SharePlus.instance.share(
@@ -178,6 +183,32 @@ class PluginBackupFilePort implements BackupFilePort {
     final file = File('${dir.path}/${_reportFileName(extension)}');
     await _atomicWriter.write(file, utf8.encode(contents));
     return file.path;
+  }
+
+  @override
+  Future<String> mirrorBackup(String source, String directory) async {
+    final sourceFile = File(source);
+    if (!await sourceFile.exists()) {
+      throw BackupFormatException('待镜像备份不存在：$source');
+    }
+    final targetDirectory = Directory(directory);
+    if (!await targetDirectory.exists()) {
+      throw FileSystemException('外部备份目录不存在', directory);
+    }
+    final target = File(
+      '${targetDirectory.path}/${_basename(source)}',
+    );
+    await _atomicWriter.write(target, await sourceFile.readAsBytes());
+    return target.path;
+  }
+
+  @override
+  Future<bool> isBackupDirectoryAvailable(String directory) async {
+    try {
+      return await Directory(directory).exists();
+    } catch (_) {
+      return false;
+    }
   }
 
   String _basename(String path) {
@@ -503,9 +534,12 @@ class InMemoryBackupFilePort implements BackupFilePort {
   InMemoryBackupFilePort({
     Map<String, BackupDocument>? envelopes,
     this.pickResult,
+    this.directoryPickResult,
   })  : envelopes = envelopes ?? <String, BackupDocument>{},
         rawFiles = <String, Uint8List>{},
-        reportFiles = <String, String>{};
+        reportFiles = <String, String>{},
+        mirroredFiles = <String, String>{},
+        unavailableDirectories = <String>{};
 
   /// Stored envelopes keyed by the source identifier returned by
   /// [writeBackup] / [writePreRestoreSafetyBackup]. Defaults to an
@@ -522,8 +556,17 @@ class InMemoryBackupFilePort implements BackupFilePort {
   /// Governance reports written during tests, keyed by returned id.
   Map<String, String> reportFiles;
 
+  /// Mirrored backup source paths mapped to their external destination.
+  Map<String, String> mirroredFiles;
+
+  /// Directory paths treated as unavailable in tests.
+  Set<String> unavailableDirectories;
+
   /// What [pickBackupSource] returns. `null` means the user cancelled.
   String? pickResult;
+
+  /// What [pickBackupDirectory] returns.
+  String? directoryPickResult;
 
   /// Counter so each write returns a unique auto-incrementing id when
   /// callers don't supply their own.
@@ -570,6 +613,9 @@ class InMemoryBackupFilePort implements BackupFilePort {
   Future<String?> pickBackupSource() async => pickResult;
 
   @override
+  Future<String?> pickBackupDirectory() async => directoryPickResult;
+
+  @override
   Future<String?> shareBackup(String source) async => source;
 
   @override
@@ -600,6 +646,21 @@ class InMemoryBackupFilePort implements BackupFilePort {
     final id = 'memory-report-${++_counter}.$extension';
     reportFiles[id] = contents;
     return id;
+  }
+
+  @override
+  Future<String> mirrorBackup(String source, String directory) async {
+    if (!rawFiles.containsKey(source) && !reportFiles.containsKey(source)) {
+      throw BackupFormatException('InMemoryBackupFilePort: missing $source');
+    }
+    final target = '$directory/${source.split(RegExp(r'[/\\]')).last}';
+    mirroredFiles[source] = target;
+    return target;
+  }
+
+  @override
+  Future<bool> isBackupDirectoryAvailable(String directory) async {
+    return !unavailableDirectories.contains(directory);
   }
 
   @override

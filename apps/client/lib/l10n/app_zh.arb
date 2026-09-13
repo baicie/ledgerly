@@ -1718,10 +1718,13 @@
   "dataGovernanceHealthIssueLatestIncremental": "最近备份是仅本机可恢复的增量文件。",
   "dataGovernanceHealthIssueBaseMissing": "增量恢复所需的 base 不在备份目录中。",
   "dataGovernanceHealthIssueRestoreFailed": "最近一次恢复操作失败，请检查恢复历史。",
+  "dataGovernanceHealthIssueExternalUnavailable": "外部备份目录当前不可用。",
+  "dataGovernanceHealthIssueMirrorFailed": "最近备份尚未成功镜像到外部目录。",
   "dataGovernanceHealthActionBackup": "立即备份",
   "dataGovernanceHealthActionEnableAuto": "启用自动备份",
   "dataGovernanceHealthActionPassword": "设置自动备份密码",
   "dataGovernanceHealthActionInspect": "检查备份文件",
+  "dataGovernanceHealthActionExternalDirectory": "检查外部备份目录",
   "dataGovernanceHealthExportReport": "导出治理报告",
   "dataGovernanceHealthReportJson": "JSON 完整报告",
   "dataGovernanceHealthReportCsv": "CSV 摘要",
@@ -1762,6 +1765,43 @@
       }
     }
   },
+  "dataGovernanceExternalBackupDirectory": "外部备份目录",
+  "dataGovernanceExternalBackupNotConfigured": "未配置；备份仅保存在本机应用目录",
+  "dataGovernanceExternalBackupChoose": "选择目录",
+  "dataGovernanceExternalBackupClear": "移除外部目录",
+  "dataGovernanceExternalBackupMirrorNow": "立即镜像",
+  "dataGovernanceExternalBackupSelected": "目录已设置：镜像 {mirrored} 份，失败 {failed} 份。",
+  "@dataGovernanceExternalBackupSelected": {
+    "placeholders": {
+      "mirrored": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupMirrorResult": "外部镜像完成：成功 {mirrored} 份，失败 {failed} 份。",
+  "@dataGovernanceExternalBackupMirrorResult": {
+    "placeholders": {
+      "mirrored": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupMirrorFailed": "外部镜像失败：{error}",
+  "@dataGovernanceExternalBackupMirrorFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceArtifactMirrored": "已镜像",
+  "dataGovernanceArtifactMirrorFailed": "镜像失败",
   "dataGovernanceAutoIntervalDays": "{n} 天",
   "@dataGovernanceAutoIntervalDays": {
     "placeholders": {

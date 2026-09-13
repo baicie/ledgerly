@@ -7,6 +7,7 @@ import 'package:ledgerly_client/application/backup_catalog_store.dart';
 import 'package:ledgerly_client/application/backup_governance_report.dart';
 import 'package:ledgerly_client/application/backup_health.dart';
 import 'package:ledgerly_client/application/backup_metadata_store.dart';
+import 'package:ledgerly_client/application/backup_mirror_store.dart';
 import 'package:ledgerly_client/application/backup_restore_audit.dart';
 import 'package:ledgerly_client/application/backup_schedule.dart';
 import 'package:ledgerly_client/application/backup_service.dart';
@@ -93,6 +94,8 @@ class _Fixture {
       catalog: catalog,
       passwords: MemoryBackupAutoPasswordStore(),
       audits: audits,
+      mirror: BackupMirrorStore(),
+      filePort: filePort,
       backups: service,
     );
     reportService = BackupGovernanceReportService(

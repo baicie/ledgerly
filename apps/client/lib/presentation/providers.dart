@@ -9,6 +9,7 @@ import '../application/backup_catalog_store.dart';
 import '../application/backup_governance_report.dart';
 import '../application/backup_health.dart';
 import '../application/backup_metadata_store.dart';
+import '../application/backup_mirror_store.dart';
 import '../application/backup_restore_audit.dart';
 import '../application/backup_schedule.dart';
 import '../application/backup_service.dart';
@@ -243,12 +244,21 @@ final backupServiceProvider = Provider<BackupService>((ref) {
     metadata: ref.watch(backupMetadataStoreProvider),
     catalog: ref.watch(backupCatalogStoreProvider),
     audits: ref.watch(backupRestoreAuditStoreProvider),
+    mirror: ref.watch(backupMirrorStoreProvider),
   );
 });
 
 final backupRestoreAuditStoreProvider =
     Provider<BackupRestoreAuditStore>((ref) {
   return BackupRestoreAuditStore();
+});
+
+final backupMirrorStoreProvider = Provider<BackupMirrorStore>((ref) {
+  return BackupMirrorStore();
+});
+
+final backupMirrorDirectoryProvider = FutureProvider<String?>((ref) {
+  return ref.watch(backupMirrorStoreProvider).read();
 });
 
 final backupRestoreAuditsProvider =
@@ -263,6 +273,8 @@ final backupHealthServiceProvider = Provider<BackupHealthService>((ref) {
     catalog: ref.watch(backupCatalogStoreProvider),
     passwords: ref.watch(backupAutoPasswordStoreProvider),
     audits: ref.watch(backupRestoreAuditStoreProvider),
+    mirror: ref.watch(backupMirrorStoreProvider),
+    filePort: ref.watch(backupFilePortProvider),
     backups: ref.watch(backupServiceProvider),
   );
 });

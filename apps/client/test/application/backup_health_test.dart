@@ -6,6 +6,7 @@ import 'package:ledgerly_client/application/backup_auto_password_store.dart';
 import 'package:ledgerly_client/application/backup_catalog_store.dart';
 import 'package:ledgerly_client/application/backup_health.dart';
 import 'package:ledgerly_client/application/backup_metadata_store.dart';
+import 'package:ledgerly_client/application/backup_mirror_store.dart';
 import 'package:ledgerly_client/application/backup_restore_audit.dart';
 import 'package:ledgerly_client/application/backup_schedule.dart';
 import 'package:ledgerly_client/application/backup_service.dart';
@@ -139,6 +140,7 @@ class _Fixture {
     passwords = MemoryBackupAutoPasswordStore();
     catalog = BackupCatalogStore();
     audits = BackupRestoreAuditStore();
+    mirror = BackupMirrorStore();
     service = BackupService(
       database: db,
       recurring: LocalRecurringRepository(db),
@@ -153,6 +155,7 @@ class _Fixture {
       metadata: metadata,
       catalog: catalog,
       audits: audits,
+      mirror: mirror,
     );
     health = BackupHealthService(
       metadata: metadata,
@@ -160,6 +163,8 @@ class _Fixture {
       catalog: catalog,
       passwords: passwords,
       audits: audits,
+      mirror: mirror,
+      filePort: filePort,
       backups: service,
     );
   }
@@ -172,6 +177,7 @@ class _Fixture {
   late final MemoryBackupAutoPasswordStore passwords;
   late final BackupCatalogStore catalog;
   late final BackupRestoreAuditStore audits;
+  late final BackupMirrorStore mirror;
   late final BackupService service;
   late final BackupHealthService health;
 

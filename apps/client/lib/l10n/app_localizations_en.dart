@@ -2768,6 +2768,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'The latest restore attempt failed; review restore history.';
 
   @override
+  String get dataGovernanceHealthIssueExternalUnavailable =>
+      'The external backup directory is unavailable.';
+
+  @override
+  String get dataGovernanceHealthIssueMirrorFailed =>
+      'The latest backup has not been mirrored successfully.';
+
+  @override
   String get dataGovernanceHealthActionBackup => 'Back up now';
 
   @override
@@ -2779,6 +2787,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dataGovernanceHealthActionInspect => 'Inspect backup files';
+
+  @override
+  String get dataGovernanceHealthActionExternalDirectory =>
+      'Check external backup directory';
 
   @override
   String get dataGovernanceHealthExportReport => 'Export governance report';
@@ -2853,6 +2865,44 @@ class AppLocalizationsEn extends AppLocalizations {
   String dataGovernanceAutoEncryptFailed(String error) {
     return 'Could not save the automatic backup password: $error';
   }
+
+  @override
+  String get dataGovernanceExternalBackupDirectory =>
+      'External backup directory';
+
+  @override
+  String get dataGovernanceExternalBackupNotConfigured =>
+      'Not configured; backups stay only in the app directory';
+
+  @override
+  String get dataGovernanceExternalBackupChoose => 'Choose directory';
+
+  @override
+  String get dataGovernanceExternalBackupClear => 'Remove external directory';
+
+  @override
+  String get dataGovernanceExternalBackupMirrorNow => 'Mirror now';
+
+  @override
+  String dataGovernanceExternalBackupSelected(int mirrored, int failed) {
+    return 'Directory set: $mirrored mirrored, $failed failed.';
+  }
+
+  @override
+  String dataGovernanceExternalBackupMirrorResult(int mirrored, int failed) {
+    return 'External mirror complete: $mirrored succeeded, $failed failed.';
+  }
+
+  @override
+  String dataGovernanceExternalBackupMirrorFailed(String error) {
+    return 'External mirror failed: $error';
+  }
+
+  @override
+  String get dataGovernanceArtifactMirrored => 'Mirrored';
+
+  @override
+  String get dataGovernanceArtifactMirrorFailed => 'Mirror failed';
 
   @override
   String dataGovernanceAutoIntervalDays(int n) {
