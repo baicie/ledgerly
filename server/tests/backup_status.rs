@@ -7,7 +7,7 @@ use http_body_util::BodyExt;
 use ledger_server::app_router;
 use ledger_server::infrastructure::backup_status::{
     evaluate_backup_readiness, BackupReadiness, BackupRunOutcome, BackupRunStatus,
-    BackupStatusStore,
+    BackupStatusStore, RestoreRunOutcome, RestoreRunStatus, RestoreStatusStore,
 };
 use ledger_server::{AppState, Config};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -137,6 +137,20 @@ async fn backup_health_endpoint_reports_ready_without_sensitive_fields() {
             OffsetDateTime::now_utc(),
         ))
         .unwrap();
+    RestoreStatusStore::new(directory.path())
+        .write(&RestoreRunStatus {
+            outcome: RestoreRunOutcome::Success,
+            started_at: "2026-09-14T10:00:00Z".into(),
+            completed_at: "2026-09-14T10:05:00Z".into(),
+            duration_ms: 300_000,
+            safety_backup_run_id: Some("safety-run".into()),
+            file_count: 3,
+            object_count: 1,
+            book_count: 2,
+            transaction_count: 4,
+            error_summary: None,
+        })
+        .unwrap();
     let mut config = Config::for_test();
     config.backup_dir = Some(directory.path().to_path_buf());
     let app = app_router(AppState::new(config));
@@ -155,6 +169,8 @@ async fn backup_health_endpoint_reports_ready_without_sensitive_fields() {
     let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(body["status"], "ready");
     assert_eq!(body["fileCount"], 3);
+    assert_eq!(body["lastRestore"]["outcome"], "success");
+    assert_eq!(body["lastRestore"]["transactionCount"], 4);
     assert!(body.get("errorSummary").is_none());
     assert!(body.get("bundlePath").is_none());
 }

@@ -289,6 +289,16 @@
 - [x] 部署验收检查 pg_dump 主版本
 - [x] CI 构建服务端镜像并执行备份工具 smoke test
 
+## 一键 Bundle 恢复与审计（Phase 37）
+
+- [x] 恢复前验证 bundle 并自动创建当前状态安全备份
+- [x] 一键完成解包、对象恢复、数据库恢复和 migration
+- [x] 恢复后逐附件校验 object key、大小和 SHA-256
+- [x] 成败均写入 restore-status.json
+- [x] `/health/backup` 返回最近恢复摘要
+- [x] CLI 强制 `--confirm`
+- [x] CI 联合演练改走一键恢复
+
 ### 待后续完善
 
 - 扩大商户分类覆盖（目前第一版关键词匹配）

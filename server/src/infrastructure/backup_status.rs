@@ -7,10 +7,18 @@ use time::{format_description::well_known::Rfc3339, Duration as TimeDuration, Of
 use uuid::Uuid;
 
 pub const BACKUP_STATUS_FILE: &str = "status.json";
+pub const RESTORE_STATUS_FILE: &str = "restore-status.json";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BackupRunOutcome {
+    Success,
+    Failed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RestoreRunOutcome {
     Success,
     Failed,
 }
@@ -27,6 +35,23 @@ pub struct BackupRunStatus {
     pub replicated: bool,
     pub local_retained: usize,
     pub offsite_retained: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_summary: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RestoreRunStatus {
+    pub outcome: RestoreRunOutcome,
+    pub started_at: String,
+    pub completed_at: String,
+    pub duration_ms: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub safety_backup_run_id: Option<String>,
+    pub file_count: usize,
+    pub object_count: usize,
+    pub book_count: i64,
+    pub transaction_count: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error_summary: Option<String>,
 }
@@ -63,6 +88,10 @@ pub struct BackupStatusStore {
     path: PathBuf,
 }
 
+pub struct RestoreStatusStore {
+    path: PathBuf,
+}
+
 impl BackupStatusStore {
     pub fn new(backup_dir: &Path) -> Self {
         Self {
@@ -91,6 +120,38 @@ impl BackupStatusStore {
             .with_file_name(format!("{BACKUP_STATUS_FILE}.tmp-{}", Uuid::now_v7()));
         fs::write(&temporary, bytes).context("write backup status")?;
         fs::rename(&temporary, &self.path).context("publish backup status")?;
+        Ok(())
+    }
+}
+
+impl RestoreStatusStore {
+    pub fn new(backup_dir: &Path) -> Self {
+        Self {
+            path: backup_dir.join(RESTORE_STATUS_FILE),
+        }
+    }
+
+    pub fn read(&self) -> anyhow::Result<Option<RestoreRunStatus>> {
+        if !self.path.exists() {
+            return Ok(None);
+        }
+        let bytes = fs::read(&self.path)
+            .with_context(|| format!("read restore status {}", self.path.display()))?;
+        let status = serde_json::from_slice(&bytes).context("decode persisted restore status")?;
+        Ok(Some(status))
+    }
+
+    pub fn write(&self, status: &RestoreRunStatus) -> anyhow::Result<()> {
+        if let Some(parent) = self.path.parent() {
+            fs::create_dir_all(parent)
+                .with_context(|| format!("create restore status directory {}", parent.display()))?;
+        }
+        let bytes = serde_json::to_vec_pretty(status).context("encode restore status")?;
+        let temporary = self
+            .path
+            .with_file_name(format!("{RESTORE_STATUS_FILE}.tmp-{}", Uuid::now_v7()));
+        fs::write(&temporary, bytes).context("write restore status")?;
+        fs::rename(&temporary, &self.path).context("publish restore status")?;
         Ok(())
     }
 }

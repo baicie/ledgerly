@@ -62,6 +62,22 @@ ledger-server bundle cleanup \
 `LEDGER_BACKUP_PASSWORD` 丢失后无法解包，必须与备份分开保存在密钥管理系统中。
 新建 bundle 使用 1 MiB 分块 AES-256-GCM；旧 schema v1 bundle 仍可验证和解包。
 
+### 一键恢复
+
+```bash
+export LEDGER_BACKUP_PASSWORD='use-a-long-random-password'
+
+ledger-server bundle restore \
+  --from /mnt/offsite/ledgerly/<runId> \
+  --confirm
+
+ledger-server restore-status
+```
+
+恢复前会自动对当前数据库和对象存储生成安全 bundle。恢复成功后应检查
+`restore-status` 和 `/health/backup.lastRestore`。失败时安全备份 runId 会保留，
+可按 Runbook 回退。
+
 ### 自动备份
 
 ```bash
