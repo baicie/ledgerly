@@ -1737,6 +1737,25 @@
   "dataGovernanceHealthActionEnableAuto": "Enable automatic backup",
   "dataGovernanceHealthActionPassword": "Set automatic backup password",
   "dataGovernanceHealthActionInspect": "Inspect backup files",
+  "dataGovernanceHealthExportReport": "Export governance report",
+  "dataGovernanceHealthReportJson": "Full JSON report",
+  "dataGovernanceHealthReportCsv": "CSV summary",
+  "dataGovernanceHealthReportExported": "Governance report created: {path}",
+  "@dataGovernanceHealthReportExported": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceHealthReportFailed": "Could not export governance report: {error}",
+  "@dataGovernanceHealthReportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "dataGovernanceAutoBackup": "Automatic backup",
   "dataGovernanceAutoBackupSubtitle": "Checked when you open the app; writes a local snapshot when due",
   "dataGovernanceAutoBackupWarning": "Automatic backups are not encrypted. Use a password export for sensitive books.",

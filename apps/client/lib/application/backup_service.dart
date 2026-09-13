@@ -1548,6 +1548,16 @@ class BackupService {
   /// port directly. Keeps the layering tight.
   Future<String?> shareFile(String source) => _files.shareBackup(source);
 
+  Future<String> writeGovernanceReport(
+    String contents, {
+    required String extension,
+  }) {
+    return _files.writeGovernanceReport(
+      contents,
+      extension: extension,
+    );
+  }
+
   /// Convenience for callers that already have the [BackupDocument] in
   /// memory (e.g. tests). Re-exports it through the configured port.
   Future<String> writeBackupToFile(
@@ -2205,6 +2215,12 @@ abstract class BackupFilePort {
 
   /// Delete [source]. Missing files are treated as already deleted.
   Future<void> deleteBackup(String source);
+
+  /// Persist a privacy-safe governance report and return its path.
+  Future<String> writeGovernanceReport(
+    String contents, {
+    required String extension,
+  });
 
   /// Produce the v2-zip byte stream for [document] so the service can
   /// encrypt it before persisting.

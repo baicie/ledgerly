@@ -1722,6 +1722,25 @@
   "dataGovernanceHealthActionEnableAuto": "启用自动备份",
   "dataGovernanceHealthActionPassword": "设置自动备份密码",
   "dataGovernanceHealthActionInspect": "检查备份文件",
+  "dataGovernanceHealthExportReport": "导出治理报告",
+  "dataGovernanceHealthReportJson": "JSON 完整报告",
+  "dataGovernanceHealthReportCsv": "CSV 摘要",
+  "dataGovernanceHealthReportExported": "治理报告已生成：{path}",
+  "@dataGovernanceHealthReportExported": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceHealthReportFailed": "导出治理报告失败：{error}",
+  "@dataGovernanceHealthReportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "dataGovernanceAutoBackup": "自动备份",
   "dataGovernanceAutoBackupSubtitle": "打开应用时检查；到期则写入本地快照",
   "dataGovernanceAutoBackupWarning": "自动备份不加密。敏感账本请继续使用密码导出。",

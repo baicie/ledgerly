@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../application/auto_backup.dart';
 import '../application/backup_auto_password_store.dart';
 import '../application/backup_catalog_store.dart';
+import '../application/backup_governance_report.dart';
 import '../application/backup_health.dart';
 import '../application/backup_metadata_store.dart';
 import '../application/backup_restore_audit.dart';
@@ -268,6 +269,15 @@ final backupHealthServiceProvider = Provider<BackupHealthService>((ref) {
 
 final backupHealthProvider = FutureProvider<BackupHealthSnapshot>((ref) {
   return ref.watch(backupHealthServiceProvider).check();
+});
+
+final backupGovernanceReportServiceProvider =
+    Provider<BackupGovernanceReportService>((ref) {
+  return BackupGovernanceReportService(
+    health: ref.watch(backupHealthServiceProvider),
+    catalog: ref.watch(backupCatalogStoreProvider),
+    audits: ref.watch(backupRestoreAuditStoreProvider),
+  );
 });
 
 final backupScheduleStoreProvider = Provider<BackupScheduleStore>((ref) {

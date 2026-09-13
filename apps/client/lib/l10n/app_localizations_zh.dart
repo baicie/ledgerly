@@ -2658,6 +2658,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dataGovernanceHealthActionInspect => '检查备份文件';
 
   @override
+  String get dataGovernanceHealthExportReport => '导出治理报告';
+
+  @override
+  String get dataGovernanceHealthReportJson => 'JSON 完整报告';
+
+  @override
+  String get dataGovernanceHealthReportCsv => 'CSV 摘要';
+
+  @override
+  String dataGovernanceHealthReportExported(String path) {
+    return '治理报告已生成：$path';
+  }
+
+  @override
+  String dataGovernanceHealthReportFailed(String error) {
+    return '导出治理报告失败：$error';
+  }
+
+  @override
   String get dataGovernanceAutoBackup => '自动备份';
 
   @override
