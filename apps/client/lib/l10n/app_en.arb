@@ -1681,6 +1681,62 @@
       }
     }
   },
+  "dataGovernanceHealthTitle": "Backup policy health",
+  "dataGovernanceHealthChecking": "Checking…",
+  "dataGovernanceHealthHealthy": "Healthy",
+  "dataGovernanceHealthWarning": "Needs attention",
+  "dataGovernanceHealthCritical": "At risk",
+  "dataGovernanceHealthNoIssues": "The backup policy is currently healthy.",
+  "dataGovernanceHealthRefresh": "Check again",
+  "dataGovernanceHealthSummary": "{count} local backups · Next run {nextDue}",
+  "@dataGovernanceHealthSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "nextDue": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceHealthNotScheduled": "Not scheduled",
+  "dataGovernanceHealthIssueNoBackup": "There is no local backup yet.",
+  "dataGovernanceHealthIssueStale": "The latest backup is {days} days old.",
+  "@dataGovernanceHealthIssueStale": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceHealthIssueAutoDisabled": "Automatic backup is disabled.",
+  "dataGovernanceHealthIssuePasswordMissing": "Encrypted automatic backup has no usable password.",
+  "dataGovernanceHealthIssueSecureStorage": "System secure storage is unavailable.",
+  "dataGovernanceHealthIssueVerificationFailed": "The backup catalog integrity check failed.",
+  "dataGovernanceHealthIssueMissing": "{count} backup files are missing.",
+  "@dataGovernanceHealthIssueMissing": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceHealthIssueCorrupted": "{count} backup files are corrupted.",
+  "@dataGovernanceHealthIssueCorrupted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceHealthIssueNotCataloged": "The latest backup is not registered in the local catalog.",
+  "dataGovernanceHealthIssueLatestIncremental": "The latest backup is a local-only incremental file.",
+  "dataGovernanceHealthIssueBaseMissing": "The incremental base is missing from the backup catalog.",
+  "dataGovernanceHealthIssueRestoreFailed": "The latest restore attempt failed; review restore history.",
+  "dataGovernanceHealthActionBackup": "Back up now",
+  "dataGovernanceHealthActionEnableAuto": "Enable automatic backup",
+  "dataGovernanceHealthActionPassword": "Set automatic backup password",
+  "dataGovernanceHealthActionInspect": "Inspect backup files",
   "dataGovernanceAutoBackup": "Automatic backup",
   "dataGovernanceAutoBackupSubtitle": "Checked when you open the app; writes a local snapshot when due",
   "dataGovernanceAutoBackupWarning": "Automatic backups are not encrypted. Use a password export for sensitive books.",

@@ -2687,6 +2687,100 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get dataGovernanceHealthTitle => 'Backup policy health';
+
+  @override
+  String get dataGovernanceHealthChecking => 'Checking…';
+
+  @override
+  String get dataGovernanceHealthHealthy => 'Healthy';
+
+  @override
+  String get dataGovernanceHealthWarning => 'Needs attention';
+
+  @override
+  String get dataGovernanceHealthCritical => 'At risk';
+
+  @override
+  String get dataGovernanceHealthNoIssues =>
+      'The backup policy is currently healthy.';
+
+  @override
+  String get dataGovernanceHealthRefresh => 'Check again';
+
+  @override
+  String dataGovernanceHealthSummary(int count, String nextDue) {
+    return '$count local backups · Next run $nextDue';
+  }
+
+  @override
+  String get dataGovernanceHealthNotScheduled => 'Not scheduled';
+
+  @override
+  String get dataGovernanceHealthIssueNoBackup =>
+      'There is no local backup yet.';
+
+  @override
+  String dataGovernanceHealthIssueStale(int days) {
+    return 'The latest backup is $days days old.';
+  }
+
+  @override
+  String get dataGovernanceHealthIssueAutoDisabled =>
+      'Automatic backup is disabled.';
+
+  @override
+  String get dataGovernanceHealthIssuePasswordMissing =>
+      'Encrypted automatic backup has no usable password.';
+
+  @override
+  String get dataGovernanceHealthIssueSecureStorage =>
+      'System secure storage is unavailable.';
+
+  @override
+  String get dataGovernanceHealthIssueVerificationFailed =>
+      'The backup catalog integrity check failed.';
+
+  @override
+  String dataGovernanceHealthIssueMissing(int count) {
+    return '$count backup files are missing.';
+  }
+
+  @override
+  String dataGovernanceHealthIssueCorrupted(int count) {
+    return '$count backup files are corrupted.';
+  }
+
+  @override
+  String get dataGovernanceHealthIssueNotCataloged =>
+      'The latest backup is not registered in the local catalog.';
+
+  @override
+  String get dataGovernanceHealthIssueLatestIncremental =>
+      'The latest backup is a local-only incremental file.';
+
+  @override
+  String get dataGovernanceHealthIssueBaseMissing =>
+      'The incremental base is missing from the backup catalog.';
+
+  @override
+  String get dataGovernanceHealthIssueRestoreFailed =>
+      'The latest restore attempt failed; review restore history.';
+
+  @override
+  String get dataGovernanceHealthActionBackup => 'Back up now';
+
+  @override
+  String get dataGovernanceHealthActionEnableAuto => 'Enable automatic backup';
+
+  @override
+  String get dataGovernanceHealthActionPassword =>
+      'Set automatic backup password';
+
+  @override
+  String get dataGovernanceHealthActionInspect => 'Inspect backup files';
+
+  @override
   String get dataGovernanceAutoBackup => 'Automatic backup';
 
   @override

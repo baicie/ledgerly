@@ -99,6 +99,29 @@ void main() {
     expect(find.byKey(const Key('data-governance-restore')), findsOneWidget);
   });
 
+  testWidgets('health card reports a missing backup with an action',
+      (tester) async {
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('data-governance-health-card')),
+      findsOneWidget,
+    );
+    expect(find.text(l10n.dataGovernanceHealthCritical), findsOneWidget);
+    expect(
+      find.text(l10n.dataGovernanceHealthIssueNoBackup),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('data-governance-health-action')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('export writes the snapshot through the file port',
       (tester) async {
     await _pumpPage(tester, backupService, booksLoader: loadBooks);
