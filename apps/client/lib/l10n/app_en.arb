@@ -472,7 +472,7 @@
   "syncPendingCount": "{count, plural, =0{Nothing pending} =1{1 change pending} other{{count} changes pending}}",
   "@syncPendingCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {"type": "num"}
     }
   },
   "syncLastError": "Last error",
@@ -485,7 +485,7 @@
   "conflictRemoteVersion": "Remote version {version}",
   "@conflictRemoteVersion": {
     "placeholders": {
-      "version": {"type": "String"}
+      "version": {"type": "Object"}
     }
   },
   "exportCsv": "Export CSV",
@@ -1146,5 +1146,248 @@
   "autoLedgerRuleChooseCategory": "Pick a category first.",
   "autoLedgerRuleNeedNeedle": "Add at least one match phrase.",
   "autoLedgerRuleDeleteTitle": "Delete this rule?",
-  "autoLedgerRuleDeleteBody": "Future notifications that match this rule will fall back to the built-in defaults."
+  "autoLedgerRuleDeleteBody": "Future notifications that match this rule will fall back to the built-in defaults.",
+  "systemSection": "System",
+  "keyboardShortcutsTitle": "Keyboard shortcuts",
+  "keyboardShortcutsSubtitle": "Discover the shortcuts available across Ledgerly.",
+  "keyboardShortcutsGeneral": "General",
+  "keyboardShortcutsBookkeeping": "Bookkeeping",
+  "keyboardShortcutsSync": "Sync",
+  "keyboardShortcutsOpenPalette": "Open command palette",
+  "keyboardShortcutsOpenPaletteDescription": "Fuzzy search across all pages and actions.",
+  "keyboardShortcutsCloseDialog": "Close dialog",
+  "keyboardShortcutsCloseDialogDescription": "Dismiss any open sheet or dialog.",
+  "keyboardShortcutsNewTransaction": "New transaction",
+  "keyboardShortcutsNewTransactionDescription": "Open the quick entry editor.",
+  "keyboardShortcutsTriggerSync": "Sync now",
+  "keyboardShortcutsTriggerSyncDescription": "Trigger an immediate sync from the command palette.",
+  "commandPaletteTitle": "Command palette",
+  "commandPaletteHint": "Type a command or search…",
+  "commandPaletteNoResults": "No matching commands",
+  "commandPaletteStatus": "Esc close · ↑↓ select · ↵ run",
+  "dataGovernanceTitle": "Data governance",
+  "dataGovernanceSubtitle": "Backup, restore, or wipe everything on this device",
+  "dataGovernanceBackup": "Backup",
+  "dataGovernanceBackupSubtitle": "Save a full snapshot of every book, account, budget, and rule.",
+  "dataGovernanceBackupAction": "Export full snapshot",
+  "dataGovernanceBackupInProgress": "Exporting…",
+  "dataGovernanceBackupSuccess": "Backup saved to {path}",
+  "@dataGovernanceBackupSuccess": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceBackupShare": "Share / save elsewhere",
+  "dataGovernanceRestore": "Restore",
+  "dataGovernanceRestoreSubtitle": "Pick a backup file, preview it, then replace this device's data.",
+  "dataGovernanceRestoreAction": "Pick a backup file",
+  "dataGovernanceRestoreInProgress": "Restoring…",
+  "dataGovernanceRestorePreview": "Preview",
+  "dataGovernanceRestorePreviewSummary": "{books} books · {accounts} accounts · {transactions} transactions · {entries} entries · {rules} recurring · {budgets} budgets · {attachments} attachments · {merchantRules} merchant rules",
+  "@dataGovernanceRestorePreviewSummary": {
+    "placeholders": {
+      "books": {
+        "type": "int"
+      },
+      "accounts": {
+        "type": "int"
+      },
+      "transactions": {
+        "type": "int"
+      },
+      "entries": {
+        "type": "int"
+      },
+      "rules": {
+        "type": "int"
+      },
+      "budgets": {
+        "type": "int"
+      },
+      "attachments": {
+        "type": "int"
+      },
+      "merchantRules": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceRestorePreviewEmpty": "This backup contains no data. Restoring will leave the device empty.",
+  "dataGovernanceRestoreConfirmTitle": "Replace local data?",
+  "dataGovernanceRestoreConfirmBody": "Restore will overwrite every book on this device. A safety copy was written to {path} so you can roll back if anything looks wrong.",
+  "@dataGovernanceRestoreConfirmBody": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreSuccess": "Restore complete. Reloading…",
+  "dataGovernanceWipe": "Wipe local data",
+  "dataGovernanceWipeSubtitle": "Delete every transaction, budget, rule, and attachment. There is no undo.",
+  "dataGovernanceWipeAction": "Wipe everything",
+  "dataGovernanceWipeInProgress": "Wiping…",
+  "dataGovernanceWipeConfirmTitle": "Wipe every byte of local data?",
+  "dataGovernanceWipeConfirmBody": "This will remove every transaction, account, budget, and rule on this device. The action cannot be undone. Type DELETE to confirm.",
+  "dataGovernanceWipeConfirmHint": "Type DELETE",
+  "dataGovernanceWipeConfirmError": "Type DELETE in capital letters to confirm.",
+  "dataGovernanceWipeSuccess": "Local data wiped. Restarting…",
+  "dataGovernanceImportFailed": "Could not read the backup: {error}",
+  "@dataGovernanceImportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceBackupFailed": "Could not export the backup: {error}",
+  "@dataGovernanceBackupFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceWipeFailed": "Could not wipe local data: {error}",
+  "@dataGovernanceWipeFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreFailed": "Could not restore: {error}",
+  "@dataGovernanceRestoreFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceSectionBackup": "Backup & restore",
+  "dataGovernanceSectionDanger": "Danger zone",
+  "dataGovernanceStatusTitle": "Last backup",
+  "dataGovernanceStatusNever": "Never backed up",
+  "dataGovernanceStatusRecent": "{ago} ago",
+  "@dataGovernanceStatusRecent": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceStatusAt": "{date} {time}",
+  "@dataGovernanceStatusAt": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceStaleBannerTitle": "Last backup is {days} days old",
+  "@dataGovernanceStaleBannerTitle": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceStaleBannerAction": "Back up now",
+  "dataGovernanceSelectBooks": "Select books",
+  "dataGovernanceSelectBooksHint": "Leave empty to export every book",
+  "dataGovernanceExportAll": "Export all books ({n})",
+  "@dataGovernanceExportAll": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceExportSelected": "Export {n} books",
+  "@dataGovernanceExportSelected": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceStatusAttachments": "{n} attachments · {size}",
+  "@dataGovernanceStatusAttachments": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceAttachmentSizeBytes": "{size} MB",
+  "@dataGovernanceAttachmentSizeBytes": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreAttachmentsV2": "This restore also imports {n} attachment(s).",
+  "@dataGovernanceRestoreAttachmentsV2": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceRestoreNoAttachmentsV1": "This backup is schema v1 — no attachment binaries.",
+  "dataGovernanceEncryptWithPassword": "Encrypt with password",
+  "dataGovernancePasswordHint": "At least 8 characters; losing it makes the backup unrecoverable",
+  "dataGovernancePasswordConfirmHint": "Re-enter password",
+  "dataGovernancePasswordMismatch": "Passwords do not match",
+  "dataGovernancePasswordTooShort": "Password must be at least 8 characters",
+  "dataGovernanceExportEncryptedAll": "Export encrypted all books ({n})",
+  "@dataGovernanceExportEncryptedAll": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceExportEncryptedSelected": "Export encrypted {n} books",
+  "@dataGovernanceExportEncryptedSelected": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceUnlockPrompt": "Enter backup password",
+  "dataGovernanceUnlockWrongPassword": "Wrong password, try again",
+  "dataGovernanceUnlockLockedFor": "Locked, retry in {seconds}s",
+  "@dataGovernanceUnlockLockedFor": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceRestoreLegacyUnencrypted": "This backup is not encrypted (schema v2)",
+  "dataGovernanceRestoreLegacyUnencryptedDetail": "Consider using a password-encrypted backup for sensitive financial data",
+  "dataGovernanceStatusEncrypted": "Password protected",
+  "dataGovernanceEncryptLostPasswordWarning": "If you lose the password the backup cannot be recovered",
+  "dataGovernanceAutoBackup": "Automatic backup",
+  "dataGovernanceAutoBackupSubtitle": "Checked when you open the app; writes a local snapshot when due",
+  "dataGovernanceAutoBackupWarning": "Automatic backups are not encrypted. Use a password export for sensitive books.",
+  "dataGovernanceAutoIntervalDays": "{n} days",
+  "@dataGovernanceAutoIntervalDays": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
 }

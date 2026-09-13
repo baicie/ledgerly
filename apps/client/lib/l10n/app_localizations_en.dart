@@ -395,7 +395,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get reportsBaseCurrency => 'Base';
 
   @override
-  String reportsUpdatedAgo(String time) => 'Updated $time ago';
+  String reportsUpdatedAgo(Object time) {
+    return 'Updated $time ago';
+  }
 
   @override
   String get reportsUpdatedJustNow => 'Updated just now';
@@ -455,7 +457,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiInsightPeriodMonth => 'This month';
 
   @override
-  String reportsAllCategories(int count) => 'All categories ($count)';
+  String reportsAllCategories(Object count) {
+    return 'All categories ($count)';
+  }
 
   @override
   String get reportsNoCategories => 'No matching categories.';
@@ -497,15 +501,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get reportsRangeEnd => 'End';
 
   @override
-  String get commonCancel => 'Cancel';
-
-  @override
-  String get commonConfirm => 'Confirm';
-
-  @override
-  String get commonRetry => 'Retry';
-
-  @override
   String get reportsExport => 'Export & Share';
 
   @override
@@ -525,6 +520,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get reportsTrendJumpToMonth => 'Go to this month';
+
+  @override
+  String get commonCancel => 'Cancel';
+
+  @override
+  String get commonConfirm => 'Confirm';
+
+  @override
+  String get commonRetry => 'Retry';
 
   @override
   String get localShort => 'Local';
@@ -876,10 +880,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncPendingLabel => 'Pending changes';
 
   @override
-  String syncPendingCount(int count) {
-    if (count == 0) return 'Nothing pending';
-    if (count == 1) return '1 change pending';
-    return '$count changes pending';
+  String syncPendingCount(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count changes pending',
+      one: '1 change pending',
+      zero: 'Nothing pending',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -906,7 +915,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get conflictResolved => 'Conflict resolved';
 
   @override
-  String conflictRemoteVersion(String version) => 'Remote version $version';
+  String conflictRemoteVersion(Object version) {
+    return 'Remote version $version';
+  }
 
   @override
   String get exportCsv => 'Export CSV';
@@ -2043,4 +2054,320 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get autoLedgerRuleDeleteBody =>
       'Future notifications that match this rule will fall back to the built-in defaults.';
+
+  @override
+  String get systemSection => 'System';
+
+  @override
+  String get keyboardShortcutsTitle => 'Keyboard shortcuts';
+
+  @override
+  String get keyboardShortcutsSubtitle =>
+      'Discover the shortcuts available across Ledgerly.';
+
+  @override
+  String get keyboardShortcutsGeneral => 'General';
+
+  @override
+  String get keyboardShortcutsBookkeeping => 'Bookkeeping';
+
+  @override
+  String get keyboardShortcutsSync => 'Sync';
+
+  @override
+  String get keyboardShortcutsOpenPalette => 'Open command palette';
+
+  @override
+  String get keyboardShortcutsOpenPaletteDescription =>
+      'Fuzzy search across all pages and actions.';
+
+  @override
+  String get keyboardShortcutsCloseDialog => 'Close dialog';
+
+  @override
+  String get keyboardShortcutsCloseDialogDescription =>
+      'Dismiss any open sheet or dialog.';
+
+  @override
+  String get keyboardShortcutsNewTransaction => 'New transaction';
+
+  @override
+  String get keyboardShortcutsNewTransactionDescription =>
+      'Open the quick entry editor.';
+
+  @override
+  String get keyboardShortcutsTriggerSync => 'Sync now';
+
+  @override
+  String get keyboardShortcutsTriggerSyncDescription =>
+      'Trigger an immediate sync from the command palette.';
+
+  @override
+  String get commandPaletteTitle => 'Command palette';
+
+  @override
+  String get commandPaletteHint => 'Type a command or search…';
+
+  @override
+  String get commandPaletteNoResults => 'No matching commands';
+
+  @override
+  String get commandPaletteStatus => 'Esc close · ↑↓ select · ↵ run';
+
+  @override
+  String get dataGovernanceTitle => 'Data governance';
+
+  @override
+  String get dataGovernanceSubtitle =>
+      'Backup, restore, or wipe everything on this device';
+
+  @override
+  String get dataGovernanceBackup => 'Backup';
+
+  @override
+  String get dataGovernanceBackupSubtitle =>
+      'Save a full snapshot of every book, account, budget, and rule.';
+
+  @override
+  String get dataGovernanceBackupAction => 'Export full snapshot';
+
+  @override
+  String get dataGovernanceBackupInProgress => 'Exporting…';
+
+  @override
+  String dataGovernanceBackupSuccess(String path) {
+    return 'Backup saved to $path';
+  }
+
+  @override
+  String get dataGovernanceBackupShare => 'Share / save elsewhere';
+
+  @override
+  String get dataGovernanceRestore => 'Restore';
+
+  @override
+  String get dataGovernanceRestoreSubtitle =>
+      'Pick a backup file, preview it, then replace this device\'s data.';
+
+  @override
+  String get dataGovernanceRestoreAction => 'Pick a backup file';
+
+  @override
+  String get dataGovernanceRestoreInProgress => 'Restoring…';
+
+  @override
+  String get dataGovernanceRestorePreview => 'Preview';
+
+  @override
+  String dataGovernanceRestorePreviewSummary(
+      int books,
+      int accounts,
+      int transactions,
+      int entries,
+      int rules,
+      int budgets,
+      int attachments,
+      int merchantRules) {
+    return '$books books · $accounts accounts · $transactions transactions · $entries entries · $rules recurring · $budgets budgets · $attachments attachments · $merchantRules merchant rules';
+  }
+
+  @override
+  String get dataGovernanceRestorePreviewEmpty =>
+      'This backup contains no data. Restoring will leave the device empty.';
+
+  @override
+  String get dataGovernanceRestoreConfirmTitle => 'Replace local data?';
+
+  @override
+  String dataGovernanceRestoreConfirmBody(String path) {
+    return 'Restore will overwrite every book on this device. A safety copy was written to $path so you can roll back if anything looks wrong.';
+  }
+
+  @override
+  String get dataGovernanceRestoreSuccess => 'Restore complete. Reloading…';
+
+  @override
+  String get dataGovernanceWipe => 'Wipe local data';
+
+  @override
+  String get dataGovernanceWipeSubtitle =>
+      'Delete every transaction, budget, rule, and attachment. There is no undo.';
+
+  @override
+  String get dataGovernanceWipeAction => 'Wipe everything';
+
+  @override
+  String get dataGovernanceWipeInProgress => 'Wiping…';
+
+  @override
+  String get dataGovernanceWipeConfirmTitle => 'Wipe every byte of local data?';
+
+  @override
+  String get dataGovernanceWipeConfirmBody =>
+      'This will remove every transaction, account, budget, and rule on this device. The action cannot be undone. Type DELETE to confirm.';
+
+  @override
+  String get dataGovernanceWipeConfirmHint => 'Type DELETE';
+
+  @override
+  String get dataGovernanceWipeConfirmError =>
+      'Type DELETE in capital letters to confirm.';
+
+  @override
+  String get dataGovernanceWipeSuccess => 'Local data wiped. Restarting…';
+
+  @override
+  String dataGovernanceImportFailed(String error) {
+    return 'Could not read the backup: $error';
+  }
+
+  @override
+  String dataGovernanceBackupFailed(String error) {
+    return 'Could not export the backup: $error';
+  }
+
+  @override
+  String dataGovernanceWipeFailed(String error) {
+    return 'Could not wipe local data: $error';
+  }
+
+  @override
+  String dataGovernanceRestoreFailed(String error) {
+    return 'Could not restore: $error';
+  }
+
+  @override
+  String get dataGovernanceSectionBackup => 'Backup & restore';
+
+  @override
+  String get dataGovernanceSectionDanger => 'Danger zone';
+
+  @override
+  String get dataGovernanceStatusTitle => 'Last backup';
+
+  @override
+  String get dataGovernanceStatusNever => 'Never backed up';
+
+  @override
+  String dataGovernanceStatusRecent(String ago) {
+    return '$ago ago';
+  }
+
+  @override
+  String dataGovernanceStatusAt(String date, String time) {
+    return '$date $time';
+  }
+
+  @override
+  String dataGovernanceStaleBannerTitle(int days) {
+    return 'Last backup is $days days old';
+  }
+
+  @override
+  String get dataGovernanceStaleBannerAction => 'Back up now';
+
+  @override
+  String get dataGovernanceSelectBooks => 'Select books';
+
+  @override
+  String get dataGovernanceSelectBooksHint =>
+      'Leave empty to export every book';
+
+  @override
+  String dataGovernanceExportAll(int n) {
+    return 'Export all books ($n)';
+  }
+
+  @override
+  String dataGovernanceExportSelected(int n) {
+    return 'Export $n books';
+  }
+
+  @override
+  String dataGovernanceStatusAttachments(int n, String size) {
+    return '$n attachments · $size';
+  }
+
+  @override
+  String dataGovernanceAttachmentSizeBytes(String size) {
+    return '$size MB';
+  }
+
+  @override
+  String dataGovernanceRestoreAttachmentsV2(int n) {
+    return 'This restore also imports $n attachment(s).';
+  }
+
+  @override
+  String get dataGovernanceRestoreNoAttachmentsV1 =>
+      'This backup is schema v1 — no attachment binaries.';
+
+  @override
+  String get dataGovernanceEncryptWithPassword => 'Encrypt with password';
+
+  @override
+  String get dataGovernancePasswordHint =>
+      'At least 8 characters; losing it makes the backup unrecoverable';
+
+  @override
+  String get dataGovernancePasswordConfirmHint => 'Re-enter password';
+
+  @override
+  String get dataGovernancePasswordMismatch => 'Passwords do not match';
+
+  @override
+  String get dataGovernancePasswordTooShort =>
+      'Password must be at least 8 characters';
+
+  @override
+  String dataGovernanceExportEncryptedAll(int n) {
+    return 'Export encrypted all books ($n)';
+  }
+
+  @override
+  String dataGovernanceExportEncryptedSelected(int n) {
+    return 'Export encrypted $n books';
+  }
+
+  @override
+  String get dataGovernanceUnlockPrompt => 'Enter backup password';
+
+  @override
+  String get dataGovernanceUnlockWrongPassword => 'Wrong password, try again';
+
+  @override
+  String dataGovernanceUnlockLockedFor(int seconds) {
+    return 'Locked, retry in ${seconds}s';
+  }
+
+  @override
+  String get dataGovernanceRestoreLegacyUnencrypted =>
+      'This backup is not encrypted (schema v2)';
+
+  @override
+  String get dataGovernanceRestoreLegacyUnencryptedDetail =>
+      'Consider using a password-encrypted backup for sensitive financial data';
+
+  @override
+  String get dataGovernanceStatusEncrypted => 'Password protected';
+
+  @override
+  String get dataGovernanceEncryptLostPasswordWarning =>
+      'If you lose the password the backup cannot be recovered';
+
+  @override
+  String get dataGovernanceAutoBackup => 'Automatic backup';
+
+  @override
+  String get dataGovernanceAutoBackupSubtitle =>
+      'Checked when you open the app; writes a local snapshot when due';
+
+  @override
+  String get dataGovernanceAutoBackupWarning =>
+      'Automatic backups are not encrypted. Use a password export for sensitive books.';
+
+  @override
+  String dataGovernanceAutoIntervalDays(int n) {
+    return '$n days';
+  }
 }

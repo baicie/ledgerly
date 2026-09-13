@@ -11,11 +11,13 @@ import '../presentation/pages/auth_page.dart';
 import '../presentation/pages/budgets_page.dart';
 import '../presentation/pages/categories_page.dart';
 import '../presentation/pages/conflicts_page.dart';
+import '../presentation/pages/data_governance_page.dart';
 import '../presentation/pages/export_page.dart';
 import '../presentation/pages/family_invite_page.dart';
 import '../presentation/pages/feed_page.dart';
 import '../presentation/pages/fx_rates_page.dart';
 import '../presentation/pages/import_page.dart';
+import '../presentation/pages/keyboard_shortcuts_page.dart';
 import '../presentation/pages/merchant_rules_page.dart';
 import '../presentation/pages/recurring_page.dart';
 import '../presentation/pages/reports_page.dart';
@@ -175,6 +177,10 @@ GoRouter createAppRouter(
                     builder: (context, state) => const ExportPage(),
                   ),
                   GoRoute(
+                    path: 'governance',
+                    builder: (context, state) => const DataGovernancePage(),
+                  ),
+                  GoRoute(
                     path: 'categories',
                     builder: (context, state) => const CategoriesPage(),
                   ),
@@ -185,6 +191,10 @@ GoRouter createAppRouter(
                   GoRoute(
                     path: 'lock',
                     builder: (context, state) => const AppLockPage(),
+                  ),
+                  GoRoute(
+                    path: 'keyboard',
+                    builder: (context, state) => const KeyboardShortcutsPage(),
                   ),
                   GoRoute(
                     path: 'import',

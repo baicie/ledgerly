@@ -394,7 +394,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get reportsBaseCurrency => '基础货币';
 
   @override
-  String reportsUpdatedAgo(String time) => '$time前更新';
+  String reportsUpdatedAgo(Object time) {
+    return '$time前更新';
+  }
 
   @override
   String get reportsUpdatedJustNow => '刚刚更新';
@@ -451,7 +453,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiInsightPeriodMonth => '本月';
 
   @override
-  String reportsAllCategories(int count) => '全部类别（$count）';
+  String reportsAllCategories(Object count) {
+    return '全部类别（$count）';
+  }
 
   @override
   String get reportsNoCategories => '没有匹配的类别。';
@@ -493,15 +497,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get reportsRangeEnd => '结束';
 
   @override
-  String get commonCancel => '取消';
-
-  @override
-  String get commonConfirm => '确认';
-
-  @override
-  String get commonRetry => '重试';
-
-  @override
   String get reportsExport => '导出与分享';
 
   @override
@@ -521,6 +516,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get reportsTrendJumpToMonth => '跳转到该月';
+
+  @override
+  String get commonCancel => '取消';
+
+  @override
+  String get commonConfirm => '确认';
+
+  @override
+  String get commonRetry => '重试';
 
   @override
   String get localShort => '本地';
@@ -859,10 +863,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get syncPendingLabel => '待上传变更';
 
   @override
-  String syncPendingCount(int count) {
-    if (count == 0) return '无待上传';
-    if (count == 1) return '1 项待上传';
-    return '$count 项待上传';
+  String syncPendingCount(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 项待上传',
+      one: '1 项待上传',
+      zero: '无待上传',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -887,7 +896,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get conflictResolved => '冲突已处理';
 
   @override
-  String conflictRemoteVersion(String version) => '云端版本 $version';
+  String conflictRemoteVersion(Object version) {
+    return '云端版本 $version';
+  }
 
   @override
   String get exportCsv => '导出 CSV';
@@ -1970,4 +1981,301 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get autoLedgerRuleDeleteBody => '以后匹配该规则的通知将回落到内置默认。';
+
+  @override
+  String get systemSection => '系统';
+
+  @override
+  String get keyboardShortcutsTitle => '键盘快捷键';
+
+  @override
+  String get keyboardShortcutsSubtitle => '查看 Ledgerly 支持的全部快捷键。';
+
+  @override
+  String get keyboardShortcutsGeneral => '通用';
+
+  @override
+  String get keyboardShortcutsBookkeeping => '记账';
+
+  @override
+  String get keyboardShortcutsSync => '同步';
+
+  @override
+  String get keyboardShortcutsOpenPalette => '打开命令面板';
+
+  @override
+  String get keyboardShortcutsOpenPaletteDescription => '跨页面和动作的模糊搜索。';
+
+  @override
+  String get keyboardShortcutsCloseDialog => '关闭弹窗';
+
+  @override
+  String get keyboardShortcutsCloseDialogDescription => '收起任何打开的弹层。';
+
+  @override
+  String get keyboardShortcutsNewTransaction => '新建流水';
+
+  @override
+  String get keyboardShortcutsNewTransactionDescription => '打开快速记账编辑器。';
+
+  @override
+  String get keyboardShortcutsTriggerSync => '立即同步';
+
+  @override
+  String get keyboardShortcutsTriggerSyncDescription => '在命令面板里触发一次立即同步。';
+
+  @override
+  String get commandPaletteTitle => '命令面板';
+
+  @override
+  String get commandPaletteHint => '输入命令或搜索…';
+
+  @override
+  String get commandPaletteNoResults => '未找到匹配的命令';
+
+  @override
+  String get commandPaletteStatus => 'Esc 关闭 · ↑↓ 选择 · ↵ 执行';
+
+  @override
+  String get dataGovernanceTitle => '数据治理';
+
+  @override
+  String get dataGovernanceSubtitle => '备份、恢复或清空本机的全部数据';
+
+  @override
+  String get dataGovernanceBackup => '备份';
+
+  @override
+  String get dataGovernanceBackupSubtitle => '导出全部账本、账户、预算和规则的快照。';
+
+  @override
+  String get dataGovernanceBackupAction => '导出全量快照';
+
+  @override
+  String get dataGovernanceBackupInProgress => '正在导出…';
+
+  @override
+  String dataGovernanceBackupSuccess(String path) {
+    return '备份已保存到 $path';
+  }
+
+  @override
+  String get dataGovernanceBackupShare => '分享 / 另存到其他位置';
+
+  @override
+  String get dataGovernanceRestore => '恢复';
+
+  @override
+  String get dataGovernanceRestoreSubtitle => '选择备份文件，预览后再覆盖本机数据。';
+
+  @override
+  String get dataGovernanceRestoreAction => '选择备份文件';
+
+  @override
+  String get dataGovernanceRestoreInProgress => '正在恢复…';
+
+  @override
+  String get dataGovernanceRestorePreview => '预览';
+
+  @override
+  String dataGovernanceRestorePreviewSummary(
+      int books,
+      int accounts,
+      int transactions,
+      int entries,
+      int rules,
+      int budgets,
+      int attachments,
+      int merchantRules) {
+    return '$books 个账本 · $accounts 个账户 · $transactions 笔交易 · $entries 条分录 · $rules 条周期 · $budgets 个预算 · $attachments 个附件 · $merchantRules 条商户规则';
+  }
+
+  @override
+  String get dataGovernanceRestorePreviewEmpty => '备份里没有任何数据，恢复后本机会变空。';
+
+  @override
+  String get dataGovernanceRestoreConfirmTitle => '确认覆盖本机数据？';
+
+  @override
+  String dataGovernanceRestoreConfirmBody(String path) {
+    return '恢复会覆盖本机的全部账本。已自动写入安全备份到 $path，出问题可以回滚。';
+  }
+
+  @override
+  String get dataGovernanceRestoreSuccess => '恢复完成，正在刷新…';
+
+  @override
+  String get dataGovernanceWipe => '清空本机数据';
+
+  @override
+  String get dataGovernanceWipeSubtitle => '删除全部流水、预算、规则和附件，无法撤销。';
+
+  @override
+  String get dataGovernanceWipeAction => '全部清空';
+
+  @override
+  String get dataGovernanceWipeInProgress => '正在清空…';
+
+  @override
+  String get dataGovernanceWipeConfirmTitle => '确认清空本机的全部数据？';
+
+  @override
+  String get dataGovernanceWipeConfirmBody =>
+      '这会删除本机的全部流水、账户、预算和规则，操作不可撤销。请输入 DELETE 以确认。';
+
+  @override
+  String get dataGovernanceWipeConfirmHint => '输入 DELETE';
+
+  @override
+  String get dataGovernanceWipeConfirmError => '请输入大写的 DELETE 确认操作。';
+
+  @override
+  String get dataGovernanceWipeSuccess => '本机数据已清空，正在重启…';
+
+  @override
+  String dataGovernanceImportFailed(String error) {
+    return '读取备份失败：$error';
+  }
+
+  @override
+  String dataGovernanceBackupFailed(String error) {
+    return '导出备份失败：$error';
+  }
+
+  @override
+  String dataGovernanceWipeFailed(String error) {
+    return '清空本机数据失败：$error';
+  }
+
+  @override
+  String dataGovernanceRestoreFailed(String error) {
+    return '恢复失败：$error';
+  }
+
+  @override
+  String get dataGovernanceSectionBackup => '备份与恢复';
+
+  @override
+  String get dataGovernanceSectionDanger => '危险操作';
+
+  @override
+  String get dataGovernanceStatusTitle => '上次备份';
+
+  @override
+  String get dataGovernanceStatusNever => '从未备份';
+
+  @override
+  String dataGovernanceStatusRecent(String ago) {
+    return '$ago 之前';
+  }
+
+  @override
+  String dataGovernanceStatusAt(String date, String time) {
+    return '$date $time';
+  }
+
+  @override
+  String dataGovernanceStaleBannerTitle(int days) {
+    return '距离上次备份已 $days 天';
+  }
+
+  @override
+  String get dataGovernanceStaleBannerAction => '立即备份';
+
+  @override
+  String get dataGovernanceSelectBooks => '选择账本';
+
+  @override
+  String get dataGovernanceSelectBooksHint => '不选 = 导出全部';
+
+  @override
+  String dataGovernanceExportAll(int n) {
+    return '导出全部账本（$n）';
+  }
+
+  @override
+  String dataGovernanceExportSelected(int n) {
+    return '导出 $n 个账本';
+  }
+
+  @override
+  String dataGovernanceStatusAttachments(int n, String size) {
+    return '$n 个附件 · $size';
+  }
+
+  @override
+  String dataGovernanceAttachmentSizeBytes(String size) {
+    return '$size MB';
+  }
+
+  @override
+  String dataGovernanceRestoreAttachmentsV2(int n) {
+    return '本次恢复将一并导入 $n 个附件';
+  }
+
+  @override
+  String get dataGovernanceRestoreNoAttachmentsV1 => '该备份是 schema v1，不含附件二进制。';
+
+  @override
+  String get dataGovernanceEncryptWithPassword => '使用密码加密';
+
+  @override
+  String get dataGovernancePasswordHint => '至少 8 位；丢失将无法恢复备份';
+
+  @override
+  String get dataGovernancePasswordConfirmHint => '再次输入密码';
+
+  @override
+  String get dataGovernancePasswordMismatch => '两次输入的密码不一致';
+
+  @override
+  String get dataGovernancePasswordTooShort => '密码至少 8 位';
+
+  @override
+  String dataGovernanceExportEncryptedAll(int n) {
+    return '导出加密的全部账本（$n）';
+  }
+
+  @override
+  String dataGovernanceExportEncryptedSelected(int n) {
+    return '导出加密的 $n 个账本';
+  }
+
+  @override
+  String get dataGovernanceUnlockPrompt => '输入备份密码';
+
+  @override
+  String get dataGovernanceUnlockWrongPassword => '密码错误，请重试';
+
+  @override
+  String dataGovernanceUnlockLockedFor(int seconds) {
+    return '输入锁定，$seconds 秒后重试';
+  }
+
+  @override
+  String get dataGovernanceRestoreLegacyUnencrypted => '该备份未加密（schema v2）';
+
+  @override
+  String get dataGovernanceRestoreLegacyUnencryptedDetail =>
+      '建议使用带密码的加密备份来保护敏感财务数据';
+
+  @override
+  String get dataGovernanceStatusEncrypted => '密码保护';
+
+  @override
+  String get dataGovernanceEncryptLostPasswordWarning => '密码丢失将无法恢复，请妥善保管';
+
+  @override
+  String get dataGovernanceAutoBackup => '自动备份';
+
+  @override
+  String get dataGovernanceAutoBackupSubtitle => '打开应用时检查；到期则写入本地快照';
+
+  @override
+  String get dataGovernanceAutoBackupWarning => '自动备份不加密。敏感账本请继续使用密码导出。';
+
+  @override
+  String dataGovernanceAutoIntervalDays(int n) {
+    return '$n 天';
+  }
 }

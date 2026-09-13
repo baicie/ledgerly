@@ -3,6 +3,10 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../application/auto_backup.dart';
+import '../application/backup_metadata_store.dart';
+import '../application/backup_schedule.dart';
+import '../application/backup_service.dart';
 import '../application/feed_search.dart';
 import '../application/ledger_app_service.dart';
 import '../application/ledger_csv.dart';
@@ -30,6 +34,7 @@ import '../domain/default_categories.dart';
 import '../l10n/l10n.dart';
 import '../platform/attachment_store.dart';
 import '../platform/attachment_store_factory.dart';
+import '../platform/backup_file_port.dart';
 import '../platform/user_file_port.dart';
 import '../platform/user_file_port_impl.dart';
 import '../services/payment_notification_service.dart';
@@ -89,7 +94,8 @@ final booksProvider = FutureProvider<List<Book>>((ref) async {
   return repo.listBooks();
 });
 
-final selectedBookIdProvider = StateNotifierProvider<SelectedBookController, String>(
+final selectedBookIdProvider =
+    StateNotifierProvider<SelectedBookController, String>(
   (ref) => SelectedBookController(ref.watch(booksProvider.future)),
 );
 
@@ -184,8 +190,83 @@ final userFilePortProvider = Provider<UserFilePort>((ref) {
   return createPlatformUserFilePort();
 });
 
+/// Platform port for backup file I/O. Tests override this provider to
+/// inject [InMemoryBackupFilePort] so widgets can be exercised without
+/// touching the real filesystem.
+final backupFilePortProvider = Provider<BackupFilePort>((ref) {
+  return createPlatformBackupFilePort();
+});
+
+/// SharedPreferences-backed store for backup metadata (last backup
+/// timestamp + path). Surfaced as a provider so the data governance
+/// page can react to fresh exports without rebuilding the service.
+final backupMetadataStoreProvider = Provider<BackupMetadataStore>((ref) {
+  return BackupMetadataStore();
+});
+
+/// Reactive view of the persisted backup metadata. Pages invalidate
+/// this provider after a successful export / wipe so the UI re-reads
+/// the store and rebuilds the status card / stale banner.
+final backupMetadataProvider = FutureProvider<BackupMetadata>((ref) async {
+  final store = ref.watch(backupMetadataStoreProvider);
+  return store.read();
+});
+
+/// Ephemeral export password. The data-governance page writes the
+/// value as the user types and clears it after a successful export so
+/// it never lives past the current backup action.
+final encryptedBackupPasswordProvider = StateProvider<String?>((ref) => null);
+
+final backupServiceProvider = Provider<BackupService>((ref) {
+  final session = ref.watch(sessionStoreProvider);
+  return BackupService(
+    database: ref.watch(databaseProvider),
+    recurring: ref.watch(localRecurringRepositoryProvider),
+    budgets: ref.watch(localBudgetRepositoryProvider),
+    attachments: ref.watch(localAttachmentRepositoryProvider),
+    merchantRules: ref.watch(merchantRuleStoreProvider),
+    filePort: ref.watch(backupFilePortProvider),
+    deviceIdLoader: session.getOrCreateDeviceId,
+    metadata: ref.watch(backupMetadataStoreProvider),
+  );
+});
+
+final backupScheduleStoreProvider = Provider<BackupScheduleStore>((ref) {
+  return BackupScheduleStore();
+});
+
+final backupScheduleProvider = FutureProvider<BackupSchedule>((ref) async {
+  return ref.watch(backupScheduleStoreProvider).read();
+});
+
+final autoBackupCoordinatorProvider = Provider<AutoBackupCoordinator>((ref) {
+  return AutoBackupCoordinator(
+    schedule: ref.watch(backupScheduleStoreProvider),
+    metadata: ref.watch(backupMetadataStoreProvider),
+    backups: ref.watch(backupServiceProvider),
+  );
+});
+
+/// Opportunistic backup check on launch / resume. Failures stay on
+/// [AutoBackupTickResult.error] so a disk hiccup cannot take down the
+/// rest of [LedgerlyApp].
+final autoBackupTickProvider =
+    FutureProvider<AutoBackupTickResult>((ref) async {
+  await ref.watch(ledgerRepositoryProvider).seedIfEmpty();
+  return ref.read(autoBackupCoordinatorProvider).tick();
+});
+
 final attachmentStoreProvider = Provider<AttachmentStore>((ref) {
   return createPlatformAttachmentStore();
+});
+
+/// Platform-backed byte store for attachment binaries. Surfaces in
+/// [LocalAttachmentRepository] so the backup flow can bundle the
+/// raw bytes (Phase 9). Injected separately from the database so
+/// tests can swap in an in-memory implementation without touching
+/// the filesystem.
+final attachmentByteStoreProvider = Provider<AttachmentByteStore>((ref) {
+  return createPlatformAttachmentByteStore();
 });
 
 final localBudgetRepositoryProvider = Provider<LocalBudgetRepository>((ref) {
@@ -199,7 +280,10 @@ final localRecurringRepositoryProvider =
 
 final localAttachmentRepositoryProvider =
     Provider<LocalAttachmentRepository>((ref) {
-  return LocalAttachmentRepository(ref.watch(databaseProvider));
+  return LocalAttachmentRepository(
+    ref.watch(databaseProvider),
+    byteStore: ref.watch(attachmentByteStoreProvider),
+  );
 });
 
 final recurringSchedulerProvider = Provider<RecurringScheduler>((ref) {
@@ -304,7 +388,8 @@ final categoryAccountsProvider =
     FutureProvider.family<List<CategoryAccountRow>, String>((ref, type) async {
   final repo = ref.watch(ledgerRepositoryProvider);
   await repo.seedIfEmpty();
-  final accounts = await repo.listCategories(ref.watch(selectedBookIdProvider), type);
+  final accounts =
+      await repo.listCategories(ref.watch(selectedBookIdProvider), type);
   final rows = accounts
       .map(
         (account) => CategoryAccountRow(
@@ -528,8 +613,9 @@ class LocalBudgetProgress {
 final localMonthBudgetProgressProvider =
     FutureProvider<List<LocalBudgetProgress>>((ref) async {
   await ref.watch(ledgerRepositoryProvider).seedIfEmpty();
-  final records =
-      await ref.watch(localBudgetRepositoryProvider).list(ref.watch(selectedBookIdProvider));
+  final records = await ref
+      .watch(localBudgetRepositoryProvider)
+      .list(ref.watch(selectedBookIdProvider));
   final transactions = await ref.watch(monthTransactionsProvider.future);
   final categories =
       await ref.watch(categoryAccountsProvider('expense').future);
@@ -631,7 +717,8 @@ class ReportSummary {
 
   factory ReportSummary.fromJson(Map<String, dynamic> json) {
     final categories = (json['categories'] as List? ?? const [])
-        .map((e) => ReportCategory.fromJson(Map<String, dynamic>.from(e as Map)))
+        .map(
+            (e) => ReportCategory.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList();
     return ReportSummary(
       incomeMinor: BigInt.parse(json['incomeMinor']?.toString() ?? '0'),
@@ -661,8 +748,7 @@ class ReportCategory {
   factory ReportCategory.fromJson(Map<String, dynamic> json) {
     return ReportCategory(
       name: json['name']?.toString() ?? 'Other',
-      amountMinor:
-          BigInt.parse(json['amountMinor']?.toString() ?? '0'),
+      amountMinor: BigInt.parse(json['amountMinor']?.toString() ?? '0'),
       currency: json['currency']?.toString() ?? 'CNY',
     );
   }
@@ -768,7 +854,8 @@ final reportTrendProvider = FutureProvider<List<ReportTrendPoint>>((ref) async {
   return rows.map(ReportTrendPoint.fromJson).toList();
 });
 
-final reportBudgetProvider = FutureProvider<List<ReportBudgetItem>>((ref) async {
+final reportBudgetProvider =
+    FutureProvider<List<ReportBudgetItem>>((ref) async {
   if (ref.watch(isLocalModeProvider)) {
     return _reportBudgetLocal(ref);
   }
@@ -779,8 +866,8 @@ final reportBudgetProvider = FutureProvider<List<ReportBudgetItem>>((ref) async 
       '${month.year.toString().padLeft(4, '0')}-${month.month.toString().padLeft(2, '0')}';
   final json = await api.reportBudget(bookId: bookId, month: monthStr);
   final items = (json['items'] as List? ?? const [])
-      .map((e) =>
-          ReportBudgetItem.fromJson(Map<String, dynamic>.from(e as Map)))
+      .map(
+          (e) => ReportBudgetItem.fromJson(Map<String, dynamic>.from(e as Map)))
       .toList();
   items.sort((a, b) => b.ratio.compareTo(a.ratio));
   return items;
@@ -850,7 +937,9 @@ List<ReportTrendPoint> _reportTrendLocal(Ref ref, ReportsRange range) {
         data: (points) {
           final count = range.monthCount;
           if (points.length == count) return points;
-          if (points.length > count) return points.sublist(points.length - count);
+          if (points.length > count) {
+            return points.sublist(points.length - count);
+          }
           return points;
         },
         orElse: () => const <ReportTrendPoint>[],
@@ -878,7 +967,8 @@ List<ReportBudgetItem> _reportBudgetLocal(Ref ref) {
 
 String _localBudgetStatus(BigInt actual, BigInt budget) {
   if (budget <= BigInt.zero) return 'ok';
-  final ratio = double.parse(actual.toString()) / double.parse(budget.toString());
+  final ratio =
+      double.parse(actual.toString()) / double.parse(budget.toString());
   if (ratio > 1.0) return 'over';
   if (ratio > 0.9) return 'ok';
   return 'under';

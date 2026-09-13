@@ -1131,5 +1131,248 @@
   "autoLedgerRuleChooseCategory": "请先选择一个分类。",
   "autoLedgerRuleNeedNeedle": "至少添加一个匹配关键词。",
   "autoLedgerRuleDeleteTitle": "删除该规则？",
-  "autoLedgerRuleDeleteBody": "以后匹配该规则的通知将回落到内置默认。"
+  "autoLedgerRuleDeleteBody": "以后匹配该规则的通知将回落到内置默认。",
+  "systemSection": "系统",
+  "keyboardShortcutsTitle": "键盘快捷键",
+  "keyboardShortcutsSubtitle": "查看 Ledgerly 支持的全部快捷键。",
+  "keyboardShortcutsGeneral": "通用",
+  "keyboardShortcutsBookkeeping": "记账",
+  "keyboardShortcutsSync": "同步",
+  "keyboardShortcutsOpenPalette": "打开命令面板",
+  "keyboardShortcutsOpenPaletteDescription": "跨页面和动作的模糊搜索。",
+  "keyboardShortcutsCloseDialog": "关闭弹窗",
+  "keyboardShortcutsCloseDialogDescription": "收起任何打开的弹层。",
+  "keyboardShortcutsNewTransaction": "新建流水",
+  "keyboardShortcutsNewTransactionDescription": "打开快速记账编辑器。",
+  "keyboardShortcutsTriggerSync": "立即同步",
+  "keyboardShortcutsTriggerSyncDescription": "在命令面板里触发一次立即同步。",
+  "commandPaletteTitle": "命令面板",
+  "commandPaletteHint": "输入命令或搜索…",
+  "commandPaletteNoResults": "未找到匹配的命令",
+  "commandPaletteStatus": "Esc 关闭 · ↑↓ 选择 · ↵ 执行",
+  "dataGovernanceTitle": "数据治理",
+  "dataGovernanceSubtitle": "备份、恢复或清空本机的全部数据",
+  "dataGovernanceBackup": "备份",
+  "dataGovernanceBackupSubtitle": "导出全部账本、账户、预算和规则的快照。",
+  "dataGovernanceBackupAction": "导出全量快照",
+  "dataGovernanceBackupInProgress": "正在导出…",
+  "dataGovernanceBackupSuccess": "备份已保存到 {path}",
+  "@dataGovernanceBackupSuccess": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceBackupShare": "分享 / 另存到其他位置",
+  "dataGovernanceRestore": "恢复",
+  "dataGovernanceRestoreSubtitle": "选择备份文件，预览后再覆盖本机数据。",
+  "dataGovernanceRestoreAction": "选择备份文件",
+  "dataGovernanceRestoreInProgress": "正在恢复…",
+  "dataGovernanceRestorePreview": "预览",
+  "dataGovernanceRestorePreviewSummary": "{books} 个账本 · {accounts} 个账户 · {transactions} 笔交易 · {entries} 条分录 · {rules} 条周期 · {budgets} 个预算 · {attachments} 个附件 · {merchantRules} 条商户规则",
+  "@dataGovernanceRestorePreviewSummary": {
+    "placeholders": {
+      "books": {
+        "type": "int"
+      },
+      "accounts": {
+        "type": "int"
+      },
+      "transactions": {
+        "type": "int"
+      },
+      "entries": {
+        "type": "int"
+      },
+      "rules": {
+        "type": "int"
+      },
+      "budgets": {
+        "type": "int"
+      },
+      "attachments": {
+        "type": "int"
+      },
+      "merchantRules": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceRestorePreviewEmpty": "备份里没有任何数据，恢复后本机会变空。",
+  "dataGovernanceRestoreConfirmTitle": "确认覆盖本机数据？",
+  "dataGovernanceRestoreConfirmBody": "恢复会覆盖本机的全部账本。已自动写入安全备份到 {path}，出问题可以回滚。",
+  "@dataGovernanceRestoreConfirmBody": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreSuccess": "恢复完成，正在刷新…",
+  "dataGovernanceWipe": "清空本机数据",
+  "dataGovernanceWipeSubtitle": "删除全部流水、预算、规则和附件，无法撤销。",
+  "dataGovernanceWipeAction": "全部清空",
+  "dataGovernanceWipeInProgress": "正在清空…",
+  "dataGovernanceWipeConfirmTitle": "确认清空本机的全部数据？",
+  "dataGovernanceWipeConfirmBody": "这会删除本机的全部流水、账户、预算和规则，操作不可撤销。请输入 DELETE 以确认。",
+  "dataGovernanceWipeConfirmHint": "输入 DELETE",
+  "dataGovernanceWipeConfirmError": "请输入大写的 DELETE 确认操作。",
+  "dataGovernanceWipeSuccess": "本机数据已清空，正在重启…",
+  "dataGovernanceImportFailed": "读取备份失败：{error}",
+  "@dataGovernanceImportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceBackupFailed": "导出备份失败：{error}",
+  "@dataGovernanceBackupFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceWipeFailed": "清空本机数据失败：{error}",
+  "@dataGovernanceWipeFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreFailed": "恢复失败：{error}",
+  "@dataGovernanceRestoreFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceSectionBackup": "备份与恢复",
+  "dataGovernanceSectionDanger": "危险操作",
+  "dataGovernanceStatusTitle": "上次备份",
+  "dataGovernanceStatusNever": "从未备份",
+  "dataGovernanceStatusRecent": "{ago} 之前",
+  "@dataGovernanceStatusRecent": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceStatusAt": "{date} {time}",
+  "@dataGovernanceStatusAt": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceStaleBannerTitle": "距离上次备份已 {days} 天",
+  "@dataGovernanceStaleBannerTitle": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceStaleBannerAction": "立即备份",
+  "dataGovernanceSelectBooks": "选择账本",
+  "dataGovernanceSelectBooksHint": "不选 = 导出全部",
+  "dataGovernanceExportAll": "导出全部账本（{n}）",
+  "@dataGovernanceExportAll": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceExportSelected": "导出 {n} 个账本",
+  "@dataGovernanceExportSelected": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceStatusAttachments": "{n} 个附件 · {size}",
+  "@dataGovernanceStatusAttachments": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceAttachmentSizeBytes": "{size} MB",
+  "@dataGovernanceAttachmentSizeBytes": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreAttachmentsV2": "本次恢复将一并导入 {n} 个附件",
+  "@dataGovernanceRestoreAttachmentsV2": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceRestoreNoAttachmentsV1": "该备份是 schema v1，不含附件二进制。",
+  "dataGovernanceEncryptWithPassword": "使用密码加密",
+  "dataGovernancePasswordHint": "至少 8 位；丢失将无法恢复备份",
+  "dataGovernancePasswordConfirmHint": "再次输入密码",
+  "dataGovernancePasswordMismatch": "两次输入的密码不一致",
+  "dataGovernancePasswordTooShort": "密码至少 8 位",
+  "dataGovernanceExportEncryptedAll": "导出加密的全部账本（{n}）",
+  "@dataGovernanceExportEncryptedAll": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceExportEncryptedSelected": "导出加密的 {n} 个账本",
+  "@dataGovernanceExportEncryptedSelected": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceUnlockPrompt": "输入备份密码",
+  "dataGovernanceUnlockWrongPassword": "密码错误，请重试",
+  "dataGovernanceUnlockLockedFor": "输入锁定，{seconds} 秒后重试",
+  "@dataGovernanceUnlockLockedFor": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceRestoreLegacyUnencrypted": "该备份未加密（schema v2）",
+  "dataGovernanceRestoreLegacyUnencryptedDetail": "建议使用带密码的加密备份来保护敏感财务数据",
+  "dataGovernanceStatusEncrypted": "密码保护",
+  "dataGovernanceEncryptLostPasswordWarning": "密码丢失将无法恢复，请妥善保管",
+  "dataGovernanceAutoBackup": "自动备份",
+  "dataGovernanceAutoBackupSubtitle": "打开应用时检查；到期则写入本地快照",
+  "dataGovernanceAutoBackupWarning": "自动备份不加密。敏感账本请继续使用密码导出。",
+  "dataGovernanceAutoIntervalDays": "{n} 天",
+  "@dataGovernanceAutoIntervalDays": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
 }

@@ -19,5 +19,12 @@
 | [local-daily-tools.md](./local-daily-tools.md) | 搜索、应用锁、本地预算/周期/导入/附件 |
 | [daily-tools-0.0.16.md](./daily-tools-0.0.16.md) | 导入/周期/预算/附件打磨、生物识别、minSdk 24 |
 | [insights-0.0.17.md](./insights-0.0.17.md) | 历史日报、内置提示词、生成动效、compileSdk 37 |
+| [phase-6-data-governance.md](./phase-6-data-governance.md) | 备份 / 恢复 / 清空 |
+| [phase-7-backup-health.md](./phase-7-backup-health.md) | 备份健康追踪 |
+| [phase-8-selective-backup.md](./phase-8-selective-backup.md) | 按账本选择备份 |
+| [phase-9-attachment-bundling.md](./phase-9-attachment-bundling.md) | 附件二进制打包 |
+| [phase-10-password-encrypted-backup.md](./phase-10-password-encrypted-backup.md) | 密码加密备份 |
+| [phase-11-argon2id-kdf.md](./phase-11-argon2id-kdf.md) | Argon2id 密钥派生 |
+| [phase-12-auto-backup.md](./phase-12-auto-backup.md) | 打开应用时的自动备份调度 |
 
 状态：文档在对应阶段分支创建并完善；基线阶段仅保留本索引。

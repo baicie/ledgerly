@@ -1066,35 +1066,32 @@ async fn postgres_auto_ledger_dedup_same_fingerprint_rejected() {
     let first_status = first["receipts"][0]["status"].as_str().unwrap();
     let second_status = second["receipts"][0]["status"].as_str().unwrap();
 
-    // Exactly one applied, one rejected.
+    // Both receipts are applied so each device clears its pending mutation.
+    // Exactly one is the normal insert; the loser is marked AUTO_LEDGER_DEDUPED.
     assert_eq!(
         [first_status, second_status]
             .iter()
             .filter(|s| **s == "applied")
             .count(),
-        1,
-        "expected exactly one applied receipt"
-    );
-    assert_eq!(
-        [first_status, second_status]
-            .iter()
-            .filter(|s| **s == "rejected")
-            .count(),
-        1,
-        "expected exactly one rejected receipt"
+        2,
+        "both devices should receive applied receipts"
     );
 
-    // The rejected receipt carries AUTO_LEDGER_DEDUPED.
-    let (deduped_receipt, _applied_receipt) = if first_status == "rejected" {
-        (&first["receipts"][0], &second["receipts"][0])
-    } else {
-        (&second["receipts"][0], &first["receipts"][0])
-    };
+    let first_result_code = first["receipts"][0]["resultCode"].as_str().unwrap();
+    let second_result_code = second["receipts"][0]["resultCode"].as_str().unwrap();
+    let mut result_codes = [first_result_code, second_result_code];
+    result_codes.sort_unstable();
     assert_eq!(
-        deduped_receipt["resultCode"].as_str().unwrap(),
-        "AUTO_LEDGER_DEDUPED",
-        "rejected receipt should carry AUTO_LEDGER_DEDUPED resultCode"
+        result_codes,
+        ["AUTO_LEDGER_DEDUPED", "OK"],
+        "one insert should succeed and the race loser should be deduplicated"
     );
+
+    let deduped_receipt = if first_result_code == "AUTO_LEDGER_DEDUPED" {
+        &first["receipts"][0]
+    } else {
+        &second["receipts"][0]
+    };
     assert_eq!(
         deduped_receipt["entityVersion"].as_i64().unwrap(),
         1,

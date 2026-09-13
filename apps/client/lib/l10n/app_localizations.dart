@@ -730,357 +730,357 @@ abstract class AppLocalizations {
 
   /// No description provided for @reportsSummarySection.
   ///
-  /// In en, this message translates to:
-  /// **'This month'**
+  /// In zh, this message translates to:
+  /// **'本月概览'**
   String get reportsSummarySection;
 
   /// No description provided for @reportsTrendSection.
   ///
-  /// In en, this message translates to:
-  /// **'Last 6 months'**
+  /// In zh, this message translates to:
+  /// **'近 6 个月趋势'**
   String get reportsTrendSection;
 
   /// No description provided for @reportsBudgetSection.
   ///
-  /// In en, this message translates to:
-  /// **'Budgets'**
+  /// In zh, this message translates to:
+  /// **'预算'**
   String get reportsBudgetSection;
 
   /// No description provided for @reportsBudgetEmptyTitle.
   ///
-  /// In en, this message translates to:
-  /// **'No budgets for this period'**
+  /// In zh, this message translates to:
+  /// **'该周期暂无预算'**
   String get reportsBudgetEmptyTitle;
 
   /// No description provided for @reportsBudgetEmptyAction.
   ///
-  /// In en, this message translates to:
-  /// **'Set a budget'**
+  /// In zh, this message translates to:
+  /// **'去设置预算'**
   String get reportsBudgetEmptyAction;
 
   /// No description provided for @reportsHeroIncome.
   ///
-  /// In en, this message translates to:
-  /// **'Income'**
+  /// In zh, this message translates to:
+  /// **'入账'**
   String get reportsHeroIncome;
 
   /// No description provided for @reportsHeroExpense.
   ///
-  /// In en, this message translates to:
-  /// **'Expense'**
+  /// In zh, this message translates to:
+  /// **'支出'**
   String get reportsHeroExpense;
 
   /// No description provided for @reportsHeroNet.
   ///
-  /// In en, this message translates to:
-  /// **'Net'**
+  /// In zh, this message translates to:
+  /// **'结余'**
   String get reportsHeroNet;
 
   /// No description provided for @reportsHeroBudgetLeft.
   ///
-  /// In en, this message translates to:
-  /// **'Budget left'**
+  /// In zh, this message translates to:
+  /// **'预算剩'**
   String get reportsHeroBudgetLeft;
 
   /// No description provided for @reportsHeroBudgetUnset.
   ///
-  /// In en, this message translates to:
-  /// **'Not set'**
+  /// In zh, this message translates to:
+  /// **'未设置'**
   String get reportsHeroBudgetUnset;
 
   /// No description provided for @budgetCreated.
   ///
-  /// In en, this message translates to:
-  /// **'Budget created'**
+  /// In zh, this message translates to:
+  /// **'已添加预算'**
   String get budgetCreated;
 
   /// No description provided for @budgetDeleted.
   ///
-  /// In en, this message translates to:
-  /// **'Budget deleted'**
+  /// In zh, this message translates to:
+  /// **'已删除预算'**
   String get budgetDeleted;
 
   /// No description provided for @reportsIncome.
   ///
-  /// In en, this message translates to:
-  /// **'Income'**
+  /// In zh, this message translates to:
+  /// **'收入'**
   String get reportsIncome;
 
   /// No description provided for @reportsExpense.
   ///
-  /// In en, this message translates to:
-  /// **'Expense'**
+  /// In zh, this message translates to:
+  /// **'支出'**
   String get reportsExpense;
 
   /// No description provided for @reportsNet.
   ///
-  /// In en, this message translates to:
-  /// **'Net'**
+  /// In zh, this message translates to:
+  /// **'净额'**
   String get reportsNet;
 
   /// No description provided for @reportsBaseCurrency.
   ///
-  /// In en, this message translates to:
-  /// **'Base'**
+  /// In zh, this message translates to:
+  /// **'基础货币'**
   String get reportsBaseCurrency;
 
   /// No description provided for @reportsUpdatedAgo.
   ///
-  /// In en, this message translates to:
-  /// **'Updated {time} ago'**
-  String reportsUpdatedAgo(String time);
+  /// In zh, this message translates to:
+  /// **'{time}前更新'**
+  String reportsUpdatedAgo(Object time);
 
   /// No description provided for @reportsUpdatedJustNow.
   ///
-  /// In en, this message translates to:
-  /// **'Updated just now'**
+  /// In zh, this message translates to:
+  /// **'刚刚更新'**
   String get reportsUpdatedJustNow;
 
   /// No description provided for @reportsCategories.
   ///
-  /// In en, this message translates to:
-  /// **'Top categories'**
+  /// In zh, this message translates to:
+  /// **'主要分类'**
   String get reportsCategories;
 
   /// No description provided for @reportsNoBudgets.
   ///
-  /// In en, this message translates to:
-  /// **'No budgets configured yet.'**
+  /// In zh, this message translates to:
+  /// **'尚未配置预算。'**
   String get reportsNoBudgets;
 
   /// No description provided for @reportsPrevMonth.
   ///
-  /// In en, this message translates to:
-  /// **'Previous month'**
+  /// In zh, this message translates to:
+  /// **'上一月'**
   String get reportsPrevMonth;
 
   /// No description provided for @reportsNextMonth.
   ///
-  /// In en, this message translates to:
-  /// **'Next month'**
+  /// In zh, this message translates to:
+  /// **'下一月'**
   String get reportsNextMonth;
 
   /// No description provided for @reportsRefresh.
   ///
-  /// In en, this message translates to:
-  /// **'Refresh'**
+  /// In zh, this message translates to:
+  /// **'刷新'**
   String get reportsRefresh;
 
   /// No description provided for @aiInsightCardTitle.
   ///
-  /// In en, this message translates to:
-  /// **'AI summary'**
+  /// In zh, this message translates to:
+  /// **'AI 总结'**
   String get aiInsightCardTitle;
 
   /// No description provided for @aiInsightHighlights.
   ///
-  /// In en, this message translates to:
-  /// **'Highlights'**
+  /// In zh, this message translates to:
+  /// **'重点'**
   String get aiInsightHighlights;
 
   /// No description provided for @aiInsightAdvice.
   ///
-  /// In en, this message translates to:
-  /// **'Suggestions'**
+  /// In zh, this message translates to:
+  /// **'建议'**
   String get aiInsightAdvice;
 
   /// No description provided for @aiInsightRegenerate.
   ///
-  /// In en, this message translates to:
-  /// **'Regenerate'**
+  /// In zh, this message translates to:
+  /// **'重新生成'**
   String get aiInsightRegenerate;
 
   /// No description provided for @aiInsightStale.
   ///
-  /// In en, this message translates to:
-  /// **'Stale — regenerate'**
+  /// In zh, this message translates to:
+  /// **'数据已变更 — 请重新生成'**
   String get aiInsightStale;
 
   /// No description provided for @aiInsightUnconfigured.
   ///
-  /// In en, this message translates to:
-  /// **'Connect an AI provider to see a monthly summary.'**
+  /// In zh, this message translates to:
+  /// **'接入 AI 服务即可生成本月洞察。'**
   String get aiInsightUnconfigured;
 
   /// No description provided for @aiInsightUnconfiguredDesc.
   ///
-  /// In en, this message translates to:
-  /// **'We\'ll analyze your income, expenses, and categories each month.'**
+  /// In zh, this message translates to:
+  /// **'我们将按月分析你的收入、支出和分类情况。'**
   String get aiInsightUnconfiguredDesc;
 
   /// No description provided for @aiInsightConfigure.
   ///
-  /// In en, this message translates to:
-  /// **'Configure AI'**
+  /// In zh, this message translates to:
+  /// **'去配置'**
   String get aiInsightConfigure;
 
   /// No description provided for @aiInsightEmpty.
   ///
-  /// In en, this message translates to:
-  /// **'Nothing to summarize yet.'**
+  /// In zh, this message translates to:
+  /// **'暂无可总结的内容。'**
   String get aiInsightEmpty;
 
   /// No description provided for @aiInsightEmptyDesc.
   ///
-  /// In en, this message translates to:
-  /// **'Once you log a few transactions this month, your summary will appear here.'**
+  /// In zh, this message translates to:
+  /// **'本月记几笔交易后，摘要会显示在这里。'**
   String get aiInsightEmptyDesc;
 
   /// No description provided for @aiInsightPeriodMenu.
   ///
-  /// In en, this message translates to:
-  /// **'Period'**
+  /// In zh, this message translates to:
+  /// **'周期'**
   String get aiInsightPeriodMenu;
 
   /// No description provided for @aiInsightPeriodMonth.
   ///
-  /// In en, this message translates to:
-  /// **'This month'**
+  /// In zh, this message translates to:
+  /// **'本月'**
   String get aiInsightPeriodMonth;
 
   /// No description provided for @reportsAllCategories.
   ///
-  /// In en, this message translates to:
-  /// **'All categories ({count})'**
-  String reportsAllCategories(int count);
+  /// In zh, this message translates to:
+  /// **'全部类别（{count}）'**
+  String reportsAllCategories(Object count);
 
   /// No description provided for @reportsNoCategories.
   ///
-  /// In en, this message translates to:
-  /// **'No matching categories.'**
+  /// In zh, this message translates to:
+  /// **'没有匹配的类别。'**
   String get reportsNoCategories;
 
   /// No description provided for @reportsSearchHint.
   ///
-  /// In en, this message translates to:
-  /// **'Search categories'**
+  /// In zh, this message translates to:
+  /// **'搜索类别'**
   String get reportsSearchHint;
 
   /// No description provided for @reportsRangeTitle.
   ///
-  /// In en, this message translates to:
-  /// **'Time range'**
+  /// In zh, this message translates to:
+  /// **'时间范围'**
   String get reportsRangeTitle;
 
   /// No description provided for @reportsRangeMonth.
   ///
-  /// In en, this message translates to:
-  /// **'This month'**
+  /// In zh, this message translates to:
+  /// **'本月'**
   String get reportsRangeMonth;
 
   /// No description provided for @reportsRangeLast3.
   ///
-  /// In en, this message translates to:
-  /// **'Last 3 months'**
+  /// In zh, this message translates to:
+  /// **'最近 3 个月'**
   String get reportsRangeLast3;
 
   /// No description provided for @reportsRangeLast6.
   ///
-  /// In en, this message translates to:
-  /// **'Last 6 months'**
+  /// In zh, this message translates to:
+  /// **'最近 6 个月'**
   String get reportsRangeLast6;
 
   /// No description provided for @reportsRangeLast7.
   ///
-  /// In en, this message translates to:
-  /// **'Last 7 days'**
+  /// In zh, this message translates to:
+  /// **'最近 7 天'**
   String get reportsRangeLast7;
 
   /// No description provided for @reportsRangeLast30.
   ///
-  /// In en, this message translates to:
-  /// **'Last 30 days'**
+  /// In zh, this message translates to:
+  /// **'最近 30 天'**
   String get reportsRangeLast30;
 
   /// No description provided for @reportsRangeLast90.
   ///
-  /// In en, this message translates to:
-  /// **'Last 90 days'**
+  /// In zh, this message translates to:
+  /// **'最近 90 天'**
   String get reportsRangeLast90;
 
   /// No description provided for @reportsRangeYear.
   ///
-  /// In en, this message translates to:
-  /// **'This year'**
+  /// In zh, this message translates to:
+  /// **'今年'**
   String get reportsRangeYear;
 
   /// No description provided for @reportsRangeCustom.
   ///
-  /// In en, this message translates to:
-  /// **'Custom range'**
+  /// In zh, this message translates to:
+  /// **'自定义范围'**
   String get reportsRangeCustom;
 
   /// No description provided for @reportsRangeStart.
   ///
-  /// In en, this message translates to:
-  /// **'Start'**
+  /// In zh, this message translates to:
+  /// **'起始'**
   String get reportsRangeStart;
 
   /// No description provided for @reportsRangeEnd.
   ///
-  /// In en, this message translates to:
-  /// **'End'**
+  /// In zh, this message translates to:
+  /// **'结束'**
   String get reportsRangeEnd;
-
-  /// No description provided for @commonCancel.
-  ///
-  /// In en, this message translates to:
-  /// **'Cancel'**
-  String get commonCancel;
-
-  /// No description provided for @commonConfirm.
-  ///
-  /// In en, this message translates to:
-  /// **'Confirm'**
-  String get commonConfirm;
-
-  /// No description provided for @commonRetry.
-  ///
-  /// In en, this message translates to:
-  /// **'Retry'**
-  String get commonRetry;
 
   /// No description provided for @reportsExport.
   ///
-  /// In en, this message translates to:
-  /// **'Export & Share'**
+  /// In zh, this message translates to:
+  /// **'导出与分享'**
   String get reportsExport;
 
   /// No description provided for @reportsExportCsv.
   ///
-  /// In en, this message translates to:
-  /// **'Export CSV'**
+  /// In zh, this message translates to:
+  /// **'导出 CSV'**
   String get reportsExportCsv;
 
   /// No description provided for @reportsShare.
   ///
-  /// In en, this message translates to:
-  /// **'Share Summary'**
+  /// In zh, this message translates to:
+  /// **'分享摘要'**
   String get reportsShare;
 
   /// No description provided for @reportsExportNoData.
   ///
-  /// In en, this message translates to:
-  /// **'No data to export.'**
+  /// In zh, this message translates to:
+  /// **'暂无数据可导出。'**
   String get reportsExportNoData;
 
   /// No description provided for @reportsExportCsvDone.
   ///
-  /// In en, this message translates to:
-  /// **'CSV exported successfully.'**
+  /// In zh, this message translates to:
+  /// **'CSV 导出成功。'**
   String get reportsExportCsvDone;
 
   /// No description provided for @reportsExportCsvError.
   ///
-  /// In en, this message translates to:
-  /// **'Export failed'**
+  /// In zh, this message translates to:
+  /// **'导出失败'**
   String get reportsExportCsvError;
 
   /// No description provided for @reportsTrendJumpToMonth.
   ///
-  /// In en, this message translates to:
-  /// **'Go to this month'**
+  /// In zh, this message translates to:
+  /// **'跳转到该月'**
   String get reportsTrendJumpToMonth;
+
+  /// No description provided for @commonCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
+  String get commonCancel;
+
+  /// No description provided for @commonConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认'**
+  String get commonConfirm;
+
+  /// No description provided for @commonRetry.
+  ///
+  /// In zh, this message translates to:
+  /// **'重试'**
+  String get commonRetry;
 
   /// No description provided for @localShort.
   ///
@@ -1698,7 +1698,7 @@ abstract class AppLocalizations {
   ///
   /// In zh, this message translates to:
   /// **'{count, plural, =0{无待上传} =1{1 项待上传} other{{count} 项待上传}}'**
-  String syncPendingCount(int count);
+  String syncPendingCount(num count);
 
   /// No description provided for @syncLastError.
   ///
@@ -1746,7 +1746,7 @@ abstract class AppLocalizations {
   ///
   /// In zh, this message translates to:
   /// **'云端版本 {version}'**
-  String conflictRemoteVersion(String version);
+  String conflictRemoteVersion(Object version);
 
   /// No description provided for @exportCsv.
   ///
@@ -3739,6 +3739,512 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'以后匹配该规则的通知将回落到内置默认。'**
   String get autoLedgerRuleDeleteBody;
+
+  /// No description provided for @systemSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统'**
+  String get systemSection;
+
+  /// No description provided for @keyboardShortcutsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'键盘快捷键'**
+  String get keyboardShortcutsTitle;
+
+  /// No description provided for @keyboardShortcutsSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看 Ledgerly 支持的全部快捷键。'**
+  String get keyboardShortcutsSubtitle;
+
+  /// No description provided for @keyboardShortcutsGeneral.
+  ///
+  /// In zh, this message translates to:
+  /// **'通用'**
+  String get keyboardShortcutsGeneral;
+
+  /// No description provided for @keyboardShortcutsBookkeeping.
+  ///
+  /// In zh, this message translates to:
+  /// **'记账'**
+  String get keyboardShortcutsBookkeeping;
+
+  /// No description provided for @keyboardShortcutsSync.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步'**
+  String get keyboardShortcutsSync;
+
+  /// No description provided for @keyboardShortcutsOpenPalette.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开命令面板'**
+  String get keyboardShortcutsOpenPalette;
+
+  /// No description provided for @keyboardShortcutsOpenPaletteDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'跨页面和动作的模糊搜索。'**
+  String get keyboardShortcutsOpenPaletteDescription;
+
+  /// No description provided for @keyboardShortcutsCloseDialog.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭弹窗'**
+  String get keyboardShortcutsCloseDialog;
+
+  /// No description provided for @keyboardShortcutsCloseDialogDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'收起任何打开的弹层。'**
+  String get keyboardShortcutsCloseDialogDescription;
+
+  /// No description provided for @keyboardShortcutsNewTransaction.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建流水'**
+  String get keyboardShortcutsNewTransaction;
+
+  /// No description provided for @keyboardShortcutsNewTransactionDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开快速记账编辑器。'**
+  String get keyboardShortcutsNewTransactionDescription;
+
+  /// No description provided for @keyboardShortcutsTriggerSync.
+  ///
+  /// In zh, this message translates to:
+  /// **'立即同步'**
+  String get keyboardShortcutsTriggerSync;
+
+  /// No description provided for @keyboardShortcutsTriggerSyncDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'在命令面板里触发一次立即同步。'**
+  String get keyboardShortcutsTriggerSyncDescription;
+
+  /// No description provided for @commandPaletteTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'命令面板'**
+  String get commandPaletteTitle;
+
+  /// No description provided for @commandPaletteHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入命令或搜索…'**
+  String get commandPaletteHint;
+
+  /// No description provided for @commandPaletteNoResults.
+  ///
+  /// In zh, this message translates to:
+  /// **'未找到匹配的命令'**
+  String get commandPaletteNoResults;
+
+  /// No description provided for @commandPaletteStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'Esc 关闭 · ↑↓ 选择 · ↵ 执行'**
+  String get commandPaletteStatus;
+
+  /// No description provided for @dataGovernanceTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据治理'**
+  String get dataGovernanceTitle;
+
+  /// No description provided for @dataGovernanceSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份、恢复或清空本机的全部数据'**
+  String get dataGovernanceSubtitle;
+
+  /// No description provided for @dataGovernanceBackup.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份'**
+  String get dataGovernanceBackup;
+
+  /// No description provided for @dataGovernanceBackupSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出全部账本、账户、预算和规则的快照。'**
+  String get dataGovernanceBackupSubtitle;
+
+  /// No description provided for @dataGovernanceBackupAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出全量快照'**
+  String get dataGovernanceBackupAction;
+
+  /// No description provided for @dataGovernanceBackupInProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在导出…'**
+  String get dataGovernanceBackupInProgress;
+
+  /// No description provided for @dataGovernanceBackupSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份已保存到 {path}'**
+  String dataGovernanceBackupSuccess(String path);
+
+  /// No description provided for @dataGovernanceBackupShare.
+  ///
+  /// In zh, this message translates to:
+  /// **'分享 / 另存到其他位置'**
+  String get dataGovernanceBackupShare;
+
+  /// No description provided for @dataGovernanceRestore.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复'**
+  String get dataGovernanceRestore;
+
+  /// No description provided for @dataGovernanceRestoreSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择备份文件，预览后再覆盖本机数据。'**
+  String get dataGovernanceRestoreSubtitle;
+
+  /// No description provided for @dataGovernanceRestoreAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择备份文件'**
+  String get dataGovernanceRestoreAction;
+
+  /// No description provided for @dataGovernanceRestoreInProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在恢复…'**
+  String get dataGovernanceRestoreInProgress;
+
+  /// No description provided for @dataGovernanceRestorePreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览'**
+  String get dataGovernanceRestorePreview;
+
+  /// No description provided for @dataGovernanceRestorePreviewSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'{books} 个账本 · {accounts} 个账户 · {transactions} 笔交易 · {entries} 条分录 · {rules} 条周期 · {budgets} 个预算 · {attachments} 个附件 · {merchantRules} 条商户规则'**
+  String dataGovernanceRestorePreviewSummary(
+      int books,
+      int accounts,
+      int transactions,
+      int entries,
+      int rules,
+      int budgets,
+      int attachments,
+      int merchantRules);
+
+  /// No description provided for @dataGovernanceRestorePreviewEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份里没有任何数据，恢复后本机会变空。'**
+  String get dataGovernanceRestorePreviewEmpty;
+
+  /// No description provided for @dataGovernanceRestoreConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认覆盖本机数据？'**
+  String get dataGovernanceRestoreConfirmTitle;
+
+  /// No description provided for @dataGovernanceRestoreConfirmBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复会覆盖本机的全部账本。已自动写入安全备份到 {path}，出问题可以回滚。'**
+  String dataGovernanceRestoreConfirmBody(String path);
+
+  /// No description provided for @dataGovernanceRestoreSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复完成，正在刷新…'**
+  String get dataGovernanceRestoreSuccess;
+
+  /// No description provided for @dataGovernanceWipe.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空本机数据'**
+  String get dataGovernanceWipe;
+
+  /// No description provided for @dataGovernanceWipeSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除全部流水、预算、规则和附件，无法撤销。'**
+  String get dataGovernanceWipeSubtitle;
+
+  /// No description provided for @dataGovernanceWipeAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部清空'**
+  String get dataGovernanceWipeAction;
+
+  /// No description provided for @dataGovernanceWipeInProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在清空…'**
+  String get dataGovernanceWipeInProgress;
+
+  /// No description provided for @dataGovernanceWipeConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认清空本机的全部数据？'**
+  String get dataGovernanceWipeConfirmTitle;
+
+  /// No description provided for @dataGovernanceWipeConfirmBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'这会删除本机的全部流水、账户、预算和规则，操作不可撤销。请输入 DELETE 以确认。'**
+  String get dataGovernanceWipeConfirmBody;
+
+  /// No description provided for @dataGovernanceWipeConfirmHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入 DELETE'**
+  String get dataGovernanceWipeConfirmHint;
+
+  /// No description provided for @dataGovernanceWipeConfirmError.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入大写的 DELETE 确认操作。'**
+  String get dataGovernanceWipeConfirmError;
+
+  /// No description provided for @dataGovernanceWipeSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机数据已清空，正在重启…'**
+  String get dataGovernanceWipeSuccess;
+
+  /// No description provided for @dataGovernanceImportFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'读取备份失败：{error}'**
+  String dataGovernanceImportFailed(String error);
+
+  /// No description provided for @dataGovernanceBackupFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出备份失败：{error}'**
+  String dataGovernanceBackupFailed(String error);
+
+  /// No description provided for @dataGovernanceWipeFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空本机数据失败：{error}'**
+  String dataGovernanceWipeFailed(String error);
+
+  /// No description provided for @dataGovernanceRestoreFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复失败：{error}'**
+  String dataGovernanceRestoreFailed(String error);
+
+  /// No description provided for @dataGovernanceSectionBackup.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份与恢复'**
+  String get dataGovernanceSectionBackup;
+
+  /// No description provided for @dataGovernanceSectionDanger.
+  ///
+  /// In zh, this message translates to:
+  /// **'危险操作'**
+  String get dataGovernanceSectionDanger;
+
+  /// No description provided for @dataGovernanceStatusTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'上次备份'**
+  String get dataGovernanceStatusTitle;
+
+  /// No description provided for @dataGovernanceStatusNever.
+  ///
+  /// In zh, this message translates to:
+  /// **'从未备份'**
+  String get dataGovernanceStatusNever;
+
+  /// No description provided for @dataGovernanceStatusRecent.
+  ///
+  /// In zh, this message translates to:
+  /// **'{ago} 之前'**
+  String dataGovernanceStatusRecent(String ago);
+
+  /// No description provided for @dataGovernanceStatusAt.
+  ///
+  /// In zh, this message translates to:
+  /// **'{date} {time}'**
+  String dataGovernanceStatusAt(String date, String time);
+
+  /// No description provided for @dataGovernanceStaleBannerTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'距离上次备份已 {days} 天'**
+  String dataGovernanceStaleBannerTitle(int days);
+
+  /// No description provided for @dataGovernanceStaleBannerAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'立即备份'**
+  String get dataGovernanceStaleBannerAction;
+
+  /// No description provided for @dataGovernanceSelectBooks.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择账本'**
+  String get dataGovernanceSelectBooks;
+
+  /// No description provided for @dataGovernanceSelectBooksHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'不选 = 导出全部'**
+  String get dataGovernanceSelectBooksHint;
+
+  /// No description provided for @dataGovernanceExportAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出全部账本（{n}）'**
+  String dataGovernanceExportAll(int n);
+
+  /// No description provided for @dataGovernanceExportSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出 {n} 个账本'**
+  String dataGovernanceExportSelected(int n);
+
+  /// No description provided for @dataGovernanceStatusAttachments.
+  ///
+  /// In zh, this message translates to:
+  /// **'{n} 个附件 · {size}'**
+  String dataGovernanceStatusAttachments(int n, String size);
+
+  /// No description provided for @dataGovernanceAttachmentSizeBytes.
+  ///
+  /// In zh, this message translates to:
+  /// **'{size} MB'**
+  String dataGovernanceAttachmentSizeBytes(String size);
+
+  /// No description provided for @dataGovernanceRestoreAttachmentsV2.
+  ///
+  /// In zh, this message translates to:
+  /// **'本次恢复将一并导入 {n} 个附件'**
+  String dataGovernanceRestoreAttachmentsV2(int n);
+
+  /// No description provided for @dataGovernanceRestoreNoAttachmentsV1.
+  ///
+  /// In zh, this message translates to:
+  /// **'该备份是 schema v1，不含附件二进制。'**
+  String get dataGovernanceRestoreNoAttachmentsV1;
+
+  /// No description provided for @dataGovernanceEncryptWithPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用密码加密'**
+  String get dataGovernanceEncryptWithPassword;
+
+  /// No description provided for @dataGovernancePasswordHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'至少 8 位；丢失将无法恢复备份'**
+  String get dataGovernancePasswordHint;
+
+  /// No description provided for @dataGovernancePasswordConfirmHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'再次输入密码'**
+  String get dataGovernancePasswordConfirmHint;
+
+  /// No description provided for @dataGovernancePasswordMismatch.
+  ///
+  /// In zh, this message translates to:
+  /// **'两次输入的密码不一致'**
+  String get dataGovernancePasswordMismatch;
+
+  /// No description provided for @dataGovernancePasswordTooShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码至少 8 位'**
+  String get dataGovernancePasswordTooShort;
+
+  /// No description provided for @dataGovernanceExportEncryptedAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出加密的全部账本（{n}）'**
+  String dataGovernanceExportEncryptedAll(int n);
+
+  /// No description provided for @dataGovernanceExportEncryptedSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出加密的 {n} 个账本'**
+  String dataGovernanceExportEncryptedSelected(int n);
+
+  /// No description provided for @dataGovernanceUnlockPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入备份密码'**
+  String get dataGovernanceUnlockPrompt;
+
+  /// No description provided for @dataGovernanceUnlockWrongPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码错误，请重试'**
+  String get dataGovernanceUnlockWrongPassword;
+
+  /// No description provided for @dataGovernanceUnlockLockedFor.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入锁定，{seconds} 秒后重试'**
+  String dataGovernanceUnlockLockedFor(int seconds);
+
+  /// No description provided for @dataGovernanceRestoreLegacyUnencrypted.
+  ///
+  /// In zh, this message translates to:
+  /// **'该备份未加密（schema v2）'**
+  String get dataGovernanceRestoreLegacyUnencrypted;
+
+  /// No description provided for @dataGovernanceRestoreLegacyUnencryptedDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'建议使用带密码的加密备份来保护敏感财务数据'**
+  String get dataGovernanceRestoreLegacyUnencryptedDetail;
+
+  /// No description provided for @dataGovernanceStatusEncrypted.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码保护'**
+  String get dataGovernanceStatusEncrypted;
+
+  /// No description provided for @dataGovernanceEncryptLostPasswordWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码丢失将无法恢复，请妥善保管'**
+  String get dataGovernanceEncryptLostPasswordWarning;
+
+  /// No description provided for @dataGovernanceAutoBackup.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动备份'**
+  String get dataGovernanceAutoBackup;
+
+  /// No description provided for @dataGovernanceAutoBackupSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开应用时检查；到期则写入本地快照'**
+  String get dataGovernanceAutoBackupSubtitle;
+
+  /// No description provided for @dataGovernanceAutoBackupWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动备份不加密。敏感账本请继续使用密码导出。'**
+  String get dataGovernanceAutoBackupWarning;
+
+  /// No description provided for @dataGovernanceAutoIntervalDays.
+  ///
+  /// In zh, this message translates to:
+  /// **'{n} 天'**
+  String dataGovernanceAutoIntervalDays(int n);
 }
 
 class _AppLocalizationsDelegate
