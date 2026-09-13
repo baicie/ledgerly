@@ -90,6 +90,14 @@
 - [x] 最近备份已是全量时 no-op
 - [x] 删除旧 base/delta 后，新文件仍可独立恢复
 
+## 备份完整性（Phase 17）
+
+- [x] catalog 记录备份文件 SHA-256
+- [x] 检查 full / incremental / encrypted 文件存在性与容器可读性
+- [x] 区分 healthy / missing / corrupted，且不修改或删除文件
+- [x] 旧 catalog 记录首次检查时自动补算 hash
+- [x] 数据治理页提供完整性检查和异常路径明细
+
 ### 待后续完善
 
 - 扩大商户分类覆盖（目前第一版关键词匹配）

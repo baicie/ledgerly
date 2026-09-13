@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
+import 'package:crypto/crypto.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -131,6 +132,14 @@ class PluginBackupFilePort implements BackupFilePort {
   Future<int> fileSize(String source) async {
     final file = File(source);
     return await file.exists() ? file.length() : 0;
+  }
+
+  @override
+  Future<String?> fileSha256(String source) async {
+    final file = File(source);
+    if (!await file.exists()) return null;
+    final digest = await sha256.bind(file.openRead()).first;
+    return digest.toString();
   }
 
   @override
@@ -532,6 +541,12 @@ class InMemoryBackupFilePort implements BackupFilePort {
     final raw = rawFiles[source];
     if (raw != null) return raw.length;
     return envelopes.containsKey(source) ? 1 : 0;
+  }
+
+  @override
+  Future<String?> fileSha256(String source) async {
+    final raw = rawFiles[source];
+    return raw == null ? null : sha256.convert(raw).toString();
   }
 
   @override

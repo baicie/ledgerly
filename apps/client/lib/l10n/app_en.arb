@@ -1482,6 +1482,41 @@
       }
     }
   },
+  "dataGovernanceVerifyBackups": "Check integrity",
+  "dataGovernanceVerifyNoBackups": "There are no cataloged backups to verify.",
+  "dataGovernanceVerifyAllHealthy": "Verified {count} healthy backups.",
+  "@dataGovernanceVerifyAllHealthy": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceVerifyIssuesTitle": "Backup integrity issues",
+  "dataGovernanceVerifyIssueSummary": "{healthy} healthy · {missing} missing · {corrupted} corrupted",
+  "@dataGovernanceVerifyIssueSummary": {
+    "placeholders": {
+      "healthy": {
+        "type": "int"
+      },
+      "missing": {
+        "type": "int"
+      },
+      "corrupted": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceVerifyMissing": "File is missing",
+  "dataGovernanceVerifyCorrupted": "File is corrupted",
+  "dataGovernanceVerifyFailed": "Could not verify backups: {error}",
+  "@dataGovernanceVerifyFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "dataGovernanceAutoBackup": "Automatic backup",
   "dataGovernanceAutoBackupSubtitle": "Checked when you open the app; writes a local snapshot when due",
   "dataGovernanceAutoBackupWarning": "Automatic backups are not encrypted. Use a password export for sensitive books.",

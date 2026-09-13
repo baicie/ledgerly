@@ -30,5 +30,6 @@
 | [phase-14-incremental-backup.md](./phase-14-incremental-backup.md) | 增量 diff 备份 |
 | [phase-15-backup-retention.md](./phase-15-backup-retention.md) | 备份目录与保留策略 |
 | [phase-16-portable-consolidation.md](./phase-16-portable-consolidation.md) | 增量备份便携化 |
+| [phase-17-backup-integrity.md](./phase-17-backup-integrity.md) | 备份完整性检查 |
 
 状态：文档在对应阶段分支创建并完善；基线阶段仅保留本索引。

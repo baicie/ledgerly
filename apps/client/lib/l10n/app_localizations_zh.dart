@@ -2362,6 +2362,37 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get dataGovernanceVerifyBackups => '检查完整性';
+
+  @override
+  String get dataGovernanceVerifyNoBackups => '本机没有可检查的备份。';
+
+  @override
+  String dataGovernanceVerifyAllHealthy(int count) {
+    return '已检查 $count 份备份，全部正常。';
+  }
+
+  @override
+  String get dataGovernanceVerifyIssuesTitle => '备份完整性异常';
+
+  @override
+  String dataGovernanceVerifyIssueSummary(
+      int healthy, int missing, int corrupted) {
+    return '$healthy 份正常 · $missing 份缺失 · $corrupted 份损坏';
+  }
+
+  @override
+  String get dataGovernanceVerifyMissing => '文件不存在';
+
+  @override
+  String get dataGovernanceVerifyCorrupted => '文件已损坏';
+
+  @override
+  String dataGovernanceVerifyFailed(String error) {
+    return '检查备份失败：$error';
+  }
+
+  @override
   String get dataGovernanceAutoBackup => '自动备份';
 
   @override
