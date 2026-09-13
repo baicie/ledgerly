@@ -69,6 +69,12 @@ enum BundleCommands {
         #[arg(long)]
         to: String,
     },
+    Cleanup {
+        #[arg(long)]
+        root: String,
+        #[arg(long, default_value_t = 3)]
+        keep: usize,
+    },
 }
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 2)]
@@ -165,6 +171,13 @@ async fn main() -> anyhow::Result<()> {
                 println!(
                     "backup bundle replicated to {to} ({} files, {} bytes)",
                     report.file_count, report.total_size_bytes
+                );
+            }
+            BundleCommands::Cleanup { root, keep } => {
+                let report = backup_bundle::cleanup_backup_bundles(Path::new(&root), keep)?;
+                println!(
+                    "backup bundle cleanup complete: deleted={}, kept={}, freed={} bytes",
+                    report.deleted_count, report.kept_count, report.freed_bytes
                 );
             }
         },

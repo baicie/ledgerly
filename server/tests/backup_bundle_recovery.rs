@@ -2,10 +2,12 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use ledger_server::infrastructure::backup_bundle::{
-    create_backup_bundle, replicate_backup_bundle, unpack_backup_bundle, verify_backup_bundle,
+    cleanup_backup_bundles, create_backup_bundle, replicate_backup_bundle, unpack_backup_bundle,
+    verify_backup_bundle,
 };
 use ledger_server::infrastructure::object_store::backup_object_store;
 use ledger_server::Config;
+use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 struct TestDirectory {
@@ -92,10 +94,11 @@ fn encrypted_bundle_requires_password_and_detects_corruption() {
     let fixture = BundleFixture::new("bundle-encrypted");
     let database_dump = fixture.database_dump.path().join("database.dump");
     fs::write(&database_dump, b"encrypted database dump").expect("write database dump");
+    let attachment_bytes = vec![0x5a; 1024 * 1024 + 123];
     write_object(
         fixture._object_source.path(),
         "books/book-a/attachment",
-        b"encrypted attachment",
+        &attachment_bytes,
     );
     backup_object_store(&fixture.source_config, fixture.object_backup.path())
         .expect("back up objects");
@@ -126,6 +129,16 @@ fn encrypted_bundle_requires_password_and_detects_corruption() {
         fs::read(fixture.unpacked.path().join("database.dump")).unwrap(),
         b"encrypted database dump"
     );
+    assert_eq!(
+        fs::read(
+            fixture
+                .unpacked
+                .path()
+                .join("object-store/objects/books/book-a/attachment")
+        )
+        .unwrap(),
+        attachment_bytes
+    );
 
     fs::write(
         fixture.bundle.path().join("payload/00000000.bin"),
@@ -133,6 +146,80 @@ fn encrypted_bundle_requires_password_and_detects_corruption() {
     )
     .expect("corrupt bundle payload");
     assert!(verify_backup_bundle(fixture.bundle.path(), Some("password123")).is_err());
+}
+
+#[test]
+fn schema_v1_plaintext_bundle_remains_readable() {
+    let fixture = BundleFixture::new("bundle-v1");
+    let payload = b"legacy v1 bundle payload";
+    let bundle = fixture.bundle.path();
+    fs::create_dir_all(bundle.join("payload")).expect("create v1 payload directory");
+    fs::write(bundle.join("payload/00000000.bin"), payload).expect("write v1 payload");
+    let sha256 = hex::encode(Sha256::digest(payload));
+    let manifest = serde_json::json!({
+        "kind": "ledgerly-server-backup-bundle",
+        "schemaVersion": 1,
+        "createdAt": "2026-01-01T00:00:00Z",
+        "encrypted": false,
+        "fileCount": 1,
+        "totalSizeBytes": payload.len(),
+        "files": [{
+            "logicalPath": "database.dump",
+            "payloadPath": "payload/00000000.bin",
+            "sizeBytes": payload.len(),
+            "sha256": sha256,
+            "storedSizeBytes": payload.len(),
+            "storedSha256": sha256
+        }]
+    });
+    fs::write(
+        bundle.join("manifest.json"),
+        serde_json::to_vec_pretty(&manifest).unwrap(),
+    )
+    .expect("write v1 manifest");
+
+    let verified = verify_backup_bundle(bundle, None).expect("verify v1 bundle");
+    assert!(verified.plaintext_verified);
+    unpack_backup_bundle(bundle, fixture.unpacked.path(), None).expect("unpack v1 bundle");
+    assert_eq!(
+        fs::read(fixture.unpacked.path().join("database.dump")).unwrap(),
+        payload
+    );
+}
+
+#[test]
+fn cleanup_keeps_newest_bundles_only() {
+    let fixture = BundleFixture::new("bundle-cleanup");
+    let database_dump = fixture.database_dump.path().join("database.dump");
+    fs::write(&database_dump, b"cleanup database dump").expect("write database dump");
+    write_object(
+        fixture._object_source.path(),
+        "books/book-a/attachment",
+        b"cleanup attachment",
+    );
+    backup_object_store(&fixture.source_config, fixture.object_backup.path())
+        .expect("back up objects");
+
+    let root = TestDirectory::new("bundle-cleanup-root");
+    for (name, created_at) in [
+        ("oldest", "2026-01-01T00:00:00Z"),
+        ("middle", "2026-02-01T00:00:00Z"),
+        ("newest", "2026-03-01T00:00:00Z"),
+    ] {
+        let bundle = root.path().join(name);
+        create_backup_bundle(&database_dump, fixture.object_backup.path(), &bundle, None)
+            .expect("create cleanup bundle");
+        set_bundle_created_at(&bundle, created_at);
+    }
+
+    let report = cleanup_backup_bundles(root.path(), 1).expect("cleanup bundles");
+
+    assert_eq!(report.deleted_count, 2);
+    assert_eq!(report.kept_count, 1);
+    assert!(report.freed_bytes > 0);
+    assert!(!root.path().join("oldest").exists());
+    assert!(!root.path().join("middle").exists());
+    assert!(root.path().join("newest").exists());
 }
 
 struct BundleFixture {
@@ -171,4 +258,12 @@ fn write_object(root: &Path, key: &str, bytes: &[u8]) {
     let path = root.join(key);
     fs::create_dir_all(path.parent().unwrap()).expect("create object parent");
     fs::write(path, bytes).expect("write object");
+}
+
+fn set_bundle_created_at(bundle: &Path, created_at: &str) {
+    let manifest_path = bundle.join("manifest.json");
+    let mut manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+    manifest["createdAt"] = serde_json::Value::String(created_at.to_string());
+    fs::write(manifest_path, serde_json::to_vec_pretty(&manifest).unwrap()).unwrap();
 }
