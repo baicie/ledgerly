@@ -36,6 +36,10 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod pull
 docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
 docker compose -f docker-compose.prod.yml --env-file .env.prod ps
 curl -sf "http://127.0.0.1:\${LEDGER_PORT:-8080}/health/ready"
+curl -sf "http://127.0.0.1:\${LEDGER_PORT:-8080}/health/backup" | \
+  python3 -c 'import json,sys; data=json.load(sys.stdin); assert data["status"] in {"never_run","failed","stale","ready"}; assert "bundlePath" not in data'
+docker compose -f docker-compose.prod.yml --env-file .env.prod exec -T ledger-server sh -c \
+  'touch /var/lib/ledgerly/backups/.deploy-write-test && rm /var/lib/ledgerly/backups/.deploy-write-test && touch /var/lib/ledgerly/backups-offsite/.deploy-write-test && rm /var/lib/ledgerly/backups-offsite/.deploy-write-test'
 echo
 echo OK
 EOF

@@ -40,3 +40,20 @@ if deploy_and_verify; then
   printf 'deploy_and_verify ignored a compose failure\n' >&2
   exit 1
 fi
+
+printf '%s' '{"status":"ready","intervalHours":24,"ageSeconds":60}' | \
+  validate_backup_health_json
+printf '%s' '{"status":"never_run","intervalHours":24,"ageSeconds":null}' | \
+  validate_backup_health_json
+
+if printf '%s' '{"status":"disabled","intervalHours":24}' | \
+  validate_backup_health_json 2>/dev/null; then
+  printf 'validate_backup_health_json accepted disabled backups\n' >&2
+  exit 1
+fi
+
+if printf '%s' '{"status":"ready","intervalHours":24,"bundlePath":"/secret"}' | \
+  validate_backup_health_json 2>/dev/null; then
+  printf 'validate_backup_health_json accepted sensitive fields\n' >&2
+  exit 1
+fi

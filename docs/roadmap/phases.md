@@ -280,6 +280,15 @@
 - [x] 健康响应不包含路径和错误详情
 - [x] 提供手工 `backup-run` / `backup-status` 命令
 
+## 生产备份部署接线（Phase 36）
+
+- [x] 运行镜像包含 PostgreSQL 16 `pg_dump` / `pg_restore`
+- [x] Compose 挂载对象、备份和异地目录
+- [x] 环境模板包含加密密码和保留策略
+- [x] 部署验收检查 `/health/backup` 和三个可写目录
+- [x] 部署验收检查 pg_dump 主版本
+- [x] CI 构建服务端镜像并执行备份工具 smoke test
+
 ### 待后续完善
 
 - 扩大商户分类覆盖（目前第一版关键词匹配）
