@@ -137,4 +137,5 @@ Rust job 已有 PostgreSQL 16 service。新增：
 - [x] 恢复后表数量与备份前快照一致；
 - [x] restore + migrate 小于 4 小时 RTO；
 - [x] CI 安装 PostgreSQL client 并强制执行；
-- [ ] `cargo fmt`、Clippy、workspace tests 全部通过（待 CI 验证）。
+- [x] `cargo fmt`、Clippy、workspace tests 全部通过；
+- [x] CI Rust job 真实完成 PostgreSQL dump/restore 演练。
