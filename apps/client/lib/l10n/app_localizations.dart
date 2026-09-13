@@ -4019,6 +4019,78 @@ abstract class AppLocalizations {
   /// **'恢复完成，正在刷新…'**
   String get dataGovernanceRestoreSuccess;
 
+  /// No description provided for @dataGovernanceRestoreHistory.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复历史 · {count} 次'**
+  String dataGovernanceRestoreHistory(int count);
+
+  /// No description provided for @dataGovernanceRestoreAuditSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'成功'**
+  String get dataGovernanceRestoreAuditSuccess;
+
+  /// No description provided for @dataGovernanceRestoreAuditFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'失败'**
+  String get dataGovernanceRestoreAuditFailed;
+
+  /// No description provided for @dataGovernanceRestoreAuditBackup.
+  ///
+  /// In zh, this message translates to:
+  /// **'来源备份：{backupId}'**
+  String dataGovernanceRestoreAuditBackup(String backupId);
+
+  /// No description provided for @dataGovernanceRestoreAuditSafety.
+  ///
+  /// In zh, this message translates to:
+  /// **'安全备份：{path}'**
+  String dataGovernanceRestoreAuditSafety(String path);
+
+  /// No description provided for @dataGovernanceRestoreAuditError.
+  ///
+  /// In zh, this message translates to:
+  /// **'错误：{error}'**
+  String dataGovernanceRestoreAuditError(String error);
+
+  /// No description provided for @dataGovernanceRestoreAuditDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除记录和安全备份'**
+  String get dataGovernanceRestoreAuditDelete;
+
+  /// No description provided for @dataGovernanceRestoreAuditDeleteConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除恢复记录？'**
+  String get dataGovernanceRestoreAuditDeleteConfirmTitle;
+
+  /// No description provided for @dataGovernanceRestoreAuditDeleteConfirmBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'将同时删除关联安全备份：{path}'**
+  String dataGovernanceRestoreAuditDeleteConfirmBody(String path);
+
+  /// No description provided for @dataGovernanceRestoreAuditDeleteHistoryOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'这条记录没有关联安全备份，只删除恢复历史。'**
+  String get dataGovernanceRestoreAuditDeleteHistoryOnly;
+
+  /// No description provided for @dataGovernanceRestoreAuditDeleteSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已删除恢复记录，释放 {size}。'**
+  String dataGovernanceRestoreAuditDeleteSuccess(String size);
+
+  /// No description provided for @dataGovernanceRestoreAuditDeleteFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除恢复记录失败：{error}'**
+  String dataGovernanceRestoreAuditDeleteFailed(String error);
+
   /// No description provided for @dataGovernanceWipe.
   ///
   /// In zh, this message translates to:

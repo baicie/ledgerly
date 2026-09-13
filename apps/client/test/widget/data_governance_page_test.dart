@@ -12,6 +12,7 @@ import 'package:ledgerly_client/application/backup_auto_password_store.dart';
 import 'package:ledgerly_client/application/backup_catalog_store.dart';
 import 'package:ledgerly_client/application/backup_encryption.dart';
 import 'package:ledgerly_client/application/backup_metadata_store.dart';
+import 'package:ledgerly_client/application/backup_restore_audit.dart';
 import 'package:ledgerly_client/application/backup_schedule.dart';
 import 'package:ledgerly_client/application/backup_service.dart';
 import 'package:ledgerly_client/application/merchant_rule_store.dart';
@@ -159,6 +160,17 @@ void main() {
         .where((entry) => entry.key.startsWith('memory-safety'))
         .toList();
     expect(safetyEntries.length, 1);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    final audits = await BackupRestoreAuditStore().read();
+    expect(audits, hasLength(1));
+    expect(audits.single.status, BackupRestoreAuditStatus.success);
+    expect(audits.single.mode, BackupRestoreAuditMode.replace);
+    expect(audits.single.safetyPath, safetyEntries.single.key);
+    expect(
+      find.byKey(const Key('data-governance-restore-history')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('restore preview can switch to merge mode and reports its result',
@@ -202,6 +214,91 @@ void main() {
       find.text(l10n.dataGovernanceRestoreMergeSuccess(0, 1, 0)),
       findsOneWidget,
     );
+  });
+
+  testWidgets('failed restore is recorded in the audit history',
+      (tester) async {
+    final document = await backupService.export();
+    filePort.pickResult = 'picked-failing-restore';
+    filePort.envelopes['picked-failing-restore'] = document;
+    final failingService = _FailingRestoreBackupService(
+      database: database,
+      recurring: recurring,
+      budgets: budgets,
+      attachments: attachments,
+      merchantRules: merchantRules,
+      filePort: filePort,
+      deviceIdLoader: () async => 'governance-test-device',
+      encryption: BackupEncryption.testing(),
+    );
+
+    await _pumpPage(tester, failingService, booksLoader: loadBooks);
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-restore-pick')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(
+      find.byKey(const Key('data-governance-restore-confirm')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('data-governance-restore-dialog-confirm')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final audits = await BackupRestoreAuditStore().read();
+    expect(audits, hasLength(1));
+    expect(audits.single.status, BackupRestoreAuditStatus.failed);
+    expect(audits.single.safetyPath, isNotNull);
+    expect(audits.single.errorSummary, contains('restore failed'));
+  });
+
+  testWidgets('restore history deletes its linked safety backup',
+      (tester) async {
+    final safetyPath = await backupService.writeSafetyBackup();
+    final auditStore = BackupRestoreAuditStore();
+    await auditStore.record(
+      at: DateTime.now().toUtc(),
+      mode: BackupRestoreAuditMode.replace,
+      status: BackupRestoreAuditStatus.success,
+      backupId: 'source-backup',
+      safetyPath: safetyPath,
+    );
+    final audit = (await auditStore.read()).single;
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+
+    final history = find.byKey(
+      const Key('data-governance-restore-history'),
+    );
+    await tester.ensureVisible(history);
+    await tester.tap(history);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(
+        Key('data-governance-restore-audit-${audit.id}-actions'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(
+        Key('data-governance-restore-audit-${audit.id}-delete'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(
+        const Key('data-governance-restore-audit-delete-confirm'),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(filePort.rawFiles.containsKey(safetyPath), isFalse);
+    expect(await auditStore.read(), isEmpty);
   });
 
   testWidgets('wipe requires the user to type DELETE', (tester) async {
@@ -1415,5 +1512,23 @@ Future<void> _flushBackupCrypto(WidgetTester tester) async {
       await Future<void>.delayed(const Duration(milliseconds: 100));
     });
     await tester.pump();
+  }
+}
+
+class _FailingRestoreBackupService extends BackupService {
+  _FailingRestoreBackupService({
+    required super.database,
+    required super.recurring,
+    required super.budgets,
+    required super.attachments,
+    required super.merchantRules,
+    required super.filePort,
+    required super.deviceIdLoader,
+    super.encryption,
+  });
+
+  @override
+  Future<void> restore(BackupDocument document, {String? password}) {
+    throw StateError('restore failed');
   }
 }

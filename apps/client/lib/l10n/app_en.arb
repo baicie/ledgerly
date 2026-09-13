@@ -1254,6 +1254,67 @@
   },
   "dataGovernanceRestoreMergeNoChanges": "Nothing new to merge. Existing books were kept unchanged.",
   "dataGovernanceRestoreSuccess": "Restore complete. Reloading…",
+  "dataGovernanceRestoreHistory": "Restore history · {count}",
+  "@dataGovernanceRestoreHistory": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceRestoreAuditSuccess": "Succeeded",
+  "dataGovernanceRestoreAuditFailed": "Failed",
+  "dataGovernanceRestoreAuditBackup": "Source backup: {backupId}",
+  "@dataGovernanceRestoreAuditBackup": {
+    "placeholders": {
+      "backupId": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreAuditSafety": "Safety backup: {path}",
+  "@dataGovernanceRestoreAuditSafety": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreAuditError": "Error: {error}",
+  "@dataGovernanceRestoreAuditError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreAuditDelete": "Delete entry and safety backup",
+  "dataGovernanceRestoreAuditDeleteConfirmTitle": "Delete restore entry?",
+  "dataGovernanceRestoreAuditDeleteConfirmBody": "This also deletes the linked safety backup: {path}",
+  "@dataGovernanceRestoreAuditDeleteConfirmBody": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreAuditDeleteHistoryOnly": "This entry has no linked safety backup, so only the history entry will be deleted.",
+  "dataGovernanceRestoreAuditDeleteSuccess": "Restore entry deleted, freeing {size}.",
+  "@dataGovernanceRestoreAuditDeleteSuccess": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreAuditDeleteFailed": "Could not delete restore entry: {error}",
+  "@dataGovernanceRestoreAuditDeleteFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "dataGovernanceWipe": "Wipe local data",
   "dataGovernanceWipeSubtitle": "Delete every transaction, budget, rule, and attachment. There is no undo.",
   "dataGovernanceWipeAction": "Wipe everything",

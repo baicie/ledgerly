@@ -7,6 +7,7 @@ import '../../application/auto_backup.dart';
 import '../../application/backup_encryption.dart';
 import '../../application/backup_catalog_store.dart';
 import '../../application/backup_metadata_store.dart';
+import '../../application/backup_restore_audit.dart';
 import '../../application/backup_schedule.dart';
 import '../../application/backup_service.dart';
 import '../../data/database.dart';
@@ -607,6 +608,62 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
     }
   }
 
+  Future<void> _shareRestoreAudit(BackupRestoreAudit audit) async {
+    final path = audit.safetyPath;
+    if (path == null) return;
+    final l10n = l10nOf(context);
+    try {
+      await _service.shareFile(path);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.dataGovernanceBackupFailed('$error')),
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteRestoreAudit(BackupRestoreAudit audit) async {
+    final l10n = l10nOf(context);
+    final confirmed = await showDialogDialog<bool>(
+      context: context,
+      builder: (dialogContext) => _RestoreAuditDeleteConfirmDialog(
+        l10n: l10n,
+        audit: audit,
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    _setBusy(true);
+    try {
+      final freedBytes = await _service.deleteRestoreAudit(audit);
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ref.invalidate(backupRestoreAuditsProvider);
+      ref.invalidate(backupCatalogProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.dataGovernanceRestoreAuditDeleteSuccess(
+              _formatMegabytes(freedBytes),
+            ),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.dataGovernanceRestoreAuditDeleteFailed('$error'),
+          ),
+        ),
+      );
+    }
+  }
+
   // -- Restore ----------------------------------------------------------
 
   Future<void> _pickRestoreFile() async {
@@ -699,17 +756,25 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
     );
     if (confirmed != true || !mounted) return;
 
-    _setBusy(true);
-    String safetyPath;
+    final restoreMode = _restoreMode;
+    String? safetyPath;
     BackupMergeResult? mergeResult;
+    _setBusy(true);
     try {
       safetyPath = await _service.writeSafetyBackup();
-      if (_restoreMode == BackupRestoreMode.merge) {
+      if (restoreMode == BackupRestoreMode.merge) {
         mergeResult = await _service.merge(document);
       } else {
         await _service.restore(document);
       }
     } catch (error) {
+      await _recordRestoreAudit(
+        document: document,
+        mode: restoreMode,
+        status: BackupRestoreAuditStatus.failed,
+        safetyPath: safetyPath,
+        error: error,
+      );
       if (!mounted) return;
       setState(() => _busy = false);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -720,6 +785,14 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
       return;
     }
 
+    if (!mounted) return;
+    await _recordRestoreAudit(
+      document: document,
+      mode: restoreMode,
+      status: BackupRestoreAuditStatus.success,
+      safetyPath: safetyPath,
+      mergeResult: mergeResult,
+    );
     if (!mounted) return;
     setState(() {
       _pendingDocument = null;
@@ -753,6 +826,34 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
     );
     invalidateLedgerViews(ref);
     ref.invalidate(backupCatalogProvider);
+  }
+
+  Future<void> _recordRestoreAudit({
+    required BackupDocument document,
+    required BackupRestoreMode mode,
+    required BackupRestoreAuditStatus status,
+    String? safetyPath,
+    BackupMergeResult? mergeResult,
+    Object? error,
+  }) async {
+    try {
+      await ref.read(backupRestoreAuditStoreProvider).record(
+            at: DateTime.now().toUtc(),
+            mode: mode == BackupRestoreMode.merge
+                ? BackupRestoreAuditMode.merge
+                : BackupRestoreAuditMode.replace,
+            status: status,
+            backupId: document.backupId,
+            safetyPath: safetyPath,
+            errorSummary: error == null ? null : _summarizeAuditError(error),
+            addedBooks: mergeResult?.addedBooks ?? 0,
+            replacedBooks: mergeResult?.replacedBooks ?? 0,
+            skippedBooks: mergeResult?.skippedBooks ?? 0,
+          );
+      ref.invalidate(backupRestoreAuditsProvider);
+    } catch (_) {
+      // Audit is auxiliary; a restore result must not fail because of it.
+    }
   }
 
   // -- Wipe -------------------------------------------------------------
@@ -806,6 +907,12 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
               data: (value) => value,
               orElse: () => const <BackupArtifact>[],
             );
+    final restoreAudits = ref
+        .watch(backupRestoreAuditsProvider)
+        .maybeWhen<List<BackupRestoreAudit>>(
+          data: (value) => value,
+          orElse: () => const <BackupRestoreAudit>[],
+        );
     final localBackupBytes = catalog.fold<int>(
       0,
       (sum, artifact) => sum + artifact.sizeBytes,
@@ -872,6 +979,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
                   lastBackupIncremental: metadata.lastBackupIncremental,
                   localBackupCount: catalog.length,
                   localBackupSizeBytes: localBackupBytes,
+                  restoreAudits: restoreAudits,
                   artifacts: catalog,
                   currentBaseId: metadata.baseBackupId,
                   latestBackupId: metadata.lastBackupId,
@@ -934,6 +1042,8 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
                   onArtifactRestore:
                       _busy ? null : _loadCatalogArtifactForRestore,
                   onArtifactDelete: _busy ? null : _deleteCatalogArtifact,
+                  onRestoreAuditShare: _busy ? null : _shareRestoreAudit,
+                  onRestoreAuditDelete: _busy ? null : _deleteRestoreAudit,
                   onConsolidate: _busy || !metadata.lastBackupIncremental
                       ? null
                       : _consolidateLatestBackup,
@@ -988,6 +1098,7 @@ class _BackupSection extends StatelessWidget {
     required this.lastBackupIncremental,
     required this.localBackupCount,
     required this.localBackupSizeBytes,
+    required this.restoreAudits,
     required this.artifacts,
     required this.currentBaseId,
     required this.latestBackupId,
@@ -1019,6 +1130,8 @@ class _BackupSection extends StatelessWidget {
     required this.onArtifactRotate,
     required this.onArtifactRestore,
     required this.onArtifactDelete,
+    required this.onRestoreAuditShare,
+    required this.onRestoreAuditDelete,
     required this.onConsolidate,
     required this.onPickRestore,
     required this.onRestoreModeChanged,
@@ -1034,6 +1147,7 @@ class _BackupSection extends StatelessWidget {
   final bool lastBackupIncremental;
   final int localBackupCount;
   final int localBackupSizeBytes;
+  final List<BackupRestoreAudit> restoreAudits;
   final List<BackupArtifact> artifacts;
   final String? currentBaseId;
   final String? latestBackupId;
@@ -1065,6 +1179,8 @@ class _BackupSection extends StatelessWidget {
   final ValueChanged<BackupArtifact>? onArtifactRotate;
   final ValueChanged<BackupArtifact>? onArtifactRestore;
   final ValueChanged<BackupArtifact>? onArtifactDelete;
+  final ValueChanged<BackupRestoreAudit>? onRestoreAuditShare;
+  final ValueChanged<BackupRestoreAudit>? onRestoreAuditDelete;
   final VoidCallback? onConsolidate;
   final VoidCallback? onPickRestore;
   final ValueChanged<BackupRestoreMode>? onRestoreModeChanged;
@@ -1329,6 +1445,14 @@ class _BackupSection extends StatelessWidget {
               onDelete: onArtifactDelete,
             ),
           ],
+          if (restoreAudits.isNotEmpty)
+            _RestoreAuditList(
+              l10n: l10n,
+              audits: restoreAudits,
+              busy: busy,
+              onShare: onRestoreAuditShare,
+              onDelete: onRestoreAuditDelete,
+            ),
           const Divider(indent: 16, endIndent: 16),
           // -- Restore --------------------------------------------------
           ListTile(
@@ -1569,6 +1693,141 @@ class _BackupArtifactTile extends StatelessWidget {
             value: _BackupArtifactAction.delete,
             enabled: onDelete != null && !isProtected,
             child: Text(l10n.dataGovernanceArtifactDelete),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+enum _RestoreAuditAction { share, delete }
+
+class _RestoreAuditList extends StatelessWidget {
+  const _RestoreAuditList({
+    required this.l10n,
+    required this.audits,
+    required this.busy,
+    required this.onShare,
+    required this.onDelete,
+  });
+
+  final AppLocalizations l10n;
+  final List<BackupRestoreAudit> audits;
+  final bool busy;
+  final ValueChanged<BackupRestoreAudit>? onShare;
+  final ValueChanged<BackupRestoreAudit>? onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return ExpansionTile(
+      key: const Key('data-governance-restore-history'),
+      tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+      title: Text(l10n.dataGovernanceRestoreHistory(audits.length)),
+      children: [
+        for (final audit in audits)
+          _RestoreAuditTile(
+            l10n: l10n,
+            audit: audit,
+            busy: busy,
+            onShare: onShare,
+            onDelete: onDelete,
+          ),
+      ],
+    );
+  }
+}
+
+class _RestoreAuditTile extends StatelessWidget {
+  const _RestoreAuditTile({
+    required this.l10n,
+    required this.audit,
+    required this.busy,
+    required this.onShare,
+    required this.onDelete,
+  });
+
+  final AppLocalizations l10n;
+  final BackupRestoreAudit audit;
+  final bool busy;
+  final ValueChanged<BackupRestoreAudit>? onShare;
+  final ValueChanged<BackupRestoreAudit>? onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = MaterialLocalizations.of(context);
+    final at = audit.at.toLocal();
+    final successful = audit.status == BackupRestoreAuditStatus.success;
+    final mode = audit.mode == BackupRestoreAuditMode.merge
+        ? l10n.dataGovernanceRestoreModeMerge
+        : l10n.dataGovernanceRestoreModeReplace;
+    final status = successful
+        ? l10n.dataGovernanceRestoreAuditSuccess
+        : l10n.dataGovernanceRestoreAuditFailed;
+    return ListTile(
+      key: Key('data-governance-restore-audit-${audit.id}'),
+      leading: Icon(
+        successful ? Icons.check_circle_outline : Icons.error_outline,
+        color: successful
+            ? Theme.of(context).colorScheme.primary
+            : Theme.of(context).colorScheme.error,
+      ),
+      title: Text('$mode · $status'),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${localizations.formatMediumDate(at)} '
+            '${localizations.formatTimeOfDay(
+              TimeOfDay.fromDateTime(at),
+              alwaysUse24HourFormat: true,
+            )}',
+          ),
+          if (audit.backupId != null)
+            Text(
+              l10n.dataGovernanceRestoreAuditBackup(audit.backupId!),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          if (audit.safetyPath != null)
+            Text(
+              l10n.dataGovernanceRestoreAuditSafety(audit.safetyPath!),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          if (audit.errorSummary != null)
+            Text(
+              l10n.dataGovernanceRestoreAuditError(audit.errorSummary!),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+        ],
+      ),
+      trailing: PopupMenuButton<_RestoreAuditAction>(
+        key: Key('data-governance-restore-audit-${audit.id}-actions'),
+        enabled: !busy,
+        tooltip: l10n.dataGovernanceArtifactActions,
+        onSelected: (action) {
+          switch (action) {
+            case _RestoreAuditAction.share:
+              onShare?.call(audit);
+              break;
+            case _RestoreAuditAction.delete:
+              onDelete?.call(audit);
+              break;
+          }
+        },
+        itemBuilder: (context) => [
+          PopupMenuItem(
+            key: Key('data-governance-restore-audit-${audit.id}-share'),
+            value: _RestoreAuditAction.share,
+            enabled: onShare != null && audit.safetyPath != null,
+            child: Text(l10n.dataGovernanceArtifactShare),
+          ),
+          PopupMenuItem(
+            key: Key('data-governance-restore-audit-${audit.id}-delete'),
+            value: _RestoreAuditAction.delete,
+            enabled: onDelete != null,
+            child: Text(l10n.dataGovernanceRestoreAuditDelete),
           ),
         ],
       ),
@@ -1989,6 +2248,46 @@ class _ArtifactDeleteConfirmDialog extends StatelessWidget {
           ),
           onPressed: () => Navigator.pop(context, true),
           child: Text(l10n.dataGovernanceArtifactDelete),
+        ),
+      ],
+    );
+  }
+}
+
+class _RestoreAuditDeleteConfirmDialog extends StatelessWidget {
+  const _RestoreAuditDeleteConfirmDialog({
+    required this.l10n,
+    required this.audit,
+  });
+
+  final AppLocalizations l10n;
+  final BackupRestoreAudit audit;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      key: const Key('data-governance-restore-audit-delete-dialog'),
+      title: Text(l10n.dataGovernanceRestoreAuditDeleteConfirmTitle),
+      content: Text(
+        audit.safetyPath == null
+            ? l10n.dataGovernanceRestoreAuditDeleteHistoryOnly
+            : l10n.dataGovernanceRestoreAuditDeleteConfirmBody(
+                audit.safetyPath!,
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text(l10n.cancel),
+        ),
+        FilledButton(
+          key: const Key('data-governance-restore-audit-delete-confirm'),
+          style: FilledButton.styleFrom(
+            backgroundColor: Theme.of(context).colorScheme.error,
+            foregroundColor: Theme.of(context).colorScheme.onError,
+          ),
+          onPressed: () => Navigator.pop(context, true),
+          child: Text(l10n.dataGovernanceRestoreAuditDelete),
         ),
       ],
     );
@@ -2880,6 +3179,12 @@ class _PasswordSubmitDialogState<T> extends State<_PasswordSubmitDialog<T>> {
 
 String _formatMegabytes(int bytes) {
   return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+}
+
+String _summarizeAuditError(Object error) {
+  final text = '$error'.replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (text.length <= 200) return text;
+  return '${text.substring(0, 200)}...';
 }
 
 // Tiny helpers to keep call sites readable without fighting analyzer

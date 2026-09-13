@@ -2222,6 +2222,59 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dataGovernanceRestoreSuccess => 'Restore complete. Reloading…';
 
   @override
+  String dataGovernanceRestoreHistory(int count) {
+    return 'Restore history · $count';
+  }
+
+  @override
+  String get dataGovernanceRestoreAuditSuccess => 'Succeeded';
+
+  @override
+  String get dataGovernanceRestoreAuditFailed => 'Failed';
+
+  @override
+  String dataGovernanceRestoreAuditBackup(String backupId) {
+    return 'Source backup: $backupId';
+  }
+
+  @override
+  String dataGovernanceRestoreAuditSafety(String path) {
+    return 'Safety backup: $path';
+  }
+
+  @override
+  String dataGovernanceRestoreAuditError(String error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String get dataGovernanceRestoreAuditDelete =>
+      'Delete entry and safety backup';
+
+  @override
+  String get dataGovernanceRestoreAuditDeleteConfirmTitle =>
+      'Delete restore entry?';
+
+  @override
+  String dataGovernanceRestoreAuditDeleteConfirmBody(String path) {
+    return 'This also deletes the linked safety backup: $path';
+  }
+
+  @override
+  String get dataGovernanceRestoreAuditDeleteHistoryOnly =>
+      'This entry has no linked safety backup, so only the history entry will be deleted.';
+
+  @override
+  String dataGovernanceRestoreAuditDeleteSuccess(String size) {
+    return 'Restore entry deleted, freeing $size.';
+  }
+
+  @override
+  String dataGovernanceRestoreAuditDeleteFailed(String error) {
+    return 'Could not delete restore entry: $error';
+  }
+
+  @override
   String get dataGovernanceWipe => 'Wipe local data';
 
   @override

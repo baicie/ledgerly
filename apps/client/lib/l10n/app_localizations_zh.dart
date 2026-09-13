@@ -2137,6 +2137,57 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dataGovernanceRestoreSuccess => '恢复完成，正在刷新…';
 
   @override
+  String dataGovernanceRestoreHistory(int count) {
+    return '恢复历史 · $count 次';
+  }
+
+  @override
+  String get dataGovernanceRestoreAuditSuccess => '成功';
+
+  @override
+  String get dataGovernanceRestoreAuditFailed => '失败';
+
+  @override
+  String dataGovernanceRestoreAuditBackup(String backupId) {
+    return '来源备份：$backupId';
+  }
+
+  @override
+  String dataGovernanceRestoreAuditSafety(String path) {
+    return '安全备份：$path';
+  }
+
+  @override
+  String dataGovernanceRestoreAuditError(String error) {
+    return '错误：$error';
+  }
+
+  @override
+  String get dataGovernanceRestoreAuditDelete => '删除记录和安全备份';
+
+  @override
+  String get dataGovernanceRestoreAuditDeleteConfirmTitle => '删除恢复记录？';
+
+  @override
+  String dataGovernanceRestoreAuditDeleteConfirmBody(String path) {
+    return '将同时删除关联安全备份：$path';
+  }
+
+  @override
+  String get dataGovernanceRestoreAuditDeleteHistoryOnly =>
+      '这条记录没有关联安全备份，只删除恢复历史。';
+
+  @override
+  String dataGovernanceRestoreAuditDeleteSuccess(String size) {
+    return '已删除恢复记录，释放 $size。';
+  }
+
+  @override
+  String dataGovernanceRestoreAuditDeleteFailed(String error) {
+    return '删除恢复记录失败：$error';
+  }
+
+  @override
   String get dataGovernanceWipe => '清空本机数据';
 
   @override

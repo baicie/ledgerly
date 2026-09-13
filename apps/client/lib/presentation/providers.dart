@@ -7,6 +7,7 @@ import '../application/auto_backup.dart';
 import '../application/backup_auto_password_store.dart';
 import '../application/backup_catalog_store.dart';
 import '../application/backup_metadata_store.dart';
+import '../application/backup_restore_audit.dart';
 import '../application/backup_schedule.dart';
 import '../application/backup_service.dart';
 import '../application/feed_search.dart';
@@ -239,7 +240,18 @@ final backupServiceProvider = Provider<BackupService>((ref) {
     deviceIdLoader: session.getOrCreateDeviceId,
     metadata: ref.watch(backupMetadataStoreProvider),
     catalog: ref.watch(backupCatalogStoreProvider),
+    audits: ref.watch(backupRestoreAuditStoreProvider),
   );
+});
+
+final backupRestoreAuditStoreProvider =
+    Provider<BackupRestoreAuditStore>((ref) {
+  return BackupRestoreAuditStore();
+});
+
+final backupRestoreAuditsProvider =
+    FutureProvider<List<BackupRestoreAudit>>((ref) async {
+  return ref.watch(backupRestoreAuditStoreProvider).read();
 });
 
 final backupScheduleStoreProvider = Provider<BackupScheduleStore>((ref) {
