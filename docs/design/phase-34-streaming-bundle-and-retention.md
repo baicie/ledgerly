@@ -146,3 +146,4 @@ ledger-server bundle cleanup \
 - [x] 密文损坏和错误密码被拒绝；
 - [x] bundle cleanup 只保留最新 N 份；
 - [x] CI 联合恢复链路保持通过。
+- [x] `cargo fmt`、Clippy、workspace tests 和 CI 全部通过。
