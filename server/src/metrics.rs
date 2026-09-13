@@ -63,7 +63,7 @@ pub fn register_metrics() {
         Unit::Count,
         "Sync pull responses, labelled by outcome."
     );
-    describe_counter!(
+    describe_gauge!(
         "postgres_pool_connections",
         Unit::Count,
         "Current PostgreSQL pool connection count."

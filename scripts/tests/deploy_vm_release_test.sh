@@ -12,17 +12,42 @@ FIRST_RELEASE="$APP_DIR/runtime-releases/1-1"
 SECOND_RELEASE="$APP_DIR/runtime-releases/2-1"
 
 mkdir -p "$FIRST_RELEASE" "$SECOND_RELEASE"
-touch "$APP_DIR/.env.prod"
+printf 'OBSERVABILITY_ENABLED=true\n' > "$APP_DIR/.env.prod"
 for release in "$FIRST_RELEASE" "$SECOND_RELEASE"; do
   touch "$release/docker-compose.prod.yml" "$release/docker-compose.vm.yml"
+  mkdir -p \
+    "$release/observability/prometheus" \
+    "$release/observability/alertmanager" \
+    "$release/observability/grafana/dashboards" \
+    "$release/observability/grafana/provisioning/datasources" \
+    "$release/observability/grafana/provisioning/dashboards"
+  touch \
+    "$release/observability/docker-compose.observability.yml" \
+    "$release/observability/prometheus/prometheus.yml" \
+    "$release/observability/prometheus/backup-alerts.yml" \
+    "$release/observability/prometheus/platform-alerts.yml" \
+    "$release/observability/alertmanager/generate-config.sh" \
+    "$release/observability/alertmanager/entrypoint.sh" \
+    "$release/observability/grafana/provisioning/datasources/prometheus.yml" \
+    "$release/observability/grafana/provisioning/dashboards/ledgerly.yml" \
+    "$release/observability/grafana/dashboards/ledgerly-operations.json"
 done
 
 docker() {
+  printf '%s\n' "$*" >> "$TEST_ROOT/docker.log"
   return 0
 }
 
+runtime_has_observability "$FIRST_RELEASE"
+if OBSERVABILITY_ENABLED=false observability_enabled; then
+  printf 'observability_enabled ignored an explicit false override\n' >&2
+  exit 1
+fi
+
 activate_runtime "$FIRST_RELEASE"
 test "$(readlink "$APP_DIR/runtime-current")" = "$FIRST_RELEASE"
+grep -Eq -- '--profile observability' "$TEST_ROOT/docker.log"
+grep -Eq 'observability/docker-compose.observability.yml' "$TEST_ROOT/docker.log"
 
 printf 'sentinel\n' > "$APP_DIR/.previous-runtime"
 activate_runtime "$FIRST_RELEASE"

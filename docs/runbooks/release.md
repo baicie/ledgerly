@@ -37,6 +37,8 @@ scp infrastructure/docker/env.vm.example ubuntu@82.156.234.84:/opt/ledgerly/.env
 # AUTH_COOKIE_SECURE 必须保持 true，并在 TLS 反向代理后对外服务
 # BACKUP_OFFSITE_HOST_MOUNT 可改为外接盘的绝对路径，例如 /mnt/backup-disk/ledgerly
 # RECOVERY_DRILL_DATABASE_URL 可配置具有 CREATEDB 权限的管理连接
+# OBSERVABILITY_ENABLED=true 时需同时设置 ALERTMANAGER_WEBHOOK_URL
+# 和 GRAFANA_ADMIN_PASSWORD
 ```
 
 ### 3. GitHub Secrets（仓库 Settings → Secrets）
@@ -194,6 +196,8 @@ ssh ubuntu@82.156.234.84 'curl -sf http://127.0.0.1:8081/metrics | grep "^backup
 定时恢复演练结果位于 `/health/backup.lastRecoveryDrill`。
 Prometheus 指标和容量告警见
 [备份可观测性与容量告警 Runbook](backup-observability.md)。
+Prometheus、Alertmanager 和 Grafana 的可选生产部署见
+[生产观测栈 Runbook](observability-stack.md)。
 
 ## 五、回滚
 

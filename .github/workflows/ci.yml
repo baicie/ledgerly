@@ -135,6 +135,15 @@ jobs:
       - name: Smoke test server image
         run: scripts/tests/server_image_smoke_test.sh ledgerly-server:ci
 
+  observability:
+    name: Observability config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validate Prometheus, Alertmanager, and Grafana configuration
+        run: bash scripts/tests/observability_config_test.sh
+
   live-sync:
     name: Live sync (Flutter ↔ Server)
     runs-on: ubuntu-latest

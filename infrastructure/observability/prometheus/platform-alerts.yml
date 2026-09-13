@@ -1,0 +1,59 @@
+groups:
+  - name: ledgerly-platform
+    rules:
+      - alert: LedgerlyServerDown
+        expr: up{job="ledgerly-server"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Ledgerly server metrics target is down"
+          description: "Prometheus cannot scrape the Ledgerly server for two minutes."
+
+      - alert: LedgerlyHigh5xxRate
+        expr: >-
+          sum(rate(http_requests_total{job="ledgerly-server",status_class="5xx"}[5m]))
+          /
+          clamp_min(sum(rate(http_requests_total{job="ledgerly-server"}[5m])), 1)
+          > 0.05
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Ledgerly server 5xx rate is above 5%"
+          description: "The server has returned 5xx responses for more than 5% of requests over ten minutes."
+
+      - alert: LedgerlyHighRequestLatency
+        expr: >-
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(http_request_duration_seconds_bucket{job="ledgerly-server"}[5m]))
+          ) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ledgerly server p95 latency exceeds one second"
+          description: "The p95 request latency has remained above one second for ten minutes."
+
+      - alert: LedgerlyJobFailures
+        expr: sum by (job_type) (increase(job_outcomes_total{job="ledgerly-server",outcome="failure"}[30m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ledgerly background jobs are failing"
+          description: "{{ $labels.job_type }} has recorded failures in the last 30 minutes."
+
+      - alert: LedgerlyPostgresPoolSaturation
+        expr: >-
+          postgres_pool_connections{job="ledgerly-server",role="current"}
+          /
+          clamp_min(postgres_pool_max_connections{job="ledgerly-server",role="config"}, 1)
+          > 0.8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ledgerly PostgreSQL connection pool is above 80%"
+          description: "The active pool usage has remained above 80% of the configured maximum."
