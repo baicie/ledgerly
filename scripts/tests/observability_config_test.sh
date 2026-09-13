@@ -46,6 +46,8 @@ ALERTMANAGER_WEBHOOK_URL="https://alerts.example.invalid/ledgerly?token=a&b=c" \
 ALERTMANAGER_SEND_RESOLVED=true \
   sh "$OBSERVABILITY_DIR/alertmanager/generate-config.sh" \
   "$temporary_dir/alertmanager.yml"
+chmod 755 "$temporary_dir"
+chmod 644 "$temporary_dir/alertmanager.yml"
 
 docker run --rm \
   --entrypoint amtool \
