@@ -2035,4 +2035,184 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get commandPaletteStatus => 'Esc 关闭 · ↑↓ 选择 · ↵ 执行';
+
+  @override
+  String get dataGovernanceTitle => '数据治理';
+
+  @override
+  String get dataGovernanceSubtitle => '备份、恢复或清空本机的全部数据';
+
+  @override
+  String get dataGovernanceBackup => '备份';
+
+  @override
+  String get dataGovernanceBackupSubtitle => '导出全部账本、账户、预算和规则的快照。';
+
+  @override
+  String get dataGovernanceBackupAction => '导出全量快照';
+
+  @override
+  String get dataGovernanceBackupInProgress => '正在导出…';
+
+  @override
+  String dataGovernanceBackupSuccess(String path) {
+    return '备份已保存到 $path';
+  }
+
+  @override
+  String get dataGovernanceBackupShare => '分享 / 另存到其他位置';
+
+  @override
+  String get dataGovernanceRestore => '恢复';
+
+  @override
+  String get dataGovernanceRestoreSubtitle => '选择备份文件，预览后再覆盖本机数据。';
+
+  @override
+  String get dataGovernanceRestoreAction => '选择备份文件';
+
+  @override
+  String get dataGovernanceRestoreInProgress => '正在恢复…';
+
+  @override
+  String get dataGovernanceRestorePreview => '预览';
+
+  @override
+  String dataGovernanceRestorePreviewSummary(
+      int books,
+      int accounts,
+      int transactions,
+      int entries,
+      int rules,
+      int budgets,
+      int attachments,
+      int merchantRules) {
+    return '$books 个账本 · $accounts 个账户 · $transactions 笔交易 · $entries 条分录 · $rules 条周期 · $budgets 个预算 · $attachments 个附件 · $merchantRules 条商户规则';
+  }
+
+  @override
+  String get dataGovernanceRestorePreviewEmpty => '备份里没有任何数据，恢复后本机会变空。';
+
+  @override
+  String get dataGovernanceRestoreConfirmTitle => '确认覆盖本机数据？';
+
+  @override
+  String dataGovernanceRestoreConfirmBody(String path) {
+    return '恢复会覆盖本机的全部账本。已自动写入安全备份到 $path，出问题可以回滚。';
+  }
+
+  @override
+  String get dataGovernanceRestoreSuccess => '恢复完成，正在刷新…';
+
+  @override
+  String get dataGovernanceWipe => '清空本机数据';
+
+  @override
+  String get dataGovernanceWipeSubtitle => '删除全部流水、预算、规则和附件，无法撤销。';
+
+  @override
+  String get dataGovernanceWipeAction => '全部清空';
+
+  @override
+  String get dataGovernanceWipeInProgress => '正在清空…';
+
+  @override
+  String get dataGovernanceWipeConfirmTitle => '确认清空本机的全部数据？';
+
+  @override
+  String get dataGovernanceWipeConfirmBody =>
+      '这会删除本机的全部流水、账户、预算和规则，操作不可撤销。请输入 DELETE 以确认。';
+
+  @override
+  String get dataGovernanceWipeConfirmHint => '输入 DELETE';
+
+  @override
+  String get dataGovernanceWipeConfirmError => '请输入大写的 DELETE 确认操作。';
+
+  @override
+  String get dataGovernanceWipeSuccess => '本机数据已清空，正在重启…';
+
+  @override
+  String dataGovernanceImportFailed(String error) {
+    return '读取备份失败：$error';
+  }
+
+  @override
+  String dataGovernanceBackupFailed(String error) {
+    return '导出备份失败：$error';
+  }
+
+  @override
+  String dataGovernanceWipeFailed(String error) {
+    return '清空本机数据失败：$error';
+  }
+
+  @override
+  String dataGovernanceRestoreFailed(String error) {
+    return '恢复失败：$error';
+  }
+
+  @override
+  String get dataGovernanceSectionBackup => '备份与恢复';
+
+  @override
+  String get dataGovernanceSectionDanger => '危险操作';
+
+  @override
+  String get dataGovernanceStatusTitle => '上次备份';
+
+  @override
+  String get dataGovernanceStatusNever => '从未备份';
+
+  @override
+  String dataGovernanceStatusRecent(String ago) {
+    return '$ago 之前';
+  }
+
+  @override
+  String dataGovernanceStatusAt(String date, String time) {
+    return '$date $time';
+  }
+
+  @override
+  String dataGovernanceStaleBannerTitle(int days) {
+    return '距离上次备份已 $days 天';
+  }
+
+  @override
+  String get dataGovernanceStaleBannerAction => '立即备份';
+
+  @override
+  String get dataGovernanceSelectBooks => '选择账本';
+
+  @override
+  String get dataGovernanceSelectBooksHint => '不选 = 导出全部';
+
+  @override
+  String dataGovernanceExportAll(int n) {
+    return '导出全部账本（$n）';
+  }
+
+  @override
+  String dataGovernanceExportSelected(int n) {
+    return '导出 $n 个账本';
+  }
+
+  @override
+  String dataGovernanceStatusAttachments(int n, String size) {
+    return '$n 个附件 · $size';
+  }
+
+  @override
+  String dataGovernanceAttachmentSizeBytes(String size) {
+    return '$size MB';
+  }
+
+  @override
+  String dataGovernanceRestoreAttachmentsV2(int n) {
+    return '本次恢复将一并导入 $n 个附件';
+  }
+
+  @override
+  String get dataGovernanceRestoreNoAttachmentsV1 => '该备份是 schema v1，不含附件二进制。';
 }

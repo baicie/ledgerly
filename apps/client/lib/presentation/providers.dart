@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../application/backup_metadata_store.dart';
+import '../application/backup_service.dart';
 import '../application/feed_search.dart';
 import '../application/ledger_app_service.dart';
 import '../application/ledger_csv.dart';
@@ -30,6 +32,7 @@ import '../domain/default_categories.dart';
 import '../l10n/l10n.dart';
 import '../platform/attachment_store.dart';
 import '../platform/attachment_store_factory.dart';
+import '../platform/backup_file_port.dart';
 import '../platform/user_file_port.dart';
 import '../platform/user_file_port_impl.dart';
 import '../services/payment_notification_service.dart';
@@ -184,8 +187,55 @@ final userFilePortProvider = Provider<UserFilePort>((ref) {
   return createPlatformUserFilePort();
 });
 
+/// Platform port for backup file I/O. Tests override this provider to
+/// inject [InMemoryBackupFilePort] so widgets can be exercised without
+/// touching the real filesystem.
+final backupFilePortProvider = Provider<BackupFilePort>((ref) {
+  return createPlatformBackupFilePort();
+});
+
+/// SharedPreferences-backed store for backup metadata (last backup
+/// timestamp + path). Surfaced as a provider so the data governance
+/// page can react to fresh exports without rebuilding the service.
+final backupMetadataStoreProvider = Provider<BackupMetadataStore>((ref) {
+  return BackupMetadataStore();
+});
+
+/// Reactive view of the persisted backup metadata. Pages invalidate
+/// this provider after a successful export / wipe so the UI re-reads
+/// the store and rebuilds the status card / stale banner.
+final backupMetadataProvider = FutureProvider<BackupMetadata>((ref) async {
+  final store = ref.watch(backupMetadataStoreProvider);
+  return store.read();
+});
+
+/// Wires the [BackupService] together. Pages that need to export,
+/// restore, or wipe local data read this provider.
+final backupServiceProvider = Provider<BackupService>((ref) {
+  final session = ref.watch(sessionStoreProvider);
+  return BackupService(
+    database: ref.watch(databaseProvider),
+    recurring: ref.watch(localRecurringRepositoryProvider),
+    budgets: ref.watch(localBudgetRepositoryProvider),
+    attachments: ref.watch(localAttachmentRepositoryProvider),
+    merchantRules: ref.watch(merchantRuleStoreProvider),
+    filePort: ref.watch(backupFilePortProvider),
+    deviceIdLoader: session.getOrCreateDeviceId,
+    metadata: ref.watch(backupMetadataStoreProvider),
+  );
+});
+
 final attachmentStoreProvider = Provider<AttachmentStore>((ref) {
   return createPlatformAttachmentStore();
+});
+
+/// Platform-backed byte store for attachment binaries. Surfaces in
+/// [LocalAttachmentRepository] so the backup flow can bundle the
+/// raw bytes (Phase 9). Injected separately from the database so
+/// tests can swap in an in-memory implementation without touching
+/// the filesystem.
+final attachmentByteStoreProvider = Provider<AttachmentByteStore>((ref) {
+  return createPlatformAttachmentByteStore();
 });
 
 final localBudgetRepositoryProvider = Provider<LocalBudgetRepository>((ref) {
@@ -199,7 +249,10 @@ final localRecurringRepositoryProvider =
 
 final localAttachmentRepositoryProvider =
     Provider<LocalAttachmentRepository>((ref) {
-  return LocalAttachmentRepository(ref.watch(databaseProvider));
+  return LocalAttachmentRepository(
+    ref.watch(databaseProvider),
+    byteStore: ref.watch(attachmentByteStoreProvider),
+  );
 });
 
 final recurringSchedulerProvider = Provider<RecurringScheduler>((ref) {

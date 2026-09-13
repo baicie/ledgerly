@@ -2113,4 +2113,192 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get commandPaletteStatus => 'Esc close · ↑↓ select · ↵ run';
+
+  @override
+  String get dataGovernanceTitle => 'Data governance';
+
+  @override
+  String get dataGovernanceSubtitle =>
+      'Backup, restore, or wipe everything on this device';
+
+  @override
+  String get dataGovernanceBackup => 'Backup';
+
+  @override
+  String get dataGovernanceBackupSubtitle =>
+      'Save a full snapshot of every book, account, budget, and rule.';
+
+  @override
+  String get dataGovernanceBackupAction => 'Export full snapshot';
+
+  @override
+  String get dataGovernanceBackupInProgress => 'Exporting…';
+
+  @override
+  String dataGovernanceBackupSuccess(String path) {
+    return 'Backup saved to $path';
+  }
+
+  @override
+  String get dataGovernanceBackupShare => 'Share / save elsewhere';
+
+  @override
+  String get dataGovernanceRestore => 'Restore';
+
+  @override
+  String get dataGovernanceRestoreSubtitle =>
+      'Pick a backup file, preview it, then replace this device\'s data.';
+
+  @override
+  String get dataGovernanceRestoreAction => 'Pick a backup file';
+
+  @override
+  String get dataGovernanceRestoreInProgress => 'Restoring…';
+
+  @override
+  String get dataGovernanceRestorePreview => 'Preview';
+
+  @override
+  String dataGovernanceRestorePreviewSummary(
+      int books,
+      int accounts,
+      int transactions,
+      int entries,
+      int rules,
+      int budgets,
+      int attachments,
+      int merchantRules) {
+    return '$books books · $accounts accounts · $transactions transactions · $entries entries · $rules recurring · $budgets budgets · $attachments attachments · $merchantRules merchant rules';
+  }
+
+  @override
+  String get dataGovernanceRestorePreviewEmpty =>
+      'This backup contains no data. Restoring will leave the device empty.';
+
+  @override
+  String get dataGovernanceRestoreConfirmTitle => 'Replace local data?';
+
+  @override
+  String dataGovernanceRestoreConfirmBody(String path) {
+    return 'Restore will overwrite every book on this device. A safety copy was written to $path so you can roll back if anything looks wrong.';
+  }
+
+  @override
+  String get dataGovernanceRestoreSuccess => 'Restore complete. Reloading…';
+
+  @override
+  String get dataGovernanceWipe => 'Wipe local data';
+
+  @override
+  String get dataGovernanceWipeSubtitle =>
+      'Delete every transaction, budget, rule, and attachment. There is no undo.';
+
+  @override
+  String get dataGovernanceWipeAction => 'Wipe everything';
+
+  @override
+  String get dataGovernanceWipeInProgress => 'Wiping…';
+
+  @override
+  String get dataGovernanceWipeConfirmTitle => 'Wipe every byte of local data?';
+
+  @override
+  String get dataGovernanceWipeConfirmBody =>
+      'This will remove every transaction, account, budget, and rule on this device. The action cannot be undone. Type DELETE to confirm.';
+
+  @override
+  String get dataGovernanceWipeConfirmHint => 'Type DELETE';
+
+  @override
+  String get dataGovernanceWipeConfirmError =>
+      'Type DELETE in capital letters to confirm.';
+
+  @override
+  String get dataGovernanceWipeSuccess => 'Local data wiped. Restarting…';
+
+  @override
+  String dataGovernanceImportFailed(String error) {
+    return 'Could not read the backup: $error';
+  }
+
+  @override
+  String dataGovernanceBackupFailed(String error) {
+    return 'Could not export the backup: $error';
+  }
+
+  @override
+  String dataGovernanceWipeFailed(String error) {
+    return 'Could not wipe local data: $error';
+  }
+
+  @override
+  String dataGovernanceRestoreFailed(String error) {
+    return 'Could not restore: $error';
+  }
+
+  @override
+  String get dataGovernanceSectionBackup => 'Backup & restore';
+
+  @override
+  String get dataGovernanceSectionDanger => 'Danger zone';
+
+  @override
+  String get dataGovernanceStatusTitle => 'Last backup';
+
+  @override
+  String get dataGovernanceStatusNever => 'Never backed up';
+
+  @override
+  String dataGovernanceStatusRecent(String ago) {
+    return '$ago ago';
+  }
+
+  @override
+  String dataGovernanceStatusAt(String date, String time) {
+    return '$date $time';
+  }
+
+  @override
+  String dataGovernanceStaleBannerTitle(int days) {
+    return 'Last backup is $days days old';
+  }
+
+  @override
+  String get dataGovernanceStaleBannerAction => 'Back up now';
+
+  @override
+  String get dataGovernanceSelectBooks => 'Select books';
+
+  @override
+  String get dataGovernanceSelectBooksHint =>
+      'Leave empty to export every book';
+
+  @override
+  String dataGovernanceExportAll(int n) {
+    return 'Export all books ($n)';
+  }
+
+  @override
+  String dataGovernanceExportSelected(int n) {
+    return 'Export $n books';
+  }
+
+  @override
+  String dataGovernanceStatusAttachments(int n, String size) {
+    return '$n attachments · $size';
+  }
+
+  @override
+  String dataGovernanceAttachmentSizeBytes(String size) {
+    return '$size MB';
+  }
+
+  @override
+  String dataGovernanceRestoreAttachmentsV2(int n) {
+    return 'This restore also imports $n attachment(s).';
+  }
+
+  @override
+  String get dataGovernanceRestoreNoAttachmentsV1 =>
+      'This backup is schema v1 — no attachment binaries.';
 }

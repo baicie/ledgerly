@@ -3847,6 +3847,296 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'Esc 关闭 · ↑↓ 选择 · ↵ 执行'**
   String get commandPaletteStatus;
+
+  /// No description provided for @dataGovernanceTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据治理'**
+  String get dataGovernanceTitle;
+
+  /// No description provided for @dataGovernanceSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份、恢复或清空本机的全部数据'**
+  String get dataGovernanceSubtitle;
+
+  /// No description provided for @dataGovernanceBackup.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份'**
+  String get dataGovernanceBackup;
+
+  /// No description provided for @dataGovernanceBackupSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出全部账本、账户、预算和规则的快照。'**
+  String get dataGovernanceBackupSubtitle;
+
+  /// No description provided for @dataGovernanceBackupAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出全量快照'**
+  String get dataGovernanceBackupAction;
+
+  /// No description provided for @dataGovernanceBackupInProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在导出…'**
+  String get dataGovernanceBackupInProgress;
+
+  /// No description provided for @dataGovernanceBackupSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份已保存到 {path}'**
+  String dataGovernanceBackupSuccess(String path);
+
+  /// No description provided for @dataGovernanceBackupShare.
+  ///
+  /// In zh, this message translates to:
+  /// **'分享 / 另存到其他位置'**
+  String get dataGovernanceBackupShare;
+
+  /// No description provided for @dataGovernanceRestore.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复'**
+  String get dataGovernanceRestore;
+
+  /// No description provided for @dataGovernanceRestoreSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择备份文件，预览后再覆盖本机数据。'**
+  String get dataGovernanceRestoreSubtitle;
+
+  /// No description provided for @dataGovernanceRestoreAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择备份文件'**
+  String get dataGovernanceRestoreAction;
+
+  /// No description provided for @dataGovernanceRestoreInProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在恢复…'**
+  String get dataGovernanceRestoreInProgress;
+
+  /// No description provided for @dataGovernanceRestorePreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览'**
+  String get dataGovernanceRestorePreview;
+
+  /// No description provided for @dataGovernanceRestorePreviewSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'{books} 个账本 · {accounts} 个账户 · {transactions} 笔交易 · {entries} 条分录 · {rules} 条周期 · {budgets} 个预算 · {attachments} 个附件 · {merchantRules} 条商户规则'**
+  String dataGovernanceRestorePreviewSummary(
+      int books,
+      int accounts,
+      int transactions,
+      int entries,
+      int rules,
+      int budgets,
+      int attachments,
+      int merchantRules);
+
+  /// No description provided for @dataGovernanceRestorePreviewEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份里没有任何数据，恢复后本机会变空。'**
+  String get dataGovernanceRestorePreviewEmpty;
+
+  /// No description provided for @dataGovernanceRestoreConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认覆盖本机数据？'**
+  String get dataGovernanceRestoreConfirmTitle;
+
+  /// No description provided for @dataGovernanceRestoreConfirmBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复会覆盖本机的全部账本。已自动写入安全备份到 {path}，出问题可以回滚。'**
+  String dataGovernanceRestoreConfirmBody(String path);
+
+  /// No description provided for @dataGovernanceRestoreSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复完成，正在刷新…'**
+  String get dataGovernanceRestoreSuccess;
+
+  /// No description provided for @dataGovernanceWipe.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空本机数据'**
+  String get dataGovernanceWipe;
+
+  /// No description provided for @dataGovernanceWipeSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除全部流水、预算、规则和附件，无法撤销。'**
+  String get dataGovernanceWipeSubtitle;
+
+  /// No description provided for @dataGovernanceWipeAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部清空'**
+  String get dataGovernanceWipeAction;
+
+  /// No description provided for @dataGovernanceWipeInProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在清空…'**
+  String get dataGovernanceWipeInProgress;
+
+  /// No description provided for @dataGovernanceWipeConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认清空本机的全部数据？'**
+  String get dataGovernanceWipeConfirmTitle;
+
+  /// No description provided for @dataGovernanceWipeConfirmBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'这会删除本机的全部流水、账户、预算和规则，操作不可撤销。请输入 DELETE 以确认。'**
+  String get dataGovernanceWipeConfirmBody;
+
+  /// No description provided for @dataGovernanceWipeConfirmHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入 DELETE'**
+  String get dataGovernanceWipeConfirmHint;
+
+  /// No description provided for @dataGovernanceWipeConfirmError.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入大写的 DELETE 确认操作。'**
+  String get dataGovernanceWipeConfirmError;
+
+  /// No description provided for @dataGovernanceWipeSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机数据已清空，正在重启…'**
+  String get dataGovernanceWipeSuccess;
+
+  /// No description provided for @dataGovernanceImportFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'读取备份失败：{error}'**
+  String dataGovernanceImportFailed(String error);
+
+  /// No description provided for @dataGovernanceBackupFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出备份失败：{error}'**
+  String dataGovernanceBackupFailed(String error);
+
+  /// No description provided for @dataGovernanceWipeFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空本机数据失败：{error}'**
+  String dataGovernanceWipeFailed(String error);
+
+  /// No description provided for @dataGovernanceRestoreFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复失败：{error}'**
+  String dataGovernanceRestoreFailed(String error);
+
+  /// No description provided for @dataGovernanceSectionBackup.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份与恢复'**
+  String get dataGovernanceSectionBackup;
+
+  /// No description provided for @dataGovernanceSectionDanger.
+  ///
+  /// In zh, this message translates to:
+  /// **'危险操作'**
+  String get dataGovernanceSectionDanger;
+
+  /// No description provided for @dataGovernanceStatusTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'上次备份'**
+  String get dataGovernanceStatusTitle;
+
+  /// No description provided for @dataGovernanceStatusNever.
+  ///
+  /// In zh, this message translates to:
+  /// **'从未备份'**
+  String get dataGovernanceStatusNever;
+
+  /// No description provided for @dataGovernanceStatusRecent.
+  ///
+  /// In zh, this message translates to:
+  /// **'{ago} 之前'**
+  String dataGovernanceStatusRecent(String ago);
+
+  /// No description provided for @dataGovernanceStatusAt.
+  ///
+  /// In zh, this message translates to:
+  /// **'{date} {time}'**
+  String dataGovernanceStatusAt(String date, String time);
+
+  /// No description provided for @dataGovernanceStaleBannerTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'距离上次备份已 {days} 天'**
+  String dataGovernanceStaleBannerTitle(int days);
+
+  /// No description provided for @dataGovernanceStaleBannerAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'立即备份'**
+  String get dataGovernanceStaleBannerAction;
+
+  /// No description provided for @dataGovernanceSelectBooks.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择账本'**
+  String get dataGovernanceSelectBooks;
+
+  /// No description provided for @dataGovernanceSelectBooksHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'不选 = 导出全部'**
+  String get dataGovernanceSelectBooksHint;
+
+  /// No description provided for @dataGovernanceExportAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出全部账本（{n}）'**
+  String dataGovernanceExportAll(int n);
+
+  /// No description provided for @dataGovernanceExportSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出 {n} 个账本'**
+  String dataGovernanceExportSelected(int n);
+
+  /// No description provided for @dataGovernanceStatusAttachments.
+  ///
+  /// In zh, this message translates to:
+  /// **'{n} 个附件 · {size}'**
+  String dataGovernanceStatusAttachments(int n, String size);
+
+  /// No description provided for @dataGovernanceAttachmentSizeBytes.
+  ///
+  /// In zh, this message translates to:
+  /// **'{size} MB'**
+  String dataGovernanceAttachmentSizeBytes(String size);
+
+  /// No description provided for @dataGovernanceRestoreAttachmentsV2.
+  ///
+  /// In zh, this message translates to:
+  /// **'本次恢复将一并导入 {n} 个附件'**
+  String dataGovernanceRestoreAttachmentsV2(int n);
+
+  /// No description provided for @dataGovernanceRestoreNoAttachmentsV1.
+  ///
+  /// In zh, this message translates to:
+  /// **'该备份是 schema v1，不含附件二进制。'**
+  String get dataGovernanceRestoreNoAttachmentsV1;
 }
 
 class _AppLocalizationsDelegate

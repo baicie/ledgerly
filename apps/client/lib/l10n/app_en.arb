@@ -1164,5 +1164,184 @@
   "commandPaletteTitle": "Command palette",
   "commandPaletteHint": "Type a command or search…",
   "commandPaletteNoResults": "No matching commands",
-  "commandPaletteStatus": "Esc close · ↑↓ select · ↵ run"
+  "commandPaletteStatus": "Esc close · ↑↓ select · ↵ run",
+  "dataGovernanceTitle": "Data governance",
+  "dataGovernanceSubtitle": "Backup, restore, or wipe everything on this device",
+  "dataGovernanceBackup": "Backup",
+  "dataGovernanceBackupSubtitle": "Save a full snapshot of every book, account, budget, and rule.",
+  "dataGovernanceBackupAction": "Export full snapshot",
+  "dataGovernanceBackupInProgress": "Exporting…",
+  "dataGovernanceBackupSuccess": "Backup saved to {path}",
+  "@dataGovernanceBackupSuccess": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceBackupShare": "Share / save elsewhere",
+  "dataGovernanceRestore": "Restore",
+  "dataGovernanceRestoreSubtitle": "Pick a backup file, preview it, then replace this device's data.",
+  "dataGovernanceRestoreAction": "Pick a backup file",
+  "dataGovernanceRestoreInProgress": "Restoring…",
+  "dataGovernanceRestorePreview": "Preview",
+  "dataGovernanceRestorePreviewSummary": "{books} books · {accounts} accounts · {transactions} transactions · {entries} entries · {rules} recurring · {budgets} budgets · {attachments} attachments · {merchantRules} merchant rules",
+  "@dataGovernanceRestorePreviewSummary": {
+    "placeholders": {
+      "books": {
+        "type": "int"
+      },
+      "accounts": {
+        "type": "int"
+      },
+      "transactions": {
+        "type": "int"
+      },
+      "entries": {
+        "type": "int"
+      },
+      "rules": {
+        "type": "int"
+      },
+      "budgets": {
+        "type": "int"
+      },
+      "attachments": {
+        "type": "int"
+      },
+      "merchantRules": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceRestorePreviewEmpty": "This backup contains no data. Restoring will leave the device empty.",
+  "dataGovernanceRestoreConfirmTitle": "Replace local data?",
+  "dataGovernanceRestoreConfirmBody": "Restore will overwrite every book on this device. A safety copy was written to {path} so you can roll back if anything looks wrong.",
+  "@dataGovernanceRestoreConfirmBody": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreSuccess": "Restore complete. Reloading…",
+  "dataGovernanceWipe": "Wipe local data",
+  "dataGovernanceWipeSubtitle": "Delete every transaction, budget, rule, and attachment. There is no undo.",
+  "dataGovernanceWipeAction": "Wipe everything",
+  "dataGovernanceWipeInProgress": "Wiping…",
+  "dataGovernanceWipeConfirmTitle": "Wipe every byte of local data?",
+  "dataGovernanceWipeConfirmBody": "This will remove every transaction, account, budget, and rule on this device. The action cannot be undone. Type DELETE to confirm.",
+  "dataGovernanceWipeConfirmHint": "Type DELETE",
+  "dataGovernanceWipeConfirmError": "Type DELETE in capital letters to confirm.",
+  "dataGovernanceWipeSuccess": "Local data wiped. Restarting…",
+  "dataGovernanceImportFailed": "Could not read the backup: {error}",
+  "@dataGovernanceImportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceBackupFailed": "Could not export the backup: {error}",
+  "@dataGovernanceBackupFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceWipeFailed": "Could not wipe local data: {error}",
+  "@dataGovernanceWipeFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreFailed": "Could not restore: {error}",
+  "@dataGovernanceRestoreFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceSectionBackup": "Backup & restore",
+  "dataGovernanceSectionDanger": "Danger zone",
+  "dataGovernanceStatusTitle": "Last backup",
+  "dataGovernanceStatusNever": "Never backed up",
+  "dataGovernanceStatusRecent": "{ago} ago",
+  "@dataGovernanceStatusRecent": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceStatusAt": "{date} {time}",
+  "@dataGovernanceStatusAt": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceStaleBannerTitle": "Last backup is {days} days old",
+  "@dataGovernanceStaleBannerTitle": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceStaleBannerAction": "Back up now",
+  "dataGovernanceSelectBooks": "Select books",
+  "dataGovernanceSelectBooksHint": "Leave empty to export every book",
+  "dataGovernanceExportAll": "Export all books ({n})",
+  "@dataGovernanceExportAll": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceExportSelected": "Export {n} books",
+  "@dataGovernanceExportSelected": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceStatusAttachments": "{n} attachments · {size}",
+  "@dataGovernanceStatusAttachments": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceAttachmentSizeBytes": "{size} MB",
+  "@dataGovernanceAttachmentSizeBytes": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreAttachmentsV2": "This restore also imports {n} attachment(s).",
+  "@dataGovernanceRestoreAttachmentsV2": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceRestoreNoAttachmentsV1": "This backup is schema v1 — no attachment binaries."
 }

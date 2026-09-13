@@ -35,6 +35,7 @@ dependencies:
   local_auth: ^2.3.0
   gbk_codec: ^0.4.0
   crypto: ^3.0.6
+  archive: ^3.6.1
 
 dev_dependencies:
   flutter_test:

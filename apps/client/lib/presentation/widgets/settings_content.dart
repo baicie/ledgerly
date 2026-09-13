@@ -24,6 +24,7 @@ class SettingsContent extends StatelessWidget {
     required this.onLogout,
     this.onAutoLedger,
     this.onKeyboard,
+    this.onGovernance,
   });
 
   final bool isLocal;
@@ -44,6 +45,7 @@ class SettingsContent extends StatelessWidget {
   final VoidCallback? onLogout;
   final VoidCallback? onAutoLedger;
   final VoidCallback? onKeyboard;
+  final VoidCallback? onGovernance;
 
   @override
   Widget build(BuildContext context) {
@@ -112,6 +114,13 @@ class SettingsContent extends StatelessWidget {
                     l10n.importCsv,
                     l10n.importCsvSubtitle,
                     onImport!,
+                  ),
+                if (onGovernance != null)
+                  _routeTile(
+                    Icons.shield_moon_outlined,
+                    l10n.dataGovernanceTitle,
+                    l10n.dataGovernanceSubtitle,
+                    onGovernance!,
                   ),
               ],
             ),
