@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ledgerly_client/application/backup_service.dart';
+import 'package:ledgerly_client/platform/atomic_file_writer.dart';
 import 'package:ledgerly_client/platform/backup_file_port.dart';
 
 void main() {
@@ -44,5 +45,75 @@ void main() {
     expect(firstPath, contains('11111111'));
     expect(secondPath, contains('22222222'));
     expect(firstPath, isNot(secondPath));
+    expect(
+      directory.listSync().where((entry) => entry.path.contains('.tmp-')),
+      isEmpty,
+    );
+  });
+
+  test('failed atomic write preserves the existing file', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'ledgerly-atomic-writer-test-',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final target = File('${directory.path}/backup.zip');
+    await target.writeAsString('original', flush: true);
+    final writer = AtomicFileWriter(
+      writer: (file, bytes) async {
+        await file.writeAsBytes(bytes.take(1).toList(), flush: true);
+        throw StateError('disk full');
+      },
+    );
+
+    await expectLater(
+      writer.write(target, [1, 2, 3]),
+      throwsA(isA<StateError>()),
+    );
+
+    expect(await target.readAsString(), 'original');
+    expect(
+      directory.listSync().where((entry) => entry.path.contains('.tmp-')),
+      isEmpty,
+    );
+  });
+
+  test('failed atomic rename preserves the existing file', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'ledgerly-atomic-rename-test-',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final target = File('${directory.path}/backup.zip');
+    await target.writeAsString('original', flush: true);
+    final writer = AtomicFileWriter(
+      mover: (file, newPath) => throw StateError('rename failed'),
+    );
+
+    await expectLater(
+      writer.write(target, [1, 2, 3]),
+      throwsA(isA<StateError>()),
+    );
+
+    expect(await target.readAsString(), 'original');
+    expect(
+      directory.listSync().where((entry) => entry.path.contains('.tmp-')),
+      isEmpty,
+    );
+  });
+
+  test('successful atomic write replaces the file', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'ledgerly-atomic-success-test-',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final target = File('${directory.path}/backup.zip');
+    await target.writeAsString('old', flush: true);
+
+    await AtomicFileWriter().write(target, [110, 101, 119]);
+
+    expect(await target.readAsString(), 'new');
+    expect(
+      directory.listSync().where((entry) => entry.path.contains('.tmp-')),
+      isEmpty,
+    );
   });
 }

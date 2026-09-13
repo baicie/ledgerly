@@ -38,5 +38,6 @@
 | [phase-22-encrypted-auto-backup.md](./phase-22-encrypted-auto-backup.md) | 加密自动备份 |
 | [phase-23-restore-audit.md](./phase-23-restore-audit.md) | 恢复审计与安全备份历史 |
 | [phase-24-backup-health-center.md](./phase-24-backup-health-center.md) | 备份策略健康中心 |
+| [phase-25-atomic-backup-write.md](./phase-25-atomic-backup-write.md) | 原子备份写入与故障注入 |
 
 状态：文档在对应阶段分支创建并完善；基线阶段仅保留本索引。

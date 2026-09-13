@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../application/backup_encryption.dart';
 import '../application/backup_service.dart';
+import 'atomic_file_writer.dart';
 
 /// File-system boundary for backup I/O. The [BackupFilePort] contract
 /// lives in `backup_service.dart`; this file supplies the platform
@@ -22,12 +23,15 @@ import '../application/backup_service.dart';
 ///   * `parsePlaintextZip` — the inverse, used after decryption so the
 ///     service can hand the unwrapped document straight to `restore`.
 class PluginBackupFilePort implements BackupFilePort {
-  const PluginBackupFilePort({
+  PluginBackupFilePort({
     Future<Directory> Function()? documentsDirectoryLoader,
-  }) : _documentsDirectoryLoader =
-            documentsDirectoryLoader ?? getApplicationDocumentsDirectory;
+    AtomicFileWriter? atomicWriter,
+  })  : _documentsDirectoryLoader =
+            documentsDirectoryLoader ?? getApplicationDocumentsDirectory,
+        _atomicWriter = atomicWriter ?? AtomicFileWriter();
 
   final Future<Directory> Function() _documentsDirectoryLoader;
+  final AtomicFileWriter _atomicWriter;
 
   /// Pattern used to build user-facing filenames. Kept as a getter so
   /// tests can stub [DateTime.now] if they ever need a deterministic
@@ -58,7 +62,8 @@ class PluginBackupFilePort implements BackupFilePort {
   String _exportIncrementalFileName(String suffix) =>
       'ledgerly-incremental-${_timestamp()}$suffix.ledgerly.inc.zip';
 
-  String _safetyFileName() => 'ledgerly-pre-restore-$_timestamp.ledgerly.zip';
+  String _safetyFileName(String suffix) =>
+      'ledgerly-pre-restore-${_timestamp()}$suffix.ledgerly.zip';
 
   @override
   Future<String> writeBackup(
@@ -77,7 +82,7 @@ class PluginBackupFilePort implements BackupFilePort {
     final bytes = isEncrypted
         ? _buildEncryptedZipBytes(document)
         : _buildZipBytes(document, deviceId: deviceId);
-    await file.writeAsBytes(bytes, flush: true);
+    await _atomicWriter.write(file, bytes);
     return file.path;
   }
 
@@ -87,9 +92,11 @@ class PluginBackupFilePort implements BackupFilePort {
     required String deviceId,
   }) async {
     final dir = await _documentsDirectoryLoader();
-    final file = File('${dir.path}/${_safetyFileName()}');
+    final file = File(
+      '${dir.path}/${_safetyFileName(_backupIdSuffix(document))}',
+    );
     final bytes = _buildZipBytes(document, deviceId: deviceId);
-    await file.writeAsBytes(bytes, flush: true);
+    await _atomicWriter.write(file, bytes);
     return file.path;
   }
 
@@ -472,7 +479,7 @@ BackupDocument _decodeLegacyJson(Uint8List bytes, {Object? zipError}) {
 
 /// Convenience factory so the rest of the app does not need to import
 /// `package:path_provider` directly.
-BackupFilePort createPlatformBackupFilePort() => const PluginBackupFilePort();
+BackupFilePort createPlatformBackupFilePort() => PluginBackupFilePort();
 
 /// In-memory port for tests. Records every operation so assertions can
 /// inspect what the page asked the port to do without touching disk.
