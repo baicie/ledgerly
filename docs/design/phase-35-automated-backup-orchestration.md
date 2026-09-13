@@ -163,4 +163,4 @@ ledger-server backup-status
 - [x] `/health/backup` 支持五种就绪度；
 - [x] 健康响应不包含路径和错误详情；
 - [x] CLI 支持手工运行和查看状态；
-- [ ] workspace 测试与 CI 全部通过（待验证）。
+- [x] workspace 测试与 CI 全部通过。
