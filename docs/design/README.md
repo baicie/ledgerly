@@ -33,5 +33,6 @@
 | [phase-17-backup-integrity.md](./phase-17-backup-integrity.md) | 备份完整性检查 |
 | [phase-18-encrypted-portable-backup.md](./phase-18-encrypted-portable-backup.md) | 加密便携备份 |
 | [phase-19-recovery-drill.md](./phase-19-recovery-drill.md) | 备份恢复演练 |
+| [phase-20-backup-catalog-actions.md](./phase-20-backup-catalog-actions.md) | 备份目录逐项操作 |
 
 状态：文档在对应阶段分支创建并完善；基线阶段仅保留本索引。

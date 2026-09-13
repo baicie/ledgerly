@@ -407,6 +407,17 @@ class BackupFormatException implements Exception {
   String toString() => 'BackupFormatException: $message';
 }
 
+/// Thrown when deleting a catalog artifact would break the active backup
+/// chain or another incremental backup that still depends on it.
+class BackupArtifactProtectedException implements Exception {
+  const BackupArtifactProtectedException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'BackupArtifactProtectedException: $message';
+}
+
 /// Full backup payload version. Phase 9 introduced the zip container
 /// and bundled attachment binaries at version `2`.
 const int kFullBackupSchemaVersion = 2;
@@ -1249,7 +1260,8 @@ class BackupService {
       }
 
       try {
-        await _files.readBackup(artifact.path);
+        final document = await _files.readBackup(artifact.path);
+        await _backfillArtifactBase(artifact, document);
         entries.add(
           BackupVerificationEntry(
             artifact: artifact,
@@ -1286,12 +1298,106 @@ class BackupService {
     if (path == null) {
       throw const BackupFormatException('本机没有可演练的最近备份。');
     }
+    return _runRecoveryDrillForPath(
+      path: path,
+      password: password,
+      resolveBaseFromCatalog: false,
+    );
+  }
 
+  /// Read a catalog artifact for preview. Plaintext incremental artifacts
+  /// are materialized with their recorded base; encrypted artifacts are
+  /// returned locked so the UI can ask for a password.
+  Future<BackupDocument> readCatalogBackup(BackupArtifact artifact) async {
+    final source = await _files.readBackup(artifact.path);
+    await _backfillArtifactBase(artifact, source);
+    if (source.isEncrypted) return source;
+    return _materializeCatalogIncremental(source);
+  }
+
+  /// Decrypt a catalog artifact and materialize its incremental base.
+  Future<BackupDocument> unlockCatalogBackup(
+    BackupArtifact artifact, {
+    required String password,
+  }) async {
+    final source = await _files.readBackup(artifact.path);
+    final unlocked = await _unwrapEncrypted(source, password: password);
+    await _backfillArtifactBase(artifact, unlocked);
+    return _materializeCatalogIncremental(unlocked);
+  }
+
+  /// Run a recovery drill for one catalog artifact.
+  Future<BackupRecoveryDrillResult> runCatalogRecoveryDrill(
+    BackupArtifact artifact, {
+    String? password,
+  }) {
+    return _runRecoveryDrillForPath(
+      path: artifact.path,
+      password: password,
+      resolveBaseFromCatalog: true,
+    );
+  }
+
+  /// Delete one catalog artifact unless it is the current base/latest or
+  /// another incremental artifact still depends on it.
+  Future<int> deleteCatalogArtifact(BackupArtifact artifact) async {
+    final metadata = await _metadata.read();
+    if (artifact.path == metadata.lastBackupPath ||
+        artifact.path == metadata.baseBackupPath) {
+      throw const BackupArtifactProtectedException(
+        '当前基础或最近备份不能单独删除。',
+      );
+    }
+    final artifacts = await _catalog.read();
+    var hasDependent = artifacts.any(
+      (candidate) =>
+          candidate.path != artifact.path &&
+          candidate.baseBackupId == artifact.backupId,
+    );
+    if (!hasDependent) {
+      for (final candidate in artifacts) {
+        if (candidate.path == artifact.path ||
+            candidate.kind != BackupArtifactKind.incremental ||
+            candidate.baseBackupId != null) {
+          continue;
+        }
+        try {
+          final document = await _files.readBackup(candidate.path);
+          await _backfillArtifactBase(candidate, document);
+          if (document.baseBackupId == artifact.backupId) {
+            hasDependent = true;
+            break;
+          }
+        } catch (_) {
+          // An unreadable candidate cannot safely prove independence.
+          hasDependent = true;
+          break;
+        }
+      }
+    }
+    if (hasDependent) {
+      throw const BackupArtifactProtectedException(
+        '仍有增量备份依赖该基础文件，不能删除。',
+      );
+    }
+    final freedBytes = await _files.fileSize(artifact.path);
+    await _files.deleteBackup(artifact.path);
+    await _catalog.removeByPath(artifact.path);
+    return freedBytes;
+  }
+
+  Future<BackupRecoveryDrillResult> _runRecoveryDrillForPath({
+    required String path,
+    required bool resolveBaseFromCatalog,
+    String? password,
+  }) async {
     final source = await _files.readBackup(path);
     final unlocked = source.isEncrypted
         ? await _unwrapEncrypted(source, password: password)
         : source;
-    final resolved = await _materializeIncremental(unlocked);
+    final resolved = resolveBaseFromCatalog
+        ? await _materializeCatalogIncremental(unlocked)
+        : await _materializeIncremental(unlocked);
     _validateRecoverableDocument(resolved);
 
     return BackupRecoveryDrillResult(
@@ -1343,11 +1449,26 @@ class BackupService {
           source: source,
           sizeBytes: sizeBytes,
           sha256: sha256Hex,
+          baseBackupId: document.baseBackupId,
         ),
       );
     } catch (_) {
       // Catalog metadata is auxiliary. Never turn a successful file
       // write into a failed backup because SharedPreferences failed.
+    }
+  }
+
+  Future<void> _backfillArtifactBase(
+    BackupArtifact artifact,
+    BackupDocument document,
+  ) async {
+    if (artifact.baseBackupId != null || document.baseBackupId == null) return;
+    try {
+      await _catalog.upsert(
+        artifact.copyWith(baseBackupId: document.baseBackupId),
+      );
+    } catch (_) {
+      // Catalog metadata is auxiliary.
     }
   }
 
@@ -1580,6 +1701,49 @@ SELECT
       );
     }
     return _applyIncremental(base: base, delta: document);
+  }
+
+  Future<BackupDocument> _materializeCatalogIncremental(
+    BackupDocument document,
+  ) async {
+    if (!document.isIncremental) return document;
+    final baseId = document.baseBackupId;
+    if (baseId == null) {
+      throw const BackupFormatException('增量备份缺少 baseBackupId');
+    }
+
+    final metadata = await _metadata.read();
+    final artifacts = await _catalog.read();
+    final basePaths = <String>{
+      if (metadata.baseBackupId == baseId && metadata.baseBackupPath != null)
+        metadata.baseBackupPath!,
+      for (final artifact in artifacts)
+        if (artifact.backupId == baseId) artifact.path,
+    };
+    if (basePaths.isEmpty) {
+      throw const BackupFormatException(
+        '目录中没有该增量备份依赖的基础文件，无法恢复。',
+      );
+    }
+
+    Object? lastError;
+    for (final basePath in basePaths) {
+      try {
+        final base = await _files.readBackup(basePath);
+        if (base.isEncrypted || base.isIncremental || base.backupId != baseId) {
+          lastError = const BackupFormatException(
+            '增量备份的基础文件无效。',
+          );
+          continue;
+        }
+        return _applyIncremental(base: base, delta: document);
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw BackupFormatException(
+      '增量备份的基础文件不可读：$lastError',
+    );
   }
 
   void _validateRecoverableDocument(BackupDocument document) {

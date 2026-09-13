@@ -1425,6 +1425,55 @@
   },
   "dataGovernanceCleanupBackups": "Clean old backups",
   "dataGovernanceCleanupSubtitle": "Manual, base, and latest backups are protected; keep the newest 3 automatic backups.",
+  "dataGovernanceArtifactListTitle": "Backup files",
+  "dataGovernanceArtifactActions": "Backup actions",
+  "dataGovernanceArtifactKindFull": "Full",
+  "dataGovernanceArtifactKindIncremental": "Incremental",
+  "dataGovernanceArtifactKindEncrypted": "Encrypted",
+  "dataGovernanceArtifactSourceManual": "Manual",
+  "dataGovernanceArtifactSourceAutomatic": "Automatic",
+  "dataGovernanceArtifactSourceSafety": "Pre-restore",
+  "dataGovernanceArtifactCurrentBase": "Current base",
+  "dataGovernanceArtifactLatest": "Latest",
+  "dataGovernanceArtifactShare": "Share",
+  "dataGovernanceArtifactDrill": "Recovery drill",
+  "dataGovernanceArtifactRestore": "Load into restore preview",
+  "dataGovernanceArtifactDelete": "Delete this backup",
+  "dataGovernanceArtifactUnlockPrompt": "Enter this backup's password",
+  "dataGovernanceArtifactRestoreLoaded": "Loaded into the restore preview. Scroll down to choose a restore mode.",
+  "dataGovernanceArtifactLoadFailed": "Could not load backup: {error}",
+  "@dataGovernanceArtifactLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceArtifactDeleteConfirmTitle": "Delete backup file?",
+  "dataGovernanceArtifactDeleteConfirmBody": "This will delete from this device: {path}",
+  "@dataGovernanceArtifactDeleteConfirmBody": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceArtifactDeleteSuccess": "Backup deleted, freeing {size}.",
+  "@dataGovernanceArtifactDeleteSuccess": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceArtifactDeleteFailed": "Could not delete backup: {error}",
+  "@dataGovernanceArtifactDeleteFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "dataGovernanceCleanupConfirmTitle": "Clean old automatic backups?",
   "dataGovernanceCleanupConfirmBody": "Manual exports and the base required by incremental backups will not be deleted.",
   "dataGovernanceCleanupSuccess": "Deleted {count} backups and freed {size}.",

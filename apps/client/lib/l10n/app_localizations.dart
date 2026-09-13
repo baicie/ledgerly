@@ -4319,6 +4319,132 @@ abstract class AppLocalizations {
   /// **'保护手工备份、基础备份和最近备份；自动备份保留最新 3 份。'**
   String get dataGovernanceCleanupSubtitle;
 
+  /// No description provided for @dataGovernanceArtifactListTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份文件'**
+  String get dataGovernanceArtifactListTitle;
+
+  /// No description provided for @dataGovernanceArtifactActions.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份操作'**
+  String get dataGovernanceArtifactActions;
+
+  /// No description provided for @dataGovernanceArtifactKindFull.
+  ///
+  /// In zh, this message translates to:
+  /// **'完整'**
+  String get dataGovernanceArtifactKindFull;
+
+  /// No description provided for @dataGovernanceArtifactKindIncremental.
+  ///
+  /// In zh, this message translates to:
+  /// **'增量'**
+  String get dataGovernanceArtifactKindIncremental;
+
+  /// No description provided for @dataGovernanceArtifactKindEncrypted.
+  ///
+  /// In zh, this message translates to:
+  /// **'加密'**
+  String get dataGovernanceArtifactKindEncrypted;
+
+  /// No description provided for @dataGovernanceArtifactSourceManual.
+  ///
+  /// In zh, this message translates to:
+  /// **'手工'**
+  String get dataGovernanceArtifactSourceManual;
+
+  /// No description provided for @dataGovernanceArtifactSourceAutomatic.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动'**
+  String get dataGovernanceArtifactSourceAutomatic;
+
+  /// No description provided for @dataGovernanceArtifactSourceSafety.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复前'**
+  String get dataGovernanceArtifactSourceSafety;
+
+  /// No description provided for @dataGovernanceArtifactCurrentBase.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前基础'**
+  String get dataGovernanceArtifactCurrentBase;
+
+  /// No description provided for @dataGovernanceArtifactLatest.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近备份'**
+  String get dataGovernanceArtifactLatest;
+
+  /// No description provided for @dataGovernanceArtifactShare.
+  ///
+  /// In zh, this message translates to:
+  /// **'分享'**
+  String get dataGovernanceArtifactShare;
+
+  /// No description provided for @dataGovernanceArtifactDrill.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复演练'**
+  String get dataGovernanceArtifactDrill;
+
+  /// No description provided for @dataGovernanceArtifactRestore.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载到恢复预览'**
+  String get dataGovernanceArtifactRestore;
+
+  /// No description provided for @dataGovernanceArtifactDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除此备份'**
+  String get dataGovernanceArtifactDelete;
+
+  /// No description provided for @dataGovernanceArtifactUnlockPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入该备份的密码'**
+  String get dataGovernanceArtifactUnlockPrompt;
+
+  /// No description provided for @dataGovernanceArtifactRestoreLoaded.
+  ///
+  /// In zh, this message translates to:
+  /// **'已加载到恢复预览，请向下确认恢复模式。'**
+  String get dataGovernanceArtifactRestoreLoaded;
+
+  /// No description provided for @dataGovernanceArtifactLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'读取备份失败：{error}'**
+  String dataGovernanceArtifactLoadFailed(String error);
+
+  /// No description provided for @dataGovernanceArtifactDeleteConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除备份文件？'**
+  String get dataGovernanceArtifactDeleteConfirmTitle;
+
+  /// No description provided for @dataGovernanceArtifactDeleteConfirmBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'将从本机删除：{path}'**
+  String dataGovernanceArtifactDeleteConfirmBody(String path);
+
+  /// No description provided for @dataGovernanceArtifactDeleteSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已删除备份，释放 {size}。'**
+  String dataGovernanceArtifactDeleteSuccess(String size);
+
+  /// No description provided for @dataGovernanceArtifactDeleteFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除备份失败：{error}'**
+  String dataGovernanceArtifactDeleteFailed(String error);
+
   /// No description provided for @dataGovernanceCleanupConfirmTitle.
   ///
   /// In zh, this message translates to:

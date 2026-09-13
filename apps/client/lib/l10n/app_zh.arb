@@ -1410,6 +1410,55 @@
   },
   "dataGovernanceCleanupBackups": "清理旧备份",
   "dataGovernanceCleanupSubtitle": "保护手工备份、基础备份和最近备份；自动备份保留最新 3 份。",
+  "dataGovernanceArtifactListTitle": "备份文件",
+  "dataGovernanceArtifactActions": "备份操作",
+  "dataGovernanceArtifactKindFull": "完整",
+  "dataGovernanceArtifactKindIncremental": "增量",
+  "dataGovernanceArtifactKindEncrypted": "加密",
+  "dataGovernanceArtifactSourceManual": "手工",
+  "dataGovernanceArtifactSourceAutomatic": "自动",
+  "dataGovernanceArtifactSourceSafety": "恢复前",
+  "dataGovernanceArtifactCurrentBase": "当前基础",
+  "dataGovernanceArtifactLatest": "最近备份",
+  "dataGovernanceArtifactShare": "分享",
+  "dataGovernanceArtifactDrill": "恢复演练",
+  "dataGovernanceArtifactRestore": "加载到恢复预览",
+  "dataGovernanceArtifactDelete": "删除此备份",
+  "dataGovernanceArtifactUnlockPrompt": "输入该备份的密码",
+  "dataGovernanceArtifactRestoreLoaded": "已加载到恢复预览，请向下确认恢复模式。",
+  "dataGovernanceArtifactLoadFailed": "读取备份失败：{error}",
+  "@dataGovernanceArtifactLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceArtifactDeleteConfirmTitle": "删除备份文件？",
+  "dataGovernanceArtifactDeleteConfirmBody": "将从本机删除：{path}",
+  "@dataGovernanceArtifactDeleteConfirmBody": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceArtifactDeleteSuccess": "已删除备份，释放 {size}。",
+  "@dataGovernanceArtifactDeleteSuccess": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceArtifactDeleteFailed": "删除备份失败：{error}",
+  "@dataGovernanceArtifactDeleteFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "dataGovernanceCleanupConfirmTitle": "确认清理旧自动备份？",
   "dataGovernanceCleanupConfirmBody": "手工导出以及增量恢复所依赖的基础备份不会被删除。",
   "dataGovernanceCleanupSuccess": "已清理 {count} 份备份，释放 {size}。",

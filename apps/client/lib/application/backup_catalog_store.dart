@@ -17,6 +17,7 @@ class BackupArtifact {
     required this.source,
     required this.sizeBytes,
     this.sha256,
+    this.baseBackupId,
   });
 
   final String backupId;
@@ -26,10 +27,12 @@ class BackupArtifact {
   final BackupArtifactSource source;
   final int sizeBytes;
   final String? sha256;
+  final String? baseBackupId;
 
   BackupArtifact copyWith({
     int? sizeBytes,
     String? sha256,
+    String? baseBackupId,
   }) {
     return BackupArtifact(
       backupId: backupId,
@@ -39,6 +42,7 @@ class BackupArtifact {
       source: source,
       sizeBytes: sizeBytes ?? this.sizeBytes,
       sha256: sha256 ?? this.sha256,
+      baseBackupId: baseBackupId ?? this.baseBackupId,
     );
   }
 
@@ -50,6 +54,7 @@ class BackupArtifact {
         'source': source.name,
         'sizeBytes': sizeBytes,
         if (sha256 != null) 'sha256': sha256,
+        if (baseBackupId != null) 'baseBackupId': baseBackupId,
       };
 
   static BackupArtifact? fromJson(Map<String, dynamic> json) {
@@ -81,6 +86,7 @@ class BackupArtifact {
       source: source,
       sizeBytes: (json['sizeBytes'] as num?)?.toInt() ?? 0,
       sha256: json['sha256'] as String?,
+      baseBackupId: json['baseBackupId'] as String?,
     );
   }
 }
