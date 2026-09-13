@@ -46,6 +46,11 @@ assert "errorSummary" not in data
 assert "bundlePath" not in data
 assert "backupDir" not in data
 assert "offsiteDir" not in data
+drill = data.get("lastRecoveryDrill")
+if drill is not None:
+    assert drill.get("outcome") in {"success", "failed"}
+    assert "errorSummary" not in drill
+    assert "bundlePath" not in drill
 '
 }
 

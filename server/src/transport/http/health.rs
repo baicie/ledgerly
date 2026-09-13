@@ -37,6 +37,13 @@ pub async fn backup(State(state): State<AppState>) -> Result<Json<serde_json::Va
             "restore status unavailable",
         )
     })?;
+    let recovery_drill = backup_runtime::recovery_drill_status(&state.config).map_err(|_| {
+        ApiError::new(
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            "RECOVERY_DRILL_STATUS_ERROR",
+            "recovery drill status unavailable",
+        )
+    })?;
     let status = snapshot.readiness.as_str();
     let run = snapshot.status;
     Ok(Json(json!({
@@ -54,6 +61,18 @@ pub async fn backup(State(state): State<AppState>) -> Result<Json<serde_json::Va
             },
             "completedAt": status.completed_at,
             "durationMs": status.duration_ms,
+            "objectCount": status.object_count,
+            "bookCount": status.book_count,
+            "transactionCount": status.transaction_count,
+        })),
+        "lastRecoveryDrill": recovery_drill.map(|status| json!({
+            "outcome": match status.outcome {
+                crate::infrastructure::backup_status::RecoveryDrillOutcome::Success => "success",
+                crate::infrastructure::backup_status::RecoveryDrillOutcome::Failed => "failed",
+            },
+            "completedAt": status.completed_at,
+            "durationMs": status.duration_ms,
+            "bundleCreatedAt": status.bundle_created_at,
             "objectCount": status.object_count,
             "bookCount": status.book_count,
             "transactionCount": status.transaction_count,

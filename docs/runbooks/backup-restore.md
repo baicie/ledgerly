@@ -78,6 +78,21 @@ ledger-server restore-status
 `restore-status` 和 `/health/backup.lastRestore`。失败时安全备份 runId 会保留，
 可按 Runbook 回退。
 
+### 定时恢复演练
+
+```bash
+export RECOVERY_DRILL_ENABLED=true
+export RECOVERY_DRILL_INTERVAL_HOURS=720
+# 可选：提供具有 CREATEDB 的管理员连接
+export RECOVERY_DRILL_DATABASE_URL='postgres://admin:***@db/ledgerly'
+
+ledger-server recovery-drill
+ledger-server recovery-drill-status
+```
+
+演练会创建随机临时数据库和隔离对象目录，不修改正式账本。worker/all 模式会
+自动注册并续排 job；结果通过 `/health/backup.lastRecoveryDrill` 对外监控。
+
 ### 自动备份
 
 ```bash

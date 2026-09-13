@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 pub const BACKUP_STATUS_FILE: &str = "status.json";
 pub const RESTORE_STATUS_FILE: &str = "restore-status.json";
+pub const RECOVERY_DRILL_STATUS_FILE: &str = "recovery-drill-status.json";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -19,6 +20,13 @@ pub enum BackupRunOutcome {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RestoreRunOutcome {
+    Success,
+    Failed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RecoveryDrillOutcome {
     Success,
     Failed,
 }
@@ -48,6 +56,22 @@ pub struct RestoreRunStatus {
     pub duration_ms: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub safety_backup_run_id: Option<String>,
+    pub file_count: usize,
+    pub object_count: usize,
+    pub book_count: i64,
+    pub transaction_count: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_summary: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecoveryDrillStatus {
+    pub outcome: RecoveryDrillOutcome,
+    pub started_at: String,
+    pub completed_at: String,
+    pub duration_ms: u64,
+    pub bundle_created_at: String,
     pub file_count: usize,
     pub object_count: usize,
     pub book_count: i64,
@@ -89,6 +113,10 @@ pub struct BackupStatusStore {
 }
 
 pub struct RestoreStatusStore {
+    path: PathBuf,
+}
+
+pub struct RecoveryDrillStatusStore {
     path: PathBuf,
 }
 
@@ -152,6 +180,44 @@ impl RestoreStatusStore {
             .with_file_name(format!("{RESTORE_STATUS_FILE}.tmp-{}", Uuid::now_v7()));
         fs::write(&temporary, bytes).context("write restore status")?;
         fs::rename(&temporary, &self.path).context("publish restore status")?;
+        Ok(())
+    }
+}
+
+impl RecoveryDrillStatusStore {
+    pub fn new(backup_dir: &Path) -> Self {
+        Self {
+            path: backup_dir.join(RECOVERY_DRILL_STATUS_FILE),
+        }
+    }
+
+    pub fn read(&self) -> anyhow::Result<Option<RecoveryDrillStatus>> {
+        if !self.path.exists() {
+            return Ok(None);
+        }
+        let bytes = fs::read(&self.path)
+            .with_context(|| format!("read recovery drill status {}", self.path.display()))?;
+        let status =
+            serde_json::from_slice(&bytes).context("decode persisted recovery drill status")?;
+        Ok(Some(status))
+    }
+
+    pub fn write(&self, status: &RecoveryDrillStatus) -> anyhow::Result<()> {
+        if let Some(parent) = self.path.parent() {
+            fs::create_dir_all(parent).with_context(|| {
+                format!(
+                    "create recovery drill status directory {}",
+                    parent.display()
+                )
+            })?;
+        }
+        let bytes = serde_json::to_vec_pretty(status).context("encode recovery drill status")?;
+        let temporary = self.path.with_file_name(format!(
+            "{RECOVERY_DRILL_STATUS_FILE}.tmp-{}",
+            Uuid::now_v7()
+        ));
+        fs::write(&temporary, bytes).context("write recovery drill status")?;
+        fs::rename(&temporary, &self.path).context("publish recovery drill status")?;
         Ok(())
     }
 }

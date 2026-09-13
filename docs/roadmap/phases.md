@@ -299,6 +299,17 @@
 - [x] CLI 强制 `--confirm`
 - [x] CI 联合演练改走一键恢复
 
+## 生产定时恢复演练（Phase 38）
+
+- [x] worker 幂等注册并周期续排恢复演练
+- [x] 自动选择最新本地/异地 bundle
+- [x] 创建临时 PostgreSQL 数据库和临时对象目录
+- [x] 恢复后校验 schema、附件和业务数量
+- [x] 强制清理临时数据库和目录
+- [x] 成败均写入 recovery-drill-status.json
+- [x] health 暴露 lastRecoveryDrill
+- [x] CI 真实执行生产演练执行器
+
 ### 待后续完善
 
 - 扩大商户分类覆盖（目前第一版关键词匹配）

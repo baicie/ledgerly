@@ -36,6 +36,7 @@ scp infrastructure/docker/env.vm.example ubuntu@82.156.234.84:/opt/ledgerly/.env
 # 设置 CORS_ALLOWED_ORIGINS=https://实际的-Web-站点域名
 # AUTH_COOKIE_SECURE 必须保持 true，并在 TLS 反向代理后对外服务
 # BACKUP_OFFSITE_HOST_MOUNT 可改为外接盘的绝对路径，例如 /mnt/backup-disk/ledgerly
+# RECOVERY_DRILL_DATABASE_URL 可配置具有 CREATEDB 权限的管理连接
 ```
 
 ### 3. GitHub Secrets（仓库 Settings → Secrets）
@@ -189,6 +190,7 @@ ssh ubuntu@82.156.234.84 'curl -sf http://127.0.0.1:8081/health/backup'
 
 `/health/backup` 首次部署可能为 `never_run`。自动 job 成功后应为 `ready`；
 超过 `BACKUP_INTERVAL_HOURS` 为 `stale`，运行失败为 `failed`。
+定时恢复演练结果位于 `/health/backup.lastRecoveryDrill`。
 
 ## 五、回滚
 
