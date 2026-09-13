@@ -271,6 +271,15 @@
 - [x] 新增 bundle cleanup 保留最新 N 份
 - [x] CI 联合恢复链路覆盖新格式
 
+## 自动备份编排与验证状态（Phase 35）
+
+- [x] worker 幂等注册并续排 backup job
+- [x] 编排 dump、对象、bundle、verify、复制和清理
+- [x] 成功/失败状态原子写入 status.json
+- [x] `/health/backup` 输出 disabled/never_run/failed/stale/ready
+- [x] 健康响应不包含路径和错误详情
+- [x] 提供手工 `backup-run` / `backup-status` 命令
+
 ### 待后续完善
 
 - 扩大商户分类覆盖（目前第一版关键词匹配）

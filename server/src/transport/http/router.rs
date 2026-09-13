@@ -10,6 +10,7 @@ pub fn app_router(state: AppState) -> Router {
         .route("/health/live", get(health::live))
         .route("/health/ready", get(health::ready))
         .route("/health/startup", get(health::startup))
+        .route("/health/backup", get(health::backup))
         .route("/metrics", get(metrics_handler))
         .merge(auth::routes())
         .merge(books::routes())

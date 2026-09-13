@@ -13,7 +13,7 @@ use tower_http::timeout::TimeoutLayer;
 use uuid::Uuid;
 
 use crate::config::Config;
-use crate::infrastructure::{jobs, object_store, postgres, rate_limit};
+use crate::infrastructure::{backup_runtime, jobs, object_store, postgres, rate_limit};
 use crate::metrics::{http_metrics_middleware, make_span_fn, register_metrics};
 use crate::state::AppState;
 use crate::transport::http::router;
@@ -51,6 +51,9 @@ pub async fn run_api(config: Config, with_worker: bool) -> anyhow::Result<()> {
         crate::obs::app_event("boot", "ok", "postgres connected and migrated");
         let _ = jobs::enqueue(pool, "purge_expired_sessions", serde_json::json!({}), 0).await;
         let _ = jobs::enqueue(pool, "enqueue_recurring_scan", serde_json::json!({}), 0).await;
+        if config.backup_dir.is_some() {
+            let _ = jobs::enqueue_if_absent(pool, "backup_bundle", serde_json::json!({})).await;
+        }
     } else {
         crate::obs::app_event("boot", "degraded", "running with in-memory store");
     }
@@ -58,8 +61,9 @@ pub async fn run_api(config: Config, with_worker: bool) -> anyhow::Result<()> {
     if with_worker {
         if let Some(pool) = state.pool.clone() {
             let worker_id = format!("worker-{}", Uuid::now_v7());
+            let worker_config = config.clone();
             tokio::spawn(async move {
-                if let Err(_err) = jobs::run_worker(pool, worker_id).await {
+                if let Err(_err) = jobs::run_worker(pool, worker_id, worker_config).await {
                     // Structured error event is recorded in obs::error_event.
                     // The raw error is intentionally omitted: it may embed
                     // connection strings or query parameters.
@@ -162,43 +166,21 @@ pub async fn run_worker_only(config: Config) -> anyhow::Result<()> {
         anyhow::bail!("DATABASE_URL required for worker mode");
     };
     postgres::migrate(&pool).await?;
+    if config.backup_dir.is_some() {
+        let _ = jobs::enqueue_if_absent(&pool, "backup_bundle", serde_json::json!({})).await;
+    }
     let worker_id = format!("worker-{}", Uuid::now_v7());
-    jobs::run_worker(pool, worker_id).await
+    jobs::run_worker(pool, worker_id, config).await
 }
 
 pub async fn backup(config: &Config, out: &str) -> anyhow::Result<()> {
-    let url = config
-        .database_url
-        .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("DATABASE_URL required"))?;
-    let status = std::process::Command::new("pg_dump")
-        .args(["--format=custom", "--file", out, url])
-        .status()?;
-    if !status.success() {
-        anyhow::bail!("pg_dump failed");
-    }
+    backup_runtime::run_pg_dump(config, std::path::Path::new(out)).await?;
     crate::obs::app_event("backup", "ok", out);
     Ok(())
 }
 
 pub async fn restore(config: &Config, from: &str) -> anyhow::Result<()> {
-    let url = config
-        .database_url
-        .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("DATABASE_URL required"))?;
-    let status = std::process::Command::new("pg_restore")
-        .args([
-            "--clean",
-            "--if-exists",
-            "--no-owner",
-            "--dbname",
-            url,
-            from,
-        ])
-        .status()?;
-    if !status.success() {
-        anyhow::bail!("pg_restore failed");
-    }
+    backup_runtime::run_pg_restore(config, std::path::Path::new(from)).await?;
     crate::obs::app_event("restore", "ok", from);
     Ok(())
 }

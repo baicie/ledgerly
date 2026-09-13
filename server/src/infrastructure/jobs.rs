@@ -4,8 +4,10 @@ use sqlx::PgPool;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
 
+use crate::config::Config;
+
 /// Background job worker using PostgreSQL SKIP LOCKED.
-pub async fn run_worker(pool: PgPool, worker_id: String) -> anyhow::Result<()> {
+pub async fn run_worker(pool: PgPool, worker_id: String, config: Config) -> anyhow::Result<()> {
     crate::obs::job_worker_event("started", &worker_id);
     loop {
         let claimed = claim_jobs(&pool, &worker_id, 10).await?;
@@ -16,7 +18,7 @@ pub async fn run_worker(pool: PgPool, worker_id: String) -> anyhow::Result<()> {
         for job in claimed {
             let span = crate::obs::job_span(&job.job_type, &job.id);
             let _guard = span.enter();
-            let result = execute_job(&pool, &job).await;
+            let result = execute_job(&pool, &config, &job).await;
             match &result {
                 Ok(()) => {
                     let _ = complete_job(&pool, &job.id).await;
@@ -83,7 +85,7 @@ async fn claim_jobs(pool: &PgPool, worker_id: &str, limit: i64) -> anyhow::Resul
     Ok(out)
 }
 
-async fn execute_job(pool: &PgPool, job: &JobRow) -> anyhow::Result<()> {
+async fn execute_job(pool: &PgPool, config: &Config, job: &JobRow) -> anyhow::Result<()> {
     match job.job_type.as_str() {
         "purge_expired_sessions" => {
             sqlx::query(
@@ -112,6 +114,20 @@ async fn execute_job(pool: &PgPool, job: &JobRow) -> anyhow::Result<()> {
                 "now() + interval '1 minute'",
             )
             .await;
+        }
+        "backup_bundle" => {
+            if config.backup_dir.is_some() {
+                crate::infrastructure::backup_runtime::run_backup(config).await?;
+                let interval_hours = config.backup_interval_hours.max(1);
+                let _ = enqueue_at(
+                    pool,
+                    "backup_bundle",
+                    serde_json::json!({}),
+                    0,
+                    &format!("now() + interval '{interval_hours} hours'"),
+                )
+                .await;
+            }
         }
         other => {
             crate::obs::job_rule_skip(other, "UNKNOWN_JOB_TYPE");
@@ -302,6 +318,29 @@ pub async fn enqueue(
     priority: i32,
 ) -> anyhow::Result<String> {
     enqueue_at(pool, job_type, payload, priority, "now()").await
+}
+
+pub async fn enqueue_if_absent(
+    pool: &PgPool,
+    job_type: &str,
+    payload: serde_json::Value,
+) -> anyhow::Result<Option<String>> {
+    let id = Uuid::now_v7().to_string();
+    let inserted: Option<String> = sqlx::query_scalar(
+        "INSERT INTO jobs (id, job_type, payload, priority, run_at)
+         SELECT $1, $2, $3, 0, now()
+         WHERE NOT EXISTS (
+             SELECT 1 FROM jobs
+             WHERE job_type = $2 AND status IN ('pending', 'running')
+         )
+         RETURNING id",
+    )
+    .bind(&id)
+    .bind(job_type)
+    .bind(payload)
+    .fetch_optional(pool)
+    .await?;
+    Ok(inserted)
 }
 
 async fn enqueue_at(
