@@ -46,6 +46,9 @@ class PluginBackupFilePort implements BackupFilePort {
   String _exportEncryptedFileName() =>
       'ledgerly-backup-$_timestamp.ledgerly.enc.zip';
 
+  String _exportIncrementalFileName() =>
+      'ledgerly-incremental-$_timestamp.ledgerly.inc.zip';
+
   String _safetyFileName() => 'ledgerly-pre-restore-$_timestamp.ledgerly.zip';
 
   @override
@@ -55,8 +58,11 @@ class PluginBackupFilePort implements BackupFilePort {
   }) async {
     final dir = await _documentsDirectoryLoader();
     final isEncrypted = document.encrypted != null;
-    final fileName =
-        isEncrypted ? _exportEncryptedFileName() : _exportFileName();
+    final fileName = isEncrypted
+        ? _exportEncryptedFileName()
+        : document.isIncremental
+            ? _exportIncrementalFileName()
+            : _exportFileName();
     final file = File('${dir.path}/$fileName');
     final bytes = isEncrypted
         ? _buildEncryptedZipBytes(document)

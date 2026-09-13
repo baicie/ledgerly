@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 import '../data/database.dart';
 import '../data/local_attachment_repository.dart';
@@ -26,7 +29,10 @@ class BackupDocument {
     this.attachmentIndex = const [],
     this.attachmentBinaries = const [],
     this.encrypted,
-    this.schemaVersion = kBackupSchemaVersion,
+    this.schemaVersion = kFullBackupSchemaVersion,
+    this.backupId,
+    this.baseBackupId,
+    this.deleted = const {},
   });
 
   /// Counts per entity — surfaced in the restore preview so the user
@@ -72,6 +78,15 @@ class BackupDocument {
   /// envelope uses [kEncryptedBackupSchemaVersion] separately.
   final int schemaVersion;
 
+  /// Stable ID written to the envelope. Legacy documents may omit it.
+  final String? backupId;
+
+  /// When non-null this document is a delta relative to this full backup.
+  final String? baseBackupId;
+
+  /// Entity IDs removed since [baseBackupId], grouped by payload key.
+  final Map<String, List<String>> deleted;
+
   /// Total bytes the bundled attachments consume. Surfaced in the UI so
   /// the user can see how big the backup really is before sharing.
   int get attachmentSizeBytes =>
@@ -80,15 +95,20 @@ class BackupDocument {
   /// True when this document still needs a password before restore.
   bool get isEncrypted => encrypted != null;
 
+  bool get isIncremental => baseBackupId != null;
+
   Map<String, dynamic> toEnvelope({required String deviceId}) {
     return {
       'kind': 'ledgerly-backup',
-      'schemaVersion': kBackupSchemaVersion,
+      'schemaVersion': schemaVersion,
       'exportedAt': DateTime.now().toUtc().toIso8601String(),
       'deviceId': deviceId,
+      if (backupId != null) 'backupId': backupId,
+      if (baseBackupId != null) 'baseBackupId': baseBackupId,
       if (bookIds != null) 'bookIds': bookIds!.toList()..sort(),
       'summary': summary.toJson(),
       'data': payload,
+      if (deleted.isNotEmpty) 'deleted': deleted,
       if (attachmentIndex.isNotEmpty) 'attachmentIndex': attachmentIndex,
     };
   }
@@ -128,6 +148,17 @@ class BackupDocument {
             .map((e) => Map<String, dynamic>.from(e))
             .toList()
         : const <Map<String, dynamic>>[];
+    final rawDeleted = envelope['deleted'];
+    final deleted = <String, List<String>>{};
+    if (rawDeleted is Map) {
+      for (final entry in rawDeleted.entries) {
+        final key = entry.key;
+        final value = entry.value;
+        if (key is String && value is List) {
+          deleted[key] = value.whereType<String>().toList();
+        }
+      }
+    }
     return BackupDocument(
       summary: BackupSummary.fromJson(
         Map<String, dynamic>.from(summaryJson),
@@ -136,6 +167,9 @@ class BackupDocument {
       bookIds: bookIds,
       attachmentIndex: attachmentIndex,
       schemaVersion: version,
+      backupId: envelope['backupId'] as String?,
+      baseBackupId: envelope['baseBackupId'] as String?,
+      deleted: deleted,
     );
   }
 
@@ -151,6 +185,9 @@ class BackupDocument {
       attachmentBinaries: List.unmodifiable(binaries),
       encrypted: encrypted,
       schemaVersion: schemaVersion,
+      backupId: backupId,
+      baseBackupId: baseBackupId,
+      deleted: deleted,
     );
   }
 
@@ -167,6 +204,9 @@ class BackupDocument {
       attachmentBinaries: attachmentBinaries,
       encrypted: encrypted,
       schemaVersion: schemaVersion,
+      backupId: backupId,
+      baseBackupId: baseBackupId,
+      deleted: deleted,
     );
   }
 }
@@ -283,14 +323,17 @@ class BackupFormatException implements Exception {
   String toString() => 'BackupFormatException: $message';
 }
 
-/// Current on-disk schema version. Bumped on any breaking change to the
-/// `data` payload shape. Phase 9 bumped to `2` to add bundled
-/// attachment binaries (zip container); legacy `1` files remain
-/// readable so older backups keep restoring. Phase 10 keeps `2` for
-/// the *plaintext* payload (no schema change) but adds a new outer
-/// container at `schemaVersion: 3` for password-encrypted backups —
-/// see [BackupDocument.encrypted] / [BackupEncryption].
-const int kBackupSchemaVersion = 2;
+/// Full backup payload version. Phase 9 introduced the zip container
+/// and bundled attachment binaries at version `2`.
+const int kFullBackupSchemaVersion = 2;
+
+/// Incremental payload version. Phase 14 adds `baseBackupId` and
+/// `deleted`, so older clients must refuse the file rather than
+/// treating a delta as a complete snapshot.
+const int kIncrementalBackupSchemaVersion = 3;
+
+/// Highest on-disk schema version this client can restore.
+const int kBackupSchemaVersion = kIncrementalBackupSchemaVersion;
 
 /// Current outer-container schema version. Bumped when the on-disk
 /// envelope changes shape: `3` introduced AES-256-GCM password
@@ -302,6 +345,17 @@ const int kEncryptedBackupSchemaVersion = 3;
 /// files (v1) load but the restore preview warns the user that
 /// attachment binaries were not bundled in that revision.
 const int kMinReadableBackupSchemaVersion = 1;
+
+const List<String> _deltaEntityKeys = [
+  'books',
+  'accounts',
+  'transactions',
+  'transactionEntries',
+  'recurringRules',
+  'budgets',
+  'attachments',
+  'merchantRules',
+];
 
 /// Snapshot of all user-owned local data. The service intentionally
 /// avoids touching sync state (cursor, lastError, remoteBookId) since
@@ -458,6 +512,7 @@ class BackupService {
       bookIds: hasFilter ? scopedBookIds : null,
       attachmentIndex: attachmentIndex,
       attachmentBinaries: attachmentBinaries,
+      backupId: const Uuid().v4(),
     );
 
     // Phase 10: if the caller supplied a password, seal the v2
@@ -503,9 +558,10 @@ class BackupService {
   /// bubble up; the caller should surface them as a UI error rather
   /// than leaving the database half-wiped.
   Future<void> restore(BackupDocument document, {String? password}) async {
-    final resolved = document.encrypted != null
+    final unlocked = document.encrypted != null
         ? await _unwrapEncrypted(document, password: password)
         : document;
+    final resolved = await _materializeIncremental(unlocked);
     final data = resolved.payload;
     final books = _asList(data['books'], 'books');
     final accounts = _asList(data['accounts'], 'accounts');
@@ -607,9 +663,10 @@ class BackupService {
     BackupDocument document, {
     String? password,
   }) async {
-    final resolved = document.encrypted != null
+    final unlocked = document.encrypted != null
         ? await _unwrapEncrypted(document, password: password)
         : document;
+    final resolved = await _materializeIncremental(unlocked);
     final data = resolved.payload;
     final books = _asList(data['books'], 'books');
     final accounts = _asList(data['accounts'], 'accounts');
@@ -861,17 +918,53 @@ class BackupService {
   Future<String> exportToFile({
     Set<String>? bookIds,
     String? password,
+    bool incremental = false,
   }) async {
-    final document = await export(bookIds: bookIds, password: password);
+    var document = await export(bookIds: bookIds, password: password);
+    final snapshotAttachmentCount = document.summary.attachments;
+    final snapshotAttachmentSizeBytes = document.attachmentSizeBytes;
+    var wroteIncremental = false;
+    String? baseBackupId;
+    String? baseBackupPath;
+    if (incremental && (password == null || password.isEmpty)) {
+      try {
+        final base = await _loadIncrementalBase();
+        if (base != null) {
+          document = _buildIncremental(current: document, base: base);
+          wroteIncremental = true;
+          baseBackupId = base.backupId;
+          baseBackupPath = (await _metadata.read()).baseBackupPath;
+        }
+      } catch (_) {
+        // A malformed or inaccessible base must never block a normal
+        // full backup. Reuse the current full document unchanged.
+      }
+    }
     final deviceId = await _deviceIdLoader();
     final path = await _files.writeBackup(document, deviceId: deviceId);
-    await _metadata.record(
-      path: path,
-      at: DateTime.now().toUtc(),
-      attachmentCount: document.attachmentBinaries.length,
-      attachmentSizeBytes: document.attachmentSizeBytes,
-      encrypted: document.encrypted != null,
-    );
+    if (wroteIncremental &&
+        baseBackupId != null &&
+        baseBackupPath != null &&
+        document.backupId != null) {
+      await _metadata.recordIncremental(
+        path: path,
+        at: DateTime.now().toUtc(),
+        backupId: document.backupId!,
+        baseBackupId: baseBackupId,
+        baseBackupPath: baseBackupPath,
+        attachmentCount: snapshotAttachmentCount,
+        attachmentSizeBytes: snapshotAttachmentSizeBytes,
+      );
+    } else {
+      await _metadata.record(
+        path: path,
+        at: DateTime.now().toUtc(),
+        backupId: document.backupId,
+        attachmentCount: document.attachmentBinaries.length,
+        attachmentSizeBytes: document.attachmentSizeBytes,
+        encrypted: document.encrypted != null,
+      );
+    }
     return path;
   }
 
@@ -887,9 +980,12 @@ class BackupService {
     final source = await _files.pickBackupSource();
     if (source == null) return null;
     final document = await _files.readBackup(source, password: password);
-    if (document.encrypted == null) return document;
+    if (document.encrypted == null) {
+      return _materializeIncremental(document);
+    }
     if (password == null || password.isEmpty) return document;
-    return _unwrapEncrypted(document, password: password);
+    final unlocked = await _unwrapEncrypted(document, password: password);
+    return _materializeIncremental(unlocked);
   }
 
   /// Decrypt a v3 document and return the inner v2 snapshot. Used by
@@ -897,8 +993,9 @@ class BackupService {
   Future<BackupDocument> unlockEncrypted(
     BackupDocument document, {
     required String password,
-  }) {
-    return _unwrapEncrypted(document, password: password);
+  }) async {
+    final unlocked = await _unwrapEncrypted(document, password: password);
+    return _materializeIncremental(unlocked);
   }
 
   /// Snapshot the live database into a safety backup *before* running
@@ -1041,6 +1138,195 @@ SELECT
           account.type == expected.$2 &&
           account.parentAccountId == expected.$3;
     });
+  }
+
+  Future<BackupDocument?> _loadIncrementalBase() async {
+    final metadata = await _metadata.read();
+    final baseId = metadata.baseBackupId;
+    final basePath = metadata.baseBackupPath;
+    if (baseId == null || basePath == null) return null;
+    try {
+      final base = await _files.readBackup(basePath);
+      if (base.isEncrypted || base.isIncremental || base.backupId != baseId) {
+        return null;
+      }
+      return base;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  BackupDocument _buildIncremental({
+    required BackupDocument current,
+    required BackupDocument base,
+  }) {
+    final baseId = base.backupId;
+    if (baseId == null) {
+      throw const BackupFormatException('基础备份缺少 backupId');
+    }
+    if (!_sameBackupScope(current.bookIds, base.bookIds)) {
+      throw const BackupFormatException('增量备份范围与基础备份不一致');
+    }
+
+    final changes = <String, dynamic>{};
+    final deleted = <String, List<String>>{};
+    final changedAttachmentIds = <String>{};
+    for (final key in _deltaEntityKeys) {
+      final currentRows = _asList(current.payload[key], key);
+      final baseRows = _asList(base.payload[key], key);
+      final currentById = _rowsById(currentRows, key);
+      final baseById = _rowsById(baseRows, key);
+      final changed = <Map<String, dynamic>>[];
+      for (final entry in currentById.entries) {
+        final previous = baseById[entry.key];
+        if (previous == null ||
+            jsonEncode(previous) != jsonEncode(entry.value)) {
+          changed.add(entry.value);
+          if (key == 'attachments') changedAttachmentIds.add(entry.key);
+        }
+      }
+      changes[key] = changed;
+      final removed = [
+        for (final id in baseById.keys)
+          if (!currentById.containsKey(id)) id,
+      ];
+      if (removed.isNotEmpty) deleted[key] = removed;
+    }
+
+    final baseBinaryHashes = <String, String>{
+      for (final binary in base.attachmentBinaries)
+        binary.id: sha256.convert(binary.bytes).toString(),
+    };
+    for (final binary in current.attachmentBinaries) {
+      final digest = sha256.convert(binary.bytes).toString();
+      if (baseBinaryHashes[binary.id] != digest) {
+        changedAttachmentIds.add(binary.id);
+      }
+    }
+
+    final changedIndex = [
+      for (final entry in current.attachmentIndex)
+        if (changedAttachmentIds.contains(entry['id'])) entry,
+    ];
+    final changedBinaries = [
+      for (final binary in current.attachmentBinaries)
+        if (changedAttachmentIds.contains(binary.id)) binary,
+    ];
+
+    return BackupDocument(
+      summary: current.summary,
+      payload: changes,
+      bookIds: current.bookIds,
+      attachmentIndex: changedIndex,
+      attachmentBinaries: changedBinaries,
+      schemaVersion: kIncrementalBackupSchemaVersion,
+      backupId: current.backupId ?? const Uuid().v4(),
+      baseBackupId: baseId,
+      deleted: deleted,
+    );
+  }
+
+  Future<BackupDocument> _materializeIncremental(
+    BackupDocument document,
+  ) async {
+    if (!document.isIncremental) return document;
+    final metadata = await _metadata.read();
+    final baseId = metadata.baseBackupId;
+    final basePath = metadata.baseBackupPath;
+    if (baseId == null || basePath == null || baseId != document.baseBackupId) {
+      throw const BackupFormatException(
+        '该增量备份缺少本机基础文件，无法恢复；请使用完整备份。',
+      );
+    }
+
+    final BackupDocument base;
+    try {
+      base = await _files.readBackup(basePath);
+    } catch (error) {
+      throw BackupFormatException(
+        '增量备份的基础文件不可读：$error',
+      );
+    }
+    if (base.isEncrypted || base.isIncremental || base.backupId != baseId) {
+      throw const BackupFormatException(
+        '增量备份的基础文件无效，无法恢复。',
+      );
+    }
+    return _applyIncremental(base: base, delta: document);
+  }
+
+  BackupDocument _applyIncremental({
+    required BackupDocument base,
+    required BackupDocument delta,
+  }) {
+    final payload = <String, dynamic>{};
+    for (final key in _deltaEntityKeys) {
+      final merged = _rowsById(
+        _asList(base.payload[key], key),
+        key,
+      );
+      final deletedIds = delta.deleted[key] ?? const <String>[];
+      for (final id in deletedIds) {
+        merged.remove(id);
+      }
+      final changes = _asList(delta.payload[key], key);
+      for (final row in changes) {
+        merged[_rowId(row, key)] = row;
+      }
+      payload[key] = merged.values.toList();
+    }
+
+    final deletedAttachmentIds =
+        (delta.deleted['attachments'] ?? const <String>[]).toSet();
+    final attachmentIndex = <String, Map<String, dynamic>>{
+      for (final row in base.attachmentIndex)
+        if (row['id'] is String) row['id'] as String: row,
+      for (final row in delta.attachmentIndex)
+        if (row['id'] is String) row['id'] as String: row,
+    }..removeWhere((id, _) => deletedAttachmentIds.contains(id));
+    final binaries = <String, AttachmentBinary>{
+      for (final binary in base.attachmentBinaries) binary.id: binary,
+      for (final binary in delta.attachmentBinaries) binary.id: binary,
+    }..removeWhere((id, _) => deletedAttachmentIds.contains(id));
+
+    return BackupDocument(
+      summary: delta.summary,
+      payload: payload,
+      bookIds: delta.bookIds ?? base.bookIds,
+      attachmentIndex: attachmentIndex.values.toList(),
+      attachmentBinaries: binaries.values.toList(),
+      schemaVersion: kFullBackupSchemaVersion,
+      backupId: delta.backupId,
+    );
+  }
+
+  Map<String, Map<String, dynamic>> _rowsById(
+    List<Map<String, dynamic>> rows,
+    String key,
+  ) {
+    final result = <String, Map<String, dynamic>>{};
+    for (final row in rows) {
+      final id = _rowId(row, key);
+      if (result.containsKey(id)) {
+        throw BackupFormatException('备份中存在重复 $key：$id');
+      }
+      result[id] = row;
+    }
+    return result;
+  }
+
+  String _rowId(Map<String, dynamic> row, String key) {
+    final id = row['id'];
+    if (id is! String || id.isEmpty) {
+      throw BackupFormatException('备份中的 $key 行缺少 id');
+    }
+    return id;
+  }
+
+  bool _sameBackupScope(Set<String>? a, Set<String>? b) {
+    if (a == null && b == null) return true;
+    if (a == null || b == null || a.length != b.length) return false;
+    return a.containsAll(b);
   }
 
   /// Decrypt an encrypted document using the user-supplied password

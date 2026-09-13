@@ -837,6 +837,55 @@ void main() {
     expect(find.text(l10n.dataGovernanceStatusEncrypted), findsOneWidget);
   });
 
+  testWidgets('incremental option disables when encrypted export is selected',
+      (tester) async {
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
+    final incremental = find.byKey(
+      const Key('data-governance-incremental-checkbox'),
+    );
+
+    expect(
+      tester.widget<CheckboxListTile>(incremental).onChanged,
+      isNotNull,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-encrypt-checkbox')),
+    );
+    await tester.pump();
+
+    final disabled = tester.widget<CheckboxListTile>(incremental);
+    expect(disabled.value, isFalse);
+    expect(disabled.onChanged, isNull);
+    expect(
+      find.text(l10n.dataGovernanceIncrementalEncryptedDisabled),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('status card marks an incremental backup as local-only',
+      (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      BackupMetadataStore.kLastBackupAt,
+      DateTime.now().toUtc().toIso8601String(),
+    );
+    await prefs.setBool(BackupMetadataStore.kLastBackupIncremental, true);
+
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
+
+    expect(
+      find.byKey(const Key('data-governance-status-incremental')),
+      findsOneWidget,
+    );
+    expect(
+      find.text(l10n.dataGovernanceStatusIncremental),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('auto-backup switch is off by default', (tester) async {
     await _pumpPage(tester, backupService, booksLoader: loadBooks);
     final l10n = await AppLocalizations.delegate.load(const Locale('zh'));

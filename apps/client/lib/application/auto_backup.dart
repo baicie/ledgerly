@@ -62,7 +62,7 @@ class AutoBackupCoordinator {
       if (!schedule.isDue(metadata.lastBackupAt, clock)) {
         return AutoBackupTickResult.skipped(AutoBackupSkipReason.notDue);
       }
-      final path = await _backups.exportToFile();
+      final path = await _backups.exportToFile(incremental: true);
       return AutoBackupTickResult.ran(path);
     } catch (error) {
       return AutoBackupTickResult.failed(error);
