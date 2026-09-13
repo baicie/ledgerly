@@ -48,6 +48,10 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
   /// the restore preview can nudge the user toward encrypted backups.
   bool _pendingIsUnencrypted = false;
 
+  /// Replace remains the default to preserve Phase 6-12 behaviour.
+  /// Merge is opt-in from the restore preview.
+  BackupRestoreMode _restoreMode = BackupRestoreMode.replace;
+
   bool _busy = false;
   String? _error;
 
@@ -223,6 +227,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
       setState(() {
         _pendingDocument = document;
         _pendingIsUnencrypted = !wasEncrypted;
+        _restoreMode = BackupRestoreMode.replace;
         _busy = false;
       });
     } on BackupFormatException catch (error) {
@@ -268,6 +273,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
     setState(() {
       _pendingDocument = null;
       _pendingIsUnencrypted = false;
+      _restoreMode = BackupRestoreMode.replace;
     });
   }
 
@@ -281,15 +287,21 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
       builder: (dialogContext) => _RestoreConfirmDialog(
         summary: document.summary,
         l10n: l10n,
+        mode: _restoreMode,
       ),
     );
     if (confirmed != true || !mounted) return;
 
     _setBusy(true);
     String safetyPath;
+    BackupMergeResult? mergeResult;
     try {
       safetyPath = await _service.writeSafetyBackup();
-      await _service.restore(document);
+      if (_restoreMode == BackupRestoreMode.merge) {
+        mergeResult = await _service.merge(document);
+      } else {
+        await _service.restore(document);
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() => _busy = false);
@@ -304,10 +316,23 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
     if (!mounted) return;
     setState(() {
       _pendingDocument = null;
+      _restoreMode = BackupRestoreMode.replace;
       _busy = false;
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.dataGovernanceRestoreSuccess)),
+      SnackBar(
+        content: Text(
+          mergeResult == null
+              ? l10n.dataGovernanceRestoreSuccess
+              : mergeResult.changed
+                  ? l10n.dataGovernanceRestoreMergeSuccess(
+                      mergeResult.addedBooks,
+                      mergeResult.replacedBooks,
+                      mergeResult.skippedBooks,
+                    )
+                  : l10n.dataGovernanceRestoreMergeNoChanges,
+        ),
+      ),
     );
     // Surface the safety path so the user can recover manually if
     // something looks off after the restore finishes.
@@ -430,6 +455,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
                   pendingSummary: _pendingDocument?.summary,
                   pendingIsUnencrypted: _pendingIsUnencrypted,
                   pendingSchemaVersion: _pendingDocument?.schemaVersion,
+                  restoreMode: _restoreMode,
                   encryptBackup: _encryptBackup,
                   passwordController: _passwordController,
                   passwordConfirmController: _passwordConfirmController,
@@ -459,6 +485,9 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
                       ? null
                       : () => _shareBackup(_lastBackupPath!),
                   onPickRestore: _busy ? null : _pickRestoreFile,
+                  onRestoreModeChanged: _busy
+                      ? null
+                      : (mode) => setState(() => _restoreMode = mode),
                   onCancelRestore:
                       _busy || _pendingDocument == null ? null : _cancelRestore,
                   onConfirmRestore: _busy || _pendingDocument == null
@@ -506,6 +535,7 @@ class _BackupSection extends StatelessWidget {
     required this.pendingSummary,
     required this.pendingIsUnencrypted,
     required this.pendingSchemaVersion,
+    required this.restoreMode,
     required this.encryptBackup,
     required this.passwordController,
     required this.passwordConfirmController,
@@ -519,6 +549,7 @@ class _BackupSection extends StatelessWidget {
     required this.onToggleBook,
     required this.onShare,
     required this.onPickRestore,
+    required this.onRestoreModeChanged,
     required this.onCancelRestore,
     required this.onConfirmRestore,
   });
@@ -531,6 +562,7 @@ class _BackupSection extends StatelessWidget {
   final BackupSummary? pendingSummary;
   final bool pendingIsUnencrypted;
   final int? pendingSchemaVersion;
+  final BackupRestoreMode restoreMode;
   final bool encryptBackup;
   final TextEditingController passwordController;
   final TextEditingController passwordConfirmController;
@@ -544,6 +576,7 @@ class _BackupSection extends StatelessWidget {
   final ValueChanged<String>? onToggleBook;
   final VoidCallback? onShare;
   final VoidCallback? onPickRestore;
+  final ValueChanged<BackupRestoreMode>? onRestoreModeChanged;
   final VoidCallback? onCancelRestore;
   final VoidCallback? onConfirmRestore;
 
@@ -748,6 +781,8 @@ class _BackupSection extends StatelessWidget {
               summary: pendingSummary!,
               isUnencrypted: pendingIsUnencrypted,
               schemaVersion: pendingSchemaVersion ?? kBackupSchemaVersion,
+              restoreMode: restoreMode,
+              onRestoreModeChanged: onRestoreModeChanged,
               onCancel: onCancelRestore,
               onConfirm: onConfirmRestore,
               busy: busy,
@@ -764,6 +799,8 @@ class _RestorePreviewCard extends StatelessWidget {
     required this.summary,
     required this.isUnencrypted,
     required this.schemaVersion,
+    required this.restoreMode,
+    required this.onRestoreModeChanged,
     required this.onCancel,
     required this.onConfirm,
     required this.busy,
@@ -773,6 +810,8 @@ class _RestorePreviewCard extends StatelessWidget {
   final BackupSummary summary;
   final bool isUnencrypted;
   final int schemaVersion;
+  final BackupRestoreMode restoreMode;
+  final ValueChanged<BackupRestoreMode>? onRestoreModeChanged;
   final VoidCallback? onCancel;
   final VoidCallback? onConfirm;
   final bool busy;
@@ -819,6 +858,36 @@ class _RestorePreviewCard extends StatelessWidget {
               ),
               key: const Key('data-governance-restore-summary'),
             ),
+          const SizedBox(height: 12),
+          SegmentedButton<BackupRestoreMode>(
+            key: const Key('data-governance-restore-mode'),
+            segments: [
+              ButtonSegment(
+                value: BackupRestoreMode.replace,
+                icon: const Icon(Icons.swap_horiz),
+                label: Text(l10n.dataGovernanceRestoreModeReplace),
+              ),
+              ButtonSegment(
+                value: BackupRestoreMode.merge,
+                icon: const Icon(Icons.merge_type),
+                label: Text(l10n.dataGovernanceRestoreModeMerge),
+              ),
+            ],
+            selected: {restoreMode},
+            onSelectionChanged: onRestoreModeChanged == null
+                ? null
+                : (selection) => onRestoreModeChanged!(selection.first),
+          ),
+          if (restoreMode == BackupRestoreMode.merge) ...[
+            const SizedBox(height: 8),
+            Text(
+              l10n.dataGovernanceRestoreMergeHint,
+              key: const Key('data-governance-restore-merge-hint'),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
           if (isUnencrypted) ...[
             const SizedBox(height: 8),
             Text(
@@ -864,8 +933,16 @@ class _RestorePreviewCard extends StatelessWidget {
                           color: Colors.white,
                         ),
                       )
-                    : const Icon(Icons.check),
-                label: Text(l10n.confirm),
+                    : Icon(
+                        restoreMode == BackupRestoreMode.merge
+                            ? Icons.merge_type
+                            : Icons.swap_horiz,
+                      ),
+                label: Text(
+                  restoreMode == BackupRestoreMode.merge
+                      ? l10n.dataGovernanceRestoreMergeAction
+                      : l10n.dataGovernanceRestoreReplaceAction,
+                ),
               ),
             ],
           ),
@@ -1015,16 +1092,22 @@ class _RestoreConfirmDialog extends StatelessWidget {
   const _RestoreConfirmDialog({
     required this.summary,
     required this.l10n,
+    required this.mode,
   });
 
   final BackupSummary summary;
   final AppLocalizations l10n;
+  final BackupRestoreMode mode;
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       key: const Key('data-governance-restore-dialog'),
-      title: Text(l10n.dataGovernanceRestoreConfirmTitle),
+      title: Text(
+        mode == BackupRestoreMode.merge
+            ? l10n.dataGovernanceRestoreConfirmMergeTitle
+            : l10n.dataGovernanceRestoreConfirmTitle,
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1045,7 +1128,11 @@ class _RestoreConfirmDialog extends StatelessWidget {
           // Note: the safety path is known only after the dialog closes
           // and `writeSafetyBackup` runs. We mention the mechanism here
           // and the caller shows the actual path in a follow-up snack.
-          Text(l10n.dataGovernanceRestoreConfirmBody('safety-backup')),
+          Text(
+            mode == BackupRestoreMode.merge
+                ? l10n.dataGovernanceRestoreConfirmMergeBody('safety-backup')
+                : l10n.dataGovernanceRestoreConfirmBody('safety-backup'),
+          ),
         ],
       ),
       actions: [

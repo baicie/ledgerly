@@ -2066,7 +2066,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dataGovernanceRestore => '恢复';
 
   @override
-  String get dataGovernanceRestoreSubtitle => '选择备份文件，预览后再覆盖本机数据。';
+  String get dataGovernanceRestoreSubtitle => '选择备份文件，预览后替换或合并到本机数据。';
 
   @override
   String get dataGovernanceRestoreAction => '选择备份文件';
@@ -2094,12 +2094,44 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dataGovernanceRestorePreviewEmpty => '备份里没有任何数据，恢复后本机会变空。';
 
   @override
+  String get dataGovernanceRestoreModeReplace => '替换本机数据';
+
+  @override
+  String get dataGovernanceRestoreModeMerge => '合并新账本';
+
+  @override
+  String get dataGovernanceRestoreMergeHint => '同 ID 且已有数据的账本会整本跳过；仅空占位账本会被替换。';
+
+  @override
+  String get dataGovernanceRestoreReplaceAction => '替换本机数据';
+
+  @override
+  String get dataGovernanceRestoreMergeAction => '合并到本机';
+
+  @override
   String get dataGovernanceRestoreConfirmTitle => '确认覆盖本机数据？';
 
   @override
   String dataGovernanceRestoreConfirmBody(String path) {
     return '恢复会覆盖本机的全部账本。已自动写入安全备份到 $path，出问题可以回滚。';
   }
+
+  @override
+  String get dataGovernanceRestoreConfirmMergeTitle => '确认合并到本机？';
+
+  @override
+  String dataGovernanceRestoreConfirmMergeBody(String path) {
+    return '只会新增账本或替换空占位账本；同 ID 且已有数据的账本会跳过。安全备份已写入 $path。';
+  }
+
+  @override
+  String dataGovernanceRestoreMergeSuccess(
+      int added, int replaced, int skipped) {
+    return '已合并 $added 个新账本，替换 $replaced 个空账本，跳过 $skipped 个已有账本。';
+  }
+
+  @override
+  String get dataGovernanceRestoreMergeNoChanges => '没有可合并的新账本，已有账本保持不变。';
 
   @override
   String get dataGovernanceRestoreSuccess => '恢复完成，正在刷新…';

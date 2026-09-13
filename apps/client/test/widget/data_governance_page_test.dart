@@ -159,6 +159,49 @@ void main() {
     expect(safetyEntries.length, 1);
   });
 
+  testWidgets('restore preview can switch to merge mode and reports its result',
+      (tester) async {
+    final document = await backupService.export();
+    filePort.pickResult = 'picked-merge-backup';
+    filePort.envelopes['picked-merge-backup'] = document;
+
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-restore-pick')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    await tester.tap(find.text(l10n.dataGovernanceRestoreModeMerge));
+    await tester.pump();
+    expect(
+      find.byKey(const Key('data-governance-restore-merge-hint')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-restore-confirm')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text(l10n.dataGovernanceRestoreConfirmMergeTitle),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-restore-dialog-confirm')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(
+      find.text(l10n.dataGovernanceRestoreMergeSuccess(0, 1, 0)),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('wipe requires the user to type DELETE', (tester) async {
     await _pumpPage(tester, backupService, booksLoader: loadBooks);
 

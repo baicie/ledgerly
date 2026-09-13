@@ -2147,7 +2147,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dataGovernanceRestoreSubtitle =>
-      'Pick a backup file, preview it, then replace this device\'s data.';
+      'Pick a backup file, preview it, then replace or merge it into this device.';
 
   @override
   String get dataGovernanceRestoreAction => 'Pick a backup file';
@@ -2176,12 +2176,47 @@ class AppLocalizationsEn extends AppLocalizations {
       'This backup contains no data. Restoring will leave the device empty.';
 
   @override
+  String get dataGovernanceRestoreModeReplace => 'Replace local data';
+
+  @override
+  String get dataGovernanceRestoreModeMerge => 'Merge new books';
+
+  @override
+  String get dataGovernanceRestoreMergeHint =>
+      'Books with the same ID and existing data are skipped. Only empty placeholder books can be replaced.';
+
+  @override
+  String get dataGovernanceRestoreReplaceAction => 'Replace local data';
+
+  @override
+  String get dataGovernanceRestoreMergeAction => 'Merge into device';
+
+  @override
   String get dataGovernanceRestoreConfirmTitle => 'Replace local data?';
 
   @override
   String dataGovernanceRestoreConfirmBody(String path) {
     return 'Restore will overwrite every book on this device. A safety copy was written to $path so you can roll back if anything looks wrong.';
   }
+
+  @override
+  String get dataGovernanceRestoreConfirmMergeTitle =>
+      'Merge into this device?';
+
+  @override
+  String dataGovernanceRestoreConfirmMergeBody(String path) {
+    return 'Only new books and empty placeholder books will be merged. Books with the same ID and existing data are skipped. A safety copy was written to $path.';
+  }
+
+  @override
+  String dataGovernanceRestoreMergeSuccess(
+      int added, int replaced, int skipped) {
+    return 'Merged $added new books, replaced $replaced empty books, skipped $skipped existing books.';
+  }
+
+  @override
+  String get dataGovernanceRestoreMergeNoChanges =>
+      'Nothing new to merge. Existing books were kept unchanged.';
 
   @override
   String get dataGovernanceRestoreSuccess => 'Restore complete. Reloading…';

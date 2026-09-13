@@ -1181,7 +1181,7 @@
   },
   "dataGovernanceBackupShare": "Share / save elsewhere",
   "dataGovernanceRestore": "Restore",
-  "dataGovernanceRestoreSubtitle": "Pick a backup file, preview it, then replace this device's data.",
+  "dataGovernanceRestoreSubtitle": "Pick a backup file, preview it, then replace or merge it into this device.",
   "dataGovernanceRestoreAction": "Pick a backup file",
   "dataGovernanceRestoreInProgress": "Restoring…",
   "dataGovernanceRestorePreview": "Preview",
@@ -1215,6 +1215,11 @@
     }
   },
   "dataGovernanceRestorePreviewEmpty": "This backup contains no data. Restoring will leave the device empty.",
+  "dataGovernanceRestoreModeReplace": "Replace local data",
+  "dataGovernanceRestoreModeMerge": "Merge new books",
+  "dataGovernanceRestoreMergeHint": "Books with the same ID and existing data are skipped. Only empty placeholder books can be replaced.",
+  "dataGovernanceRestoreReplaceAction": "Replace local data",
+  "dataGovernanceRestoreMergeAction": "Merge into device",
   "dataGovernanceRestoreConfirmTitle": "Replace local data?",
   "dataGovernanceRestoreConfirmBody": "Restore will overwrite every book on this device. A safety copy was written to {path} so you can roll back if anything looks wrong.",
   "@dataGovernanceRestoreConfirmBody": {
@@ -1224,6 +1229,30 @@
       }
     }
   },
+  "dataGovernanceRestoreConfirmMergeTitle": "Merge into this device?",
+  "dataGovernanceRestoreConfirmMergeBody": "Only new books and empty placeholder books will be merged. Books with the same ID and existing data are skipped. A safety copy was written to {path}.",
+  "@dataGovernanceRestoreConfirmMergeBody": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreMergeSuccess": "Merged {added} new books, replaced {replaced} empty books, skipped {skipped} existing books.",
+  "@dataGovernanceRestoreMergeSuccess": {
+    "placeholders": {
+      "added": {
+        "type": "int"
+      },
+      "replaced": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceRestoreMergeNoChanges": "Nothing new to merge. Existing books were kept unchanged.",
   "dataGovernanceRestoreSuccess": "Restore complete. Reloading…",
   "dataGovernanceWipe": "Wipe local data",
   "dataGovernanceWipeSubtitle": "Delete every transaction, budget, rule, and attachment. There is no undo.",

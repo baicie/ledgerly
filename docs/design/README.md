@@ -26,5 +26,6 @@
 | [phase-10-password-encrypted-backup.md](./phase-10-password-encrypted-backup.md) | 密码加密备份 |
 | [phase-11-argon2id-kdf.md](./phase-11-argon2id-kdf.md) | Argon2id 密钥派生 |
 | [phase-12-auto-backup.md](./phase-12-auto-backup.md) | 打开应用时的自动备份调度 |
+| [phase-13-merge-restore.md](./phase-13-merge-restore.md) | 跨账本 merge 恢复 |
 
 状态：文档在对应阶段分支创建并完善；基线阶段仅保留本索引。
