@@ -2454,6 +2454,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dataGovernanceArtifactDrill => 'Recovery drill';
 
   @override
+  String get dataGovernanceArtifactRotate => 'Change password';
+
+  @override
   String get dataGovernanceArtifactRestore => 'Load into restore preview';
 
   @override
@@ -2462,6 +2465,24 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get dataGovernanceArtifactUnlockPrompt =>
       'Enter this backup\'s password';
+
+  @override
+  String get dataGovernanceArtifactRotateTitle => 'Change backup password';
+
+  @override
+  String get dataGovernanceArtifactRotateOldPassword => 'Old password';
+
+  @override
+  String get dataGovernanceArtifactRotateNewPassword => 'New password';
+
+  @override
+  String get dataGovernanceArtifactRotateConfirmPassword =>
+      'Confirm new password';
+
+  @override
+  String dataGovernanceArtifactRotateSuccess(String path, String size) {
+    return 'New encrypted backup created while keeping the original: $path ($size)';
+  }
 
   @override
   String get dataGovernanceArtifactRestoreLoaded =>

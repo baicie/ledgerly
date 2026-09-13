@@ -193,6 +193,90 @@ void main() {
     expect(unlocked.isEncrypted, isFalse);
     expect(unlocked.summary.transactions, 1);
   });
+
+  test('password rotation preserves the old file and updates latest', () async {
+    final fixture = _Fixture();
+    addTearDown(fixture.close);
+    await fixture.seed();
+    await _addExpense(fixture, description: 'rotation transaction');
+    final oldPath = await fixture.service.exportToFile(
+      password: 'password123',
+    );
+    final original = (await BackupCatalogStore().read()).single;
+
+    await expectLater(
+      fixture.service.rotateCatalogBackupPassword(
+        original,
+        oldPassword: 'password123',
+        newPassword: 'short',
+      ),
+      throwsA(isA<ArgumentError>()),
+    );
+    await expectLater(
+      fixture.service.rotateCatalogBackupPassword(
+        original,
+        oldPassword: 'wrong-password',
+        newPassword: 'newpassword456',
+      ),
+      throwsA(isA<BackupPasswordException>()),
+    );
+    final result = await fixture.service.rotateCatalogBackupPassword(
+      original,
+      oldPassword: 'password123',
+      newPassword: 'newpassword456',
+    );
+
+    expect(result.updatedLatest, isTrue);
+    expect(result.sourcePath, oldPath);
+    expect(result.path, isNot(oldPath));
+    expect(fixture.filePort.rawFiles.containsKey(oldPath), isTrue);
+    expect(fixture.filePort.rawFiles.containsKey(result.path), isTrue);
+    final metadata = await BackupMetadataStore().read();
+    expect(metadata.lastBackupPath, result.path);
+    expect(metadata.lastBackupId, result.backupId);
+    expect(metadata.lastBackupEncrypted, isTrue);
+
+    final catalog = await BackupCatalogStore().read();
+    expect(catalog, hasLength(2));
+    final rotated = catalog.firstWhere(
+      (artifact) => artifact.backupId == result.backupId,
+    );
+    final restored = await fixture.service.unlockCatalogBackup(
+      rotated,
+      password: 'newpassword456',
+    );
+    expect(restored.summary.transactions, 1);
+    final oldRestored = await fixture.service.unlockCatalogBackup(
+      original,
+      password: 'password123',
+    );
+    expect(oldRestored.summary.transactions, 1);
+  });
+
+  test('password rotation keeps metadata for a historical encrypted file',
+      () async {
+    final fixture = _Fixture();
+    addTearDown(fixture.close);
+    await fixture.seed();
+    final historicalPath = await fixture.service.exportToFile(
+      password: 'password123',
+    );
+    final historical = (await BackupCatalogStore().read()).firstWhere(
+      (artifact) => artifact.path == historicalPath,
+    );
+    final latestPath = await fixture.service.exportToFile();
+
+    final result = await fixture.service.rotateCatalogBackupPassword(
+      historical,
+      oldPassword: 'password123',
+      newPassword: 'newpassword456',
+    );
+
+    expect(result.updatedLatest, isFalse);
+    final metadata = await BackupMetadataStore().read();
+    expect(metadata.lastBackupPath, latestPath);
+    expect(metadata.lastBackupPath, isNot(result.path));
+  });
 }
 
 Future<void> _addExpense(

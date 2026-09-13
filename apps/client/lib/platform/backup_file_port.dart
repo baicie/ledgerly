@@ -42,13 +42,21 @@ class PluginBackupFilePort implements BackupFilePort {
     return '$y-$m-${d}_$h$mi';
   }
 
-  String _exportFileName() => 'ledgerly-backup-$_timestamp.ledgerly.zip';
+  String _backupIdSuffix(BackupDocument document) {
+    final backupId = document.backupId;
+    if (backupId == null || backupId.isEmpty) return '';
+    final length = backupId.length < 8 ? backupId.length : 8;
+    return '-${backupId.substring(0, length)}';
+  }
 
-  String _exportEncryptedFileName() =>
-      'ledgerly-backup-$_timestamp.ledgerly.enc.zip';
+  String _exportFileName(String suffix) =>
+      'ledgerly-backup-${_timestamp()}$suffix.ledgerly.zip';
 
-  String _exportIncrementalFileName() =>
-      'ledgerly-incremental-$_timestamp.ledgerly.inc.zip';
+  String _exportEncryptedFileName(String suffix) =>
+      'ledgerly-backup-${_timestamp()}$suffix.ledgerly.enc.zip';
+
+  String _exportIncrementalFileName(String suffix) =>
+      'ledgerly-incremental-${_timestamp()}$suffix.ledgerly.inc.zip';
 
   String _safetyFileName() => 'ledgerly-pre-restore-$_timestamp.ledgerly.zip';
 
@@ -59,11 +67,12 @@ class PluginBackupFilePort implements BackupFilePort {
   }) async {
     final dir = await _documentsDirectoryLoader();
     final isEncrypted = document.encrypted != null;
+    final suffix = _backupIdSuffix(document);
     final fileName = isEncrypted
-        ? _exportEncryptedFileName()
+        ? _exportEncryptedFileName(suffix)
         : document.isIncremental
-            ? _exportIncrementalFileName()
-            : _exportFileName();
+            ? _exportIncrementalFileName(suffix)
+            : _exportFileName(suffix);
     final file = File('${dir.path}/$fileName');
     final bytes = isEncrypted
         ? _buildEncryptedZipBytes(document)

@@ -210,6 +210,21 @@ class BackupDocument {
       deleted: deleted,
     );
   }
+
+  BackupDocument withBackupId(String backupId) {
+    return BackupDocument(
+      summary: summary,
+      payload: payload,
+      bookIds: bookIds,
+      attachmentIndex: attachmentIndex,
+      attachmentBinaries: attachmentBinaries,
+      encrypted: encrypted,
+      schemaVersion: schemaVersion,
+      backupId: backupId,
+      baseBackupId: baseBackupId,
+      deleted: deleted,
+    );
+  }
 }
 
 /// Pairs an attachment id with the raw bytes read from the device
@@ -359,6 +374,23 @@ class BackupRecoveryDrillResult {
   final BackupSummary summary;
   final int bundledAttachmentCount;
   final int attachmentSizeBytes;
+}
+
+@immutable
+class BackupPasswordRotationResult {
+  const BackupPasswordRotationResult({
+    required this.path,
+    required this.sourcePath,
+    required this.backupId,
+    required this.sizeBytes,
+    required this.updatedLatest,
+  });
+
+  final String path;
+  final String sourcePath;
+  final String backupId;
+  final int sizeBytes;
+  final bool updatedLatest;
 }
 
 enum BackupVerificationStatus { healthy, missing, corrupted }
@@ -1324,6 +1356,72 @@ class BackupService {
     final unlocked = await _unwrapEncrypted(source, password: password);
     await _backfillArtifactBase(artifact, unlocked);
     return _materializeCatalogIncremental(unlocked);
+  }
+
+  /// Decrypt one encrypted catalog artifact and write a new encrypted
+  /// copy protected by [newPassword]. The original file is preserved.
+  Future<BackupPasswordRotationResult> rotateCatalogBackupPassword(
+    BackupArtifact artifact, {
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    if (artifact.kind != BackupArtifactKind.encrypted) {
+      throw const BackupFormatException('只能更改加密备份的密码。');
+    }
+    if (newPassword.length < 8) {
+      throw ArgumentError.value(
+        newPassword,
+        'newPassword',
+        'must be at least 8 characters',
+      );
+    }
+
+    final source = await _files.readBackup(artifact.path);
+    if (source.encrypted == null) {
+      throw const BackupFormatException('所选文件不是加密备份。');
+    }
+    final unlocked = await _unwrapEncrypted(source, password: oldPassword);
+    final resolved = unlocked.isIncremental
+        ? await _materializeCatalogIncremental(unlocked)
+        : unlocked;
+    _validateRecoverableDocument(resolved);
+
+    final backupId = const Uuid().v4();
+    final deviceId = await _deviceIdLoader();
+    final rotated = await _encryptDocument(
+      resolved.withBackupId(backupId),
+      password: newPassword,
+      deviceId: deviceId,
+    );
+    final path = await _files.writeBackup(rotated, deviceId: deviceId);
+    final createdAt = DateTime.now().toUtc();
+    final size = await _files.fileSize(path);
+    await _recordCatalogArtifact(
+      document: rotated,
+      path: path,
+      createdAt: createdAt,
+      source: BackupArtifactSource.manual,
+    );
+
+    final metadata = await _metadata.read();
+    final updatedLatest = artifact.path == metadata.lastBackupPath;
+    if (updatedLatest) {
+      await _metadata.record(
+        path: path,
+        at: createdAt,
+        backupId: backupId,
+        attachmentCount: rotated.attachmentBinaries.length,
+        attachmentSizeBytes: rotated.attachmentSizeBytes,
+        encrypted: true,
+      );
+    }
+    return BackupPasswordRotationResult(
+      path: path,
+      sourcePath: artifact.path,
+      backupId: backupId,
+      sizeBytes: size,
+      updatedLatest: updatedLatest,
+    );
   }
 
   /// Run a recovery drill for one catalog artifact.

@@ -991,6 +991,49 @@ void main() {
     );
   });
 
+  testWidgets('catalog encrypted artifact can rotate its password',
+      (tester) async {
+    final oldPath = await backupService.exportToFile(
+      password: 'password123',
+    );
+    final artifact = (await BackupCatalogStore().read()).single;
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+
+    await _expandBackupCatalog(tester);
+    await _selectArtifactAction(tester, artifact, 'rotate');
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('data-governance-artifact-rotate-dialog')),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('data-governance-artifact-rotate-old')),
+      'password123',
+    );
+    await tester.enterText(
+      find.byKey(const Key('data-governance-artifact-rotate-new')),
+      'newpassword456',
+    );
+    await tester.enterText(
+      find.byKey(const Key('data-governance-artifact-rotate-confirm')),
+      'newpassword456',
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const Key('data-governance-artifact-rotate-submit')),
+    );
+    await tester.pump();
+    await _flushBackupCrypto(tester);
+    await tester.pumpAndSettle();
+
+    final metadata = await BackupMetadataStore().read();
+    expect(metadata.lastBackupPath, isNot(oldPath));
+    expect(metadata.lastBackupId, isNotNull);
+    expect(filePort.rawFiles.containsKey(oldPath), isTrue);
+    expect(filePort.rawFiles, hasLength(2));
+  });
+
   testWidgets('incremental backup can be consolidated for sharing',
       (tester) async {
     await backupService.exportToFile();
