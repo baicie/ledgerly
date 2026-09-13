@@ -1,4 +1,4 @@
-# Local development Postgres only.
+# Local development Postgres and optional S3Mock.
 # Production reuses host PG — see docker-compose.prod.yml and docs/runbooks/release.md.
 services:
   postgres:
@@ -12,5 +12,24 @@ services:
     volumes:
       - ledgerly_pg:/var/lib/postgresql/data
 
+  s3mock:
+    image: adobe/s3mock:5.2.2
+    profiles: ["s3"]
+    environment:
+      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: ${S3_BUCKET:-ledgerly}
+      COM_ADOBE_TESTING_S3MOCK_STORE_ROOT: /s3mockroot
+      COM_ADOBE_TESTING_S3MOCK_STORE_RETAIN_FILES_ON_EXIT: "true"
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ledgerly_s3mock:/s3mockroot
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:9090/favicon.ico"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
 volumes:
   ledgerly_pg:
+  ledgerly_s3mock:

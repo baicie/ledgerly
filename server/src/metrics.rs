@@ -193,6 +193,16 @@ pub fn register_metrics() {
         Unit::Count,
         "Backup metric collection failures, labelled by component."
     );
+    describe_counter!(
+        "object_store_operations_total",
+        Unit::Count,
+        "Object storage operations, labelled by backend, operation, and outcome."
+    );
+    describe_histogram!(
+        "object_store_operation_duration_seconds",
+        Unit::Seconds,
+        "Object storage operation latency, labelled by backend and operation."
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -287,6 +297,9 @@ static METRIC_COMPONENTS: &[&str] = &[
     "restore_status",
     "storage",
 ];
+static OBJECT_STORE_BACKENDS: &[&str] = &["local", "s3"];
+static OBJECT_STORE_OPERATIONS: &[&str] =
+    &["put", "get", "head", "list", "backup", "restore", "migrate"];
 
 pub fn record_backup_status(
     state: &str,
@@ -448,6 +461,30 @@ pub fn record_backup_cleanup_failure(location: &'static str) {
 pub fn record_backup_metrics_collection_error(component: &'static str) {
     let component = static_label(METRIC_COMPONENTS, component);
     counter!("backup_metrics_collection_errors_total", "component" => component).increment(1);
+}
+
+pub fn record_object_store_operation(
+    backend: &'static str,
+    operation: &'static str,
+    outcome: &'static str,
+    duration_seconds: f64,
+) {
+    let backend = static_label(OBJECT_STORE_BACKENDS, backend);
+    let operation = static_label(OBJECT_STORE_OPERATIONS, operation);
+    let outcome = static_label(RUN_OUTCOMES, outcome);
+    counter!(
+        "object_store_operations_total",
+        "backend" => backend,
+        "operation" => operation,
+        "outcome" => outcome
+    )
+    .increment(1);
+    histogram!(
+        "object_store_operation_duration_seconds",
+        "backend" => backend,
+        "operation" => operation
+    )
+    .record(duration_seconds);
 }
 
 // ---------------------------------------------------------------------------

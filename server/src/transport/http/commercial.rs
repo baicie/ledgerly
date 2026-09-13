@@ -362,20 +362,31 @@ async fn complete_attachment(
     } else {
         format!("books/{book_id}/{attachment_id}")
     };
-    if !object_store::object_exists(&state.config, &object_key) {
+    if !object_store::object_exists_for_config(&state.config, &object_key)
+        .await
+        .map_err(|error| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "OBJECT_STORE_IO",
+                error.to_string(),
+            )
+        })?
+    {
         return Err(ApiError::new(
             StatusCode::BAD_REQUEST,
             "UPLOAD_INCOMPLETE",
-            "object not found on disk",
+            "object not found in object storage",
         ));
     }
-    let metadata = object_store::object_metadata(&state.config, &object_key).map_err(|error| {
-        ApiError::new(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "OBJECT_STORE_IO",
-            error.to_string(),
-        )
-    })?;
+    let metadata = object_store::object_metadata_for_config(&state.config, &object_key)
+        .await
+        .map_err(|error| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "OBJECT_STORE_IO",
+                error.to_string(),
+            )
+        })?;
     if let Some(pool) = &state.pool {
         sqlx::query(
             "UPDATE attachments

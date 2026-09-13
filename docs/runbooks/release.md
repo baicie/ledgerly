@@ -39,6 +39,7 @@ scp infrastructure/docker/env.vm.example ubuntu@82.156.234.84:/opt/ledgerly/.env
 # RECOVERY_DRILL_DATABASE_URL 可配置具有 CREATEDB 权限的管理连接
 # OBSERVABILITY_ENABLED=true 时需同时设置 ALERTMANAGER_WEBHOOK_URL
 # 和 GRAFANA_ADMIN_PASSWORD
+# 生产对象存储可设置 OBJECT_STORE_BACKEND=s3 并填写 S3_* 配置
 ```
 
 ### 3. GitHub Secrets（仓库 Settings → Secrets）
@@ -198,6 +199,7 @@ Prometheus 指标和容量告警见
 [备份可观测性与容量告警 Runbook](backup-observability.md)。
 Prometheus、Alertmanager 和 Grafana 的可选生产部署见
 [生产观测栈 Runbook](observability-stack.md)。
+S3 对象存储配置和迁移见 [S3 对象存储 Runbook](s3-object-storage.md)。
 
 ## 五、回滚
 

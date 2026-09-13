@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
 use ledger_server::infrastructure::{backup_bundle, backup_runtime, object_store};
@@ -27,6 +27,10 @@ enum Commands {
     },
     BackupRun,
     BackupStatus,
+    ObjectStore {
+        #[command(subcommand)]
+        command: ObjectStoreCommands,
+    },
     RestoreStatus,
     RecoveryDrill,
     RecoveryDrillStatus,
@@ -90,6 +94,16 @@ enum BundleCommands {
     },
 }
 
+#[derive(Subcommand, Debug)]
+enum ObjectStoreCommands {
+    Migrate {
+        #[arg(long)]
+        source: Option<String>,
+        #[arg(long)]
+        dry_run: bool,
+    },
+}
+
 #[tokio::main(flavor = "multi_thread", worker_threads = 2)]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
@@ -106,6 +120,11 @@ async fn main() -> anyhow::Result<()> {
             println!("listen={}", config.listen_addr);
             println!("database_url_set={}", config.database_url.is_some());
             println!("object_store_dir={}", config.object_store_dir.display());
+            println!("object_store_backend={:?}", config.object_storage_backend);
+            if config.object_storage_backend == ledger_server::config::ObjectStoreBackend::S3 {
+                println!("s3_bucket_set={}", config.s3_bucket.is_some());
+                println!("s3_endpoint_set={}", config.s3_endpoint.is_some());
+            }
             println!("jwt=Ed25519");
             println!("mode=ok");
         }
@@ -120,7 +139,9 @@ async fn main() -> anyhow::Result<()> {
             backup(&config, &out).await?;
             println!("backup written to {out}");
             if let Some(objects_out) = objects_out {
-                let report = object_store::backup_object_store(&config, Path::new(&objects_out))?;
+                let report =
+                    object_store::backup_object_store_for_config(&config, Path::new(&objects_out))
+                        .await?;
                 println!(
                     "object store backup written to {objects_out} ({} objects, {} bytes)",
                     report.object_count, report.total_size_bytes
@@ -154,6 +175,24 @@ async fn main() -> anyhow::Result<()> {
                 }))?
             );
         }
+        Commands::ObjectStore { command } => match command {
+            ObjectStoreCommands::Migrate { source, dry_run } => {
+                let source = source
+                    .map(PathBuf::from)
+                    .unwrap_or_else(|| config.object_store_dir.clone());
+                let report =
+                    object_store::migrate_local_object_store_to_s3(&config, &source, dry_run)
+                        .await?;
+                println!(
+                    "object store migration complete: scanned={}, uploaded={}, skipped={}, bytes={}, dry_run={}",
+                    report.scanned_objects,
+                    report.uploaded_objects,
+                    report.skipped_objects,
+                    report.uploaded_bytes,
+                    report.dry_run
+                );
+            }
+        },
         Commands::RestoreStatus => {
             let status = backup_runtime::restore_status(&config)?;
             println!(
@@ -203,7 +242,11 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Restore { from, objects_from } => {
             if let Some(objects_from) = objects_from {
-                let report = object_store::restore_object_store(&config, Path::new(&objects_from))?;
+                let report = object_store::restore_object_store_for_config(
+                    &config,
+                    Path::new(&objects_from),
+                )
+                .await?;
                 println!(
                     "object store restored from {objects_from} ({} objects, {} bytes)",
                     report.object_count, report.total_size_bytes

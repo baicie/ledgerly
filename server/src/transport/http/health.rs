@@ -3,6 +3,7 @@ use serde_json::json;
 
 use crate::error::ApiError;
 use crate::infrastructure::backup_runtime;
+use crate::infrastructure::object_store;
 use crate::infrastructure::postgres;
 use crate::state::AppState;
 
@@ -11,6 +12,15 @@ pub async fn live() -> Json<serde_json::Value> {
 }
 
 pub async fn ready(State(state): State<AppState>) -> Result<Json<serde_json::Value>, ApiError> {
+    object_store::health_check(&state.config)
+        .await
+        .map_err(|_| {
+            ApiError::new(
+                axum::http::StatusCode::SERVICE_UNAVAILABLE,
+                "OBJECT_STORE_UNAVAILABLE",
+                "object storage unavailable",
+            )
+        })?;
     if let Some(pool) = &state.pool {
         postgres::ping(pool).await?;
         return Ok(Json(json!({ "status": "ready", "store": "postgres" })));

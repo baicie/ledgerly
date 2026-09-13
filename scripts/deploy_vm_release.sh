@@ -188,6 +188,7 @@ required = {
     "LedgerlyBackupFailed",
     "LedgerlyContainerOom",
     "LedgerlyFilesystemSpaceLow",
+    "LedgerlyObjectStoreOperationFailures",
     "LedgerlyRecoveryDrillFailed",
     "LedgerlyServerDown",
     "LedgerlyHigh5xxRate",

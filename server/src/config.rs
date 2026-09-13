@@ -9,6 +9,12 @@ use sha2::{Digest, Sha256};
 const DEFAULT_BACKUP_CAPACITY_WARN_BYTES: u64 = 20 * 1024 * 1024 * 1024;
 const DEFAULT_BACKUP_CAPACITY_CRITICAL_BYTES: u64 = 50 * 1024 * 1024 * 1024;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObjectStoreBackend {
+    Local,
+    S3,
+}
+
 #[derive(Clone)]
 pub struct Config {
     pub listen_addr: String,
@@ -19,6 +25,16 @@ pub struct Config {
     pub object_store_dir: PathBuf,
     pub object_store_hmac_secret: String,
     pub object_store_public_base: String,
+    pub object_storage_backend: ObjectStoreBackend,
+    pub s3_endpoint: Option<String>,
+    pub s3_region: String,
+    pub s3_bucket: Option<String>,
+    pub s3_access_key_id: Option<String>,
+    pub s3_secret_access_key: Option<String>,
+    pub s3_session_token: Option<String>,
+    pub s3_prefix: Option<String>,
+    pub s3_force_path_style: bool,
+    pub s3_allow_http: bool,
     pub backup_dir: Option<PathBuf>,
     pub backup_offsite_dir: Option<PathBuf>,
     pub backup_keep: usize,
@@ -50,6 +66,7 @@ impl std::fmt::Debug for Config {
             .field("listen_addr", &self.listen_addr)
             .field("database_url", &self.database_url.as_ref().map(|_| "***"))
             .field("object_store_dir", &self.object_store_dir)
+            .field("object_storage_backend", &self.object_storage_backend)
             .field("rate_limit_rps", &self.rate_limit_rps)
             .field("is_production", &self.is_production)
             .finish_non_exhaustive()
@@ -75,6 +92,34 @@ impl Config {
                 .unwrap_or_else(|_| "dev-object-hmac-secret".into()),
             object_store_public_base: env::var("OBJECT_STORE_PUBLIC_BASE")
                 .unwrap_or_else(|_| "http://127.0.0.1:8080".into()),
+            object_storage_backend: parse_object_store_backend(
+                &env::var("OBJECT_STORE_BACKEND").unwrap_or_else(|_| "local".into()),
+            )?,
+            s3_endpoint: env::var("S3_ENDPOINT")
+                .ok()
+                .filter(|value| !value.is_empty()),
+            s3_region: env::var("S3_REGION").unwrap_or_else(|_| "us-east-1".into()),
+            s3_bucket: env::var("S3_BUCKET").ok().filter(|value| !value.is_empty()),
+            s3_access_key_id: env::var("S3_ACCESS_KEY_ID")
+                .ok()
+                .filter(|value| !value.is_empty()),
+            s3_secret_access_key: env::var("S3_SECRET_ACCESS_KEY")
+                .ok()
+                .filter(|value| !value.is_empty()),
+            s3_session_token: env::var("S3_SESSION_TOKEN")
+                .ok()
+                .filter(|value| !value.is_empty()),
+            s3_prefix: env::var("S3_PREFIX").ok().filter(|value| !value.is_empty()),
+            s3_force_path_style: env::var("S3_FORCE_PATH_STYLE")
+                .ok()
+                .map(|value| parse_bool("S3_FORCE_PATH_STYLE", &value))
+                .transpose()?
+                .unwrap_or(true),
+            s3_allow_http: env::var("S3_ALLOW_HTTP")
+                .ok()
+                .map(|value| parse_bool("S3_ALLOW_HTTP", &value))
+                .transpose()?
+                .unwrap_or(false),
             backup_dir: env::var("BACKUP_DIR").ok().map(PathBuf::from),
             backup_offsite_dir: env::var("BACKUP_OFFSITE_DIR").ok().map(PathBuf::from),
             backup_keep: env::var("BACKUP_KEEP")
@@ -146,6 +191,9 @@ impl Config {
                  BACKUP_CAPACITY_WARN_BYTES, and both values must be positive"
             );
         }
+        if self.object_storage_backend == ObjectStoreBackend::S3 {
+            self.validate_s3()?;
+        }
         if !self.is_production {
             return Ok(());
         }
@@ -204,6 +252,16 @@ impl Config {
                 .join(format!("ledgerly-test-{}", uuid::Uuid::now_v7())),
             object_store_hmac_secret: "test-hmac".into(),
             object_store_public_base: "http://127.0.0.1:0".into(),
+            object_storage_backend: ObjectStoreBackend::Local,
+            s3_endpoint: None,
+            s3_region: "us-east-1".into(),
+            s3_bucket: None,
+            s3_access_key_id: None,
+            s3_secret_access_key: None,
+            s3_session_token: None,
+            s3_prefix: None,
+            s3_force_path_style: true,
+            s3_allow_http: false,
             backup_dir: None,
             backup_offsite_dir: None,
             backup_keep: 3,
@@ -223,6 +281,55 @@ impl Config {
             jwt_encoding_key: encoding,
             jwt_decoding_key: decoding,
         }
+    }
+
+    fn validate_s3(&self) -> anyhow::Result<()> {
+        if self.s3_bucket.as_deref().unwrap_or_default().is_empty() {
+            anyhow::bail!("S3_BUCKET is required when OBJECT_STORE_BACKEND=s3");
+        }
+        if self
+            .s3_access_key_id
+            .as_deref()
+            .unwrap_or_default()
+            .is_empty()
+            || self
+                .s3_secret_access_key
+                .as_deref()
+                .unwrap_or_default()
+                .is_empty()
+        {
+            anyhow::bail!(
+                "S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY are required when OBJECT_STORE_BACKEND=s3"
+            );
+        }
+        if let Some(prefix) = self.s3_prefix.as_deref() {
+            if prefix.trim().is_empty()
+                || prefix.starts_with('/')
+                || prefix.ends_with('/')
+                || prefix
+                    .split('/')
+                    .any(|segment| segment.is_empty() || segment == "." || segment == "..")
+            {
+                anyhow::bail!("S3_PREFIX must be a non-empty relative object prefix");
+            }
+        }
+        if let Some(endpoint) = self.s3_endpoint.as_deref() {
+            let url = url::Url::parse(endpoint)
+                .map_err(|_| anyhow::anyhow!("S3_ENDPOINT must be a valid URL"))?;
+            if !matches!(url.scheme(), "http" | "https")
+                || url.host_str().is_none()
+                || !url.username().is_empty()
+                || url.password().is_some()
+                || url.query().is_some()
+                || url.fragment().is_some()
+            {
+                anyhow::bail!("S3_ENDPOINT must be an HTTP(S) URL without credentials or query");
+            }
+            if url.scheme() == "http" && !self.s3_allow_http {
+                anyhow::bail!("S3_ALLOW_HTTP=true is required for an HTTP S3 endpoint");
+            }
+        }
+        Ok(())
     }
 }
 
@@ -246,6 +353,14 @@ fn parse_positive_u64_env(name: &str, default: u64) -> anyhow::Result<u64> {
         anyhow::bail!("{name} must be greater than zero");
     }
     Ok(value)
+}
+
+fn parse_object_store_backend(value: &str) -> anyhow::Result<ObjectStoreBackend> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "local" => Ok(ObjectStoreBackend::Local),
+        "s3" => Ok(ObjectStoreBackend::S3),
+        _ => anyhow::bail!("OBJECT_STORE_BACKEND must be local or s3"),
+    }
 }
 
 fn parse_origins(value: &str) -> anyhow::Result<Vec<String>> {
@@ -294,7 +409,7 @@ fn build_ed25519_keys(jwt_secret: &str, seed_override: Option<&str>) -> (Encodin
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_origins, Config};
+    use super::{parse_origins, Config, ObjectStoreBackend};
 
     #[test]
     fn cors_origins_are_normalized_and_reject_paths() {
@@ -368,6 +483,35 @@ mod tests {
         let mut config = Config::for_test();
         config.backup_capacity_warn_bytes = 2_000;
         config.backup_capacity_critical_bytes = 1_000;
+
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn s3_storage_requires_credentials_bucket_and_http_opt_in() {
+        let mut config = Config::for_test();
+        config.object_storage_backend = ObjectStoreBackend::S3;
+        assert!(config.validate().is_err());
+
+        config.s3_bucket = Some("ledgerly".into());
+        config.s3_access_key_id = Some("test-access".into());
+        config.s3_secret_access_key = Some("test-secret".into());
+        config.s3_endpoint = Some("http://127.0.0.1:9000".into());
+        assert!(config.validate().is_err());
+
+        config.s3_allow_http = true;
+        config.s3_prefix = Some("production/ledgerly".into());
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn s3_prefix_rejects_path_traversal() {
+        let mut config = Config::for_test();
+        config.object_storage_backend = ObjectStoreBackend::S3;
+        config.s3_bucket = Some("ledgerly".into());
+        config.s3_access_key_id = Some("test-access".into());
+        config.s3_secret_access_key = Some("test-secret".into());
+        config.s3_prefix = Some("../objects".into());
 
         assert!(config.validate().is_err());
     }

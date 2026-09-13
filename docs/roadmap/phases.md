@@ -341,6 +341,17 @@
 - [x] CI 校验新增规则与 dashboard
 - [x] Runbook 覆盖挂载、权限和资源告警处置
 
+## S3 兼容对象存储（Phase 42）
+
+- [x] local/S3 可配置对象存储后端
+- [x] S3 endpoint、bucket、prefix、path-style 和凭据配置
+- [x] 附件签名 URL 继续通过服务端代理读写
+- [x] 自动备份从 S3 导出，恢复写回 S3 并校验 SHA-256
+- [x] 恢复演练继续使用隔离本地目录
+- [x] local 到 S3 的 dry-run 和逐对象校验迁移
+- [x] readiness 和 Prometheus 对象存储指标
+- [x] S3Mock 本地 profile 和 CI 集成测试
+
 ### 待后续完善
 
 - 扩大商户分类覆盖（目前第一版关键词匹配）
