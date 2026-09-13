@@ -1461,6 +1461,27 @@
       }
     }
   },
+  "dataGovernanceConsolidateBackup": "Create portable full backup",
+  "dataGovernanceConsolidateSuccess": "Portable backup created: {path} ({size})",
+  "@dataGovernanceConsolidateSuccess": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceConsolidateNoChanges": "The latest backup is already a standalone full backup.",
+  "dataGovernanceConsolidateFailed": "Could not create portable backup: {error}",
+  "@dataGovernanceConsolidateFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "dataGovernanceAutoBackup": "Automatic backup",
   "dataGovernanceAutoBackupSubtitle": "Checked when you open the app; writes a local snapshot when due",
   "dataGovernanceAutoBackupWarning": "Automatic backups are not encrypted. Use a password export for sensitive books.",

@@ -922,6 +922,29 @@ void main() {
     );
   });
 
+  testWidgets('incremental backup can be consolidated for sharing',
+      (tester) async {
+    await backupService.exportToFile();
+    await backupService.exportToFile(incremental: true);
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+
+    final consolidate = find.byKey(
+      const Key('data-governance-consolidate-action'),
+    );
+    expect(consolidate, findsOneWidget);
+
+    await tester.tap(consolidate);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(consolidate, findsNothing);
+    final share = tester.widget<OutlinedButton>(
+      find.byKey(const Key('data-governance-export-share')),
+    );
+    expect(share.onPressed, isNotNull);
+  });
+
   testWidgets('auto-backup switch is off by default', (tester) async {
     await _pumpPage(tester, backupService, booksLoader: loadBooks);
     final l10n = await AppLocalizations.delegate.load(const Locale('zh'));

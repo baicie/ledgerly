@@ -2445,6 +2445,23 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get dataGovernanceConsolidateBackup => 'Create portable full backup';
+
+  @override
+  String dataGovernanceConsolidateSuccess(String path, String size) {
+    return 'Portable backup created: $path ($size)';
+  }
+
+  @override
+  String get dataGovernanceConsolidateNoChanges =>
+      'The latest backup is already a standalone full backup.';
+
+  @override
+  String dataGovernanceConsolidateFailed(String error) {
+    return 'Could not create portable backup: $error';
+  }
+
+  @override
   String get dataGovernanceAutoBackup => 'Automatic backup';
 
   @override

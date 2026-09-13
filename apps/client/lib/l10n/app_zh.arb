@@ -1446,6 +1446,27 @@
       }
     }
   },
+  "dataGovernanceConsolidateBackup": "生成便携备份",
+  "dataGovernanceConsolidateSuccess": "已生成便携备份：{path}（{size}）",
+  "@dataGovernanceConsolidateSuccess": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceConsolidateNoChanges": "最近一次已是独立的完整备份。",
+  "dataGovernanceConsolidateFailed": "生成便携备份失败：{error}",
+  "@dataGovernanceConsolidateFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "dataGovernanceAutoBackup": "自动备份",
   "dataGovernanceAutoBackupSubtitle": "打开应用时检查；到期则写入本地快照",
   "dataGovernanceAutoBackupWarning": "自动备份不加密。敏感账本请继续使用密码导出。",

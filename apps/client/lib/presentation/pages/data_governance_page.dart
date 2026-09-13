@@ -253,6 +253,46 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
     }
   }
 
+  Future<void> _consolidateLatestBackup() async {
+    final l10n = l10nOf(context);
+    _setBusy(true);
+    try {
+      final result = await _service.consolidateLatest();
+      if (!mounted) return;
+      if (result == null) {
+        setState(() => _busy = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.dataGovernanceConsolidateNoChanges)),
+        );
+        return;
+      }
+      setState(() {
+        _lastBackupPath = result.path;
+        _busy = false;
+      });
+      ref.invalidate(backupMetadataProvider);
+      ref.invalidate(backupCatalogProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.dataGovernanceConsolidateSuccess(
+              result.path,
+              _formatMegabytes(result.sizeBytes),
+            ),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.dataGovernanceConsolidateFailed('$error')),
+        ),
+      );
+    }
+  }
+
   // -- Restore ----------------------------------------------------------
 
   Future<void> _pickRestoreFile() async {
@@ -511,6 +551,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
                   availableBooks: availableBooks,
                   selectedBookIds: _selectedBookIds,
                   lastBackupPath: _lastBackupPath,
+                  lastBackupIncremental: metadata.lastBackupIncremental,
                   localBackupCount: catalog.length,
                   localBackupSizeBytes: localBackupBytes,
                   pendingSummary: _pendingDocument?.summary,
@@ -556,6 +597,9 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
                       : () => _shareBackup(_lastBackupPath!),
                   onCleanup:
                       _busy || catalog.isEmpty ? null : _confirmCleanupBackups,
+                  onConsolidate: _busy || !metadata.lastBackupIncremental
+                      ? null
+                      : _consolidateLatestBackup,
                   onPickRestore: _busy ? null : _pickRestoreFile,
                   onRestoreModeChanged: _busy
                       ? null
@@ -604,6 +648,7 @@ class _BackupSection extends StatelessWidget {
     required this.availableBooks,
     required this.selectedBookIds,
     required this.lastBackupPath,
+    required this.lastBackupIncremental,
     required this.localBackupCount,
     required this.localBackupSizeBytes,
     required this.pendingSummary,
@@ -625,6 +670,7 @@ class _BackupSection extends StatelessWidget {
     required this.onToggleBook,
     required this.onShare,
     required this.onCleanup,
+    required this.onConsolidate,
     required this.onPickRestore,
     required this.onRestoreModeChanged,
     required this.onCancelRestore,
@@ -636,6 +682,7 @@ class _BackupSection extends StatelessWidget {
   final List<Book> availableBooks;
   final Set<String> selectedBookIds;
   final String? lastBackupPath;
+  final bool lastBackupIncremental;
   final int localBackupCount;
   final int localBackupSizeBytes;
   final BackupSummary? pendingSummary;
@@ -657,6 +704,7 @@ class _BackupSection extends StatelessWidget {
   final ValueChanged<String>? onToggleBook;
   final VoidCallback? onShare;
   final VoidCallback? onCleanup;
+  final VoidCallback? onConsolidate;
   final VoidCallback? onPickRestore;
   final ValueChanged<BackupRestoreMode>? onRestoreModeChanged;
   final VoidCallback? onCancelRestore;
@@ -835,6 +883,13 @@ class _BackupSection extends StatelessWidget {
                     onPressed: onShare,
                     icon: const Icon(Icons.ios_share_outlined),
                     label: Text(l10n.dataGovernanceBackupShare),
+                  ),
+                if (lastBackupIncremental)
+                  OutlinedButton.icon(
+                    key: const Key('data-governance-consolidate-action'),
+                    onPressed: onConsolidate,
+                    icon: const Icon(Icons.archive_outlined),
+                    label: Text(l10n.dataGovernanceConsolidateBackup),
                   ),
               ],
             ),
