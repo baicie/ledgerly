@@ -344,17 +344,27 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
   }
 
   Future<void> _drillLatestBackup() async {
+    final result = await _runRecoveryDrill(
+      (password) => _service.runRecoveryDrill(password: password),
+    );
+    if (!mounted || result == null) return;
+    await _showRecoveryDrillResult(result);
+  }
+
+  Future<BackupRecoveryDrillResult?> _runRecoveryDrill(
+    Future<BackupRecoveryDrillResult> Function(String? password) run,
+  ) async {
     final l10n = l10nOf(context);
     _setBusy(true);
     try {
-      final result = await _service.runRecoveryDrill();
-      if (!mounted) return;
+      final result = await run(null);
+      if (!mounted) return null;
       setState(() => _busy = false);
-      await _showRecoveryDrillResult(result);
+      return result;
     } on BackupPasswordException {
-      if (!mounted) return;
+      if (!mounted) return null;
       setState(() => _busy = false);
-      final result = await showDialogDialog<BackupRecoveryDrillResult>(
+      return showDialogDialog<BackupRecoveryDrillResult>(
         context: context,
         barrierDismissible: false,
         builder: (dialogContext) =>
@@ -364,21 +374,18 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
           dialogKey: const Key('data-governance-drill-password-dialog'),
           passwordKey: const Key('data-governance-drill-password'),
           submitKey: const Key('data-governance-drill-submit'),
-          onPassword: (password) => _service.runRecoveryDrill(
-            password: password,
-          ),
+          onPassword: (password) => run(password),
         ),
       );
-      if (!mounted || result == null) return;
-      await _showRecoveryDrillResult(result);
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted) return null;
       setState(() => _busy = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(l10n.dataGovernanceRecoveryDrillFailed('$error')),
         ),
       );
+      return null;
     }
   }
 
@@ -393,6 +400,117 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
         result: result,
       ),
     );
+  }
+
+  Future<void> _shareCatalogArtifact(BackupArtifact artifact) async {
+    final l10n = l10nOf(context);
+    try {
+      await _service.shareFile(artifact.path);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.dataGovernanceBackupFailed('$error')),
+        ),
+      );
+    }
+  }
+
+  Future<void> _drillCatalogArtifact(BackupArtifact artifact) async {
+    final result = await _runRecoveryDrill(
+      (password) => _service.runCatalogRecoveryDrill(
+        artifact,
+        password: password,
+      ),
+    );
+    if (!mounted || result == null) return;
+    await _showRecoveryDrillResult(result);
+  }
+
+  Future<void> _loadCatalogArtifactForRestore(
+    BackupArtifact artifact,
+  ) async {
+    final l10n = l10nOf(context);
+    _setBusy(true);
+    try {
+      var document = await _service.readCatalogBackup(artifact);
+      if (!mounted) return;
+      final wasEncrypted = document.isEncrypted;
+      if (wasEncrypted) {
+        setState(() => _busy = false);
+        final unlocked = await showDialogDialog<BackupDocument>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => _PasswordSubmitDialog<BackupDocument>(
+            l10n: l10n,
+            title: l10n.dataGovernanceArtifactUnlockPrompt,
+            dialogKey: const Key('data-governance-artifact-password-dialog'),
+            passwordKey: const Key('data-governance-artifact-password'),
+            submitKey: const Key('data-governance-artifact-password-submit'),
+            onPassword: (password) => _service.unlockCatalogBackup(
+              artifact,
+              password: password,
+            ),
+          ),
+        );
+        if (!mounted || unlocked == null) return;
+        document = unlocked;
+      }
+      setState(() {
+        _pendingDocument = document;
+        _pendingIsUnencrypted = !wasEncrypted;
+        _restoreMode = BackupRestoreMode.replace;
+        _busy = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.dataGovernanceArtifactRestoreLoaded)),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.dataGovernanceArtifactLoadFailed('$error')),
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteCatalogArtifact(BackupArtifact artifact) async {
+    final l10n = l10nOf(context);
+    final confirmed = await showDialogDialog<bool>(
+      context: context,
+      builder: (dialogContext) => _ArtifactDeleteConfirmDialog(
+        l10n: l10n,
+        artifact: artifact,
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    _setBusy(true);
+    try {
+      final freedBytes = await _service.deleteCatalogArtifact(artifact);
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ref.invalidate(backupCatalogProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.dataGovernanceArtifactDeleteSuccess(
+              _formatMegabytes(freedBytes),
+            ),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.dataGovernanceArtifactDeleteFailed('$error')),
+        ),
+      );
+    }
   }
 
   // -- Restore ----------------------------------------------------------
@@ -660,6 +778,9 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
                   lastBackupIncremental: metadata.lastBackupIncremental,
                   localBackupCount: catalog.length,
                   localBackupSizeBytes: localBackupBytes,
+                  artifacts: catalog,
+                  currentBaseId: metadata.baseBackupId,
+                  latestBackupId: metadata.lastBackupId,
                   pendingSummary: _pendingDocument?.summary,
                   pendingIsUnencrypted: _pendingIsUnencrypted,
                   pendingSchemaVersion: _pendingDocument?.schemaVersion,
@@ -707,6 +828,11 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
                   onRecoveryDrill: _busy || metadata.lastBackupPath == null
                       ? null
                       : _drillLatestBackup,
+                  onArtifactShare: _busy ? null : _shareCatalogArtifact,
+                  onArtifactDrill: _busy ? null : _drillCatalogArtifact,
+                  onArtifactRestore:
+                      _busy ? null : _loadCatalogArtifactForRestore,
+                  onArtifactDelete: _busy ? null : _deleteCatalogArtifact,
                   onConsolidate: _busy || !metadata.lastBackupIncremental
                       ? null
                       : _consolidateLatestBackup,
@@ -761,6 +887,9 @@ class _BackupSection extends StatelessWidget {
     required this.lastBackupIncremental,
     required this.localBackupCount,
     required this.localBackupSizeBytes,
+    required this.artifacts,
+    required this.currentBaseId,
+    required this.latestBackupId,
     required this.pendingSummary,
     required this.pendingIsUnencrypted,
     required this.pendingSchemaVersion,
@@ -782,6 +911,10 @@ class _BackupSection extends StatelessWidget {
     required this.onCleanup,
     required this.onVerify,
     required this.onRecoveryDrill,
+    required this.onArtifactShare,
+    required this.onArtifactDrill,
+    required this.onArtifactRestore,
+    required this.onArtifactDelete,
     required this.onConsolidate,
     required this.onPickRestore,
     required this.onRestoreModeChanged,
@@ -797,6 +930,9 @@ class _BackupSection extends StatelessWidget {
   final bool lastBackupIncremental;
   final int localBackupCount;
   final int localBackupSizeBytes;
+  final List<BackupArtifact> artifacts;
+  final String? currentBaseId;
+  final String? latestBackupId;
   final BackupSummary? pendingSummary;
   final bool pendingIsUnencrypted;
   final int? pendingSchemaVersion;
@@ -818,6 +954,10 @@ class _BackupSection extends StatelessWidget {
   final VoidCallback? onCleanup;
   final VoidCallback? onVerify;
   final VoidCallback? onRecoveryDrill;
+  final ValueChanged<BackupArtifact>? onArtifactShare;
+  final ValueChanged<BackupArtifact>? onArtifactDrill;
+  final ValueChanged<BackupArtifact>? onArtifactRestore;
+  final ValueChanged<BackupArtifact>? onArtifactDelete;
   final VoidCallback? onConsolidate;
   final VoidCallback? onPickRestore;
   final ValueChanged<BackupRestoreMode>? onRestoreModeChanged;
@@ -1056,6 +1196,17 @@ class _BackupSection extends StatelessWidget {
                 ],
               ),
             ),
+            _BackupArtifactList(
+              l10n: l10n,
+              artifacts: artifacts,
+              currentBaseId: currentBaseId,
+              latestBackupId: latestBackupId,
+              busy: busy,
+              onShare: onArtifactShare,
+              onDrill: onArtifactDrill,
+              onRestore: onArtifactRestore,
+              onDelete: onArtifactDelete,
+            ),
           ],
           const Divider(indent: 16, endIndent: 16),
           // -- Restore --------------------------------------------------
@@ -1092,6 +1243,197 @@ class _BackupSection extends StatelessWidget {
               onConfirm: onConfirmRestore,
               busy: busy,
             ),
+        ],
+      ),
+    );
+  }
+}
+
+enum _BackupArtifactAction { share, drill, restore, delete }
+
+class _BackupArtifactList extends StatelessWidget {
+  const _BackupArtifactList({
+    required this.l10n,
+    required this.artifacts,
+    required this.currentBaseId,
+    required this.latestBackupId,
+    required this.busy,
+    required this.onShare,
+    required this.onDrill,
+    required this.onRestore,
+    required this.onDelete,
+  });
+
+  final AppLocalizations l10n;
+  final List<BackupArtifact> artifacts;
+  final String? currentBaseId;
+  final String? latestBackupId;
+  final bool busy;
+  final ValueChanged<BackupArtifact>? onShare;
+  final ValueChanged<BackupArtifact>? onDrill;
+  final ValueChanged<BackupArtifact>? onRestore;
+  final ValueChanged<BackupArtifact>? onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final dependentBaseIds = <String>{
+      for (final artifact in artifacts)
+        if (artifact.baseBackupId != null) artifact.baseBackupId!,
+    };
+    return ExpansionTile(
+      key: const Key('data-governance-artifact-list'),
+      tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+      childrenPadding: const EdgeInsets.only(bottom: 8),
+      title: Text(l10n.dataGovernanceArtifactListTitle),
+      children: [
+        for (final artifact in artifacts)
+          _BackupArtifactTile(
+            l10n: l10n,
+            artifact: artifact,
+            isCurrentBase: artifact.backupId == currentBaseId,
+            isLatest: artifact.backupId == latestBackupId,
+            isProtected: artifact.backupId == currentBaseId ||
+                artifact.backupId == latestBackupId ||
+                dependentBaseIds.contains(artifact.backupId),
+            busy: busy,
+            onShare: onShare,
+            onDrill: onDrill,
+            onRestore: onRestore,
+            onDelete: onDelete,
+          ),
+      ],
+    );
+  }
+}
+
+class _BackupArtifactTile extends StatelessWidget {
+  const _BackupArtifactTile({
+    required this.l10n,
+    required this.artifact,
+    required this.isCurrentBase,
+    required this.isLatest,
+    required this.isProtected,
+    required this.busy,
+    required this.onShare,
+    required this.onDrill,
+    required this.onRestore,
+    required this.onDelete,
+  });
+
+  final AppLocalizations l10n;
+  final BackupArtifact artifact;
+  final bool isCurrentBase;
+  final bool isLatest;
+  final bool isProtected;
+  final bool busy;
+  final ValueChanged<BackupArtifact>? onShare;
+  final ValueChanged<BackupArtifact>? onDrill;
+  final ValueChanged<BackupArtifact>? onRestore;
+  final ValueChanged<BackupArtifact>? onDelete;
+
+  String get _kindLabel => switch (artifact.kind) {
+        BackupArtifactKind.full => l10n.dataGovernanceArtifactKindFull,
+        BackupArtifactKind.incremental =>
+          l10n.dataGovernanceArtifactKindIncremental,
+        BackupArtifactKind.encrypted =>
+          l10n.dataGovernanceArtifactKindEncrypted,
+      };
+
+  String get _sourceLabel => switch (artifact.source) {
+        BackupArtifactSource.manual => l10n.dataGovernanceArtifactSourceManual,
+        BackupArtifactSource.automatic =>
+          l10n.dataGovernanceArtifactSourceAutomatic,
+        BackupArtifactSource.safety => l10n.dataGovernanceArtifactSourceSafety,
+      };
+
+  IconData get _kindIcon => switch (artifact.kind) {
+        BackupArtifactKind.full => Icons.archive_outlined,
+        BackupArtifactKind.incremental => Icons.layers_outlined,
+        BackupArtifactKind.encrypted => Icons.lock_outline,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final createdAt = artifact.createdAt.toLocal();
+    final localizations = MaterialLocalizations.of(context);
+    final labels = <String>[
+      _kindLabel,
+      _sourceLabel,
+      if (isCurrentBase) l10n.dataGovernanceArtifactCurrentBase,
+      if (isLatest) l10n.dataGovernanceArtifactLatest,
+    ];
+    return ListTile(
+      key: Key('data-governance-artifact-${artifact.backupId}'),
+      leading: Icon(_kindIcon),
+      title: Text(artifact.backupId),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 4),
+          Text(labels.join(' · ')),
+          Text(
+            '${localizations.formatMediumDate(createdAt)} '
+            '${localizations.formatTimeOfDay(
+              TimeOfDay.fromDateTime(createdAt),
+              alwaysUse24HourFormat: true,
+            )}'
+            ' · ${_formatMegabytes(artifact.sizeBytes)}',
+            style: theme.textTheme.bodySmall,
+          ),
+          Text(
+            artifact.path,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall,
+          ),
+        ],
+      ),
+      trailing: PopupMenuButton<_BackupArtifactAction>(
+        key: Key('data-governance-artifact-${artifact.backupId}-actions'),
+        enabled: !busy,
+        tooltip: l10n.dataGovernanceArtifactActions,
+        onSelected: (action) {
+          switch (action) {
+            case _BackupArtifactAction.share:
+              onShare?.call(artifact);
+              break;
+            case _BackupArtifactAction.drill:
+              onDrill?.call(artifact);
+              break;
+            case _BackupArtifactAction.restore:
+              onRestore?.call(artifact);
+              break;
+            case _BackupArtifactAction.delete:
+              onDelete?.call(artifact);
+              break;
+          }
+        },
+        itemBuilder: (context) => [
+          PopupMenuItem(
+            key: Key('data-governance-artifact-${artifact.backupId}-share'),
+            value: _BackupArtifactAction.share,
+            enabled: onShare != null,
+            child: Text(l10n.dataGovernanceArtifactShare),
+          ),
+          PopupMenuItem(
+            key: Key('data-governance-artifact-${artifact.backupId}-drill'),
+            value: _BackupArtifactAction.drill,
+            enabled: onDrill != null,
+            child: Text(l10n.dataGovernanceArtifactDrill),
+          ),
+          PopupMenuItem(
+            key: Key('data-governance-artifact-${artifact.backupId}-restore'),
+            value: _BackupArtifactAction.restore,
+            enabled: onRestore != null,
+            child: Text(l10n.dataGovernanceArtifactRestore),
+          ),
+          PopupMenuItem(
+            key: Key('data-governance-artifact-${artifact.backupId}-delete'),
+            value: _BackupArtifactAction.delete,
+            enabled: onDelete != null && !isProtected,
+            child: Text(l10n.dataGovernanceArtifactDelete),
+          ),
         ],
       ),
     );
@@ -1475,6 +1817,42 @@ class _CleanupConfirmDialog extends StatelessWidget {
           key: const Key('data-governance-cleanup-confirm'),
           onPressed: () => Navigator.pop(context, true),
           child: Text(l10n.dataGovernanceCleanupBackups),
+        ),
+      ],
+    );
+  }
+}
+
+class _ArtifactDeleteConfirmDialog extends StatelessWidget {
+  const _ArtifactDeleteConfirmDialog({
+    required this.l10n,
+    required this.artifact,
+  });
+
+  final AppLocalizations l10n;
+  final BackupArtifact artifact;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      key: const Key('data-governance-artifact-delete-dialog'),
+      title: Text(l10n.dataGovernanceArtifactDeleteConfirmTitle),
+      content: Text(
+        l10n.dataGovernanceArtifactDeleteConfirmBody(artifact.path),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text(l10n.cancel),
+        ),
+        FilledButton(
+          key: const Key('data-governance-artifact-delete-confirm'),
+          style: FilledButton.styleFrom(
+            backgroundColor: Theme.of(context).colorScheme.error,
+            foregroundColor: Theme.of(context).colorScheme.onError,
+          ),
+          onPressed: () => Navigator.pop(context, true),
+          child: Text(l10n.dataGovernanceArtifactDelete),
         ),
       ],
     );

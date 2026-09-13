@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:ledgerly_client/application/backup_catalog_store.dart';
 import 'package:ledgerly_client/application/backup_encryption.dart';
 import 'package:ledgerly_client/application/backup_metadata_store.dart';
 import 'package:ledgerly_client/application/backup_schedule.dart';
@@ -922,6 +923,74 @@ void main() {
     );
   });
 
+  testWidgets('catalog artifact can run a recovery drill', (tester) async {
+    await backupService.exportToFile();
+    final artifact = (await BackupCatalogStore().read()).single;
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+
+    await _expandBackupCatalog(tester);
+    expect(
+      find.byKey(Key('data-governance-artifact-${artifact.backupId}')),
+      findsOneWidget,
+    );
+    await _selectArtifactAction(tester, artifact, 'drill');
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('data-governance-drill-result-dialog')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('catalog artifact can load into the restore preview',
+      (tester) async {
+    await backupService.exportToFile();
+    final artifact = (await BackupCatalogStore().read()).single;
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+
+    await _expandBackupCatalog(tester);
+    await _selectArtifactAction(tester, artifact, 'restore');
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('data-governance-restore-preview')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('catalog artifact delete confirms and removes the file',
+      (tester) async {
+    await backupService.exportToFile();
+    final safetyPath = await backupService.writeSafetyBackup();
+    final safety = (await BackupCatalogStore().read()).firstWhere(
+      (artifact) => artifact.path == safetyPath,
+    );
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+
+    await _expandBackupCatalog(tester);
+    await _selectArtifactAction(tester, safety, 'delete');
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('data-governance-artifact-delete-dialog')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-artifact-delete-confirm')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(filePort.rawFiles.containsKey(safetyPath), isFalse);
+    expect(
+      (await BackupCatalogStore().read()).map((artifact) => artifact.path),
+      isNot(contains(safetyPath)),
+    );
+  });
+
   testWidgets('incremental backup can be consolidated for sharing',
       (tester) async {
     await backupService.exportToFile();
@@ -1198,6 +1267,32 @@ Future<void> _pumpPage(
         supportedLocales: AppLocalizations.supportedLocales,
         locale: Locale('zh'),
       ),
+    ),
+  );
+  await tester.pump();
+}
+
+Future<void> _expandBackupCatalog(WidgetTester tester) async {
+  final catalog = find.byKey(const Key('data-governance-artifact-list'));
+  await tester.ensureVisible(catalog);
+  await tester.tap(catalog);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _selectArtifactAction(
+  WidgetTester tester,
+  BackupArtifact artifact,
+  String action,
+) async {
+  final actions = find.byKey(
+    Key('data-governance-artifact-${artifact.backupId}-actions'),
+  );
+  await tester.ensureVisible(actions);
+  await tester.tap(actions);
+  await tester.pumpAndSettle();
+  await tester.tap(
+    find.byKey(
+      Key('data-governance-artifact-${artifact.backupId}-$action'),
     ),
   );
   await tester.pump();

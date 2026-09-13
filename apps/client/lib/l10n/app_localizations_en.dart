@@ -2418,6 +2418,79 @@ class AppLocalizationsEn extends AppLocalizations {
       'Manual, base, and latest backups are protected; keep the newest 3 automatic backups.';
 
   @override
+  String get dataGovernanceArtifactListTitle => 'Backup files';
+
+  @override
+  String get dataGovernanceArtifactActions => 'Backup actions';
+
+  @override
+  String get dataGovernanceArtifactKindFull => 'Full';
+
+  @override
+  String get dataGovernanceArtifactKindIncremental => 'Incremental';
+
+  @override
+  String get dataGovernanceArtifactKindEncrypted => 'Encrypted';
+
+  @override
+  String get dataGovernanceArtifactSourceManual => 'Manual';
+
+  @override
+  String get dataGovernanceArtifactSourceAutomatic => 'Automatic';
+
+  @override
+  String get dataGovernanceArtifactSourceSafety => 'Pre-restore';
+
+  @override
+  String get dataGovernanceArtifactCurrentBase => 'Current base';
+
+  @override
+  String get dataGovernanceArtifactLatest => 'Latest';
+
+  @override
+  String get dataGovernanceArtifactShare => 'Share';
+
+  @override
+  String get dataGovernanceArtifactDrill => 'Recovery drill';
+
+  @override
+  String get dataGovernanceArtifactRestore => 'Load into restore preview';
+
+  @override
+  String get dataGovernanceArtifactDelete => 'Delete this backup';
+
+  @override
+  String get dataGovernanceArtifactUnlockPrompt =>
+      'Enter this backup\'s password';
+
+  @override
+  String get dataGovernanceArtifactRestoreLoaded =>
+      'Loaded into the restore preview. Scroll down to choose a restore mode.';
+
+  @override
+  String dataGovernanceArtifactLoadFailed(String error) {
+    return 'Could not load backup: $error';
+  }
+
+  @override
+  String get dataGovernanceArtifactDeleteConfirmTitle => 'Delete backup file?';
+
+  @override
+  String dataGovernanceArtifactDeleteConfirmBody(String path) {
+    return 'This will delete from this device: $path';
+  }
+
+  @override
+  String dataGovernanceArtifactDeleteSuccess(String size) {
+    return 'Backup deleted, freeing $size.';
+  }
+
+  @override
+  String dataGovernanceArtifactDeleteFailed(String error) {
+    return 'Could not delete backup: $error';
+  }
+
+  @override
   String get dataGovernanceCleanupConfirmTitle =>
       'Clean old automatic backups?';
 

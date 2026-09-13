@@ -2322,6 +2322,77 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dataGovernanceCleanupSubtitle => '保护手工备份、基础备份和最近备份；自动备份保留最新 3 份。';
 
   @override
+  String get dataGovernanceArtifactListTitle => '备份文件';
+
+  @override
+  String get dataGovernanceArtifactActions => '备份操作';
+
+  @override
+  String get dataGovernanceArtifactKindFull => '完整';
+
+  @override
+  String get dataGovernanceArtifactKindIncremental => '增量';
+
+  @override
+  String get dataGovernanceArtifactKindEncrypted => '加密';
+
+  @override
+  String get dataGovernanceArtifactSourceManual => '手工';
+
+  @override
+  String get dataGovernanceArtifactSourceAutomatic => '自动';
+
+  @override
+  String get dataGovernanceArtifactSourceSafety => '恢复前';
+
+  @override
+  String get dataGovernanceArtifactCurrentBase => '当前基础';
+
+  @override
+  String get dataGovernanceArtifactLatest => '最近备份';
+
+  @override
+  String get dataGovernanceArtifactShare => '分享';
+
+  @override
+  String get dataGovernanceArtifactDrill => '恢复演练';
+
+  @override
+  String get dataGovernanceArtifactRestore => '加载到恢复预览';
+
+  @override
+  String get dataGovernanceArtifactDelete => '删除此备份';
+
+  @override
+  String get dataGovernanceArtifactUnlockPrompt => '输入该备份的密码';
+
+  @override
+  String get dataGovernanceArtifactRestoreLoaded => '已加载到恢复预览，请向下确认恢复模式。';
+
+  @override
+  String dataGovernanceArtifactLoadFailed(String error) {
+    return '读取备份失败：$error';
+  }
+
+  @override
+  String get dataGovernanceArtifactDeleteConfirmTitle => '删除备份文件？';
+
+  @override
+  String dataGovernanceArtifactDeleteConfirmBody(String path) {
+    return '将从本机删除：$path';
+  }
+
+  @override
+  String dataGovernanceArtifactDeleteSuccess(String size) {
+    return '已删除备份，释放 $size。';
+  }
+
+  @override
+  String dataGovernanceArtifactDeleteFailed(String error) {
+    return '删除备份失败：$error';
+  }
+
+  @override
   String get dataGovernanceCleanupConfirmTitle => '确认清理旧自动备份？';
 
   @override
