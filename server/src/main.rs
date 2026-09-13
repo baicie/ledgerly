@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use clap::{Parser, Subcommand};
-use ledger_server::infrastructure::object_store;
+use ledger_server::infrastructure::{backup_bundle, object_store};
 use ledger_server::{backup, migrate, restore, run_api, run_worker_only, Config};
 use tracing_subscriber::EnvFilter;
 
@@ -30,6 +30,44 @@ enum Commands {
         from: String,
         #[arg(long)]
         objects_from: Option<String>,
+    },
+    Bundle {
+        #[command(subcommand)]
+        command: BundleCommands,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum BundleCommands {
+    Create {
+        #[arg(long)]
+        database: String,
+        #[arg(long)]
+        objects: String,
+        #[arg(long)]
+        out: String,
+        #[arg(long, env = "LEDGER_BACKUP_PASSWORD")]
+        password: Option<String>,
+    },
+    Verify {
+        #[arg(long)]
+        from: String,
+        #[arg(long, env = "LEDGER_BACKUP_PASSWORD")]
+        password: Option<String>,
+    },
+    Unpack {
+        #[arg(long)]
+        from: String,
+        #[arg(long)]
+        to: String,
+        #[arg(long, env = "LEDGER_BACKUP_PASSWORD")]
+        password: Option<String>,
+    },
+    Replicate {
+        #[arg(long)]
+        from: String,
+        #[arg(long)]
+        to: String,
     },
 }
 
@@ -81,6 +119,55 @@ async fn main() -> anyhow::Result<()> {
             restore(&config, &from).await?;
             println!("restore from {from} complete");
         }
+        Commands::Bundle { command } => match command {
+            BundleCommands::Create {
+                database,
+                objects,
+                out,
+                password,
+            } => {
+                let report = backup_bundle::create_backup_bundle(
+                    Path::new(&database),
+                    Path::new(&objects),
+                    Path::new(&out),
+                    password.as_deref(),
+                )?;
+                println!(
+                    "backup bundle written to {out} ({} files, {} bytes, encrypted={})",
+                    report.file_count, report.total_size_bytes, report.encrypted
+                );
+            }
+            BundleCommands::Verify { from, password } => {
+                let report =
+                    backup_bundle::verify_backup_bundle(Path::new(&from), password.as_deref())?;
+                println!(
+                    "backup bundle verified: {} files, {} bytes, encrypted={}, plaintext_verified={}",
+                    report.file_count,
+                    report.total_size_bytes,
+                    report.encrypted,
+                    report.plaintext_verified
+                );
+            }
+            BundleCommands::Unpack { from, to, password } => {
+                let report = backup_bundle::unpack_backup_bundle(
+                    Path::new(&from),
+                    Path::new(&to),
+                    password.as_deref(),
+                )?;
+                println!(
+                    "backup bundle unpacked to {to} ({} files, {} bytes)",
+                    report.file_count, report.total_size_bytes
+                );
+            }
+            BundleCommands::Replicate { from, to } => {
+                let report =
+                    backup_bundle::replicate_backup_bundle(Path::new(&from), Path::new(&to))?;
+                println!(
+                    "backup bundle replicated to {to} ({} files, {} bytes)",
+                    report.file_count, report.total_size_bytes
+                );
+            }
+        },
     }
     Ok(())
 }

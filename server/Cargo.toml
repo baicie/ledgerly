@@ -43,6 +43,7 @@ uuid = { version = "1", features = ["v7", "serde"] }
 time = { version = "0.3", features = ["formatting", "parsing", "serde"] }
 clap = { version = "4", features = ["derive", "env"] }
 argon2 = "0.5"
+aes-gcm = "0.10"
 password-hash = "0.5"
 jsonwebtoken = "9"
 rand = "0.8"

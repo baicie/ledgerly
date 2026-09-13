@@ -38,6 +38,25 @@ cargo test --manifest-path server/Cargo.toml --test postgres_backup_restore -- -
 同时备份并恢复对象存储附件目录，校验表数量、附件 size/SHA-256、备份边界
 和 4 小时 RTO，然后删除临时数据库、对象目录与 dump 文件。
 
+### 加密备份包与异地复制
+
+```bash
+export LEDGER_BACKUP_PASSWORD='use-a-long-random-password'
+
+ledger-server bundle create \
+  --database /tmp/ledgerly.dump \
+  --objects /tmp/ledgerly-objects \
+  --out /tmp/ledgerly-bundle
+
+ledger-server bundle verify --from /tmp/ledgerly-bundle
+
+ledger-server bundle replicate \
+  --from /tmp/ledgerly-bundle \
+  --to /mnt/offsite/ledgerly-bundle-2026-09-13
+```
+
+`LEDGER_BACKUP_PASSWORD` 丢失后无法解包，必须与备份分开保存在密钥管理系统中。
+
 ## 客户端灾难恢复演练
 
 客户端使用隔离内存数据库执行四条完整恢复路径，不会读写本机正式账本：
