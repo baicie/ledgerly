@@ -4277,6 +4277,30 @@ abstract class AppLocalizations {
   /// **'密码丢失将无法恢复，请妥善保管'**
   String get dataGovernanceEncryptLostPasswordWarning;
 
+  /// No description provided for @dataGovernanceIncrementalBackup.
+  ///
+  /// In zh, this message translates to:
+  /// **'增量备份'**
+  String get dataGovernanceIncrementalBackup;
+
+  /// No description provided for @dataGovernanceIncrementalBackupHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'只记录本机基础备份后的变化；恢复时需要保留基础文件'**
+  String get dataGovernanceIncrementalBackupHint;
+
+  /// No description provided for @dataGovernanceIncrementalEncryptedDisabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'增量备份不加密；加密导出始终生成完整备份'**
+  String get dataGovernanceIncrementalEncryptedDisabled;
+
+  /// No description provided for @dataGovernanceStatusIncremental.
+  ///
+  /// In zh, this message translates to:
+  /// **'增量备份 · 需要本机基础文件'**
+  String get dataGovernanceStatusIncremental;
+
   /// No description provided for @dataGovernanceAutoBackup.
   ///
   /// In zh, this message translates to:

@@ -191,6 +191,21 @@ void main() {
       expect(filePort.envelopes.length, 1);
     });
 
+    test('later automatic backups use the local incremental base', () async {
+      await schedule.save(
+        const BackupSchedule(enabled: true, intervalDays: 1),
+      );
+      final first = await coordinator.tick();
+      expect(first.ran, isTrue);
+
+      final second = await coordinator.tick(
+        now: DateTime.now().toUtc().add(const Duration(days: 2)),
+      );
+      expect(second.ran, isTrue);
+      expect(filePort.envelopes.values.last.isIncremental, isTrue);
+      expect((await metadata.read()).lastBackupIncremental, isTrue);
+    });
+
     test('swallows export failures instead of throwing', () async {
       final failing = BackupService(
         database: database,

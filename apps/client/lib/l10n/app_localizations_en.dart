@@ -2391,6 +2391,21 @@ class AppLocalizationsEn extends AppLocalizations {
       'If you lose the password the backup cannot be recovered';
 
   @override
+  String get dataGovernanceIncrementalBackup => 'Incremental backup';
+
+  @override
+  String get dataGovernanceIncrementalBackupHint =>
+      'Writes changes since the local base backup; keep that base file to restore';
+
+  @override
+  String get dataGovernanceIncrementalEncryptedDisabled =>
+      'Incremental backups are not encrypted; encrypted export writes a full backup';
+
+  @override
+  String get dataGovernanceStatusIncremental =>
+      'Incremental backup · local base required';
+
+  @override
   String get dataGovernanceAutoBackup => 'Automatic backup';
 
   @override

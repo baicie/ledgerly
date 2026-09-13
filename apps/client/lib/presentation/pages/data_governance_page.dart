@@ -41,6 +41,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
   /// Phase 10: optional password wrapping. When true the export button
   /// writes a v3 `.enc.zip` and the password fields are visible.
   bool _encryptBackup = false;
+  bool _incrementalBackup = false;
   final _passwordController = TextEditingController();
   final _passwordConfirmController = TextEditingController();
 
@@ -154,6 +155,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
       final path = await _service.exportToFile(
         bookIds: filter,
         password: password,
+        incremental: _incrementalBackup && password == null,
       );
       if (!mounted) return;
       setState(() {
@@ -457,6 +459,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
                   pendingSchemaVersion: _pendingDocument?.schemaVersion,
                   restoreMode: _restoreMode,
                   encryptBackup: _encryptBackup,
+                  incrementalBackup: _incrementalBackup,
                   passwordController: _passwordController,
                   passwordConfirmController: _passwordConfirmController,
                   autoBackupEnabled: schedule.enabled,
@@ -470,9 +473,15 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
                   onEncryptChanged: _busy
                       ? null
                       : (value) {
-                          setState(() => _encryptBackup = value);
+                          setState(() {
+                            _encryptBackup = value;
+                            if (value) _incrementalBackup = false;
+                          });
                           _syncExportPasswordProvider();
                         },
+                  onIncrementalChanged: _busy || _encryptBackup
+                      ? null
+                      : (value) => setState(() => _incrementalBackup = value),
                   onPasswordChanged: (_) {
                     setState(() {});
                     _syncExportPasswordProvider();
@@ -481,7 +490,9 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
                       ? null
                       : () => _exportBackup(bookIds: exportSelection),
                   onToggleBook: _busy ? null : _toggleBookSelection,
-                  onShare: _busy || _lastBackupPath == null
+                  onShare: _busy ||
+                          _lastBackupPath == null ||
+                          metadata.lastBackupIncremental
                       ? null
                       : () => _shareBackup(_lastBackupPath!),
                   onPickRestore: _busy ? null : _pickRestoreFile,
@@ -537,6 +548,7 @@ class _BackupSection extends StatelessWidget {
     required this.pendingSchemaVersion,
     required this.restoreMode,
     required this.encryptBackup,
+    required this.incrementalBackup,
     required this.passwordController,
     required this.passwordConfirmController,
     required this.autoBackupEnabled,
@@ -544,6 +556,7 @@ class _BackupSection extends StatelessWidget {
     required this.onAutoBackupChanged,
     required this.onAutoBackupIntervalChanged,
     required this.onEncryptChanged,
+    required this.onIncrementalChanged,
     required this.onPasswordChanged,
     required this.onExport,
     required this.onToggleBook,
@@ -564,6 +577,7 @@ class _BackupSection extends StatelessWidget {
   final int? pendingSchemaVersion;
   final BackupRestoreMode restoreMode;
   final bool encryptBackup;
+  final bool incrementalBackup;
   final TextEditingController passwordController;
   final TextEditingController passwordConfirmController;
   final bool autoBackupEnabled;
@@ -571,6 +585,7 @@ class _BackupSection extends StatelessWidget {
   final ValueChanged<bool>? onAutoBackupChanged;
   final ValueChanged<int>? onAutoBackupIntervalChanged;
   final ValueChanged<bool>? onEncryptChanged;
+  final ValueChanged<bool>? onIncrementalChanged;
   final ValueChanged<String> onPasswordChanged;
   final VoidCallback? onExport;
   final ValueChanged<String>? onToggleBook;
@@ -676,6 +691,20 @@ class _BackupSection extends StatelessWidget {
                 ],
               ),
             ),
+          CheckboxListTile(
+            key: const Key('data-governance-incremental-checkbox'),
+            value: incrementalBackup,
+            onChanged: onIncrementalChanged == null
+                ? null
+                : (value) => onIncrementalChanged!(value ?? false),
+            controlAffinity: ListTileControlAffinity.leading,
+            title: Text(l10n.dataGovernanceIncrementalBackup),
+            subtitle: Text(
+              encryptBackup
+                  ? l10n.dataGovernanceIncrementalEncryptedDisabled
+                  : l10n.dataGovernanceIncrementalBackupHint,
+            ),
+          ),
           SwitchListTile(
             key: const Key('data-governance-auto-backup-switch'),
             value: autoBackupEnabled,
@@ -1244,6 +1273,16 @@ class _BackupStatusCard extends StatelessWidget {
                     key: const Key('data-governance-status-encrypted'),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ],
+                if (metadata.lastBackupIncremental) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    l10n.dataGovernanceStatusIncremental,
+                    key: const Key('data-governance-status-incremental'),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.tertiary,
                     ),
                   ),
                 ],

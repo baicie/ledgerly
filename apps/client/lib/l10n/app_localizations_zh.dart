@@ -2298,6 +2298,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dataGovernanceEncryptLostPasswordWarning => '密码丢失将无法恢复，请妥善保管';
 
   @override
+  String get dataGovernanceIncrementalBackup => '增量备份';
+
+  @override
+  String get dataGovernanceIncrementalBackupHint => '只记录本机基础备份后的变化；恢复时需要保留基础文件';
+
+  @override
+  String get dataGovernanceIncrementalEncryptedDisabled =>
+      '增量备份不加密；加密导出始终生成完整备份';
+
+  @override
+  String get dataGovernanceStatusIncremental => '增量备份 · 需要本机基础文件';
+
+  @override
   String get dataGovernanceAutoBackup => '自动备份';
 
   @override
