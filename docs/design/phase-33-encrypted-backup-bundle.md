@@ -194,4 +194,4 @@ verify source ciphertext integrity
 - [x] payload 损坏会被发现；
 - [x] 异地复制后重新验证；
 - [x] PostgreSQL + 对象存储联合演练经过 bundle 全链路；
-- [ ] `cargo fmt`、Clippy、workspace tests 和 CI 全部通过（待验证）。
+- [x] `cargo fmt`、Clippy、workspace tests 和 CI 全部通过。
