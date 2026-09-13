@@ -13,6 +13,7 @@ import 'package:ledgerly_client/application/backup_catalog_store.dart';
 import 'package:ledgerly_client/application/backup_encryption.dart';
 import 'package:ledgerly_client/application/backup_metadata_store.dart';
 import 'package:ledgerly_client/application/backup_mirror_store.dart';
+import 'package:ledgerly_client/application/backup_recovery_drill_audit.dart';
 import 'package:ledgerly_client/application/backup_restore_audit.dart';
 import 'package:ledgerly_client/application/backup_schedule.dart';
 import 'package:ledgerly_client/application/backup_service.dart';
@@ -145,6 +146,35 @@ void main() {
     final report = filePort.reportFiles.values.single;
     expect(report, contains('ledgerly-governance-report'));
     expect(report, isNot(contains('picked-backup')));
+  });
+
+  testWidgets('health action runs a drill and records recovery readiness',
+      (tester) async {
+    await backupService.exportToFile();
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(l10n.dataGovernanceHealthIssueRecoveryDrillNever),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const Key('data-governance-health-action')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('data-governance-drill-result-dialog')),
+      findsOneWidget,
+    );
+    final audits = await BackupRecoveryDrillAuditStore().read();
+    expect(audits, hasLength(1));
+    expect(audits.single.status, BackupRecoveryDrillAuditStatus.success);
   });
 
   testWidgets('export writes the snapshot through the file port',

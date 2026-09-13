@@ -1681,6 +1681,23 @@
       }
     }
   },
+  "dataGovernanceHealthRecoveryDrillNever": "Recovery drill: not run yet",
+  "dataGovernanceHealthRecoveryDrillSuccess": "Last recovery drill passed: {date}",
+  "@dataGovernanceHealthRecoveryDrillSuccess": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceHealthRecoveryDrillFailed": "Last recovery drill failed: {date}",
+  "@dataGovernanceHealthRecoveryDrillFailed": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "dataGovernanceHealthTitle": "Backup policy health",
   "dataGovernanceHealthChecking": "Checking…",
   "dataGovernanceHealthHealthy": "Healthy",
@@ -1759,11 +1776,22 @@
       }
     }
   },
+  "dataGovernanceHealthIssueRecoveryDrillNever": "No recovery drill has been completed for the latest backup policy.",
+  "dataGovernanceHealthIssueRecoveryDrillFailed": "The latest recovery drill failed; run it again.",
+  "dataGovernanceHealthIssueRecoveryDrillStale": "The last successful recovery drill was {days} days ago.",
+  "@dataGovernanceHealthIssueRecoveryDrillStale": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
   "dataGovernanceHealthActionBackup": "Back up now",
   "dataGovernanceHealthActionEnableAuto": "Enable automatic backup",
   "dataGovernanceHealthActionPassword": "Set automatic backup password",
   "dataGovernanceHealthActionInspect": "Inspect backup files",
   "dataGovernanceHealthActionExternalDirectory": "Check external backup directory",
+  "dataGovernanceHealthActionRecoveryDrill": "Run recovery drill",
   "dataGovernanceHealthExportReport": "Export governance report",
   "dataGovernanceHealthReportJson": "Full JSON report",
   "dataGovernanceHealthReportCsv": "CSV summary",

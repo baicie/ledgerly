@@ -8,6 +8,7 @@ import 'package:ledgerly_client/application/backup_governance_report.dart';
 import 'package:ledgerly_client/application/backup_health.dart';
 import 'package:ledgerly_client/application/backup_metadata_store.dart';
 import 'package:ledgerly_client/application/backup_mirror_store.dart';
+import 'package:ledgerly_client/application/backup_recovery_drill_audit.dart';
 import 'package:ledgerly_client/application/backup_restore_audit.dart';
 import 'package:ledgerly_client/application/backup_schedule.dart';
 import 'package:ledgerly_client/application/backup_service.dart';
@@ -41,6 +42,7 @@ void main() {
       safetyPath: '/secret/path/pre-restore.zip',
       errorSummary: 'sensitive error summary',
     );
+    await fixture.drills.recordFailure(at: DateTime.utc(2026, 1, 2, 1));
 
     final report = await fixture.reportService.build(
       now: DateTime.utc(2026, 1, 3),
@@ -49,14 +51,16 @@ void main() {
     final csv = report.toCsv();
 
     expect(json, contains('"kind": "ledgerly-governance-report"'));
-    expect(json, contains('"schemaVersion": 1'));
+    expect(json, contains('"schemaVersion": 2'));
     expect(json, contains('"catalogCount": 1'));
     expect(json, contains('"lastStatus": "failed"'));
+    expect(json, contains('"recoveryDrill": {'));
     expect(json, isNot(contains('/secret/path')));
     expect(json, isNot(contains('backup-secret-id')));
     expect(json, isNot(contains('sensitive error summary')));
     expect(csv, contains('healthLevel,warning'));
     expect(csv, contains('restoreAuditFailures,1'));
+    expect(csv, contains('recoveryDrillFailures,1'));
     expect(csv, isNot(contains('/secret/path')));
     expect(csv, isNot(contains('sensitive error summary')));
   });
@@ -73,6 +77,7 @@ class _Fixture {
     schedule = BackupScheduleStore();
     catalog = BackupCatalogStore();
     audits = BackupRestoreAuditStore();
+    drills = BackupRecoveryDrillAuditStore();
     service = BackupService(
       database: db,
       recurring: LocalRecurringRepository(db),
@@ -87,6 +92,7 @@ class _Fixture {
       metadata: metadata,
       catalog: catalog,
       audits: audits,
+      drillAudits: drills,
     );
     health = BackupHealthService(
       metadata: metadata,
@@ -97,11 +103,13 @@ class _Fixture {
       mirror: BackupMirrorStore(),
       filePort: filePort,
       backups: service,
+      drillAudits: drills,
     );
     reportService = BackupGovernanceReportService(
       health: health,
       catalog: catalog,
       audits: audits,
+      recoveryDrills: drills,
     );
   }
 
@@ -112,6 +120,7 @@ class _Fixture {
   late final BackupScheduleStore schedule;
   late final BackupCatalogStore catalog;
   late final BackupRestoreAuditStore audits;
+  late final BackupRecoveryDrillAuditStore drills;
   late final BackupService service;
   late final BackupHealthService health;
   late final BackupGovernanceReportService reportService;

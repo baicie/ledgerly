@@ -2575,6 +2575,19 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get dataGovernanceHealthRecoveryDrillNever => '恢复演练：尚未执行';
+
+  @override
+  String dataGovernanceHealthRecoveryDrillSuccess(String date) {
+    return '最近恢复演练通过：$date';
+  }
+
+  @override
+  String dataGovernanceHealthRecoveryDrillFailed(String date) {
+    return '最近恢复演练失败：$date';
+  }
+
+  @override
   String get dataGovernanceHealthTitle => '备份策略健康';
 
   @override
@@ -2667,6 +2680,18 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get dataGovernanceHealthIssueRecoveryDrillNever => '当前备份策略尚未完成恢复演练。';
+
+  @override
+  String get dataGovernanceHealthIssueRecoveryDrillFailed =>
+      '最近一次恢复演练失败，请重新执行。';
+
+  @override
+  String dataGovernanceHealthIssueRecoveryDrillStale(int days) {
+    return '上次成功恢复演练已过去 $days 天。';
+  }
+
+  @override
   String get dataGovernanceHealthActionBackup => '立即备份';
 
   @override
@@ -2680,6 +2705,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get dataGovernanceHealthActionExternalDirectory => '检查外部备份目录';
+
+  @override
+  String get dataGovernanceHealthActionRecoveryDrill => '执行恢复演练';
 
   @override
   String get dataGovernanceHealthExportReport => '导出治理报告';

@@ -10,6 +10,7 @@ import '../../application/backup_governance_report.dart';
 import '../../application/backup_health.dart';
 import '../../application/backup_metadata_store.dart';
 import '../../application/backup_mirror_verification.dart';
+import '../../application/backup_recovery_drill_audit.dart';
 import '../../application/backup_restore_audit.dart';
 import '../../application/backup_schedule.dart';
 import '../../application/backup_service.dart';
@@ -178,6 +179,9 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
         break;
       case BackupHealthAction.configureExternalDirectory:
         await _chooseExternalBackupDirectory();
+        break;
+      case BackupHealthAction.runRecoveryDrill:
+        await _drillLatestBackup();
         break;
       case BackupHealthAction.none:
         return;
@@ -631,11 +635,12 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
       final result = await run(null);
       if (!mounted) return null;
       setState(() => _busy = false);
+      ref.invalidate(backupHealthProvider);
       return result;
     } on BackupPasswordException {
       if (!mounted) return null;
       setState(() => _busy = false);
-      return showDialogDialog<BackupRecoveryDrillResult>(
+      final result = await showDialogDialog<BackupRecoveryDrillResult>(
         context: context,
         barrierDismissible: false,
         builder: (dialogContext) =>
@@ -648,9 +653,12 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
           onPassword: (password) => run(password),
         ),
       );
+      if (mounted) ref.invalidate(backupHealthProvider);
+      return result;
     } catch (error) {
       if (!mounted) return null;
       setState(() => _busy = false);
+      ref.invalidate(backupHealthProvider);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(l10n.dataGovernanceRecoveryDrillFailed('$error')),
@@ -3025,6 +3033,12 @@ class _BackupHealthCard extends StatelessWidget {
           l10n.dataGovernanceHealthIssueMirrorCorrupted(issue.value ?? 0),
         BackupHealthIssueCode.externalMirrorExtra =>
           l10n.dataGovernanceHealthIssueMirrorExtra(issue.value ?? 0),
+        BackupHealthIssueCode.recoveryDrillNeverRun =>
+          l10n.dataGovernanceHealthIssueRecoveryDrillNever,
+        BackupHealthIssueCode.recoveryDrillFailed =>
+          l10n.dataGovernanceHealthIssueRecoveryDrillFailed,
+        BackupHealthIssueCode.recoveryDrillStale =>
+          l10n.dataGovernanceHealthIssueRecoveryDrillStale(issue.value ?? 0),
       };
 
   String _actionLabel(BackupHealthAction action) => switch (action) {
@@ -3038,8 +3052,24 @@ class _BackupHealthCard extends StatelessWidget {
           l10n.dataGovernanceHealthActionInspect,
         BackupHealthAction.configureExternalDirectory =>
           l10n.dataGovernanceHealthActionExternalDirectory,
+        BackupHealthAction.runRecoveryDrill =>
+          l10n.dataGovernanceHealthActionRecoveryDrill,
         BackupHealthAction.none => l10n.confirm,
       };
+
+  String _recoveryDrillText(MaterialLocalizations localizations) {
+    final audit = snapshot?.latestRecoveryDrill;
+    if (audit == null) {
+      return l10n.dataGovernanceHealthRecoveryDrillNever;
+    }
+    final date = localizations.formatMediumDate(audit.at.toLocal());
+    return switch (audit.status) {
+      BackupRecoveryDrillAuditStatus.success =>
+        l10n.dataGovernanceHealthRecoveryDrillSuccess(date),
+      BackupRecoveryDrillAuditStatus.failed =>
+        l10n.dataGovernanceHealthRecoveryDrillFailed(date),
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -3150,6 +3180,12 @@ class _BackupHealthCard extends StatelessWidget {
                         snapshot!.nextDueAt!.toLocal(),
                       ),
               ),
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _recoveryDrillText(localizations),
+              key: const Key('data-governance-health-recovery-drill'),
               style: theme.textTheme.bodySmall,
             ),
             if (action != BackupHealthAction.none && onAction != null) ...[

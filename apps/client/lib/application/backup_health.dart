@@ -4,11 +4,14 @@ import 'backup_auto_password_store.dart';
 import 'backup_catalog_store.dart';
 import 'backup_metadata_store.dart';
 import 'backup_mirror_store.dart';
+import 'backup_recovery_drill_audit.dart';
 import 'backup_restore_audit.dart';
 import 'backup_schedule.dart';
 import 'backup_service.dart';
 
 enum BackupHealthLevel { healthy, warning, critical }
+
+const int kRecoveryDrillStaleDays = 90;
 
 enum BackupHealthIssueCode {
   noBackup,
@@ -28,6 +31,9 @@ enum BackupHealthIssueCode {
   externalMirrorMissing,
   externalMirrorCorrupted,
   externalMirrorExtra,
+  recoveryDrillNeverRun,
+  recoveryDrillFailed,
+  recoveryDrillStale,
 }
 
 enum BackupHealthAction {
@@ -36,6 +42,7 @@ enum BackupHealthAction {
   configureAutoPassword,
   inspectFiles,
   configureExternalDirectory,
+  runRecoveryDrill,
   none,
 }
 
@@ -61,6 +68,7 @@ class BackupHealthSnapshot {
     required this.schedule,
     required this.catalogCount,
     required this.issues,
+    this.latestRecoveryDrill,
     this.nextDueAt,
   });
 
@@ -70,6 +78,7 @@ class BackupHealthSnapshot {
   final BackupSchedule schedule;
   final int catalogCount;
   final List<BackupHealthIssue> issues;
+  final BackupRecoveryDrillAudit? latestRecoveryDrill;
   final DateTime? nextDueAt;
 
   bool get hasCritical => level == BackupHealthLevel.critical;
@@ -113,6 +122,14 @@ class BackupHealthSnapshot {
       return BackupHealthAction.configureExternalDirectory;
     }
     if (issues.any(
+      (issue) =>
+          issue.code == BackupHealthIssueCode.recoveryDrillNeverRun ||
+          issue.code == BackupHealthIssueCode.recoveryDrillFailed ||
+          issue.code == BackupHealthIssueCode.recoveryDrillStale,
+    )) {
+      return BackupHealthAction.runRecoveryDrill;
+    }
+    if (issues.any(
       (issue) => issue.code == BackupHealthIssueCode.autoBackupDisabled,
     )) {
       return BackupHealthAction.enableAutoBackup;
@@ -131,6 +148,7 @@ class BackupHealthService {
     required BackupMirrorStore mirror,
     required BackupFilePort filePort,
     required BackupService backups,
+    BackupRecoveryDrillAuditStore? drillAudits,
   })  : _metadata = metadata,
         _schedule = schedule,
         _catalog = catalog,
@@ -138,7 +156,8 @@ class BackupHealthService {
         _audits = audits,
         _mirror = mirror,
         _filePort = filePort,
-        _backups = backups;
+        _backups = backups,
+        _drillAudits = drillAudits ?? BackupRecoveryDrillAuditStore();
 
   final BackupMetadataStore _metadata;
   final BackupScheduleStore _schedule;
@@ -148,6 +167,7 @@ class BackupHealthService {
   final BackupMirrorStore _mirror;
   final BackupFilePort _filePort;
   final BackupService _backups;
+  final BackupRecoveryDrillAuditStore _drillAudits;
 
   Future<BackupHealthSnapshot> check({DateTime? now}) async {
     final checkedAt = (now ?? DateTime.now()).toUtc();
@@ -155,6 +175,9 @@ class BackupHealthService {
     final schedule = await _schedule.read();
     final catalog = await _catalog.read();
     final audits = await _audits.read();
+    final recoveryDrills = await _drillAudits.read();
+    final latestRecoveryDrill =
+        recoveryDrills.isEmpty ? null : recoveryDrills.first;
     final issues = <BackupHealthIssue>[];
 
     BackupVerificationReport? verification;
@@ -218,6 +241,34 @@ class BackupHealthService {
             level: BackupHealthLevel.warning,
           ),
         );
+      }
+      if (latestRecoveryDrill == null) {
+        issues.add(
+          const BackupHealthIssue(
+            code: BackupHealthIssueCode.recoveryDrillNeverRun,
+            level: BackupHealthLevel.warning,
+          ),
+        );
+      } else if (latestRecoveryDrill.status ==
+          BackupRecoveryDrillAuditStatus.failed) {
+        issues.add(
+          const BackupHealthIssue(
+            code: BackupHealthIssueCode.recoveryDrillFailed,
+            level: BackupHealthLevel.warning,
+          ),
+        );
+      } else {
+        final drillAgeDays =
+            checkedAt.difference(latestRecoveryDrill.at).inDays;
+        if (drillAgeDays >= kRecoveryDrillStaleDays) {
+          issues.add(
+            BackupHealthIssue(
+              code: BackupHealthIssueCode.recoveryDrillStale,
+              level: BackupHealthLevel.warning,
+              value: drillAgeDays,
+            ),
+          );
+        }
       }
     }
 
@@ -373,6 +424,7 @@ class BackupHealthService {
       schedule: schedule,
       catalogCount: catalog.length,
       issues: List.unmodifiable(issues),
+      latestRecoveryDrill: latestRecoveryDrill,
       nextDueAt: nextDueAt,
     );
   }

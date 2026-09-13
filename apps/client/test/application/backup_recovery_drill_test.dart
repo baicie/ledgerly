@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:ledgerly_client/application/backup_encryption.dart';
 import 'package:ledgerly_client/application/backup_metadata_store.dart';
+import 'package:ledgerly_client/application/backup_recovery_drill_audit.dart';
 import 'package:ledgerly_client/application/backup_service.dart';
 import 'package:ledgerly_client/application/ledger_app_service.dart';
 import 'package:ledgerly_client/application/merchant_rule_store.dart';
@@ -42,6 +43,11 @@ void main() {
     expect(result.incremental, isTrue);
     expect(result.summary.transactions, 1);
     expect(result.bundledAttachmentCount, 0);
+    final audits = await fixture.drillAudits.read();
+    expect(audits, hasLength(1));
+    expect(audits.single.status, BackupRecoveryDrillAuditStatus.success);
+    expect(audits.single.incremental, isTrue);
+    expect(audits.single.transactionCount, 1);
     final after = await BackupMetadataStore().read();
     expect(after.lastBackupPath, before.lastBackupPath);
     expect(after.baseBackupPath, before.baseBackupPath);
@@ -62,6 +68,10 @@ void main() {
       fixture.service.runRecoveryDrill(password: 'wrong-password'),
       throwsA(isA<BackupPasswordException>()),
     );
+    expect(
+      (await fixture.drillAudits.read()).first.status,
+      BackupRecoveryDrillAuditStatus.failed,
+    );
 
     final result = await fixture.service.runRecoveryDrill(
       password: 'password123',
@@ -70,6 +80,10 @@ void main() {
     expect(result.encrypted, isTrue);
     expect(result.incremental, isFalse);
     expect(result.summary.transactions, 1);
+    final audits = await fixture.drillAudits.read();
+    expect(audits, hasLength(3));
+    expect(audits.first.status, BackupRecoveryDrillAuditStatus.success);
+    expect(audits.first.encrypted, isTrue);
   });
 
   test('reports attachment integrity failures during a drill', () async {
@@ -133,6 +147,24 @@ void main() {
         ),
       ),
     );
+    expect(
+      (await fixture.drillAudits.read()).first.status,
+      BackupRecoveryDrillAuditStatus.failed,
+    );
+  });
+
+  test('wipe clears persisted recovery drill audits', () async {
+    final fixture = _Fixture();
+    addTearDown(fixture.close);
+    await fixture.seed();
+    await fixture.service.exportToFile();
+
+    await fixture.service.runRecoveryDrill();
+    expect(await fixture.drillAudits.read(), hasLength(1));
+
+    await fixture.service.wipeLocalData();
+
+    expect(await fixture.drillAudits.read(), isEmpty);
   });
 }
 
@@ -155,6 +187,7 @@ class _Fixture {
       deviceIdLoader: () async => 'recovery-drill-test-device',
     );
     filePort = InMemoryBackupFilePort();
+    drillAudits = BackupRecoveryDrillAuditStore();
     service = BackupService(
       database: db,
       recurring: LocalRecurringRepository(db),
@@ -167,12 +200,14 @@ class _Fixture {
       filePort: filePort,
       deviceIdLoader: () async => 'recovery-drill-test-device',
       encryption: BackupEncryption.testing(),
+      drillAudits: drillAudits,
     );
   }
 
   final AppDatabase db;
   late final LedgerRepository repository;
   late final InMemoryBackupFilePort filePort;
+  late final BackupRecoveryDrillAuditStore drillAudits;
   late final BackupService service;
 
   Future<void> seed() => repository.seedIfEmpty();

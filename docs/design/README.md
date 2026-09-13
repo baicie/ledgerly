@@ -43,5 +43,6 @@
 | [phase-27-external-backup-mirror.md](./phase-27-external-backup-mirror.md) | 外部备份目录与镜像 |
 | [phase-28-external-mirror-verification.md](./phase-28-external-mirror-verification.md) | 外部镜像校验与恢复入口 |
 | [phase-29-disaster-recovery-drill.md](./phase-29-disaster-recovery-drill.md) | 端到端灾难恢复演练 |
+| [phase-30-recovery-drill-audit.md](./phase-30-recovery-drill-audit.md) | 恢复演练审计与就绪度 |
 
 状态：文档在对应阶段分支创建并完善；基线阶段仅保留本索引。
