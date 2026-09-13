@@ -1033,6 +1033,76 @@ void main() {
     );
   });
 
+  testWidgets('recovery drill validates the latest plaintext backup',
+      (tester) async {
+    await backupService.exportToFile();
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-drill-action')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('data-governance-drill-result-dialog')),
+      findsOneWidget,
+    );
+    expect(
+      find.text(l10n.dataGovernanceRecoveryDrillSuccessTitle),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('encrypted recovery drill requires the correct password',
+      (tester) async {
+    await backupService.exportToFile(password: 'password123');
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-drill-action')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(
+      find.byKey(const Key('data-governance-drill-password-dialog')),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('data-governance-drill-password')),
+      'wrong-password',
+    );
+    await tester.tap(
+      find.byKey(const Key('data-governance-drill-submit')),
+    );
+    await tester.pump();
+    await _flushBackupCrypto(tester);
+    expect(
+      find.text(l10n.dataGovernanceUnlockWrongPassword),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('data-governance-drill-password')),
+      'password123',
+    );
+    await tester.tap(
+      find.byKey(const Key('data-governance-drill-submit')),
+    );
+    await tester.pump();
+    await _flushBackupCrypto(tester);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('data-governance-drill-result-dialog')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('auto-backup switch is off by default', (tester) async {
     await _pumpPage(tester, backupService, booksLoader: loadBooks);
     final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
