@@ -327,6 +327,19 @@ class BackupCleanupResult {
   final int failedCount;
 }
 
+@immutable
+class BackupConsolidationResult {
+  const BackupConsolidationResult({
+    required this.path,
+    required this.backupId,
+    required this.sizeBytes,
+  });
+
+  final String path;
+  final String backupId;
+  final int sizeBytes;
+}
+
 /// Thrown when a backup file is structurally invalid.
 class BackupFormatException implements Exception {
   const BackupFormatException(this.message);
@@ -1043,6 +1056,51 @@ class BackupService {
       source: BackupArtifactSource.safety,
     );
     return path;
+  }
+
+  /// Materialize the latest incremental backup into a new standalone full
+  /// backup. Returns `null` when the latest backup is already full/absent.
+  Future<BackupConsolidationResult?> consolidateLatest() async {
+    final metadata = await _metadata.read();
+    final source = metadata.lastBackupPath;
+    if (source == null) return null;
+
+    final latest = await _files.readBackup(source);
+    if (!latest.isIncremental || latest.isEncrypted) return null;
+    final materialized = await _materializeIncremental(latest);
+    final backupId = const Uuid().v4();
+    final full = BackupDocument(
+      summary: materialized.summary,
+      payload: materialized.payload,
+      bookIds: materialized.bookIds,
+      attachmentIndex: materialized.attachmentIndex,
+      attachmentBinaries: materialized.attachmentBinaries,
+      schemaVersion: kFullBackupSchemaVersion,
+      backupId: backupId,
+    );
+
+    final deviceId = await _deviceIdLoader();
+    final path = await _files.writeBackup(full, deviceId: deviceId);
+    final createdAt = DateTime.now().toUtc();
+    final size = await _files.fileSize(path);
+    await _metadata.record(
+      path: path,
+      at: createdAt,
+      backupId: backupId,
+      attachmentCount: full.summary.attachments,
+      attachmentSizeBytes: full.attachmentSizeBytes,
+    );
+    await _recordCatalogArtifact(
+      document: full,
+      path: path,
+      createdAt: createdAt,
+      source: BackupArtifactSource.manual,
+    );
+    return BackupConsolidationResult(
+      path: path,
+      backupId: backupId,
+      sizeBytes: size,
+    );
   }
 
   /// Remove old automatic and safety backups while preserving every manual

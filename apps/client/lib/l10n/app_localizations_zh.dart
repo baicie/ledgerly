@@ -2346,6 +2346,22 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get dataGovernanceConsolidateBackup => '生成便携备份';
+
+  @override
+  String dataGovernanceConsolidateSuccess(String path, String size) {
+    return '已生成便携备份：$path（$size）';
+  }
+
+  @override
+  String get dataGovernanceConsolidateNoChanges => '最近一次已是独立的完整备份。';
+
+  @override
+  String dataGovernanceConsolidateFailed(String error) {
+    return '生成便携备份失败：$error';
+  }
+
+  @override
   String get dataGovernanceAutoBackup => '自动备份';
 
   @override

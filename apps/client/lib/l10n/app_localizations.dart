@@ -4355,6 +4355,30 @@ abstract class AppLocalizations {
   /// **'清理备份失败：{error}'**
   String dataGovernanceCleanupFailed(String error);
 
+  /// No description provided for @dataGovernanceConsolidateBackup.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成便携备份'**
+  String get dataGovernanceConsolidateBackup;
+
+  /// No description provided for @dataGovernanceConsolidateSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已生成便携备份：{path}（{size}）'**
+  String dataGovernanceConsolidateSuccess(String path, String size);
+
+  /// No description provided for @dataGovernanceConsolidateNoChanges.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近一次已是独立的完整备份。'**
+  String get dataGovernanceConsolidateNoChanges;
+
+  /// No description provided for @dataGovernanceConsolidateFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成便携备份失败：{error}'**
+  String dataGovernanceConsolidateFailed(String error);
+
   /// No description provided for @dataGovernanceAutoBackup.
   ///
   /// In zh, this message translates to:
