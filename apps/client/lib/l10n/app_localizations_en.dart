@@ -2301,4 +2301,73 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get dataGovernanceRestoreNoAttachmentsV1 =>
       'This backup is schema v1 — no attachment binaries.';
+
+  @override
+  String get dataGovernanceEncryptWithPassword => 'Encrypt with password';
+
+  @override
+  String get dataGovernancePasswordHint =>
+      'At least 8 characters; losing it makes the backup unrecoverable';
+
+  @override
+  String get dataGovernancePasswordConfirmHint => 'Re-enter password';
+
+  @override
+  String get dataGovernancePasswordMismatch => 'Passwords do not match';
+
+  @override
+  String get dataGovernancePasswordTooShort =>
+      'Password must be at least 8 characters';
+
+  @override
+  String dataGovernanceExportEncryptedAll(int n) {
+    return 'Export encrypted all books ($n)';
+  }
+
+  @override
+  String dataGovernanceExportEncryptedSelected(int n) {
+    return 'Export encrypted $n books';
+  }
+
+  @override
+  String get dataGovernanceUnlockPrompt => 'Enter backup password';
+
+  @override
+  String get dataGovernanceUnlockWrongPassword => 'Wrong password, try again';
+
+  @override
+  String dataGovernanceUnlockLockedFor(int seconds) {
+    return 'Locked, retry in ${seconds}s';
+  }
+
+  @override
+  String get dataGovernanceRestoreLegacyUnencrypted =>
+      'This backup is not encrypted (schema v2)';
+
+  @override
+  String get dataGovernanceRestoreLegacyUnencryptedDetail =>
+      'Consider using a password-encrypted backup for sensitive financial data';
+
+  @override
+  String get dataGovernanceStatusEncrypted => 'Password protected';
+
+  @override
+  String get dataGovernanceEncryptLostPasswordWarning =>
+      'If you lose the password the backup cannot be recovered';
+
+  @override
+  String get dataGovernanceAutoBackup => 'Automatic backup';
+
+  @override
+  String get dataGovernanceAutoBackupSubtitle =>
+      'Checked when you open the app; writes a local snapshot when due';
+
+  @override
+  String get dataGovernanceAutoBackupWarning =>
+      'Automatic backups are not encrypted. Use a password export for sensitive books.';
+
+  @override
+  String dataGovernanceAutoIntervalDays(int n) {
+    return '$n days';
+  }
 }

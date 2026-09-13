@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../application/auto_backup.dart';
 import '../application/backup_metadata_store.dart';
+import '../application/backup_schedule.dart';
 import '../application/backup_service.dart';
 import '../application/feed_search.dart';
 import '../application/ledger_app_service.dart';
@@ -92,7 +94,8 @@ final booksProvider = FutureProvider<List<Book>>((ref) async {
   return repo.listBooks();
 });
 
-final selectedBookIdProvider = StateNotifierProvider<SelectedBookController, String>(
+final selectedBookIdProvider =
+    StateNotifierProvider<SelectedBookController, String>(
   (ref) => SelectedBookController(ref.watch(booksProvider.future)),
 );
 
@@ -209,8 +212,11 @@ final backupMetadataProvider = FutureProvider<BackupMetadata>((ref) async {
   return store.read();
 });
 
-/// Wires the [BackupService] together. Pages that need to export,
-/// restore, or wipe local data read this provider.
+/// Ephemeral export password. The data-governance page writes the
+/// value as the user types and clears it after a successful export so
+/// it never lives past the current backup action.
+final encryptedBackupPasswordProvider = StateProvider<String?>((ref) => null);
+
 final backupServiceProvider = Provider<BackupService>((ref) {
   final session = ref.watch(sessionStoreProvider);
   return BackupService(
@@ -223,6 +229,31 @@ final backupServiceProvider = Provider<BackupService>((ref) {
     deviceIdLoader: session.getOrCreateDeviceId,
     metadata: ref.watch(backupMetadataStoreProvider),
   );
+});
+
+final backupScheduleStoreProvider = Provider<BackupScheduleStore>((ref) {
+  return BackupScheduleStore();
+});
+
+final backupScheduleProvider = FutureProvider<BackupSchedule>((ref) async {
+  return ref.watch(backupScheduleStoreProvider).read();
+});
+
+final autoBackupCoordinatorProvider = Provider<AutoBackupCoordinator>((ref) {
+  return AutoBackupCoordinator(
+    schedule: ref.watch(backupScheduleStoreProvider),
+    metadata: ref.watch(backupMetadataStoreProvider),
+    backups: ref.watch(backupServiceProvider),
+  );
+});
+
+/// Opportunistic backup check on launch / resume. Failures stay on
+/// [AutoBackupTickResult.error] so a disk hiccup cannot take down the
+/// rest of [LedgerlyApp].
+final autoBackupTickProvider =
+    FutureProvider<AutoBackupTickResult>((ref) async {
+  await ref.watch(ledgerRepositoryProvider).seedIfEmpty();
+  return ref.read(autoBackupCoordinatorProvider).tick();
 });
 
 final attachmentStoreProvider = Provider<AttachmentStore>((ref) {
@@ -357,7 +388,8 @@ final categoryAccountsProvider =
     FutureProvider.family<List<CategoryAccountRow>, String>((ref, type) async {
   final repo = ref.watch(ledgerRepositoryProvider);
   await repo.seedIfEmpty();
-  final accounts = await repo.listCategories(ref.watch(selectedBookIdProvider), type);
+  final accounts =
+      await repo.listCategories(ref.watch(selectedBookIdProvider), type);
   final rows = accounts
       .map(
         (account) => CategoryAccountRow(
@@ -581,8 +613,9 @@ class LocalBudgetProgress {
 final localMonthBudgetProgressProvider =
     FutureProvider<List<LocalBudgetProgress>>((ref) async {
   await ref.watch(ledgerRepositoryProvider).seedIfEmpty();
-  final records =
-      await ref.watch(localBudgetRepositoryProvider).list(ref.watch(selectedBookIdProvider));
+  final records = await ref
+      .watch(localBudgetRepositoryProvider)
+      .list(ref.watch(selectedBookIdProvider));
   final transactions = await ref.watch(monthTransactionsProvider.future);
   final categories =
       await ref.watch(categoryAccountsProvider('expense').future);
@@ -684,7 +717,8 @@ class ReportSummary {
 
   factory ReportSummary.fromJson(Map<String, dynamic> json) {
     final categories = (json['categories'] as List? ?? const [])
-        .map((e) => ReportCategory.fromJson(Map<String, dynamic>.from(e as Map)))
+        .map(
+            (e) => ReportCategory.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList();
     return ReportSummary(
       incomeMinor: BigInt.parse(json['incomeMinor']?.toString() ?? '0'),
@@ -714,8 +748,7 @@ class ReportCategory {
   factory ReportCategory.fromJson(Map<String, dynamic> json) {
     return ReportCategory(
       name: json['name']?.toString() ?? 'Other',
-      amountMinor:
-          BigInt.parse(json['amountMinor']?.toString() ?? '0'),
+      amountMinor: BigInt.parse(json['amountMinor']?.toString() ?? '0'),
       currency: json['currency']?.toString() ?? 'CNY',
     );
   }
@@ -821,7 +854,8 @@ final reportTrendProvider = FutureProvider<List<ReportTrendPoint>>((ref) async {
   return rows.map(ReportTrendPoint.fromJson).toList();
 });
 
-final reportBudgetProvider = FutureProvider<List<ReportBudgetItem>>((ref) async {
+final reportBudgetProvider =
+    FutureProvider<List<ReportBudgetItem>>((ref) async {
   if (ref.watch(isLocalModeProvider)) {
     return _reportBudgetLocal(ref);
   }
@@ -832,8 +866,8 @@ final reportBudgetProvider = FutureProvider<List<ReportBudgetItem>>((ref) async 
       '${month.year.toString().padLeft(4, '0')}-${month.month.toString().padLeft(2, '0')}';
   final json = await api.reportBudget(bookId: bookId, month: monthStr);
   final items = (json['items'] as List? ?? const [])
-      .map((e) =>
-          ReportBudgetItem.fromJson(Map<String, dynamic>.from(e as Map)))
+      .map(
+          (e) => ReportBudgetItem.fromJson(Map<String, dynamic>.from(e as Map)))
       .toList();
   items.sort((a, b) => b.ratio.compareTo(a.ratio));
   return items;
@@ -903,7 +937,9 @@ List<ReportTrendPoint> _reportTrendLocal(Ref ref, ReportsRange range) {
         data: (points) {
           final count = range.monthCount;
           if (points.length == count) return points;
-          if (points.length > count) return points.sublist(points.length - count);
+          if (points.length > count) {
+            return points.sublist(points.length - count);
+          }
           return points;
         },
         orElse: () => const <ReportTrendPoint>[],
@@ -931,7 +967,8 @@ List<ReportBudgetItem> _reportBudgetLocal(Ref ref) {
 
 String _localBudgetStatus(BigInt actual, BigInt budget) {
   if (budget <= BigInt.zero) return 'ok';
-  final ratio = double.parse(actual.toString()) / double.parse(budget.toString());
+  final ratio =
+      double.parse(actual.toString()) / double.parse(budget.toString());
   if (ratio > 1.0) return 'over';
   if (ratio > 0.9) return 'ok';
   return 'under';

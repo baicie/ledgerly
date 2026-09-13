@@ -7,6 +7,7 @@ import '../data/database.dart';
 import '../data/local_attachment_repository.dart';
 import '../data/local_budget_repository.dart';
 import '../data/local_recurring_repository.dart';
+import 'backup_encryption.dart';
 import 'backup_metadata_store.dart';
 import 'merchant_classifier.dart';
 import 'merchant_rule_store.dart';
@@ -22,6 +23,8 @@ class BackupDocument {
     this.bookIds,
     this.attachmentIndex = const [],
     this.attachmentBinaries = const [],
+    this.encrypted,
+    this.schemaVersion = kBackupSchemaVersion,
   });
 
   /// Counts per entity — surfaced in the restore preview so the user
@@ -30,6 +33,9 @@ class BackupDocument {
 
   /// Stable, versioned JSON payload. The on-disk envelope wraps this in
   /// `{ kind, schemaVersion, exportedAt, deviceId, summary, data }`.
+  /// When [encrypted] is present this field holds the **plaintext v2**
+  /// payload (used for in-memory restore / restore preview), but the
+  /// on-disk container only stores the encrypted ciphertext.
   final Map<String, dynamic> payload;
 
   /// IDs of the books included in this backup. `null` when the
@@ -52,10 +58,25 @@ class BackupDocument {
   /// which only sees the manifest.
   final List<AttachmentBinary> attachmentBinaries;
 
+  /// Phase 10: when non-null, this document was wrapped in a password
+  /// envelope before being written to disk. The file port will pack
+  /// the envelope.json + payload.enc into a single `.enc.zip`; readers
+  /// need the password to unwrap and surface the [payload] /
+  /// [attachmentBinaries] for restore.
+  final EncryptedPayload? encrypted;
+
+  /// Inner payload schema (`1` = Phase 6 JSON, `2` = Phase 9 zip).
+  /// Encrypted v3 containers keep this at `2` after unlock; the outer
+  /// envelope uses [kEncryptedBackupSchemaVersion] separately.
+  final int schemaVersion;
+
   /// Total bytes the bundled attachments consume. Surfaced in the UI so
   /// the user can see how big the backup really is before sharing.
   int get attachmentSizeBytes =>
       attachmentBinaries.fold<int>(0, (sum, b) => sum + b.bytes.length);
+
+  /// True when this document still needs a password before restore.
+  bool get isEncrypted => encrypted != null;
 
   Map<String, dynamic> toEnvelope({required String deviceId}) {
     return {
@@ -96,9 +117,8 @@ class BackupDocument {
       throw const BackupFormatException('备份 data 缺失');
     }
     final rawBookIds = envelope['bookIds'];
-    final bookIds = rawBookIds is List
-        ? rawBookIds.whereType<String>().toSet()
-        : null;
+    final bookIds =
+        rawBookIds is List ? rawBookIds.whereType<String>().toSet() : null;
     final rawIndex = envelope['attachmentIndex'];
     final attachmentIndex = rawIndex is List
         ? rawIndex
@@ -113,6 +133,7 @@ class BackupDocument {
       payload: Map<String, dynamic>.from(data),
       bookIds: bookIds,
       attachmentIndex: attachmentIndex,
+      schemaVersion: version,
     );
   }
 
@@ -126,6 +147,24 @@ class BackupDocument {
       bookIds: bookIds,
       attachmentIndex: attachmentIndex,
       attachmentBinaries: List.unmodifiable(binaries),
+      encrypted: encrypted,
+      schemaVersion: schemaVersion,
+    );
+  }
+
+  /// Returns a copy of this document with the supplied [encrypted]
+  /// payload attached. The plaintext payload / binaries stay on the
+  /// in-memory document so the restore preview can still render them
+  /// before the user types a password.
+  BackupDocument withEncryption(EncryptedPayload encrypted) {
+    return BackupDocument(
+      summary: summary,
+      payload: payload,
+      bookIds: bookIds,
+      attachmentIndex: attachmentIndex,
+      attachmentBinaries: attachmentBinaries,
+      encrypted: encrypted,
+      schemaVersion: schemaVersion,
     );
   }
 }
@@ -165,7 +204,8 @@ class BackupSummary {
   final int attachments;
   final int merchantRules;
 
-  int get total => books +
+  int get total =>
+      books +
       accounts +
       transactions +
       transactionEntries +
@@ -189,8 +229,7 @@ class BackupSummary {
         books: (json['books'] as num?)?.toInt() ?? 0,
         accounts: (json['accounts'] as num?)?.toInt() ?? 0,
         transactions: (json['transactions'] as num?)?.toInt() ?? 0,
-        transactionEntries:
-            (json['transactionEntries'] as num?)?.toInt() ?? 0,
+        transactionEntries: (json['transactionEntries'] as num?)?.toInt() ?? 0,
         recurringRules: (json['recurringRules'] as num?)?.toInt() ?? 0,
         budgets: (json['budgets'] as num?)?.toInt() ?? 0,
         attachments: (json['attachments'] as num?)?.toInt() ?? 0,
@@ -211,8 +250,17 @@ class BackupFormatException implements Exception {
 /// Current on-disk schema version. Bumped on any breaking change to the
 /// `data` payload shape. Phase 9 bumped to `2` to add bundled
 /// attachment binaries (zip container); legacy `1` files remain
-/// readable so older backups keep restoring.
+/// readable so older backups keep restoring. Phase 10 keeps `2` for
+/// the *plaintext* payload (no schema change) but adds a new outer
+/// container at `schemaVersion: 3` for password-encrypted backups —
+/// see [BackupDocument.encrypted] / [BackupEncryption].
 const int kBackupSchemaVersion = 2;
+
+/// Current outer-container schema version. Bumped when the on-disk
+/// envelope changes shape: `3` introduced AES-256-GCM password
+/// encryption (Phase 10). Plaintext v2 backups are still written by
+/// this build; only the *encrypted* branch hits v3.
+const int kEncryptedBackupSchemaVersion = 3;
 
 /// Lowest schema version the current code can still restore. Older
 /// files (v1) load but the restore preview warns the user that
@@ -232,6 +280,7 @@ class BackupService {
     required BackupFilePort filePort,
     required Future<String> Function() deviceIdLoader,
     BackupMetadataStore? metadata,
+    BackupEncryption? encryption,
   })  : _db = database,
         _recurring = recurring,
         _budgets = budgets,
@@ -239,7 +288,8 @@ class BackupService {
         _merchantRules = merchantRules,
         _files = filePort,
         _deviceIdLoader = deviceIdLoader,
-        _metadata = metadata ?? BackupMetadataStore();
+        _metadata = metadata ?? BackupMetadataStore(),
+        _encryption = encryption ?? BackupEncryption();
 
   final AppDatabase _db;
   final LocalRecurringRepository _recurring;
@@ -249,6 +299,7 @@ class BackupService {
   final BackupFilePort _files;
   final Future<String> Function() _deviceIdLoader;
   final BackupMetadataStore _metadata;
+  final BackupEncryption _encryption;
 
   /// Read every entity into a memory [BackupDocument]. The document holds
   /// raw row payloads — file I/O is delegated to [BackupFilePort].
@@ -259,7 +310,16 @@ class BackupService {
   /// and the per-book tables (recurring, budgets, attachments).
   /// Merchant rules are global and always included — they don't belong
   /// to any single book.
-  Future<BackupDocument> export({Set<String>? bookIds}) async {
+  ///
+  /// Pass [password] (≥ 8 characters) to wrap the v2 zip bytes in a
+  /// password-encrypted v3 envelope before returning. The plaintext
+  /// payload + attachment binaries stay on the returned document so
+  /// the restore preview can still render summary counts without
+  /// requiring the user to retype the password.
+  Future<BackupDocument> export({
+    Set<String>? bookIds,
+    String? password,
+  }) async {
     final hasFilter = bookIds != null && bookIds.isNotEmpty;
 
     Future<List<T>> scoped<T>(
@@ -339,8 +399,7 @@ class BackupService {
           transactions.map((row) => _transactionToJson(row)).toList(),
       'transactionEntries':
           entries.map((row) => _transactionEntryToJson(row)).toList(),
-      'recurringRules':
-          recurring.map((row) => _recurringToJson(row)).toList(),
+      'recurringRules': recurring.map((row) => _recurringToJson(row)).toList(),
       'budgets': budgets.map((row) => _budgetToJson(row)).toList(),
       'attachments': attachments.map((row) => _attachmentToJson(row)).toList(),
       'merchantRules':
@@ -357,13 +416,42 @@ class BackupService {
       attachments: attachments.length,
       merchantRules: merchantRules.length,
     );
-    return BackupDocument(
+    var document = BackupDocument(
       summary: summary,
       payload: payload,
       bookIds: hasFilter ? scopedBookIds : null,
       attachmentIndex: attachmentIndex,
       attachmentBinaries: attachmentBinaries,
     );
+
+    // Phase 10: if the caller supplied a password, seal the v2
+    // payload into a password-encrypted envelope before returning.
+    // The plaintext payload / binaries stay on the document so the
+    // in-memory restore preview keeps working without retyping the
+    // password.
+    if (password != null && password.isNotEmpty) {
+      final deviceId = await _deviceIdLoader();
+      final envelopeBytes = await _files.buildPlaintextZip(
+        document,
+        deviceId: deviceId,
+      );
+      final encrypted = await _encryption.encrypt(
+        envelopeBytes,
+        password: password,
+        publicMetadata: {
+          'exportedAt': DateTime.now().toUtc().toIso8601String(),
+          'deviceId': deviceId,
+          'summary': document.summary.toJson(),
+          if (document.bookIds != null)
+            'bookIds': document.bookIds!.toList()..sort(),
+          if (document.attachmentIndex.isNotEmpty)
+            'attachmentIndex': document.attachmentIndex,
+        },
+      );
+      document = document.withEncryption(encrypted);
+    }
+
+    return document;
   }
 
   /// Replace the entire local dataset with the contents of [document].
@@ -372,19 +460,25 @@ class BackupService {
   /// rolls back instead of leaving a half-empty database. Pending
   /// sync mutations and conflict markers are intentionally not restored
   /// — they belong to the previous device's sync session.
-  Future<void> restore(BackupDocument document) async {
-    final data = document.payload;
+  ///
+  /// Pass [password] to unwrap a v3 password-encrypted document. When
+  /// the document was encrypted with a different password (or has been
+  /// tampered with) [BackupPasswordException] / [BackupTamperedException]
+  /// bubble up; the caller should surface them as a UI error rather
+  /// than leaving the database half-wiped.
+  Future<void> restore(BackupDocument document, {String? password}) async {
+    final resolved = document.encrypted != null
+        ? await _unwrapEncrypted(document, password: password)
+        : document;
+    final data = resolved.payload;
     final books = _asList(data['books'], 'books');
     final accounts = _asList(data['accounts'], 'accounts');
     final transactions = _asList(data['transactions'], 'transactions');
-    final entries =
-        _asList(data['transactionEntries'], 'transactionEntries');
-    final recurringRules =
-        _asList(data['recurringRules'], 'recurringRules');
+    final entries = _asList(data['transactionEntries'], 'transactionEntries');
+    final recurringRules = _asList(data['recurringRules'], 'recurringRules');
     final budgets = _asList(data['budgets'], 'budgets');
     final attachments = _asList(data['attachments'], 'attachments');
-    final merchantRules =
-        _asList(data['merchantRules'], 'merchantRules');
+    final merchantRules = _asList(data['merchantRules'], 'merchantRules');
 
     await _db.transaction(() async {
       // Wipe in FK-safe order: leaves first, roots last.
@@ -399,8 +493,7 @@ class BackupService {
                 id: raw['id'] as String,
                 name: raw['name'] as String,
                 currencyCode: raw['currencyCode'] as String,
-                createdAt:
-                    DateTime.parse(raw['createdAt'] as String).toLocal(),
+                createdAt: DateTime.parse(raw['createdAt'] as String).toLocal(),
               ),
               mode: InsertMode.insertOrReplace,
             );
@@ -423,12 +516,11 @@ class BackupService {
               TransactionsCompanion.insert(
                 id: raw['id'] as String,
                 bookId: raw['bookId'] as String,
-                occurredAt: DateTime.parse(raw['occurredAt'] as String)
-                    .toLocal(),
+                occurredAt:
+                    DateTime.parse(raw['occurredAt'] as String).toLocal(),
                 description: Value(raw['description'] as String?),
                 version: Value((raw['version'] as num?)?.toInt() ?? 1),
-                createdAt: DateTime.parse(raw['createdAt'] as String)
-                    .toLocal(),
+                createdAt: DateTime.parse(raw['createdAt'] as String).toLocal(),
                 deletedAt:
                     Value(_parseNullableDate(raw['deletedAt'] as String?)),
                 source: Value(raw['source'] as String?),
@@ -464,7 +556,7 @@ class BackupService {
     // path the metadata points at is the one we just produced. Binaries
     // outside the attachmentIndex are ignored — the metadata alone is
     // enough to surface "binary missing" in the UI.
-    for (final binary in document.attachmentBinaries) {
+    for (final binary in resolved.attachmentBinaries) {
       await _attachments.writeBytes(id: binary.id, bytes: binary.bytes);
     }
   }
@@ -509,11 +601,19 @@ class BackupService {
   /// scoped to that subset of books. See [export] for the cascade
   /// rules.
   ///
+  /// When [password] is provided (≥ 8 chars) the snapshot is wrapped
+  /// in a v3 password-encrypted envelope before being written; the
+  /// resulting file uses the `.enc.zip` extension so the user can
+  /// tell at a glance that it is password-protected.
+  ///
   /// On success, also records the backup timestamp through the
   /// [BackupMetadataStore] so the data governance page can render
   /// "上次备份: X 天前" across app restarts.
-  Future<String> exportToFile({Set<String>? bookIds}) async {
-    final document = await export(bookIds: bookIds);
+  Future<String> exportToFile({
+    Set<String>? bookIds,
+    String? password,
+  }) async {
+    final document = await export(bookIds: bookIds, password: password);
     final deviceId = await _deviceIdLoader();
     final path = await _files.writeBackup(document, deviceId: deviceId);
     await _metadata.record(
@@ -521,16 +621,35 @@ class BackupService {
       at: DateTime.now().toUtc(),
       attachmentCount: document.attachmentBinaries.length,
       attachmentSizeBytes: document.attachmentSizeBytes,
+      encrypted: document.encrypted != null,
     );
     return path;
   }
 
   /// Let the user pick a backup file, parse it, and return the
   /// resulting [BackupDocument]. Returns `null` when the user cancels.
-  Future<BackupDocument?> pickAndRead() async {
+  ///
+  /// Pass [password] when the user is restoring from an `.enc.zip`
+  /// (Phase 10 schema v3). Wrong / missing password surfaces as
+  /// [BackupPasswordException]; tampering surfaces as
+  /// [BackupTamperedException] — both are subtypes of
+  /// [BackupFormatException] so the existing UI handler picks them up.
+  Future<BackupDocument?> pickAndRead({String? password}) async {
     final source = await _files.pickBackupSource();
     if (source == null) return null;
-    return _files.readBackup(source);
+    final document = await _files.readBackup(source, password: password);
+    if (document.encrypted == null) return document;
+    if (password == null || password.isEmpty) return document;
+    return _unwrapEncrypted(document, password: password);
+  }
+
+  /// Decrypt a v3 document and return the inner v2 snapshot. Used by
+  /// the restore UI after the user types the backup password.
+  Future<BackupDocument> unlockEncrypted(
+    BackupDocument document, {
+    required String password,
+  }) {
+    return _unwrapEncrypted(document, password: password);
   }
 
   /// Snapshot the live database into a safety backup *before* running
@@ -566,7 +685,10 @@ class BackupService {
     if (raw is! List) {
       throw BackupFormatException('"$field" 字段不是数组');
     }
-    return raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+    return raw
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
   }
 
   Future<void> _restoreRecurring(List<Map<String, dynamic>> rows) async {
@@ -612,6 +734,28 @@ class BackupService {
       if (rule != null) rules.add(rule);
     }
     await _merchantRules.save(rules);
+  }
+
+  /// Decrypt an encrypted document using the user-supplied password
+  /// and return a plain [BackupDocument] that [restore] can consume.
+  /// Throws [BackupPasswordException] when the AES-GCM tag does not
+  /// validate (covers wrong-password + tampered ciphertext).
+  Future<BackupDocument> _unwrapEncrypted(
+    BackupDocument document, {
+    String? password,
+  }) async {
+    final encrypted = document.encrypted;
+    if (encrypted == null) return document;
+    if (password == null || password.isEmpty) {
+      throw const BackupPasswordException(
+        '该备份已加密，请提供密码以恢复',
+      );
+    }
+    final plaintext = await _encryption.decrypt(
+      encrypted,
+      password: password,
+    );
+    return _files.parsePlaintextZip(plaintext);
   }
 
   DateTime? _parseNullableDate(String? raw) {
@@ -729,11 +873,10 @@ abstract class BackupFilePort {
   /// returning an identifier the caller can share / display. The
   /// `deviceId` is embedded inside the envelope so future schema
   /// migrations know which client produced the file.
-  Future<String> writeBackup(BackupDocument document, {required String deviceId});
-
-  /// Read the envelope from [source] (typically a user-chosen file path)
-  /// and return the parsed [BackupDocument].
-  Future<BackupDocument> readBackup(String source);
+  Future<String> writeBackup(
+    BackupDocument document, {
+    required String deviceId,
+  });
 
   /// Persist [document] to an automatic pre-restore safety-net path.
   /// The returned identifier is surfaced to the user so they can recover
@@ -743,8 +886,14 @@ abstract class BackupFilePort {
     required String deviceId,
   });
 
-  /// Open a file picker so the user can choose a `.ledgerly.json`
-  /// envelope. Returns `null` when the user cancels.
+  /// Read the envelope from [source] (typically a user-chosen file path)
+  /// and return the parsed [BackupDocument]. Pass [password] to unwrap
+  /// a v3 encrypted container; omit it to receive the locked shell.
+  Future<BackupDocument> readBackup(String source, {String? password});
+
+  /// Open a file picker so the user can choose a `.ledgerly.json` /
+  /// `.ledgerly.zip` / `.ledgerly.enc.zip` envelope. Returns `null`
+  /// when the user cancels.
   Future<String?> pickBackupSource();
 
   /// Surface [source] to the user via the platform share sheet so they
@@ -752,4 +901,15 @@ abstract class BackupFilePort {
   /// destination when the platform reports one (e.g. "Files saved"),
   /// otherwise `null`.
   Future<String?> shareBackup(String source);
+
+  /// Produce the v2-zip byte stream for [document] so the service can
+  /// encrypt it before persisting.
+  Future<Uint8List> buildPlaintextZip(
+    BackupDocument document, {
+    required String deviceId,
+  });
+
+  /// Reverse of [buildPlaintextZip]. Takes raw v2-zip bytes and
+  /// returns a [BackupDocument] whose `encrypted` field is null.
+  BackupDocument parsePlaintextZip(Uint8List bytes);
 }

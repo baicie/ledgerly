@@ -3,16 +3,23 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
-import 'package:archive/archive_io.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../application/backup_encryption.dart';
 import '../application/backup_service.dart';
 
-/// Default implementation of [BackupFilePort] that talks to the
-/// filesystem + system share sheet. Tests inject an in-memory port so
-/// they can assert envelope shape without touching disk.
+/// File-system boundary for backup I/O. The [BackupFilePort] contract
+/// lives in `backup_service.dart`; this file supplies the platform
+/// implementation and the in-memory test double.
+///
+/// Phase 10 adds:
+///   * `buildPlaintextZip` — used by [BackupService] to seal a v2
+///     payload inside a password-encrypted envelope without going
+///     through the filesystem.
+///   * `parsePlaintextZip` — the inverse, used after decryption so the
+///     service can hand the unwrapped document straight to `restore`.
 class PluginBackupFilePort implements BackupFilePort {
   const PluginBackupFilePort({
     Future<Directory> Function()? documentsDirectoryLoader,
@@ -34,11 +41,12 @@ class PluginBackupFilePort implements BackupFilePort {
     return '$y-$m-${d}_$h$mi';
   }
 
-  String _exportFileName() =>
-      'ledgerly-backup-$_timestamp.ledgerly.zip';
+  String _exportFileName() => 'ledgerly-backup-$_timestamp.ledgerly.zip';
 
-  String _safetyFileName() =>
-      'ledgerly-pre-restore-$_timestamp.ledgerly.zip';
+  String _exportEncryptedFileName() =>
+      'ledgerly-backup-$_timestamp.ledgerly.enc.zip';
+
+  String _safetyFileName() => 'ledgerly-pre-restore-$_timestamp.ledgerly.zip';
 
   @override
   Future<String> writeBackup(
@@ -46,8 +54,13 @@ class PluginBackupFilePort implements BackupFilePort {
     required String deviceId,
   }) async {
     final dir = await _documentsDirectoryLoader();
-    final file = File('${dir.path}/${_exportFileName()}');
-    final bytes = _buildZipBytes(document, deviceId: deviceId);
+    final isEncrypted = document.encrypted != null;
+    final fileName =
+        isEncrypted ? _exportEncryptedFileName() : _exportFileName();
+    final file = File('${dir.path}/$fileName');
+    final bytes = isEncrypted
+        ? _buildEncryptedZipBytes(document)
+        : _buildZipBytes(document, deviceId: deviceId);
     await file.writeAsBytes(bytes, flush: true);
     return file.path;
   }
@@ -65,12 +78,25 @@ class PluginBackupFilePort implements BackupFilePort {
   }
 
   @override
-  Future<BackupDocument> readBackup(String source) async {
+  Future<BackupDocument> readBackup(String source, {String? password}) async {
     final file = File(source);
     if (!await file.exists()) {
       throw BackupFormatException('备份文件不存在：$source');
     }
     final bytes = await file.readAsBytes();
+    return await _decodeOuterZip(bytes, password: password);
+  }
+
+  @override
+  Future<Uint8List> buildPlaintextZip(
+    BackupDocument document, {
+    required String deviceId,
+  }) async {
+    return _buildZipBytes(document, deviceId: deviceId);
+  }
+
+  @override
+  BackupDocument parsePlaintextZip(Uint8List bytes) {
     return _decodeZipBytes(bytes);
   }
 
@@ -220,6 +246,194 @@ List<int> _readBytes(ArchiveFile file) {
   throw BackupFormatException('zip 条目字节无法读取：${file.name}');
 }
 
+// ----------------------------------------------------------------------
+// Phase 10: password-encrypted outer container
+// ----------------------------------------------------------------------
+
+/// Pack an encrypted v3 outer zip from a [BackupDocument] whose
+/// [EncryptedPayload] is already populated. Layout:
+///
+///   envelope.json  ← cleartext (KDF params + nonce + tag + size + sha256)
+///   payload.enc    ← AES-256-GCM ciphertext of the v2-zip bytes
+Uint8List _buildEncryptedZipBytes(BackupDocument document) {
+  final encrypted = document.encrypted;
+  if (encrypted == null) {
+    throw BackupFormatException('加密备份缺少 EncryptedPayload');
+  }
+  final archive = Archive();
+  archive.addFile(
+    ArchiveFile(
+      'envelope.json',
+      encrypted.envelopeJson.length,
+      encrypted.envelopeJson,
+    ),
+  );
+  archive.addFile(
+    ArchiveFile(
+      'payload.enc',
+      encrypted.ciphertext.length,
+      encrypted.ciphertext,
+    ),
+  );
+  final encoded = ZipEncoder().encode(archive);
+  if (encoded == null) {
+    throw const BackupFormatException('加密 zip 编码失败');
+  }
+  return Uint8List.fromList(encoded);
+}
+
+/// Read a v1 JSON, v2 zip, or v3 encrypted zip and return the parsed
+/// [BackupDocument]. For v3 containers the caller may omit [password]
+/// to receive the locked shell (summary only); supplying it unwraps
+/// the inner v2 snapshot immediately.
+Future<BackupDocument> _decodeOuterZip(
+  Uint8List bytes, {
+  String? password,
+}) async {
+  Archive? archive;
+  try {
+    archive = ZipDecoder().decodeBytes(bytes);
+  } catch (error) {
+    return _decodeLegacyJson(bytes, zipError: error);
+  }
+
+  final hasEnvelope = archive.files.any((f) => f.name == 'envelope.json');
+  final hasManifest = archive.files.any((f) => f.name == 'manifest.json');
+  if (!hasEnvelope && !hasManifest) {
+    return _decodeLegacyJson(bytes);
+  }
+  if (!hasEnvelope) {
+    // v2 plaintext zip: manifest.json + data.json + attachments/.
+    return _decodeZipBytes(bytes);
+  }
+
+  // v3 encrypted outer zip.
+  final envelopeFile = archive.files.firstWhere(
+    (f) => f.name == 'envelope.json',
+    orElse: () => throw const BackupFormatException('加密备份缺少 envelope.json'),
+  );
+  final payloadFile = archive.files.firstWhere(
+    (f) => f.name == 'payload.enc',
+    orElse: () => throw const BackupFormatException('加密备份缺少 payload.enc'),
+  );
+
+  Map<String, dynamic> envelopeJson;
+  try {
+    final raw = utf8.decode(_readBytes(envelopeFile));
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) {
+      throw const BackupFormatException('envelope.json 不是 JSON 对象');
+    }
+    envelopeJson = Map<String, dynamic>.from(decoded);
+  } catch (error) {
+    throw BackupFormatException('envelope.json 解析失败：$error');
+  }
+  if (envelopeJson['kind'] != 'ledgerly-backup-encrypted') {
+    throw BackupFormatException(
+      'envelope kind 异常：${envelopeJson['kind']}',
+    );
+  }
+
+  final encryption = envelopeJson['encryption'];
+  if (encryption is! Map) {
+    throw const BackupFormatException('envelope 缺少 encryption 字段');
+  }
+  final encMap = Map<String, dynamic>.from(encryption);
+  final kdfRaw = encMap['kdf'];
+  if (kdfRaw is! Map) {
+    throw const BackupFormatException('envelope kdf 缺失');
+  }
+  final kdf = KdfParams.fromJson(Map<String, dynamic>.from(kdfRaw));
+  final cipher = encMap['cipher'] as String? ?? 'aes-256-gcm';
+  if (cipher != 'aes-256-gcm') {
+    throw BackupFormatException('不支持的加密算法：$cipher');
+  }
+  final nonceRaw = encMap['nonce'];
+  if (nonceRaw is! String) {
+    throw const BackupFormatException('envelope nonce 缺失');
+  }
+  final tagRaw = encMap['authTag'];
+  if (tagRaw is! String) {
+    throw const BackupFormatException('envelope authTag 缺失');
+  }
+  final plaintextSize = (encMap['plaintextSize'] as num?)?.toInt();
+  if (plaintextSize == null) {
+    throw const BackupFormatException('envelope plaintextSize 缺失');
+  }
+  final plaintextSha = encMap['plaintextSha256'] as String?;
+  if (plaintextSha == null) {
+    throw const BackupFormatException('envelope plaintextSha256 缺失');
+  }
+
+  final encrypted = EncryptedPayload(
+    envelopeJson: Uint8List.fromList(_readBytes(envelopeFile)),
+    ciphertext: Uint8List.fromList(_readBytes(payloadFile)),
+    kdf: kdf,
+    nonce: Uint8List.fromList(base64.decode(nonceRaw)),
+    authTag: Uint8List.fromList(base64.decode(tagRaw)),
+    plaintextSize: plaintextSize,
+    plaintextSha256Hex: plaintextSha,
+  );
+
+  // Build a "shell" BackupDocument whose payload / attachmentIndex are
+  // taken from the (intentionally minimal) envelope.json so the
+  // restore preview can render summary counts without needing the
+  // password. The decryption path replaces these fields once the
+  // password unlocks the ciphertext.
+  final envelopeSummary = envelopeJson['summary'];
+  final summary = envelopeSummary is Map
+      ? BackupSummary.fromJson(Map<String, dynamic>.from(envelopeSummary))
+      : const BackupSummary(
+          books: 0,
+          accounts: 0,
+          transactions: 0,
+          transactionEntries: 0,
+          recurringRules: 0,
+          budgets: 0,
+          attachments: 0,
+          merchantRules: 0,
+        );
+  final rawBookIds = envelopeJson['bookIds'];
+  final bookIds =
+      rawBookIds is List ? rawBookIds.whereType<String>().toSet() : null;
+  final rawIndex = envelopeJson['attachmentIndex'];
+  final attachmentIndex = rawIndex is List
+      ? rawIndex
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList()
+      : const <Map<String, dynamic>>[];
+
+  if (password != null && password.isNotEmpty) {
+    final plaintext = await BackupEncryption().decrypt(
+      encrypted,
+      password: password,
+    );
+    return _decodeZipBytes(plaintext);
+  }
+
+  return BackupDocument(
+    summary: summary,
+    payload: const {},
+    bookIds: bookIds,
+    attachmentIndex: attachmentIndex,
+    encrypted: encrypted,
+    schemaVersion: kEncryptedBackupSchemaVersion,
+  );
+}
+
+BackupDocument _decodeLegacyJson(Uint8List bytes, {Object? zipError}) {
+  try {
+    final decoded = jsonDecode(utf8.decode(bytes));
+    if (decoded is Map) {
+      return BackupDocument.fromEnvelope(Map<String, dynamic>.from(decoded));
+    }
+  } catch (_) {}
+  throw BackupFormatException(
+    zipError == null ? '备份文件无法识别' : '备份文件不是合法 zip：$zipError',
+  );
+}
+
 /// Convenience factory so the rest of the app does not need to import
 /// `package:path_provider` directly.
 BackupFilePort createPlatformBackupFilePort() => const PluginBackupFilePort();
@@ -230,8 +444,8 @@ class InMemoryBackupFilePort implements BackupFilePort {
   InMemoryBackupFilePort({
     Map<String, BackupDocument>? envelopes,
     this.pickResult,
-  }) : envelopes = envelopes ?? <String, BackupDocument>{},
-       rawFiles = <String, Uint8List>{};
+  })  : envelopes = envelopes ?? <String, BackupDocument>{},
+        rawFiles = <String, Uint8List>{};
 
   /// Stored envelopes keyed by the source identifier returned by
   /// [writeBackup] / [writePreRestoreSafetyBackup]. Defaults to an
@@ -259,7 +473,9 @@ class InMemoryBackupFilePort implements BackupFilePort {
   }) async {
     final id = 'memory-backup-${++_counter}';
     envelopes[id] = document;
-    rawFiles[id] = _buildZipBytes(document, deviceId: deviceId);
+    rawFiles[id] = document.encrypted != null
+        ? _buildEncryptedZipBytes(document)
+        : _buildZipBytes(document, deviceId: deviceId);
     return id;
   }
 
@@ -275,10 +491,10 @@ class InMemoryBackupFilePort implements BackupFilePort {
   }
 
   @override
-  Future<BackupDocument> readBackup(String source) async {
+  Future<BackupDocument> readBackup(String source, {String? password}) async {
     final raw = rawFiles[source];
     if (raw != null) {
-      return _decodeZipBytes(raw);
+      return await _decodeOuterZip(raw, password: password);
     }
     final doc = envelopes[source];
     if (doc == null) {
@@ -292,4 +508,17 @@ class InMemoryBackupFilePort implements BackupFilePort {
 
   @override
   Future<String?> shareBackup(String source) async => source;
+
+  @override
+  Future<Uint8List> buildPlaintextZip(
+    BackupDocument document, {
+    required String deviceId,
+  }) async {
+    return _buildZipBytes(document, deviceId: deviceId);
+  }
+
+  @override
+  BackupDocument parsePlaintextZip(Uint8List bytes) {
+    return _decodeZipBytes(bytes);
+  }
 }

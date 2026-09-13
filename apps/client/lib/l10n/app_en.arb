@@ -1343,5 +1343,51 @@
       }
     }
   },
-  "dataGovernanceRestoreNoAttachmentsV1": "This backup is schema v1 — no attachment binaries."
+  "dataGovernanceRestoreNoAttachmentsV1": "This backup is schema v1 — no attachment binaries.",
+  "dataGovernanceEncryptWithPassword": "Encrypt with password",
+  "dataGovernancePasswordHint": "At least 8 characters; losing it makes the backup unrecoverable",
+  "dataGovernancePasswordConfirmHint": "Re-enter password",
+  "dataGovernancePasswordMismatch": "Passwords do not match",
+  "dataGovernancePasswordTooShort": "Password must be at least 8 characters",
+  "dataGovernanceExportEncryptedAll": "Export encrypted all books ({n})",
+  "@dataGovernanceExportEncryptedAll": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceExportEncryptedSelected": "Export encrypted {n} books",
+  "@dataGovernanceExportEncryptedSelected": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceUnlockPrompt": "Enter backup password",
+  "dataGovernanceUnlockWrongPassword": "Wrong password, try again",
+  "dataGovernanceUnlockLockedFor": "Locked, retry in {seconds}s",
+  "@dataGovernanceUnlockLockedFor": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceRestoreLegacyUnencrypted": "This backup is not encrypted (schema v2)",
+  "dataGovernanceRestoreLegacyUnencryptedDetail": "Consider using a password-encrypted backup for sensitive financial data",
+  "dataGovernanceStatusEncrypted": "Password protected",
+  "dataGovernanceEncryptLostPasswordWarning": "If you lose the password the backup cannot be recovered",
+  "dataGovernanceAutoBackup": "Automatic backup",
+  "dataGovernanceAutoBackupSubtitle": "Checked when you open the app; writes a local snapshot when due",
+  "dataGovernanceAutoBackupWarning": "Automatic backups are not encrypted. Use a password export for sensitive books.",
+  "dataGovernanceAutoIntervalDays": "{n} days",
+  "@dataGovernanceAutoIntervalDays": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
 }

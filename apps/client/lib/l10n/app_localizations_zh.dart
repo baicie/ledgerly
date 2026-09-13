@@ -2215,4 +2215,67 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get dataGovernanceRestoreNoAttachmentsV1 => '该备份是 schema v1，不含附件二进制。';
+
+  @override
+  String get dataGovernanceEncryptWithPassword => '使用密码加密';
+
+  @override
+  String get dataGovernancePasswordHint => '至少 8 位；丢失将无法恢复备份';
+
+  @override
+  String get dataGovernancePasswordConfirmHint => '再次输入密码';
+
+  @override
+  String get dataGovernancePasswordMismatch => '两次输入的密码不一致';
+
+  @override
+  String get dataGovernancePasswordTooShort => '密码至少 8 位';
+
+  @override
+  String dataGovernanceExportEncryptedAll(int n) {
+    return '导出加密的全部账本（$n）';
+  }
+
+  @override
+  String dataGovernanceExportEncryptedSelected(int n) {
+    return '导出加密的 $n 个账本';
+  }
+
+  @override
+  String get dataGovernanceUnlockPrompt => '输入备份密码';
+
+  @override
+  String get dataGovernanceUnlockWrongPassword => '密码错误，请重试';
+
+  @override
+  String dataGovernanceUnlockLockedFor(int seconds) {
+    return '输入锁定，$seconds 秒后重试';
+  }
+
+  @override
+  String get dataGovernanceRestoreLegacyUnencrypted => '该备份未加密（schema v2）';
+
+  @override
+  String get dataGovernanceRestoreLegacyUnencryptedDetail =>
+      '建议使用带密码的加密备份来保护敏感财务数据';
+
+  @override
+  String get dataGovernanceStatusEncrypted => '密码保护';
+
+  @override
+  String get dataGovernanceEncryptLostPasswordWarning => '密码丢失将无法恢复，请妥善保管';
+
+  @override
+  String get dataGovernanceAutoBackup => '自动备份';
+
+  @override
+  String get dataGovernanceAutoBackupSubtitle => '打开应用时检查；到期则写入本地快照';
+
+  @override
+  String get dataGovernanceAutoBackupWarning => '自动备份不加密。敏感账本请继续使用密码导出。';
+
+  @override
+  String dataGovernanceAutoIntervalDays(int n) {
+    return '$n 天';
+  }
 }

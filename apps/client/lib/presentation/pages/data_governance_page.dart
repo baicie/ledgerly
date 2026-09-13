@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../application/backup_encryption.dart';
 import '../../application/backup_metadata_store.dart';
+import '../../application/backup_schedule.dart';
 import '../../application/backup_service.dart';
 import '../../data/database.dart';
 import '../../l10n/l10n.dart';
@@ -34,10 +38,27 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
   /// "every book" — the default Phase 6 behaviour.
   final Set<String> _selectedBookIds = <String>{};
 
+  /// Phase 10: optional password wrapping. When true the export button
+  /// writes a v3 `.enc.zip` and the password fields are visible.
+  bool _encryptBackup = false;
+  final _passwordController = TextEditingController();
+  final _passwordConfirmController = TextEditingController();
+
+  /// True when [_pendingDocument] came from a plaintext v1/v2 file so
+  /// the restore preview can nudge the user toward encrypted backups.
+  bool _pendingIsUnencrypted = false;
+
   bool _busy = false;
   String? _error;
 
   BackupService get _service => ref.read(backupServiceProvider);
+
+  @override
+  void dispose() {
+    _passwordController.dispose();
+    _passwordConfirmController.dispose();
+    super.dispose();
+  }
 
   void _setBusy(bool value) {
     if (!mounted) return;
@@ -45,6 +66,59 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
       _busy = value;
       if (value) _error = null;
     });
+  }
+
+  String? get _exportPassword {
+    if (!_encryptBackup) return null;
+    return _passwordController.text;
+  }
+
+  bool get _exportPasswordReady {
+    if (!_encryptBackup) return true;
+    final password = _passwordController.text;
+    if (password.length < 8) return false;
+    return password == _passwordConfirmController.text;
+  }
+
+  void _syncExportPasswordProvider() {
+    ref.read(encryptedBackupPasswordProvider.notifier).state = _exportPassword;
+  }
+
+  Future<void> _setAutoBackupEnabled(bool enabled) async {
+    final store = ref.read(backupScheduleStoreProvider);
+    final current = await store.read();
+    final next = current.copyWith(enabled: enabled);
+    await store.save(next);
+    ref.invalidate(backupScheduleProvider);
+    if (enabled) await _runAutoBackupTick();
+  }
+
+  Future<void> _setAutoBackupInterval(int intervalDays) async {
+    final store = ref.read(backupScheduleStoreProvider);
+    final current = await store.read();
+    final next = current.copyWith(intervalDays: intervalDays);
+    await store.save(next);
+    ref.invalidate(backupScheduleProvider);
+    if (next.enabled) await _runAutoBackupTick();
+  }
+
+  /// User-initiated check from the data-governance page. Silent launch
+  /// ticks live in [autoBackupTickProvider]; this path also refreshes
+  /// the shareable last-path so the status card and share button update.
+  Future<void> _runAutoBackupTick() async {
+    _setBusy(true);
+    try {
+      final result = await ref.read(autoBackupCoordinatorProvider).tick();
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        if (result.ran) _lastBackupPath = result.path;
+      });
+      if (result.ran) ref.invalidate(backupMetadataProvider);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+    }
   }
 
   // -- Export -----------------------------------------------------------
@@ -55,17 +129,36 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
   /// the status card + stale banner refresh after a successful export.
   Future<void> _exportBackup({Set<String>? bookIds}) async {
     final l10n = l10nOf(context);
+    if (!_exportPasswordReady) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _passwordController.text.length < 8
+                ? l10n.dataGovernancePasswordTooShort
+                : l10n.dataGovernancePasswordMismatch,
+          ),
+        ),
+      );
+      return;
+    }
     final filter = (bookIds != null && bookIds.isNotEmpty)
         ? Set<String>.unmodifiable(bookIds)
         : null;
+    final password = _exportPassword;
     _setBusy(true);
     try {
-      final path = await _service.exportToFile(bookIds: filter);
+      final path = await _service.exportToFile(
+        bookIds: filter,
+        password: password,
+      );
       if (!mounted) return;
       setState(() {
         _lastBackupPath = path;
         _busy = false;
       });
+      _passwordController.clear();
+      _passwordConfirmController.clear();
+      ref.read(encryptedBackupPasswordProvider.notifier).state = null;
       // Re-read the persisted metadata so the status card + stale
       // banner refresh immediately after a successful export.
       ref.invalidate(backupMetadataProvider);
@@ -113,14 +206,23 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
     final l10n = l10nOf(context);
     _setBusy(true);
     try {
-      final document = await _service.pickAndRead();
+      var document = await _service.pickAndRead();
       if (!mounted) return;
       if (document == null) {
         setState(() => _busy = false);
         return;
       }
+      final wasEncrypted = document.isEncrypted;
+      if (wasEncrypted) {
+        setState(() => _busy = false);
+        final unlocked = await _unlockEncryptedDocument(document);
+        if (!mounted) return;
+        if (unlocked == null) return;
+        document = unlocked;
+      }
       setState(() {
         _pendingDocument = document;
+        _pendingIsUnencrypted = !wasEncrypted;
         _busy = false;
       });
     } on BackupFormatException catch (error) {
@@ -145,9 +247,27 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
     }
   }
 
+  Future<BackupDocument?> _unlockEncryptedDocument(
+    BackupDocument document,
+  ) {
+    final l10n = l10nOf(context);
+    return showDialog<BackupDocument>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => _UnlockDialog(
+        l10n: l10n,
+        onUnlock: (password) => _service.unlockEncrypted(
+          document,
+          password: password,
+        ),
+      ),
+    );
+  }
+
   void _cancelRestore() {
     setState(() {
       _pendingDocument = null;
+      _pendingIsUnencrypted = false;
     });
   }
 
@@ -243,6 +363,11 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
       data: (value) => value,
       orElse: () => BackupMetadata.empty,
     );
+    final schedule = ref.watch(backupScheduleProvider).maybeWhen(
+          skipLoadingOnReload: true,
+          data: (value) => value,
+          orElse: () => BackupSchedule.disabled,
+        );
     final booksAsync = ref.watch(booksProvider);
     final availableBooks = booksAsync.maybeWhen(
       data: (value) => value,
@@ -252,9 +377,8 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
     final staleAgeDays = metadata.lastBackupAt == null
         ? null
         : now.difference(metadata.lastBackupAt!.toLocal()).inDays;
-    final isStale = staleAgeDays == null
-        ? false
-        : staleAgeDays >= kBackupStaleDays;
+    final isStale =
+        staleAgeDays == null ? false : staleAgeDays >= kBackupStaleDays;
     final showStaleBanner = isStale && !_busy;
     final exportSelection = _selectedBookIds.isEmpty
         ? null
@@ -304,19 +428,39 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
                   selectedBookIds: _selectedBookIds,
                   lastBackupPath: _lastBackupPath,
                   pendingSummary: _pendingDocument?.summary,
-                  onExport: _busy
+                  pendingIsUnencrypted: _pendingIsUnencrypted,
+                  pendingSchemaVersion: _pendingDocument?.schemaVersion,
+                  encryptBackup: _encryptBackup,
+                  passwordController: _passwordController,
+                  passwordConfirmController: _passwordConfirmController,
+                  autoBackupEnabled: schedule.enabled,
+                  autoBackupIntervalDays: schedule.intervalDays,
+                  onAutoBackupChanged: _busy
+                      ? null
+                      : (enabled) => unawaited(_setAutoBackupEnabled(enabled)),
+                  onAutoBackupIntervalChanged: _busy
+                      ? null
+                      : (days) => unawaited(_setAutoBackupInterval(days)),
+                  onEncryptChanged: _busy
+                      ? null
+                      : (value) {
+                          setState(() => _encryptBackup = value);
+                          _syncExportPasswordProvider();
+                        },
+                  onPasswordChanged: (_) {
+                    setState(() {});
+                    _syncExportPasswordProvider();
+                  },
+                  onExport: _busy || !_exportPasswordReady
                       ? null
                       : () => _exportBackup(bookIds: exportSelection),
-                  onToggleBook: _busy
-                      ? null
-                      : _toggleBookSelection,
+                  onToggleBook: _busy ? null : _toggleBookSelection,
                   onShare: _busy || _lastBackupPath == null
                       ? null
                       : () => _shareBackup(_lastBackupPath!),
                   onPickRestore: _busy ? null : _pickRestoreFile,
-                  onCancelRestore: _busy || _pendingDocument == null
-                      ? null
-                      : _cancelRestore,
+                  onCancelRestore:
+                      _busy || _pendingDocument == null ? null : _cancelRestore,
                   onConfirmRestore: _busy || _pendingDocument == null
                       ? null
                       : _confirmRestore,
@@ -360,6 +504,17 @@ class _BackupSection extends StatelessWidget {
     required this.selectedBookIds,
     required this.lastBackupPath,
     required this.pendingSummary,
+    required this.pendingIsUnencrypted,
+    required this.pendingSchemaVersion,
+    required this.encryptBackup,
+    required this.passwordController,
+    required this.passwordConfirmController,
+    required this.autoBackupEnabled,
+    required this.autoBackupIntervalDays,
+    required this.onAutoBackupChanged,
+    required this.onAutoBackupIntervalChanged,
+    required this.onEncryptChanged,
+    required this.onPasswordChanged,
     required this.onExport,
     required this.onToggleBook,
     required this.onShare,
@@ -374,6 +529,17 @@ class _BackupSection extends StatelessWidget {
   final Set<String> selectedBookIds;
   final String? lastBackupPath;
   final BackupSummary? pendingSummary;
+  final bool pendingIsUnencrypted;
+  final int? pendingSchemaVersion;
+  final bool encryptBackup;
+  final TextEditingController passwordController;
+  final TextEditingController passwordConfirmController;
+  final bool autoBackupEnabled;
+  final int autoBackupIntervalDays;
+  final ValueChanged<bool>? onAutoBackupChanged;
+  final ValueChanged<int>? onAutoBackupIntervalChanged;
+  final ValueChanged<bool>? onEncryptChanged;
+  final ValueChanged<String> onPasswordChanged;
   final VoidCallback? onExport;
   final ValueChanged<String>? onToggleBook;
   final VoidCallback? onShare;
@@ -382,6 +548,12 @@ class _BackupSection extends StatelessWidget {
   final VoidCallback? onConfirmRestore;
 
   String _exportLabel(int totalBooks) {
+    if (encryptBackup) {
+      if (selectedBookIds.isEmpty) {
+        return l10n.dataGovernanceExportEncryptedAll(totalBooks);
+      }
+      return l10n.dataGovernanceExportEncryptedSelected(selectedBookIds.length);
+    }
     if (selectedBookIds.isEmpty) {
       return l10n.dataGovernanceExportAll(totalBooks);
     }
@@ -412,6 +584,100 @@ class _BackupSection extends StatelessWidget {
               selectedBookIds: selectedBookIds,
               onToggle: onToggleBook,
             ),
+          CheckboxListTile(
+            key: const Key('data-governance-encrypt-checkbox'),
+            value: encryptBackup,
+            onChanged: onEncryptChanged == null
+                ? null
+                : (value) => onEncryptChanged!(value ?? false),
+            controlAffinity: ListTileControlAffinity.leading,
+            title: Text(l10n.dataGovernanceEncryptWithPassword),
+            subtitle: Text(l10n.dataGovernancePasswordHint),
+          ),
+          if (encryptBackup)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    key: const Key('data-governance-encrypt-password'),
+                    controller: passwordController,
+                    obscureText: true,
+                    enabled: !busy,
+                    onChanged: onPasswordChanged,
+                    decoration: InputDecoration(
+                      labelText: l10n.dataGovernanceUnlockPrompt,
+                      border: const OutlineInputBorder(),
+                      errorText: passwordController.text.isNotEmpty &&
+                              passwordController.text.length < 8
+                          ? l10n.dataGovernancePasswordTooShort
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    key: const Key('data-governance-encrypt-password-confirm'),
+                    controller: passwordConfirmController,
+                    obscureText: true,
+                    enabled: !busy,
+                    onChanged: onPasswordChanged,
+                    decoration: InputDecoration(
+                      labelText: l10n.dataGovernancePasswordConfirmHint,
+                      border: const OutlineInputBorder(),
+                      errorText: passwordConfirmController.text.isNotEmpty &&
+                              passwordConfirmController.text !=
+                                  passwordController.text
+                          ? l10n.dataGovernancePasswordMismatch
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    l10n.dataGovernanceEncryptLostPasswordWarning,
+                    key: const Key('data-governance-encrypt-warning'),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          SwitchListTile(
+            key: const Key('data-governance-auto-backup-switch'),
+            value: autoBackupEnabled,
+            onChanged: onAutoBackupChanged,
+            title: Text(l10n.dataGovernanceAutoBackup),
+            subtitle: Text(l10n.dataGovernanceAutoBackupSubtitle),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final days in kBackupAutoIntervalDays)
+                  FilterChip(
+                    key: Key('data-governance-auto-interval-$days'),
+                    label: Text(l10n.dataGovernanceAutoIntervalDays(days)),
+                    selected: autoBackupIntervalDays == days,
+                    onSelected: onAutoBackupIntervalChanged == null
+                        ? null
+                        : (_) => onAutoBackupIntervalChanged!(days),
+                  ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Text(
+              l10n.dataGovernanceAutoBackupWarning,
+              key: const Key('data-governance-auto-backup-warning'),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: Wrap(
@@ -476,13 +742,16 @@ class _BackupSection extends StatelessWidget {
               ],
             ),
           ),
-          if (pendingSummary != null) _RestorePreviewCard(
-            l10n: l10n,
-            summary: pendingSummary!,
-            onCancel: onCancelRestore,
-            onConfirm: onConfirmRestore,
-            busy: busy,
-          ),
+          if (pendingSummary != null)
+            _RestorePreviewCard(
+              l10n: l10n,
+              summary: pendingSummary!,
+              isUnencrypted: pendingIsUnencrypted,
+              schemaVersion: pendingSchemaVersion ?? kBackupSchemaVersion,
+              onCancel: onCancelRestore,
+              onConfirm: onConfirmRestore,
+              busy: busy,
+            ),
         ],
       ),
     );
@@ -493,6 +762,8 @@ class _RestorePreviewCard extends StatelessWidget {
   const _RestorePreviewCard({
     required this.l10n,
     required this.summary,
+    required this.isUnencrypted,
+    required this.schemaVersion,
     required this.onCancel,
     required this.onConfirm,
     required this.busy,
@@ -500,6 +771,8 @@ class _RestorePreviewCard extends StatelessWidget {
 
   final AppLocalizations l10n;
   final BackupSummary summary;
+  final bool isUnencrypted;
+  final int schemaVersion;
   final VoidCallback? onCancel;
   final VoidCallback? onConfirm;
   final bool busy;
@@ -546,6 +819,30 @@ class _RestorePreviewCard extends StatelessWidget {
               ),
               key: const Key('data-governance-restore-summary'),
             ),
+          if (isUnencrypted) ...[
+            const SizedBox(height: 8),
+            Text(
+              l10n.dataGovernanceRestoreLegacyUnencrypted,
+              key: const Key('data-governance-restore-unencrypted-warning'),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.tertiary,
+              ),
+            ),
+            Text(
+              l10n.dataGovernanceRestoreLegacyUnencryptedDetail,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+          if (schemaVersion <= 1) ...[
+            const SizedBox(height: 8),
+            Text(
+              l10n.dataGovernanceRestoreNoAttachmentsV1,
+              key: const Key('data-governance-restore-v1-warning'),
+              style: theme.textTheme.bodySmall,
+            ),
+          ],
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -811,7 +1108,9 @@ class _BackupStatusCard extends StatelessWidget {
         children: [
           Icon(
             metadata.hasBackup
-                ? Icons.cloud_done_outlined
+                ? (metadata.lastBackupEncrypted
+                    ? Icons.lock_outlined
+                    : Icons.cloud_done_outlined)
                 : Icons.cloud_off_outlined,
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -848,6 +1147,16 @@ class _BackupStatusCard extends StatelessWidget {
                     key: const Key('data-governance-status-attachments'),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+                if (metadata.lastBackupEncrypted) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    l10n.dataGovernanceStatusEncrypted,
+                    key: const Key('data-governance-status-encrypted'),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.primary,
                     ),
                   ),
                 ],
@@ -1014,14 +1323,155 @@ class _BookSelector extends StatelessWidget {
                   key: Key('data-governance-book-chip-${book.id}'),
                   label: Text(book.name),
                   selected: selectedBookIds.contains(book.id),
-                  onSelected: disabled
-                      ? null
-                      : (selected) => onToggle!(book.id),
+                  onSelected:
+                      disabled ? null : (selected) => onToggle!(book.id),
                 ),
             ],
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Password prompt used when restoring a v3 encrypted backup. Lockout
+/// lives entirely in this dialog so [BackupService] stays pure.
+class _UnlockDialog extends StatefulWidget {
+  const _UnlockDialog({
+    required this.l10n,
+    required this.onUnlock,
+  });
+
+  final AppLocalizations l10n;
+  final Future<BackupDocument> Function(String password) onUnlock;
+
+  @override
+  State<_UnlockDialog> createState() => _UnlockDialogState();
+}
+
+class _UnlockDialogState extends State<_UnlockDialog> {
+  final _controller = TextEditingController();
+  int _failedAttempts = 0;
+  DateTime? _lockedUntil;
+  Timer? _ticker;
+  String? _error;
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  bool get _isLocked {
+    final until = _lockedUntil;
+    return until != null && DateTime.now().isBefore(until);
+  }
+
+  int get _lockSecondsRemaining {
+    final until = _lockedUntil;
+    if (until == null) return 0;
+    final remaining = until.difference(DateTime.now()).inSeconds;
+    return remaining < 0 ? 0 : remaining;
+  }
+
+  void _ensureTicker() {
+    if (_ticker != null) return;
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      if (!_isLocked) {
+        _ticker?.cancel();
+        _ticker = null;
+      }
+      setState(() {});
+    });
+  }
+
+  Future<void> _submit() async {
+    if (_busy || _isLocked) return;
+    final password = _controller.text;
+    if (password.length < 8) {
+      setState(() => _error = widget.l10n.dataGovernancePasswordTooShort);
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final document = await widget.onUnlock(password);
+      if (!mounted) return;
+      Navigator.pop(context, document);
+    } on BackupPasswordException {
+      if (!mounted) return;
+      final nextFailed = _failedAttempts + 1;
+      DateTime? lockedUntil;
+      if (nextFailed >= kBackupUnlockMaxAttempts) {
+        lockedUntil = DateTime.now().add(kBackupUnlockLockDuration);
+        _ensureTicker();
+      }
+      setState(() {
+        _busy = false;
+        _failedAttempts =
+            nextFailed >= kBackupUnlockMaxAttempts ? 0 : nextFailed;
+        _lockedUntil = lockedUntil ?? _lockedUntil;
+        _error = widget.l10n.dataGovernanceUnlockWrongPassword;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = '$error';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = widget.l10n;
+    final locked = _isLocked;
+    final remaining = _lockSecondsRemaining;
+    return AlertDialog(
+      key: const Key('data-governance-unlock-dialog'),
+      title: Text(l10n.dataGovernanceUnlockPrompt),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            key: const Key('data-governance-unlock-password'),
+            controller: _controller,
+            obscureText: true,
+            autofocus: true,
+            enabled: !locked && !_busy,
+            onSubmitted: (_) => _submit(),
+            decoration: InputDecoration(
+              labelText: l10n.dataGovernanceUnlockPrompt,
+              border: const OutlineInputBorder(),
+              errorText: locked
+                  ? l10n.dataGovernanceUnlockLockedFor(remaining)
+                  : _error,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.pop(context),
+          child: Text(l10n.cancel),
+        ),
+        FilledButton(
+          key: const Key('data-governance-unlock-submit'),
+          onPressed: locked || _busy ? null : _submit,
+          child: _busy
+              ? const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(l10n.confirm),
+        ),
+      ],
     );
   }
 }

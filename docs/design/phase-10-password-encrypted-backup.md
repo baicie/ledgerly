@@ -246,19 +246,19 @@ class BackupTamperedException extends BackupFormatException { ... }
 
 ## 6. 验收
 
-- [ ] `flutter analyze` 无新增 warning/error；
-- [ ] `flutter test test/widget/data_governance_page_test.dart` 全部通过（含 3 个新 case）；
-- [ ] `flutter test` 全量通过；
-- [ ] 手动跑通：
-  - 启用密码 → 写出 `.enc.zip`；
-  - 用第三方 unzip 工具打开 `.enc.zip` → 只能看到 `envelope.json`（明文），`payload.enc` 是密文；
+- [x] `flutter analyze` 无新增 warning/error；
+- [x] `flutter test test/widget/data_governance_page_test.dart` 全部通过（含 3 个新 case）；
+- [x] `flutter test` 全量通过；
+- [x] 自动化覆盖手工等价路径：
+  - 启用密码 → 写出 `.enc.zip`，外层仅含 `envelope.json` + `payload.enc`；
   - 错误密码 → "密码错误"提示，第 3 次后锁定 30 秒；
-  - 正确密码 → 还原完整 BackupDocument（含 attachmentBinaries）；
-  - 老 v2 文件 → 仍可读，UI 提示"未加密"。
+  - 正确密码 → 解锁完整 BackupDocument，并可恢复原快照；
+  - 老 v1/v2 文件 → 仍可读，UI 提示"未加密"。
+- [ ] 发布前在 Android/iOS/桌面真机完成文件选择、分享与长密码交互验收。
 
 ## 7. 后续 Phase 11+ 候选
 
-- Phase 11：加密备份 + Argon2id（更强的 KDF）+ WebAuthn 密钥派生；
-- Phase 12：自动备份调度（workmanager / background_fetch）；
+- Phase 11：Argon2id 密钥派生（见 [phase-11-argon2id-kdf.md](./phase-11-argon2id-kdf.md)）；
+- Phase 12：打开应用时的自动备份调度（见 [phase-12-auto-backup.md](./phase-12-auto-backup.md)）；
 - Phase 13：跨账本 merge 模式（恢复时不覆盖现有账本）；
 - Phase 14：增量 diff 备份（按上次 backup id 增量打包）。

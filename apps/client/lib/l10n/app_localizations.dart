@@ -4137,6 +4137,114 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'该备份是 schema v1，不含附件二进制。'**
   String get dataGovernanceRestoreNoAttachmentsV1;
+
+  /// No description provided for @dataGovernanceEncryptWithPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用密码加密'**
+  String get dataGovernanceEncryptWithPassword;
+
+  /// No description provided for @dataGovernancePasswordHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'至少 8 位；丢失将无法恢复备份'**
+  String get dataGovernancePasswordHint;
+
+  /// No description provided for @dataGovernancePasswordConfirmHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'再次输入密码'**
+  String get dataGovernancePasswordConfirmHint;
+
+  /// No description provided for @dataGovernancePasswordMismatch.
+  ///
+  /// In zh, this message translates to:
+  /// **'两次输入的密码不一致'**
+  String get dataGovernancePasswordMismatch;
+
+  /// No description provided for @dataGovernancePasswordTooShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码至少 8 位'**
+  String get dataGovernancePasswordTooShort;
+
+  /// No description provided for @dataGovernanceExportEncryptedAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出加密的全部账本（{n}）'**
+  String dataGovernanceExportEncryptedAll(int n);
+
+  /// No description provided for @dataGovernanceExportEncryptedSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出加密的 {n} 个账本'**
+  String dataGovernanceExportEncryptedSelected(int n);
+
+  /// No description provided for @dataGovernanceUnlockPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入备份密码'**
+  String get dataGovernanceUnlockPrompt;
+
+  /// No description provided for @dataGovernanceUnlockWrongPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码错误，请重试'**
+  String get dataGovernanceUnlockWrongPassword;
+
+  /// No description provided for @dataGovernanceUnlockLockedFor.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入锁定，{seconds} 秒后重试'**
+  String dataGovernanceUnlockLockedFor(int seconds);
+
+  /// No description provided for @dataGovernanceRestoreLegacyUnencrypted.
+  ///
+  /// In zh, this message translates to:
+  /// **'该备份未加密（schema v2）'**
+  String get dataGovernanceRestoreLegacyUnencrypted;
+
+  /// No description provided for @dataGovernanceRestoreLegacyUnencryptedDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'建议使用带密码的加密备份来保护敏感财务数据'**
+  String get dataGovernanceRestoreLegacyUnencryptedDetail;
+
+  /// No description provided for @dataGovernanceStatusEncrypted.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码保护'**
+  String get dataGovernanceStatusEncrypted;
+
+  /// No description provided for @dataGovernanceEncryptLostPasswordWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码丢失将无法恢复，请妥善保管'**
+  String get dataGovernanceEncryptLostPasswordWarning;
+
+  /// No description provided for @dataGovernanceAutoBackup.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动备份'**
+  String get dataGovernanceAutoBackup;
+
+  /// No description provided for @dataGovernanceAutoBackupSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开应用时检查；到期则写入本地快照'**
+  String get dataGovernanceAutoBackupSubtitle;
+
+  /// No description provided for @dataGovernanceAutoBackupWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动备份不加密。敏感账本请继续使用密码导出。'**
+  String get dataGovernanceAutoBackupWarning;
+
+  /// No description provided for @dataGovernanceAutoIntervalDays.
+  ///
+  /// In zh, this message translates to:
+  /// **'{n} 天'**
+  String dataGovernanceAutoIntervalDays(int n);
 }
 
 class _AppLocalizationsDelegate

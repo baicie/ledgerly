@@ -1328,5 +1328,51 @@
       }
     }
   },
-  "dataGovernanceRestoreNoAttachmentsV1": "该备份是 schema v1，不含附件二进制。"
+  "dataGovernanceRestoreNoAttachmentsV1": "该备份是 schema v1，不含附件二进制。",
+  "dataGovernanceEncryptWithPassword": "使用密码加密",
+  "dataGovernancePasswordHint": "至少 8 位；丢失将无法恢复备份",
+  "dataGovernancePasswordConfirmHint": "再次输入密码",
+  "dataGovernancePasswordMismatch": "两次输入的密码不一致",
+  "dataGovernancePasswordTooShort": "密码至少 8 位",
+  "dataGovernanceExportEncryptedAll": "导出加密的全部账本（{n}）",
+  "@dataGovernanceExportEncryptedAll": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceExportEncryptedSelected": "导出加密的 {n} 个账本",
+  "@dataGovernanceExportEncryptedSelected": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceUnlockPrompt": "输入备份密码",
+  "dataGovernanceUnlockWrongPassword": "密码错误，请重试",
+  "dataGovernanceUnlockLockedFor": "输入锁定，{seconds} 秒后重试",
+  "@dataGovernanceUnlockLockedFor": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceRestoreLegacyUnencrypted": "该备份未加密（schema v2）",
+  "dataGovernanceRestoreLegacyUnencryptedDetail": "建议使用带密码的加密备份来保护敏感财务数据",
+  "dataGovernanceStatusEncrypted": "密码保护",
+  "dataGovernanceEncryptLostPasswordWarning": "密码丢失将无法恢复，请妥善保管",
+  "dataGovernanceAutoBackup": "自动备份",
+  "dataGovernanceAutoBackupSubtitle": "打开应用时检查；到期则写入本地快照",
+  "dataGovernanceAutoBackupWarning": "自动备份不加密。敏感账本请继续使用密码导出。",
+  "dataGovernanceAutoIntervalDays": "{n} 天",
+  "@dataGovernanceAutoIntervalDays": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
 }

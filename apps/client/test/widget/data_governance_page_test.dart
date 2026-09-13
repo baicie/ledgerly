@@ -8,7 +8,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:ledgerly_client/application/backup_encryption.dart';
 import 'package:ledgerly_client/application/backup_metadata_store.dart';
+import 'package:ledgerly_client/application/backup_schedule.dart';
 import 'package:ledgerly_client/application/backup_service.dart';
 import 'package:ledgerly_client/application/merchant_rule_store.dart';
 import 'package:ledgerly_client/data/database.dart';
@@ -59,6 +61,7 @@ void main() {
       merchantRules: merchantRules,
       filePort: filePort,
       deviceIdLoader: () async => 'governance-test-device',
+      encryption: BackupEncryption.testing(),
     );
   });
 
@@ -69,8 +72,7 @@ void main() {
 
   tearDown(() => database.close());
 
-  testWidgets('renders the three sections with the right CTAs',
-      (tester) async {
+  testWidgets('renders the three sections with the right CTAs', (tester) async {
     await _pumpPage(tester, backupService, booksLoader: loadBooks);
     final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
 
@@ -231,13 +233,11 @@ void main() {
     );
   });
 
-  testWidgets(
-      'export refreshes the status card and stops advertising stale',
+  testWidgets('export refreshes the status card and stops advertising stale',
       (tester) async {
     // Pretend the last backup happened 30 days ago so the banner is
     // visible when the page first opens. Exporting should clear it.
-    final staleAt =
-        DateTime.now().toUtc().subtract(const Duration(days: 30));
+    final staleAt = DateTime.now().toUtc().subtract(const Duration(days: 30));
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       BackupMetadataStore.kLastBackupAt,
@@ -272,8 +272,7 @@ void main() {
 
   testWidgets('stale banner appears when last backup is older than 14 days',
       (tester) async {
-    final staleAt =
-        DateTime.now().toUtc().subtract(const Duration(days: 21));
+    final staleAt = DateTime.now().toUtc().subtract(const Duration(days: 21));
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       BackupMetadataStore.kLastBackupAt,
@@ -313,8 +312,7 @@ void main() {
     expect(prefsAfter.getString(BackupMetadataStore.kLastBackupPath), isNull);
   });
 
-  testWidgets(
-      'data governance page reacts to invalidated metadata after wipe',
+  testWidgets('data governance page reacts to invalidated metadata after wipe',
       (tester) async {
     // First call wipe directly so the persisted record is empty. The
     // UI test for the dialog-driven wipe path is covered separately
@@ -360,8 +358,7 @@ void main() {
     );
   });
 
-  testWidgets(
-      'export button scopes the snapshot to the chosen book subset',
+  testWidgets('export button scopes the snapshot to the chosen book subset',
       (tester) async {
     // Seed a second book so the chip selector appears. `createBook`
     // issues a real database transaction whose IO does not advance
@@ -435,8 +432,8 @@ void main() {
     expect(document.bookIds, isNotNull);
     expect(document.bookIds!.length, 1);
     expect(document.bookIds!.first, books[1].id);
-    final booksInPayload = (document.payload['books'] as List)
-        .cast<Map<String, dynamic>>();
+    final booksInPayload =
+        (document.payload['books'] as List).cast<Map<String, dynamic>>();
     expect(booksInPayload.length, 1);
     expect(booksInPayload.first['id'], books[1].id);
   });
@@ -495,7 +492,8 @@ void main() {
     // is generated up-front so the byte store key and the metadata
     // id line up exactly.
     final id = const Uuid().v4();
-    final payload = Uint8List.fromList(List<int>.generate(4096, (i) => i % 251));
+    final payload =
+        Uint8List.fromList(List<int>.generate(4096, (i) => i % 251));
     final relativePath = await attachments.writeBytes(id: id, bytes: payload);
     final meta = await attachments.insert(
       id: id,
@@ -577,6 +575,291 @@ void main() {
     expect(doc.attachmentBinaries, isEmpty);
     expect(doc.summary.total, 0);
   });
+
+  // -----------------------------------------------------------------
+  // Phase 10: password-encrypted backup
+  // -----------------------------------------------------------------
+
+  testWidgets('encrypted export writes a password-protected envelope',
+      (tester) async {
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-encrypt-checkbox')),
+    );
+    await tester.pump();
+    expect(
+      find.byKey(const Key('data-governance-encrypt-password')),
+      findsOneWidget,
+    );
+    expect(
+      find.text(l10n.dataGovernanceExportEncryptedAll(1)),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('data-governance-encrypt-password')),
+      'password123',
+    );
+    await tester.enterText(
+      find.byKey(const Key('data-governance-encrypt-password-confirm')),
+      'password123',
+    );
+    await tester.pump();
+
+    await tester.ensureVisible(
+      find.byKey(const Key('data-governance-export-action')),
+    );
+    await tester.tap(
+      find.byKey(const Key('data-governance-export-action')),
+    );
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(seconds: 2));
+    });
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 5));
+
+    expect(filePort.envelopes, isNotEmpty);
+    final document = filePort.envelopes.values.last;
+    expect(document.encrypted, isNotNull);
+    final metadata = await BackupMetadataStore().read();
+    expect(metadata.lastBackupEncrypted, isTrue);
+  });
+
+  testWidgets('wrong restore password stays on the unlock dialog',
+      (tester) async {
+    late final String path;
+    await tester.runAsync(() async {
+      path = await backupService.exportToFile(password: 'password123');
+    });
+    filePort.pickResult = path;
+
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-restore-pick')),
+    );
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+    });
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(
+      find.byKey(const Key('data-governance-unlock-dialog')),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('data-governance-unlock-password')),
+      'wrong-password',
+    );
+    await tester.tap(
+      find.byKey(const Key('data-governance-unlock-submit')),
+    );
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+    });
+    await tester.pump();
+
+    expect(find.text(l10n.dataGovernanceUnlockWrongPassword), findsOneWidget);
+    expect(
+      find.byKey(const Key('data-governance-unlock-dialog')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('data-governance-restore-preview')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('correct restore password unlocks the preview', (tester) async {
+    late final String path;
+    await tester.runAsync(() async {
+      path = await backupService.exportToFile(password: 'password123');
+    });
+    filePort.pickResult = path;
+
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-restore-pick')),
+    );
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+    });
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    await tester.enterText(
+      find.byKey(const Key('data-governance-unlock-password')),
+      'password123',
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const Key('data-governance-unlock-submit')),
+    );
+    await tester.pump();
+    await _flushBackupCrypto(tester);
+    await tester.pumpAndSettle();
+
+    if (find
+        .byKey(const Key('data-governance-unlock-dialog'))
+        .evaluate()
+        .isNotEmpty) {
+      final field = tester.widget<TextField>(
+        find.byKey(const Key('data-governance-unlock-password')),
+      );
+      fail('unlock dialog still open: ${field.decoration?.errorText}');
+    }
+    expect(
+      find.byKey(const Key('data-governance-restore-preview')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('three wrong passwords lock the unlock dialog', (tester) async {
+    late final String path;
+    await tester.runAsync(() async {
+      path = await backupService.exportToFile(password: 'password123');
+    });
+    filePort.pickResult = path;
+
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-restore-pick')),
+    );
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+    });
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    final submit = find.byKey(const Key('data-governance-unlock-submit'));
+    for (var i = 0; i < kBackupUnlockMaxAttempts; i++) {
+      await tester.enterText(
+        find.byKey(const Key('data-governance-unlock-password')),
+        'wrong-password',
+      );
+      await tester.tap(submit);
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+      });
+      await tester.pump();
+    }
+
+    expect(tester.widget<FilledButton>(submit).onPressed, isNull);
+  });
+
+  testWidgets('plaintext restore preview warns that the file is unencrypted',
+      (tester) async {
+    final document = await backupService.export();
+    filePort.pickResult = 'picked-backup';
+    filePort.envelopes['picked-backup'] = document;
+
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-restore-pick')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(
+      find.byKey(const Key('data-governance-restore-unencrypted-warning')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('status card advertises that the last backup was encrypted',
+      (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    final recentAt = DateTime.now().toUtc().subtract(const Duration(hours: 2));
+    await prefs.setString(
+      BackupMetadataStore.kLastBackupAt,
+      recentAt.toIso8601String(),
+    );
+    await prefs.setBool(BackupMetadataStore.kLastBackupEncrypted, true);
+
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
+
+    expect(
+      find.byKey(const Key('data-governance-status-encrypted')),
+      findsOneWidget,
+    );
+    expect(find.text(l10n.dataGovernanceStatusEncrypted), findsOneWidget);
+  });
+
+  testWidgets('auto-backup switch is off by default', (tester) async {
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
+
+    expect(find.text(l10n.dataGovernanceAutoBackup), findsOneWidget);
+    expect(
+      find.byKey(const Key('data-governance-auto-backup-warning')),
+      findsOneWidget,
+    );
+    final toggle = tester.widget<SwitchListTile>(
+      find.byKey(const Key('data-governance-auto-backup-switch')),
+    );
+    expect(toggle.value, isFalse);
+  });
+
+  testWidgets('enabling auto backup persists and writes a baseline snapshot',
+      (tester) async {
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+
+    await tester.ensureVisible(
+      find.byKey(const Key('data-governance-auto-backup-switch')),
+    );
+    await tester.tap(
+      find.byKey(const Key('data-governance-auto-backup-switch')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump(const Duration(milliseconds: 50));
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool(BackupScheduleStore.kEnabled), isTrue);
+    expect(
+      prefs.getInt(BackupScheduleStore.kIntervalDays),
+      kBackupAutoDefaultIntervalDays,
+    );
+    expect(filePort.envelopes, isNotEmpty);
+    expect(filePort.envelopes.values.single.encrypted, isNull);
+
+    final toggle = tester.widget<SwitchListTile>(
+      find.byKey(const Key('data-governance-auto-backup-switch')),
+    );
+    expect(toggle.value, isTrue);
+  });
+
+  testWidgets('interval chip persists the chosen cadence', (tester) async {
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+
+    await tester.ensureVisible(
+      find.byKey(const Key('data-governance-auto-interval-14')),
+    );
+    await tester.tap(
+      find.byKey(const Key('data-governance-auto-interval-14')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getInt(BackupScheduleStore.kIntervalDays), 14);
+    expect(prefs.getBool(BackupScheduleStore.kEnabled), isNot(true));
+    expect(filePort.envelopes, isEmpty);
+
+    final chip = tester.widget<FilterChip>(
+      find.byKey(const Key('data-governance-auto-interval-14')),
+    );
+    expect(chip.selected, isTrue);
+  });
 }
 
 Future<void> _pumpPage(
@@ -587,7 +870,7 @@ Future<void> _pumpPage(
   // The page renders both the backup section and a danger section.
   // The wipe button lives at the bottom of the layout, so we use a
   // taller test viewport than the default 800x600.
-  tester.view.physicalSize = const Size(800, 1400);
+  tester.view.physicalSize = const Size(800, 1800);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -609,4 +892,13 @@ Future<void> _pumpPage(
     ),
   );
   await tester.pump();
+}
+
+Future<void> _flushBackupCrypto(WidgetTester tester) async {
+  for (var i = 0; i < 10; i++) {
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pump();
+  }
 }

@@ -9,6 +9,7 @@ class BackupMetadata {
     this.lastBackupPath,
     this.lastAttachmentCount = 0,
     this.lastAttachmentSizeBytes = 0,
+    this.lastBackupEncrypted = false,
   });
 
   /// UTC instant of the last successful [BackupService.exportToFile].
@@ -27,6 +28,11 @@ class BackupMetadata {
   /// Total bytes those attachment binaries consumed. Powers the
   /// "N 个附件 · M MB" hint on the status card.
   final int lastAttachmentSizeBytes;
+
+  /// Phase 10: whether the last backup was sealed with a password.
+  /// Surfaced in the status card so the user remembers the file
+  /// requires a password to restore.
+  final bool lastBackupEncrypted;
 
   bool get hasBackup => lastBackupAt != null;
 
@@ -67,9 +73,11 @@ class BackupMetadataStore {
 
   static const String kLastBackupAt = 'ledgerly.backup.lastAt';
   static const String kLastBackupPath = 'ledgerly.backup.lastPath';
-  static const String kLastAttachmentCount = 'ledgerly.backup.lastAttachmentCount';
+  static const String kLastAttachmentCount =
+      'ledgerly.backup.lastAttachmentCount';
   static const String kLastAttachmentSize =
       'ledgerly.backup.lastAttachmentSizeBytes';
+  static const String kLastBackupEncrypted = 'ledgerly.backup.lastEncrypted';
 
   final Future<SharedPreferences> Function() _prefsLoader;
 
@@ -82,11 +90,13 @@ class BackupMetadataStore {
     final rawPath = prefs.getString(kLastBackupPath);
     final rawCount = prefs.getInt(kLastAttachmentCount) ?? 0;
     final rawSize = prefs.getInt(kLastAttachmentSize) ?? 0;
+    final encrypted = prefs.getBool(kLastBackupEncrypted) ?? false;
     if (rawAt == null) {
       return BackupMetadata(
         lastBackupPath: rawPath,
         lastAttachmentCount: rawCount,
         lastAttachmentSizeBytes: rawSize,
+        lastBackupEncrypted: encrypted,
       );
     }
     final parsed = DateTime.tryParse(rawAt);
@@ -101,6 +111,7 @@ class BackupMetadataStore {
       lastBackupPath: rawPath,
       lastAttachmentCount: rawCount,
       lastAttachmentSizeBytes: rawSize,
+      lastBackupEncrypted: encrypted,
     );
   }
 
@@ -110,12 +121,14 @@ class BackupMetadataStore {
     required DateTime at,
     int attachmentCount = 0,
     int attachmentSizeBytes = 0,
+    bool encrypted = false,
   }) async {
     final prefs = await _prefsLoader();
     await prefs.setString(kLastBackupAt, at.toUtc().toIso8601String());
     await prefs.setString(kLastBackupPath, path);
     await prefs.setInt(kLastAttachmentCount, attachmentCount);
     await prefs.setInt(kLastAttachmentSize, attachmentSizeBytes);
+    await prefs.setBool(kLastBackupEncrypted, encrypted);
   }
 
   /// Wipe the persisted record. Called after a destructive
@@ -127,5 +140,6 @@ class BackupMetadataStore {
     await prefs.remove(kLastBackupPath);
     await prefs.remove(kLastAttachmentCount);
     await prefs.remove(kLastAttachmentSize);
+    await prefs.remove(kLastBackupEncrypted);
   }
 }

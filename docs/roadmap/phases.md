@@ -47,6 +47,16 @@
 - [x] Flutter 单元测试：`auto_ledger_service_test`、`merchant_classifier_test`、`pending_payment_event_test`
 - [x] 210 个 flutter test 全通过
 
+## 备份治理（Phase 6–12）
+
+- [x] Phase 6：全量备份 / 恢复 / 清空
+- [x] Phase 7：上次备份时间与过期提醒
+- [x] Phase 8：按账本子集导出
+- [x] Phase 9：附件二进制打进 `.ledgerly.zip`
+- [x] Phase 10：可选密码 + AES-256-GCM（`.enc.zip`）
+- [x] Phase 11：新加密备份默认 Argon2id；旧 PBKDF2 文件仍可解锁
+- [x] Phase 12：打开 / 回到前台时的机会主义自动备份（无后台常驻）
+
 ### 待后续完善
 
 - 扩大商户分类覆盖（目前第一版关键词匹配）
