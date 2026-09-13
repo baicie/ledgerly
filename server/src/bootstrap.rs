@@ -208,9 +208,7 @@ fn init_otel(config: &Config) {
         crate::obs::app_event(
             "otel",
             "ok",
-            &format!(
-                "endpoint={endpoint} using tracing JSON export (OTLP collector optional)"
-            ),
+            &format!("endpoint={endpoint} using tracing JSON export (OTLP collector optional)"),
         );
         // Full OTLP pipeline kept minimal for MVP: rely on structured tracing logs.
         // When a collector is present, ship JSON logs or attach a future otlp layer.

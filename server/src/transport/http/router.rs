@@ -32,7 +32,10 @@ async fn metrics_handler(
         .ok_or(axum::http::StatusCode::SERVICE_UNAVAILABLE)?;
     let body = handle.0.render();
     Ok(axum::response::Response::builder()
-        .header(axum::http::header::CONTENT_TYPE, "text/plain; version=0.0.4")
+        .header(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; version=0.0.4",
+        )
         .body(axum::body::Body::from(body))
         .unwrap())
 }

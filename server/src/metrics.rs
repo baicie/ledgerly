@@ -6,7 +6,9 @@
 //! Security: count values are never incremented from error payloads.
 
 use axum::extract::Request;
-use metrics::{counter, describe_counter, describe_gauge, describe_histogram, gauge, histogram, Unit};
+use metrics::{
+    counter, describe_counter, describe_gauge, describe_histogram, gauge, histogram, Unit,
+};
 use metrics_exporter_prometheus::PrometheusHandle;
 
 /// Prometheus handle stored in app state for /metrics endpoint.
@@ -268,8 +270,7 @@ pub async fn http_metrics_middleware(
 /// Implementation note: returning a typed `TraceLayer` here requires
 /// working around tower-http's high-arity generics. We instead expose
 /// `make_span_fn` and let `bootstrap.rs` wrap it with `TraceLayer::new_for_http`.
-pub fn make_span_fn(
-) -> impl Fn(&Request) -> tracing::Span + Clone + Send + Sync + 'static {
+pub fn make_span_fn() -> impl Fn(&Request) -> tracing::Span + Clone + Send + Sync + 'static {
     |request: &Request| {
         let route = request
             .extensions()
