@@ -340,6 +340,42 @@ class BackupConsolidationResult {
   final int sizeBytes;
 }
 
+enum BackupVerificationStatus { healthy, missing, corrupted }
+
+@immutable
+class BackupVerificationEntry {
+  const BackupVerificationEntry({
+    required this.artifact,
+    required this.status,
+    this.actualSha256,
+    this.error,
+  });
+
+  final BackupArtifact artifact;
+  final BackupVerificationStatus status;
+  final String? actualSha256;
+  final String? error;
+}
+
+@immutable
+class BackupVerificationReport {
+  const BackupVerificationReport(this.entries);
+
+  final List<BackupVerificationEntry> entries;
+
+  int get healthyCount => entries
+      .where((entry) => entry.status == BackupVerificationStatus.healthy)
+      .length;
+
+  int get missingCount => entries
+      .where((entry) => entry.status == BackupVerificationStatus.missing)
+      .length;
+
+  int get corruptedCount => entries
+      .where((entry) => entry.status == BackupVerificationStatus.corrupted)
+      .length;
+}
+
 /// Thrown when a backup file is structurally invalid.
 class BackupFormatException implements Exception {
   const BackupFormatException(this.message);
@@ -1154,6 +1190,65 @@ class BackupService {
     );
   }
 
+  /// Verify catalog artifacts without modifying or deleting backup files.
+  /// Legacy records without a checksum are backfilled on first inspection.
+  Future<BackupVerificationReport> verifyBackups() async {
+    final artifacts = await _catalog.read();
+    final entries = <BackupVerificationEntry>[];
+    for (final artifact in artifacts) {
+      final actualSha256 = await _files.fileSha256(artifact.path);
+      if (actualSha256 == null) {
+        entries.add(
+          BackupVerificationEntry(
+            artifact: artifact,
+            status: BackupVerificationStatus.missing,
+          ),
+        );
+        continue;
+      }
+
+      if (artifact.sha256 == null) {
+        await _catalog.upsert(
+          artifact.copyWith(
+            sizeBytes: await _files.fileSize(artifact.path),
+            sha256: actualSha256,
+          ),
+        );
+      } else if (artifact.sha256 != actualSha256) {
+        entries.add(
+          BackupVerificationEntry(
+            artifact: artifact,
+            status: BackupVerificationStatus.corrupted,
+            actualSha256: actualSha256,
+            error: 'SHA-256 mismatch',
+          ),
+        );
+        continue;
+      }
+
+      try {
+        await _files.readBackup(artifact.path);
+        entries.add(
+          BackupVerificationEntry(
+            artifact: artifact,
+            status: BackupVerificationStatus.healthy,
+            actualSha256: actualSha256,
+          ),
+        );
+      } catch (error) {
+        entries.add(
+          BackupVerificationEntry(
+            artifact: artifact,
+            status: BackupVerificationStatus.corrupted,
+            actualSha256: actualSha256,
+            error: '$error',
+          ),
+        );
+      }
+    }
+    return BackupVerificationReport(entries);
+  }
+
   /// Pass-through helpers so the page does not need to depend on the
   /// port directly. Keeps the layering tight.
   Future<String?> shareFile(String source) => _files.shareBackup(source);
@@ -1181,6 +1276,8 @@ class BackupService {
             ? BackupArtifactKind.incremental
             : BackupArtifactKind.full;
     try {
+      final sizeBytes = await _files.fileSize(path);
+      final sha256Hex = await _files.fileSha256(path);
       await _catalog.upsert(
         BackupArtifact(
           backupId: backupId,
@@ -1188,7 +1285,8 @@ class BackupService {
           createdAt: createdAt,
           kind: kind,
           source: source,
-          sizeBytes: await _files.fileSize(path),
+          sizeBytes: sizeBytes,
+          sha256: sha256Hex,
         ),
       );
     } catch (_) {
@@ -1670,6 +1768,9 @@ abstract class BackupFilePort {
 
   /// Return the persisted size, or `0` when [source] is missing.
   Future<int> fileSize(String source);
+
+  /// Return the lowercase SHA-256 hex digest, or `null` when missing.
+  Future<String?> fileSha256(String source);
 
   /// Delete [source]. Missing files are treated as already deleted.
   Future<void> deleteBackup(String source);

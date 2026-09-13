@@ -945,6 +945,30 @@ void main() {
     expect(share.onPressed, isNotNull);
   });
 
+  testWidgets('integrity check reports corrupted catalog files',
+      (tester) async {
+    final path = await backupService.exportToFile();
+    filePort.rawFiles[path] = Uint8List.fromList([1, 2, 3]);
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-verify-action')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('data-governance-integrity-dialog')),
+      findsOneWidget,
+    );
+    expect(
+      find.text(l10n.dataGovernanceVerifyIssuesTitle),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('auto-backup switch is off by default', (tester) async {
     await _pumpPage(tester, backupService, booksLoader: loadBooks);
     final l10n = await AppLocalizations.delegate.load(const Locale('zh'));

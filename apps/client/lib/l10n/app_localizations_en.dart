@@ -2462,6 +2462,38 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get dataGovernanceVerifyBackups => 'Check integrity';
+
+  @override
+  String get dataGovernanceVerifyNoBackups =>
+      'There are no cataloged backups to verify.';
+
+  @override
+  String dataGovernanceVerifyAllHealthy(int count) {
+    return 'Verified $count healthy backups.';
+  }
+
+  @override
+  String get dataGovernanceVerifyIssuesTitle => 'Backup integrity issues';
+
+  @override
+  String dataGovernanceVerifyIssueSummary(
+      int healthy, int missing, int corrupted) {
+    return '$healthy healthy · $missing missing · $corrupted corrupted';
+  }
+
+  @override
+  String get dataGovernanceVerifyMissing => 'File is missing';
+
+  @override
+  String get dataGovernanceVerifyCorrupted => 'File is corrupted';
+
+  @override
+  String dataGovernanceVerifyFailed(String error) {
+    return 'Could not verify backups: $error';
+  }
+
+  @override
   String get dataGovernanceAutoBackup => 'Automatic backup';
 
   @override

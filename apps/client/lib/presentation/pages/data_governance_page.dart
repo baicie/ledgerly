@@ -293,6 +293,48 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
     }
   }
 
+  Future<void> _verifyBackups() async {
+    final l10n = l10nOf(context);
+    _setBusy(true);
+    try {
+      final report = await _service.verifyBackups();
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ref.invalidate(backupCatalogProvider);
+      if (report.entries.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.dataGovernanceVerifyNoBackups)),
+        );
+        return;
+      }
+      if (report.missingCount == 0 && report.corruptedCount == 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              l10n.dataGovernanceVerifyAllHealthy(report.healthyCount),
+            ),
+          ),
+        );
+        return;
+      }
+      await showDialogDialog<void>(
+        context: context,
+        builder: (dialogContext) => _IntegrityReportDialog(
+          l10n: l10n,
+          report: report,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.dataGovernanceVerifyFailed('$error')),
+        ),
+      );
+    }
+  }
+
   // -- Restore ----------------------------------------------------------
 
   Future<void> _pickRestoreFile() async {
@@ -597,6 +639,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
                       : () => _shareBackup(_lastBackupPath!),
                   onCleanup:
                       _busy || catalog.isEmpty ? null : _confirmCleanupBackups,
+                  onVerify: _busy || catalog.isEmpty ? null : _verifyBackups,
                   onConsolidate: _busy || !metadata.lastBackupIncremental
                       ? null
                       : _consolidateLatestBackup,
@@ -670,6 +713,7 @@ class _BackupSection extends StatelessWidget {
     required this.onToggleBook,
     required this.onShare,
     required this.onCleanup,
+    required this.onVerify,
     required this.onConsolidate,
     required this.onPickRestore,
     required this.onRestoreModeChanged,
@@ -704,6 +748,7 @@ class _BackupSection extends StatelessWidget {
   final ValueChanged<String>? onToggleBook;
   final VoidCallback? onShare;
   final VoidCallback? onCleanup;
+  final VoidCallback? onVerify;
   final VoidCallback? onConsolidate;
   final VoidCallback? onPickRestore;
   final ValueChanged<BackupRestoreMode>? onRestoreModeChanged;
@@ -917,11 +962,23 @@ class _BackupSection extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: OutlinedButton.icon(
-                key: const Key('data-governance-cleanup-action'),
-                onPressed: onCleanup,
-                icon: const Icon(Icons.delete_sweep_outlined),
-                label: Text(l10n.dataGovernanceCleanupBackups),
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    key: const Key('data-governance-verify-action'),
+                    onPressed: onVerify,
+                    icon: const Icon(Icons.verified_outlined),
+                    label: Text(l10n.dataGovernanceVerifyBackups),
+                  ),
+                  OutlinedButton.icon(
+                    key: const Key('data-governance-cleanup-action'),
+                    onPressed: onCleanup,
+                    icon: const Icon(Icons.delete_sweep_outlined),
+                    label: Text(l10n.dataGovernanceCleanupBackups),
+                  ),
+                ],
               ),
             ),
           ],
@@ -1343,6 +1400,75 @@ class _CleanupConfirmDialog extends StatelessWidget {
           key: const Key('data-governance-cleanup-confirm'),
           onPressed: () => Navigator.pop(context, true),
           child: Text(l10n.dataGovernanceCleanupBackups),
+        ),
+      ],
+    );
+  }
+}
+
+class _IntegrityReportDialog extends StatelessWidget {
+  const _IntegrityReportDialog({
+    required this.l10n,
+    required this.report,
+  });
+
+  final AppLocalizations l10n;
+  final BackupVerificationReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final issues = [
+      for (final entry in report.entries)
+        if (entry.status != BackupVerificationStatus.healthy) entry,
+    ];
+    return AlertDialog(
+      key: const Key('data-governance-integrity-dialog'),
+      title: Text(l10n.dataGovernanceVerifyIssuesTitle),
+      content: SizedBox(
+        width: 520,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              l10n.dataGovernanceVerifyIssueSummary(
+                report.healthyCount,
+                report.missingCount,
+                report.corruptedCount,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: issues.length,
+                itemBuilder: (context, index) {
+                  final entry = issues[index];
+                  final missing =
+                      entry.status == BackupVerificationStatus.missing;
+                  return ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      missing ? Icons.folder_off_outlined : Icons.error_outline,
+                    ),
+                    title: Text(entry.artifact.path),
+                    subtitle: Text(
+                      missing
+                          ? l10n.dataGovernanceVerifyMissing
+                          : entry.error ?? l10n.dataGovernanceVerifyCorrupted,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n.confirm),
         ),
       ],
     );

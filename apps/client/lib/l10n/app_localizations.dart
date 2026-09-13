@@ -4379,6 +4379,55 @@ abstract class AppLocalizations {
   /// **'生成便携备份失败：{error}'**
   String dataGovernanceConsolidateFailed(String error);
 
+  /// No description provided for @dataGovernanceVerifyBackups.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查完整性'**
+  String get dataGovernanceVerifyBackups;
+
+  /// No description provided for @dataGovernanceVerifyNoBackups.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机没有可检查的备份。'**
+  String get dataGovernanceVerifyNoBackups;
+
+  /// No description provided for @dataGovernanceVerifyAllHealthy.
+  ///
+  /// In zh, this message translates to:
+  /// **'已检查 {count} 份备份，全部正常。'**
+  String dataGovernanceVerifyAllHealthy(int count);
+
+  /// No description provided for @dataGovernanceVerifyIssuesTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份完整性异常'**
+  String get dataGovernanceVerifyIssuesTitle;
+
+  /// No description provided for @dataGovernanceVerifyIssueSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'{healthy} 份正常 · {missing} 份缺失 · {corrupted} 份损坏'**
+  String dataGovernanceVerifyIssueSummary(
+      int healthy, int missing, int corrupted);
+
+  /// No description provided for @dataGovernanceVerifyMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件不存在'**
+  String get dataGovernanceVerifyMissing;
+
+  /// No description provided for @dataGovernanceVerifyCorrupted.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件已损坏'**
+  String get dataGovernanceVerifyCorrupted;
+
+  /// No description provided for @dataGovernanceVerifyFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查备份失败：{error}'**
+  String dataGovernanceVerifyFailed(String error);
+
   /// No description provided for @dataGovernanceAutoBackup.
   ///
   /// In zh, this message translates to:
