@@ -331,6 +331,16 @@
 - [x] CI 校验 Compose、Prometheus、Alertmanager 和 Grafana 配置
 - [x] Runbook 覆盖 SSH 访问、投递测试和故障排查
 
+## 主机与容器资源观测（Phase 41）
+
+- [x] 可选部署 node-exporter 和 cAdvisor
+- [x] Prometheus 抓取宿主与容器资源指标
+- [x] 8 条磁盘、inode、CPU、内存、重启和 OOM 告警
+- [x] 新增 8 panel Host Resources 仪表盘
+- [x] 部署验收检查新服务、target 和规则
+- [x] CI 校验新增规则与 dashboard
+- [x] Runbook 覆盖挂载、权限和资源告警处置
+
 ### 待后续完善
 
 - 扩大商户分类覆盖（目前第一版关键词匹配）

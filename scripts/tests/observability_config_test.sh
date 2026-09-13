@@ -5,6 +5,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OBSERVABILITY_DIR="$ROOT/infrastructure/observability"
 PROMETHEUS_IMAGE="${PROMETHEUS_IMAGE:-prom/prometheus:v3.14.0}"
 ALERTMANAGER_IMAGE="${ALERTMANAGER_IMAGE:-prom/alertmanager:v0.34.0}"
+NODE_EXPORTER_IMAGE="${NODE_EXPORTER_IMAGE:-prom/node-exporter:v1.12.1}"
+CADVISOR_IMAGE="${CADVISOR_IMAGE:-ghcr.io/google/cadvisor:v0.60.5}"
 
 for script in \
   "$ROOT/scripts/deploy_vm_release.sh" \
@@ -26,6 +28,9 @@ docker compose \
   --env-file "$ROOT/infrastructure/docker/env.vm.example" \
   config --quiet
 
+docker manifest inspect "$NODE_EXPORTER_IMAGE" >/dev/null
+docker manifest inspect "$CADVISOR_IMAGE" >/dev/null
+
 docker run --rm \
   --entrypoint promtool \
   -v "$OBSERVABILITY_DIR/prometheus:/etc/prometheus:ro" \
@@ -38,7 +43,7 @@ docker run --rm \
   -v "$OBSERVABILITY_DIR/prometheus:/etc/prometheus:ro" \
   -w /etc/prometheus \
   "$PROMETHEUS_IMAGE" \
-  check rules backup-alerts.yml platform-alerts.yml
+  check rules backup-alerts.yml host-alerts.yml platform-alerts.yml
 
 temporary_dir="$(mktemp -d)"
 trap 'rm -rf "$temporary_dir"' EXIT
@@ -55,16 +60,24 @@ docker run --rm \
   "$ALERTMANAGER_IMAGE" \
   check-config /config/alertmanager.yml
 
-python3 - "$OBSERVABILITY_DIR/grafana/dashboards/ledgerly-operations.json" <<'PY'
+python3 - \
+  "$OBSERVABILITY_DIR/grafana/dashboards/ledgerly-operations.json" \
+  "$OBSERVABILITY_DIR/grafana/dashboards/ledgerly-host-resources.json" <<'PY'
 import json
 import sys
 
-with open(sys.argv[1], encoding="utf-8") as handle:
-    dashboard = json.load(handle)
+expected = (
+    ("ledgerly-operations", "Ledgerly Operations", 8),
+    ("ledgerly-host-resources", "Ledgerly Host Resources", 8),
+)
 
-assert dashboard["uid"] == "ledgerly-operations"
-assert dashboard["title"] == "Ledgerly Operations"
-assert len(dashboard["panels"]) >= 8
-assert all(panel.get("targets") for panel in dashboard["panels"])
+for path, (uid, title, minimum_panels) in zip(sys.argv[1:], expected):
+    with open(path, encoding="utf-8") as handle:
+        dashboard = json.load(handle)
+    assert dashboard["uid"] == uid
+    assert dashboard["title"] == title
+    assert len(dashboard["panels"]) >= minimum_panels
+    assert all(panel.get("targets") for panel in dashboard["panels"])
+
 print("observability configuration valid")
 PY

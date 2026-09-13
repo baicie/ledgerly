@@ -4,6 +4,56 @@
 # production and VM compose files. All host ports bind to loopback by default.
 
 services:
+  node-exporter:
+    image: prom/node-exporter:v1.12.1
+    container_name: ledgerly-node-exporter
+    profiles: ["observability"]
+    restart: unless-stopped
+    pid: host
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+    ports:
+      - "${OBSERVABILITY_BIND_ADDRESS:-127.0.0.1}:${NODE_EXPORTER_PORT:-9100}:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro,rslave
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:9100/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  cadvisor:
+    image: ghcr.io/google/cadvisor:v0.60.5
+    container_name: ledgerly-cadvisor
+    profiles: ["observability"]
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    command:
+      - --housekeeping_interval=30s
+      - --docker_only=true
+    ports:
+      - "${OBSERVABILITY_BIND_ADDRESS:-127.0.0.1}:${CADVISOR_PORT:-8082}:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
   prometheus:
     image: prom/prometheus:v3.14.0
     container_name: ledgerly-prometheus
@@ -12,7 +62,11 @@ services:
     depends_on:
       alertmanager:
         condition: service_healthy
+      cadvisor:
+        condition: service_healthy
       ledger-server:
+        condition: service_healthy
+      node-exporter:
         condition: service_healthy
     command:
       - --config.file=/etc/prometheus/prometheus.yml
@@ -24,6 +78,7 @@ services:
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/backup-alerts.yml:/etc/prometheus/rules/backup-alerts.yml:ro
+      - ./prometheus/host-alerts.yml:/etc/prometheus/rules/host-alerts.yml:ro
       - ./prometheus/platform-alerts.yml:/etc/prometheus/rules/platform-alerts.yml:ro
       - ledgerly_prometheus:/prometheus
     healthcheck:
