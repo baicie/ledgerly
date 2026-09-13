@@ -13,6 +13,7 @@ import '../data/local_recurring_repository.dart';
 import '../domain/default_categories.dart';
 import '../domain/ids.dart' as local_ids;
 import 'backup_encryption.dart';
+import 'backup_catalog_store.dart';
 import 'backup_metadata_store.dart';
 import 'merchant_classifier.dart';
 import 'merchant_rule_store.dart';
@@ -313,6 +314,19 @@ class BackupMergeResult {
       mergedBooks > 0 || addedMerchantRules > 0 || addedAttachments > 0;
 }
 
+@immutable
+class BackupCleanupResult {
+  const BackupCleanupResult({
+    required this.deletedCount,
+    required this.freedBytes,
+    required this.failedCount,
+  });
+
+  final int deletedCount;
+  final int freedBytes;
+  final int failedCount;
+}
+
 /// Thrown when a backup file is structurally invalid.
 class BackupFormatException implements Exception {
   const BackupFormatException(this.message);
@@ -371,6 +385,7 @@ class BackupService {
     required Future<String> Function() deviceIdLoader,
     BackupMetadataStore? metadata,
     BackupEncryption? encryption,
+    BackupCatalogStore? catalog,
   })  : _db = database,
         _recurring = recurring,
         _budgets = budgets,
@@ -379,7 +394,8 @@ class BackupService {
         _files = filePort,
         _deviceIdLoader = deviceIdLoader,
         _metadata = metadata ?? BackupMetadataStore(),
-        _encryption = encryption ?? BackupEncryption();
+        _encryption = encryption ?? BackupEncryption(),
+        _catalog = catalog ?? BackupCatalogStore();
 
   final AppDatabase _db;
   final LocalRecurringRepository _recurring;
@@ -390,6 +406,7 @@ class BackupService {
   final Future<String> Function() _deviceIdLoader;
   final BackupMetadataStore _metadata;
   final BackupEncryption _encryption;
+  final BackupCatalogStore _catalog;
 
   /// Read every entity into a memory [BackupDocument]. The document holds
   /// raw row payloads — file I/O is delegated to [BackupFilePort].
@@ -919,6 +936,7 @@ class BackupService {
     Set<String>? bookIds,
     String? password,
     bool incremental = false,
+    bool automatic = false,
   }) async {
     var document = await export(bookIds: bookIds, password: password);
     final snapshotAttachmentCount = document.summary.attachments;
@@ -942,13 +960,14 @@ class BackupService {
     }
     final deviceId = await _deviceIdLoader();
     final path = await _files.writeBackup(document, deviceId: deviceId);
+    final completedAt = DateTime.now().toUtc();
     if (wroteIncremental &&
         baseBackupId != null &&
         baseBackupPath != null &&
         document.backupId != null) {
       await _metadata.recordIncremental(
         path: path,
-        at: DateTime.now().toUtc(),
+        at: completedAt,
         backupId: document.backupId!,
         baseBackupId: baseBackupId,
         baseBackupPath: baseBackupPath,
@@ -958,13 +977,21 @@ class BackupService {
     } else {
       await _metadata.record(
         path: path,
-        at: DateTime.now().toUtc(),
+        at: completedAt,
         backupId: document.backupId,
         attachmentCount: document.attachmentBinaries.length,
         attachmentSizeBytes: document.attachmentSizeBytes,
         encrypted: document.encrypted != null,
       );
     }
+    await _recordCatalogArtifact(
+      document: document,
+      path: path,
+      createdAt: completedAt,
+      source: automatic
+          ? BackupArtifactSource.automatic
+          : BackupArtifactSource.manual,
+    );
     return path;
   }
 
@@ -1005,9 +1032,67 @@ class BackupService {
   Future<String> writeSafetyBackup() async {
     final current = await export();
     final deviceId = await _deviceIdLoader();
-    return _files.writePreRestoreSafetyBackup(
+    final path = await _files.writePreRestoreSafetyBackup(
       current,
       deviceId: deviceId,
+    );
+    await _recordCatalogArtifact(
+      document: current,
+      path: path,
+      createdAt: DateTime.now().toUtc(),
+      source: BackupArtifactSource.safety,
+    );
+    return path;
+  }
+
+  /// Remove old automatic and safety backups while preserving every manual
+  /// export plus the current incremental base and most recent backup.
+  Future<BackupCleanupResult> cleanupBackups({
+    int keepAutomatic = 3,
+    int keepSafety = 1,
+  }) async {
+    final artifacts = await _catalog.read();
+    final metadata = await _metadata.read();
+    final protectedPaths = <String>{
+      if (metadata.lastBackupPath != null) metadata.lastBackupPath!,
+      if (metadata.baseBackupPath != null) metadata.baseBackupPath!,
+    };
+
+    int firstAutomaticToKeep = keepAutomatic < 0 ? 0 : keepAutomatic;
+    int firstSafetyToKeep = keepSafety < 0 ? 0 : keepSafety;
+    final keepPaths = <String>{...protectedPaths};
+    for (final artifact in artifacts) {
+      if (artifact.source == BackupArtifactSource.manual) {
+        keepPaths.add(artifact.path);
+      } else if (artifact.source == BackupArtifactSource.automatic &&
+          firstAutomaticToKeep > 0) {
+        keepPaths.add(artifact.path);
+        firstAutomaticToKeep--;
+      } else if (artifact.source == BackupArtifactSource.safety &&
+          firstSafetyToKeep > 0) {
+        keepPaths.add(artifact.path);
+        firstSafetyToKeep--;
+      }
+    }
+
+    var deletedCount = 0;
+    var freedBytes = 0;
+    var failedCount = 0;
+    for (final artifact in artifacts) {
+      if (keepPaths.contains(artifact.path)) continue;
+      try {
+        await _files.deleteBackup(artifact.path);
+        await _catalog.removeByPath(artifact.path);
+        deletedCount++;
+        freedBytes += artifact.sizeBytes;
+      } catch (_) {
+        failedCount++;
+      }
+    }
+    return BackupCleanupResult(
+      deletedCount: deletedCount,
+      freedBytes: freedBytes,
+      failedCount: failedCount,
     );
   }
 
@@ -1022,6 +1107,36 @@ class BackupService {
   ) async {
     final deviceId = await _deviceIdLoader();
     return _files.writeBackup(document, deviceId: deviceId);
+  }
+
+  Future<void> _recordCatalogArtifact({
+    required BackupDocument document,
+    required String path,
+    required DateTime createdAt,
+    required BackupArtifactSource source,
+  }) async {
+    final backupId = document.backupId;
+    if (backupId == null) return;
+    final kind = document.encrypted != null
+        ? BackupArtifactKind.encrypted
+        : document.isIncremental
+            ? BackupArtifactKind.incremental
+            : BackupArtifactKind.full;
+    try {
+      await _catalog.upsert(
+        BackupArtifact(
+          backupId: backupId,
+          path: path,
+          createdAt: createdAt,
+          kind: kind,
+          source: source,
+          sizeBytes: await _files.fileSize(path),
+        ),
+      );
+    } catch (_) {
+      // Catalog metadata is auxiliary. Never turn a successful file
+      // write into a failed backup because SharedPreferences failed.
+    }
   }
 
   // -- Helpers -----------------------------------------------------------
@@ -1494,6 +1609,12 @@ abstract class BackupFilePort {
   /// destination when the platform reports one (e.g. "Files saved"),
   /// otherwise `null`.
   Future<String?> shareBackup(String source);
+
+  /// Return the persisted size, or `0` when [source] is missing.
+  Future<int> fileSize(String source);
+
+  /// Delete [source]. Missing files are treated as already deleted.
+  Future<void> deleteBackup(String source);
 
   /// Produce the v2-zip byte stream for [document] so the service can
   /// encrypt it before persisting.

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../application/auto_backup.dart';
+import '../application/backup_catalog_store.dart';
 import '../application/backup_metadata_store.dart';
 import '../application/backup_schedule.dart';
 import '../application/backup_service.dart';
@@ -212,6 +213,14 @@ final backupMetadataProvider = FutureProvider<BackupMetadata>((ref) async {
   return store.read();
 });
 
+final backupCatalogStoreProvider = Provider<BackupCatalogStore>((ref) {
+  return BackupCatalogStore();
+});
+
+final backupCatalogProvider = FutureProvider<List<BackupArtifact>>((ref) async {
+  return ref.watch(backupCatalogStoreProvider).read();
+});
+
 /// Ephemeral export password. The data-governance page writes the
 /// value as the user types and clears it after a successful export so
 /// it never lives past the current backup action.
@@ -228,6 +237,7 @@ final backupServiceProvider = Provider<BackupService>((ref) {
     filePort: ref.watch(backupFilePortProvider),
     deviceIdLoader: session.getOrCreateDeviceId,
     metadata: ref.watch(backupMetadataStoreProvider),
+    catalog: ref.watch(backupCatalogStoreProvider),
   );
 });
 

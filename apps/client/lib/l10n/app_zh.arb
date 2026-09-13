@@ -1397,6 +1397,55 @@
   "dataGovernanceIncrementalBackupHint": "只记录本机基础备份后的变化；恢复时需要保留基础文件",
   "dataGovernanceIncrementalEncryptedDisabled": "增量备份不加密；加密导出始终生成完整备份",
   "dataGovernanceStatusIncremental": "增量备份 · 需要本机基础文件",
+  "dataGovernanceLocalBackups": "本机备份 {count} 份 · {size}",
+  "@dataGovernanceLocalBackups": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceCleanupBackups": "清理旧备份",
+  "dataGovernanceCleanupSubtitle": "保护手工备份、基础备份和最近备份；自动备份保留最新 3 份。",
+  "dataGovernanceCleanupConfirmTitle": "确认清理旧自动备份？",
+  "dataGovernanceCleanupConfirmBody": "手工导出以及增量恢复所依赖的基础备份不会被删除。",
+  "dataGovernanceCleanupSuccess": "已清理 {count} 份备份，释放 {size}。",
+  "@dataGovernanceCleanupSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceCleanupPartial": "已清理 {count} 份备份并释放 {size}；{failed} 份删除失败。",
+  "@dataGovernanceCleanupPartial": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceCleanupNoChanges": "没有需要清理的旧备份。",
+  "dataGovernanceCleanupFailed": "清理备份失败：{error}",
+  "@dataGovernanceCleanupFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "dataGovernanceAutoBackup": "自动备份",
   "dataGovernanceAutoBackupSubtitle": "打开应用时检查；到期则写入本地快照",
   "dataGovernanceAutoBackupWarning": "自动备份不加密。敏感账本请继续使用密码导出。",

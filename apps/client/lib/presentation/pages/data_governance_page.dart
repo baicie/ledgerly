@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/backup_encryption.dart';
+import '../../application/backup_catalog_store.dart';
 import '../../application/backup_metadata_store.dart';
 import '../../application/backup_schedule.dart';
 import '../../application/backup_service.dart';
@@ -120,6 +121,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
         if (result.ran) _lastBackupPath = result.path;
       });
       if (result.ran) ref.invalidate(backupMetadataProvider);
+      if (result.ran) ref.invalidate(backupCatalogProvider);
     } catch (_) {
       if (!mounted) return;
       setState(() => _busy = false);
@@ -168,6 +170,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
       // Re-read the persisted metadata so the status card + stale
       // banner refresh immediately after a successful export.
       ref.invalidate(backupMetadataProvider);
+      ref.invalidate(backupCatalogProvider);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.dataGovernanceBackupSuccess(path))),
       );
@@ -201,6 +204,50 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(l10n.dataGovernanceBackupFailed('$error')),
+        ),
+      );
+    }
+  }
+
+  Future<void> _confirmCleanupBackups() async {
+    final l10n = l10nOf(context);
+    final confirmed = await showDialogDialog<bool>(
+      context: context,
+      builder: (dialogContext) => _CleanupConfirmDialog(l10n: l10n),
+    );
+    if (confirmed != true || !mounted) return;
+
+    _setBusy(true);
+    try {
+      final result = await _service.cleanupBackups();
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ref.invalidate(backupCatalogProvider);
+      final size = _formatMegabytes(result.freedBytes);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.failedCount == 0
+                ? result.deletedCount == 0
+                    ? l10n.dataGovernanceCleanupNoChanges
+                    : l10n.dataGovernanceCleanupSuccess(
+                        result.deletedCount,
+                        size,
+                      )
+                : l10n.dataGovernanceCleanupPartial(
+                    result.deletedCount,
+                    size,
+                    result.failedCount,
+                  ),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.dataGovernanceCleanupFailed('$error')),
         ),
       );
     }
@@ -347,6 +394,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
       ),
     );
     invalidateLedgerViews(ref);
+    ref.invalidate(backupCatalogProvider);
   }
 
   // -- Wipe -------------------------------------------------------------
@@ -395,6 +443,15 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
           data: (value) => value,
           orElse: () => BackupSchedule.disabled,
         );
+    final catalog =
+        ref.watch(backupCatalogProvider).maybeWhen<List<BackupArtifact>>(
+              data: (value) => value,
+              orElse: () => const <BackupArtifact>[],
+            );
+    final localBackupBytes = catalog.fold<int>(
+      0,
+      (sum, artifact) => sum + artifact.sizeBytes,
+    );
     final booksAsync = ref.watch(booksProvider);
     final availableBooks = booksAsync.maybeWhen(
       data: (value) => value,
@@ -454,6 +511,8 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
                   availableBooks: availableBooks,
                   selectedBookIds: _selectedBookIds,
                   lastBackupPath: _lastBackupPath,
+                  localBackupCount: catalog.length,
+                  localBackupSizeBytes: localBackupBytes,
                   pendingSummary: _pendingDocument?.summary,
                   pendingIsUnencrypted: _pendingIsUnencrypted,
                   pendingSchemaVersion: _pendingDocument?.schemaVersion,
@@ -495,6 +554,8 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
                           metadata.lastBackupIncremental
                       ? null
                       : () => _shareBackup(_lastBackupPath!),
+                  onCleanup:
+                      _busy || catalog.isEmpty ? null : _confirmCleanupBackups,
                   onPickRestore: _busy ? null : _pickRestoreFile,
                   onRestoreModeChanged: _busy
                       ? null
@@ -543,6 +604,8 @@ class _BackupSection extends StatelessWidget {
     required this.availableBooks,
     required this.selectedBookIds,
     required this.lastBackupPath,
+    required this.localBackupCount,
+    required this.localBackupSizeBytes,
     required this.pendingSummary,
     required this.pendingIsUnencrypted,
     required this.pendingSchemaVersion,
@@ -561,6 +624,7 @@ class _BackupSection extends StatelessWidget {
     required this.onExport,
     required this.onToggleBook,
     required this.onShare,
+    required this.onCleanup,
     required this.onPickRestore,
     required this.onRestoreModeChanged,
     required this.onCancelRestore,
@@ -572,6 +636,8 @@ class _BackupSection extends StatelessWidget {
   final List<Book> availableBooks;
   final Set<String> selectedBookIds;
   final String? lastBackupPath;
+  final int localBackupCount;
+  final int localBackupSizeBytes;
   final BackupSummary? pendingSummary;
   final bool pendingIsUnencrypted;
   final int? pendingSchemaVersion;
@@ -590,6 +656,7 @@ class _BackupSection extends StatelessWidget {
   final VoidCallback? onExport;
   final ValueChanged<String>? onToggleBook;
   final VoidCallback? onShare;
+  final VoidCallback? onCleanup;
   final VoidCallback? onPickRestore;
   final ValueChanged<BackupRestoreMode>? onRestoreModeChanged;
   final VoidCallback? onCancelRestore;
@@ -781,6 +848,28 @@ class _BackupSection extends StatelessWidget {
                 style: theme.textTheme.bodySmall,
               ),
             ),
+          if (localBackupCount > 0) ...[
+            ListTile(
+              key: const Key('data-governance-backup-catalog'),
+              leading: const Icon(Icons.inventory_2_outlined),
+              title: Text(
+                l10n.dataGovernanceLocalBackups(
+                  localBackupCount,
+                  _formatMegabytes(localBackupSizeBytes),
+                ),
+              ),
+              subtitle: Text(l10n.dataGovernanceCleanupSubtitle),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: OutlinedButton.icon(
+                key: const Key('data-governance-cleanup-action'),
+                onPressed: onCleanup,
+                icon: const Icon(Icons.delete_sweep_outlined),
+                label: Text(l10n.dataGovernanceCleanupBackups),
+              ),
+            ),
+          ],
           const Divider(indent: 16, endIndent: 16),
           // -- Restore --------------------------------------------------
           ListTile(
@@ -1173,6 +1262,32 @@ class _RestoreConfirmDialog extends StatelessWidget {
           key: const Key('data-governance-restore-dialog-confirm'),
           onPressed: () => Navigator.pop(context, true),
           child: Text(l10n.confirm),
+        ),
+      ],
+    );
+  }
+}
+
+class _CleanupConfirmDialog extends StatelessWidget {
+  const _CleanupConfirmDialog({required this.l10n});
+
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      key: const Key('data-governance-cleanup-dialog'),
+      title: Text(l10n.dataGovernanceCleanupConfirmTitle),
+      content: Text(l10n.dataGovernanceCleanupConfirmBody),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text(l10n.cancel),
+        ),
+        FilledButton(
+          key: const Key('data-governance-cleanup-confirm'),
+          onPressed: () => Navigator.pop(context, true),
+          child: Text(l10n.dataGovernanceCleanupBackups),
         ),
       ],
     );
@@ -1600,6 +1715,10 @@ class _UnlockDialogState extends State<_UnlockDialog> {
       ],
     );
   }
+}
+
+String _formatMegabytes(int bytes) {
+  return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
 }
 
 // Tiny helpers to keep call sites readable without fighting analyzer

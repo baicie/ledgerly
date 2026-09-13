@@ -127,6 +127,18 @@ class PluginBackupFilePort implements BackupFilePort {
     return _basename(source);
   }
 
+  @override
+  Future<int> fileSize(String source) async {
+    final file = File(source);
+    return await file.exists() ? file.length() : 0;
+  }
+
+  @override
+  Future<void> deleteBackup(String source) async {
+    final file = File(source);
+    if (await file.exists()) await file.delete();
+  }
+
   String _basename(String path) {
     final index = path.lastIndexOf(Platform.pathSeparator);
     return index < 0 ? path : path.substring(index + 1);
@@ -514,6 +526,19 @@ class InMemoryBackupFilePort implements BackupFilePort {
 
   @override
   Future<String?> shareBackup(String source) async => source;
+
+  @override
+  Future<int> fileSize(String source) async {
+    final raw = rawFiles[source];
+    if (raw != null) return raw.length;
+    return envelopes.containsKey(source) ? 1 : 0;
+  }
+
+  @override
+  Future<void> deleteBackup(String source) async {
+    rawFiles.remove(source);
+    envelopes.remove(source);
+  }
 
   @override
   Future<Uint8List> buildPlaintextZip(

@@ -1412,6 +1412,55 @@
   "dataGovernanceIncrementalBackupHint": "Writes changes since the local base backup; keep that base file to restore",
   "dataGovernanceIncrementalEncryptedDisabled": "Incremental backups are not encrypted; encrypted export writes a full backup",
   "dataGovernanceStatusIncremental": "Incremental backup · local base required",
+  "dataGovernanceLocalBackups": "{count} local backups · {size}",
+  "@dataGovernanceLocalBackups": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceCleanupBackups": "Clean old backups",
+  "dataGovernanceCleanupSubtitle": "Manual, base, and latest backups are protected; keep the newest 3 automatic backups.",
+  "dataGovernanceCleanupConfirmTitle": "Clean old automatic backups?",
+  "dataGovernanceCleanupConfirmBody": "Manual exports and the base required by incremental backups will not be deleted.",
+  "dataGovernanceCleanupSuccess": "Deleted {count} backups and freed {size}.",
+  "@dataGovernanceCleanupSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceCleanupPartial": "Deleted {count} backups and freed {size}; {failed} could not be deleted.",
+  "@dataGovernanceCleanupPartial": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceCleanupNoChanges": "No old backups needed cleaning.",
+  "dataGovernanceCleanupFailed": "Could not clean backups: {error}",
+  "@dataGovernanceCleanupFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "dataGovernanceAutoBackup": "Automatic backup",
   "dataGovernanceAutoBackupSubtitle": "Checked when you open the app; writes a local snapshot when due",
   "dataGovernanceAutoBackupWarning": "Automatic backups are not encrypted. Use a password export for sensitive books.",

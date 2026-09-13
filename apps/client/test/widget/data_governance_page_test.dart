@@ -886,6 +886,42 @@ void main() {
     );
   });
 
+  testWidgets('backup catalog shows count and confirms cleanup',
+      (tester) async {
+    await backupService.exportToFile();
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
+
+    expect(
+      find.byKey(const Key('data-governance-backup-catalog')),
+      findsOneWidget,
+    );
+    expect(
+      find.text(l10n.dataGovernanceLocalBackups(1, '0.0 MB')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-cleanup-action')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('data-governance-cleanup-dialog')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-cleanup-confirm')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(
+      find.text(l10n.dataGovernanceCleanupNoChanges),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('auto-backup switch is off by default', (tester) async {
     await _pumpPage(tester, backupService, booksLoader: loadBooks);
     final l10n = await AppLocalizations.delegate.load(const Locale('zh'));

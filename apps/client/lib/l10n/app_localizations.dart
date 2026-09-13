@@ -4301,6 +4301,60 @@ abstract class AppLocalizations {
   /// **'增量备份 · 需要本机基础文件'**
   String get dataGovernanceStatusIncremental;
 
+  /// No description provided for @dataGovernanceLocalBackups.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机备份 {count} 份 · {size}'**
+  String dataGovernanceLocalBackups(int count, String size);
+
+  /// No description provided for @dataGovernanceCleanupBackups.
+  ///
+  /// In zh, this message translates to:
+  /// **'清理旧备份'**
+  String get dataGovernanceCleanupBackups;
+
+  /// No description provided for @dataGovernanceCleanupSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'保护手工备份、基础备份和最近备份；自动备份保留最新 3 份。'**
+  String get dataGovernanceCleanupSubtitle;
+
+  /// No description provided for @dataGovernanceCleanupConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认清理旧自动备份？'**
+  String get dataGovernanceCleanupConfirmTitle;
+
+  /// No description provided for @dataGovernanceCleanupConfirmBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'手工导出以及增量恢复所依赖的基础备份不会被删除。'**
+  String get dataGovernanceCleanupConfirmBody;
+
+  /// No description provided for @dataGovernanceCleanupSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已清理 {count} 份备份，释放 {size}。'**
+  String dataGovernanceCleanupSuccess(int count, String size);
+
+  /// No description provided for @dataGovernanceCleanupPartial.
+  ///
+  /// In zh, this message translates to:
+  /// **'已清理 {count} 份备份并释放 {size}；{failed} 份删除失败。'**
+  String dataGovernanceCleanupPartial(int count, String size, int failed);
+
+  /// No description provided for @dataGovernanceCleanupNoChanges.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有需要清理的旧备份。'**
+  String get dataGovernanceCleanupNoChanges;
+
+  /// No description provided for @dataGovernanceCleanupFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'清理备份失败：{error}'**
+  String dataGovernanceCleanupFailed(String error);
+
   /// No description provided for @dataGovernanceAutoBackup.
   ///
   /// In zh, this message translates to:
