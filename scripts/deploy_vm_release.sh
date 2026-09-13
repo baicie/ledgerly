@@ -18,12 +18,14 @@ runtime_has_observability() {
   [[ -f "$runtime_dir/observability/docker-compose.observability.yml" ]] &&
     [[ -f "$runtime_dir/observability/prometheus/prometheus.yml" ]] &&
     [[ -f "$runtime_dir/observability/prometheus/backup-alerts.yml" ]] &&
+    [[ -f "$runtime_dir/observability/prometheus/host-alerts.yml" ]] &&
     [[ -f "$runtime_dir/observability/prometheus/platform-alerts.yml" ]] &&
     [[ -f "$runtime_dir/observability/alertmanager/generate-config.sh" ]] &&
     [[ -f "$runtime_dir/observability/alertmanager/entrypoint.sh" ]] &&
     [[ -f "$runtime_dir/observability/grafana/provisioning/datasources/prometheus.yml" ]] &&
     [[ -f "$runtime_dir/observability/grafana/provisioning/dashboards/ledgerly.yml" ]] &&
-    [[ -f "$runtime_dir/observability/grafana/dashboards/ledgerly-operations.json" ]]
+    [[ -f "$runtime_dir/observability/grafana/dashboards/ledgerly-operations.json" ]] &&
+    [[ -f "$runtime_dir/observability/grafana/dashboards/ledgerly-host-resources.json" ]]
 }
 
 observability_enabled() {
@@ -104,6 +106,8 @@ verify_observability() {
   local published
   local prometheus_url alertmanager_url grafana_url
   local prometheus_port alertmanager_port grafana_port
+  local node_exporter_url cadvisor_url
+  local node_exporter_port cadvisor_port
   local targets rules target_ready attempt
 
   published=$(compose port prometheus 9090) || return 1
@@ -119,6 +123,20 @@ verify_observability() {
   alertmanager_url="http://127.0.0.1:${alertmanager_port}"
   curl -fsS --retry 12 --retry-delay 5 --retry-connrefused \
     "$alertmanager_url/-/ready" >/dev/null || return 1
+
+  published=$(compose port node-exporter 9100) || return 1
+  test -n "$published" || return 1
+  node_exporter_port=${published##*:}
+  node_exporter_url="http://127.0.0.1:${node_exporter_port}"
+  curl -fsS --retry 12 --retry-delay 5 --retry-connrefused \
+    "$node_exporter_url/-/healthy" >/dev/null || return 1
+
+  published=$(compose port cadvisor 8080) || return 1
+  test -n "$published" || return 1
+  cadvisor_port=${published##*:}
+  cadvisor_url="http://127.0.0.1:${cadvisor_port}"
+  curl -fsS --retry 12 --retry-delay 5 --retry-connrefused \
+    "$cadvisor_url/healthz" >/dev/null || return 1
 
   published=$(compose port grafana 3000) || return 1
   test -n "$published" || return 1
@@ -137,13 +155,14 @@ import sys
 
 data = json.load(sys.stdin)
 assert data["status"] == "success"
-targets = [
-    target
+required_jobs = {"ledgerly-server", "node-exporter", "cadvisor"}
+targets = {
+    target["labels"].get("job"): target
     for target in data["data"]["activeTargets"]
-    if target["labels"].get("job") == "ledgerly-server"
-]
-assert targets
-assert all(target["health"] == "up" for target in targets)
+    if target["labels"].get("job") in required_jobs
+}
+assert required_jobs <= targets.keys(), required_jobs - targets.keys()
+assert all(target["health"] == "up" for target in targets.values())
 '; then
       target_ready=1
       break
@@ -167,6 +186,8 @@ names = {
 }
 required = {
     "LedgerlyBackupFailed",
+    "LedgerlyContainerOom",
+    "LedgerlyFilesystemSpaceLow",
     "LedgerlyRecoveryDrillFailed",
     "LedgerlyServerDown",
     "LedgerlyHigh5xxRate",

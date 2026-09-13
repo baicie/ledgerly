@@ -1,7 +1,7 @@
 # 生产观测栈 Runbook
 
-观测栈默认关闭，只影响显式启用它的部署。Prometheus、Alertmanager 和 Grafana
-的默认主机端口全部绑定到 `127.0.0.1`。
+观测栈默认关闭，只影响显式启用它的部署。Prometheus、Alertmanager、Grafana、
+node-exporter 和 cAdvisor 的默认主机端口全部绑定到 `127.0.0.1`。
 
 ## 启用
 
@@ -12,6 +12,8 @@ OBSERVABILITY_ENABLED=true
 OBSERVABILITY_BIND_ADDRESS=127.0.0.1
 PROMETHEUS_PORT=9090
 PROMETHEUS_RETENTION=30d
+NODE_EXPORTER_PORT=9100
+CADVISOR_PORT=8082
 ALERTMANAGER_PORT=9093
 ALERTMANAGER_WEBHOOK_URL=https://alerts.example.com/ledgerly
 ALERTMANAGER_SEND_RESOLVED=true
@@ -24,12 +26,16 @@ GRAFANA_ROOT_URL=http://localhost:3000
 `ALERTMANAGER_WEBHOOK_URL` 必须是没有空白、双引号或反斜杠的 HTTP(S) URL。
 部署流水线会同步观测配置、加载 Compose profile，并验证：
 
-- Ledgerly `/metrics` target 为 `up`；
-- 必需备份和平台告警已加载；
+- Ledgerly、node-exporter 和 cAdvisor target 为 `up`；
+- 必需备份、平台和主机资源告警已加载；
 - Prometheus、Alertmanager 和 Grafana 健康；
+- node-exporter 和 cAdvisor 健康；
 - Grafana 数据库可用。
 
 部署失败时使用现有运行时和镜像回滚，不会自动删除观测数据卷。
+
+cAdvisor 需要 `privileged` 和 `/dev/kmsg` 才能读取 Docker/cgroup 数据。只应在
+受控生产主机上启用 observability profile，并限制 Docker API 的宿主访问。
 
 ## 手工启动
 
@@ -66,6 +72,8 @@ COMPOSE_PROJECT_NAME=ledgerly docker compose \
 ```bash
 ssh -N \
   -L 9090:127.0.0.1:9090 \
+  -L 9100:127.0.0.1:9100 \
+  -L 8082:127.0.0.1:8082 \
   -L 9093:127.0.0.1:9093 \
   -L 3000:127.0.0.1:3000 \
   ubuntu@82.156.234.84
@@ -74,6 +82,8 @@ ssh -N \
 然后打开：
 
 - Prometheus: `http://127.0.0.1:9090`
+- node-exporter: `http://127.0.0.1:9100/metrics`
+- cAdvisor: `http://127.0.0.1:8082`
 - Alertmanager: `http://127.0.0.1:9093`
 - Grafana: `http://127.0.0.1:3000`
 
@@ -117,6 +127,8 @@ COMPOSE_PROJECT_NAME=ledgerly docker compose \
   ps
 
 docker logs --tail=150 ledgerly-prometheus
+docker logs --tail=150 ledgerly-node-exporter
+docker logs --tail=150 ledgerly-cadvisor
 docker logs --tail=150 ledgerly-alertmanager
 docker logs --tail=150 ledgerly-grafana
 ```
@@ -126,10 +138,14 @@ docker logs --tail=150 ledgerly-grafana
 | 现象 | 排查 |
 |---|---|
 | Prometheus target `down` | 检查服务端 `/metrics`、Compose 网络和 `LEDGER_LISTEN` |
+| node-exporter target `down` | 检查 `/proc`、`/sys` 和 `/` 的只读挂载 |
+| cAdvisor target `down` | 检查 privileged、`/dev/kmsg` 和 Docker socket |
 | 规则未加载 | 检查 `promtool`，然后查看 Prometheus rule API 和日志 |
 | Alertmanager 启动失败 | 检查 webhook URL 是否满足字符和协议要求 |
 | Grafana 没有面板 | 检查 datasource/dashboard provisioning 挂载和容器日志 |
 | 磁盘持续增长 | 检查 `PROMETHEUS_RETENTION` 和 `ledgerly_prometheus` volume |
+| 文件系统或 inode 告警 | 清理无用 Docker volume、日志或扩容宿主机磁盘 |
+| 容器重启或 OOM | 查看 `docker inspect`、容器内存限制和 cAdvisor 面板 |
 
 ## 备份与升级
 

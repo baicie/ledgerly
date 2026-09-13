@@ -25,12 +25,14 @@ for release in "$FIRST_RELEASE" "$SECOND_RELEASE"; do
     "$release/observability/docker-compose.observability.yml" \
     "$release/observability/prometheus/prometheus.yml" \
     "$release/observability/prometheus/backup-alerts.yml" \
+    "$release/observability/prometheus/host-alerts.yml" \
     "$release/observability/prometheus/platform-alerts.yml" \
     "$release/observability/alertmanager/generate-config.sh" \
     "$release/observability/alertmanager/entrypoint.sh" \
     "$release/observability/grafana/provisioning/datasources/prometheus.yml" \
     "$release/observability/grafana/provisioning/dashboards/ledgerly.yml" \
-    "$release/observability/grafana/dashboards/ledgerly-operations.json"
+    "$release/observability/grafana/dashboards/ledgerly-operations.json" \
+    "$release/observability/grafana/dashboards/ledgerly-host-resources.json"
 done
 
 docker() {
