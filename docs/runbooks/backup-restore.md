@@ -116,6 +116,8 @@ curl -s http://127.0.0.1:8080/health/backup
 
 Prometheus 抓取、容量告警、Grafana 查询和故障处置见
 [备份可观测性与容量告警 Runbook](backup-observability.md)。
+S3 对象存储配置、迁移和回退见
+[S3 对象存储 Runbook](s3-object-storage.md)。
 
 ## 客户端灾难恢复演练
 

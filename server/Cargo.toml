@@ -30,7 +30,7 @@ ledger-domain = { path = "crates/ledger-domain" }
 ledger-contracts = { path = "crates/ledger-contracts" }
 axum = { version = "0.8", features = ["macros"] }
 axum-extra = { version = "0.12", features = ["cookie"] }
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "fs"] }
 tower = "0.5"
 tower-http = { version = "0.7", features = ["trace", "cors", "timeout", "limit", "catch-panic"] }
 serde = { version = "1", features = ["derive"] }
@@ -58,6 +58,7 @@ futures-util = "0.3"
 url = "2"
 metrics = "0.23"
 metrics-exporter-prometheus = "0.15"
+object_store = { version = "0.14", features = ["aws"] }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }

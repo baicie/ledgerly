@@ -8,7 +8,7 @@ use time::OffsetDateTime;
 use url::Url;
 use uuid::Uuid;
 
-use crate::config::Config;
+use crate::config::{Config, ObjectStoreBackend};
 
 use super::backup_bundle::{
     backup_bundle_storage_stats, cleanup_backup_bundles, create_backup_bundle,
@@ -20,7 +20,7 @@ use super::backup_status::{
     RecoveryDrillStatusStore, RestoreRunOutcome, RestoreRunStatus, RestoreStatusStore,
 };
 use super::object_store::{
-    backup_object_store, object_metadata_from_root, restore_object_store,
+    backup_object_store_for_config, object_metadata_for_config, restore_object_store_for_config,
     verify_object_store_backup,
 };
 use super::postgres;
@@ -429,6 +429,7 @@ pub async fn run_recovery_drill(config: Config) -> anyhow::Result<RecoveryDrillR
         let mut drill_config = config.clone();
         drill_config.database_url = Some(drill_url);
         drill_config.object_store_dir = drill_objects.clone();
+        drill_config.object_storage_backend = ObjectStoreBackend::Local;
 
         let steps = execute_recovery_drill(
             drill_config,
@@ -508,13 +509,12 @@ async fn execute_recovery_drill(
     object_backup: PathBuf,
     expected_object_count: usize,
 ) -> anyhow::Result<(usize, i64, i64)> {
-    restore_object_store(&drill_config, &object_backup)?;
+    restore_object_store_for_config(&drill_config, &object_backup).await?;
     run_pg_restore(&drill_config, &unpacked.join("database.dump"))?;
     let database_url = drill_config
         .database_url
         .clone()
         .context("temporary recovery drill database URL missing")?;
-    let object_store_dir = drill_config.object_store_dir.clone();
     let pool = PgPoolOptions::new()
         .max_connections(8)
         .connect(&database_url)
@@ -522,7 +522,7 @@ async fn execute_recovery_drill(
         .context("temporary recovery drill database unavailable")?;
     postgres::migrate(&pool).await?;
     let (object_count, book_count, transaction_count) =
-        verify_restored_state(object_store_dir, pool).await?;
+        verify_restored_state(&drill_config, pool).await?;
     if object_count != expected_object_count {
         bail!("recovery drill attachment count mismatch");
     }
@@ -656,14 +656,13 @@ async fn restore_steps(
     let object_backup = unpacked.join("object-store");
     let database_dump = unpacked.join("database.dump");
     let object_verification = verify_object_store_backup(&object_backup)?;
-    restore_object_store(config, &object_backup)?;
+    restore_object_store_for_config(config, &object_backup).await?;
     run_pg_restore(config, &database_dump)?;
     let pool = postgres::connect(config)
         .await?
         .context("DATABASE_URL required for restore verification")?;
     postgres::migrate(&pool).await?;
-    let (object_count, book_count, transaction_count) =
-        verify_restored_state(config.object_store_dir.clone(), pool).await?;
+    let (object_count, book_count, transaction_count) = verify_restored_state(config, pool).await?;
     if object_count != object_verification.object_count {
         bail!("restored attachment count changed during verification");
     }
@@ -678,7 +677,7 @@ async fn restore_steps(
 }
 
 async fn verify_restored_state(
-    object_store_dir: PathBuf,
+    config: &Config,
     pool: sqlx::PgPool,
 ) -> anyhow::Result<(usize, i64, i64)> {
     let latest_index_count: i64 = sqlx::query_scalar(
@@ -703,7 +702,8 @@ async fn verify_restored_state(
             .fetch_all(&pool)
             .await?;
     for (object_key, expected_hash, expected_size) in &attachments {
-        let actual = object_metadata_from_root(&object_store_dir, object_key.as_str())
+        let actual = object_metadata_for_config(config, object_key.as_str())
+            .await
             .with_context(|| format!("restored attachment missing: {object_key}"))?;
         if let Some(expected_size) = expected_size {
             if actual.size_bytes as i64 != *expected_size {
@@ -738,7 +738,7 @@ async fn run_backup_steps(
     }
 
     run_pg_dump(config, database_dump)?;
-    backup_object_store(config, objects_backup)?;
+    backup_object_store_for_config(config, objects_backup).await?;
     let bundle = create_backup_bundle(
         database_dump,
         objects_backup,

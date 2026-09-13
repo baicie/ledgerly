@@ -57,3 +57,30 @@ groups:
         annotations:
           summary: "Ledgerly PostgreSQL connection pool is above 80%"
           description: "The active pool usage has remained above 80% of the configured maximum."
+
+      - alert: LedgerlyObjectStoreOperationFailures
+        expr: >-
+          sum by (backend, operation) (
+            increase(object_store_operations_total{outcome="failure"}[10m])
+          ) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ledgerly object storage operations are failing"
+          description: "{{ $labels.backend }} {{ $labels.operation }} operations failed in the last ten minutes."
+
+      - alert: LedgerlyObjectStoreLatencyHigh
+        expr: >-
+          histogram_quantile(
+            0.95,
+            sum by (le, backend, operation) (
+              rate(object_store_operation_duration_seconds_bucket[5m])
+            )
+          ) > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ledgerly object storage latency is high"
+          description: "{{ $labels.backend }} {{ $labels.operation }} p95 latency exceeds two seconds."
