@@ -154,9 +154,10 @@ jobs:
           USER: ${{ secrets.DEPLOY_USER }}
           KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           FINGERPRINT: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
+          BACKUP_PASSWORD: ${{ secrets.LEDGER_BACKUP_PASSWORD }}
         run: |
-          test -n "$HOST" && test -n "$USER" && test -n "$KEY" && test -n "$FINGERPRINT" || {
-            echo "Set DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY, and DEPLOY_HOST_FINGERPRINT"
+          test -n "$HOST" && test -n "$USER" && test -n "$KEY" && test -n "$FINGERPRINT" && test -n "$BACKUP_PASSWORD" || {
+            echo "Set DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY, DEPLOY_HOST_FINGERPRINT, and LEDGER_BACKUP_PASSWORD"
             exit 1
           }
 
@@ -210,6 +211,7 @@ jobs:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_FINGERPRINT: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
+          LEDGER_BACKUP_PASSWORD: ${{ secrets.LEDGER_BACKUP_PASSWORD }}
           GHCR_TOKEN: ${{ github.token }}
           GHCR_USERNAME: ${{ github.actor }}
           SOURCE_IMAGE: ${{ steps.image.outputs.source }}
@@ -288,15 +290,27 @@ jobs:
                 deploy/observability/. \
                 "$DEPLOY_USER@$DEPLOY_HOST:$REMOTE_RELEASE/observability/"
               set +e
-              ssh "${SSH_OPTS[@]}" "$DEPLOY_USER@$DEPLOY_HOST" \
-                "exec bash '$REMOTE_RELEASE/deploy_vm_release.sh' activate '$REMOTE_RELEASE' /opt/ledgerly"
-              activate_status=$?
+              printf '%s\n' "$LEDGER_BACKUP_PASSWORD" | \
+                ssh "${SSH_OPTS[@]}" "$DEPLOY_USER@$DEPLOY_HOST" \
+                  "exec bash '$REMOTE_RELEASE/deploy_vm_release.sh' set-backup-password /opt/ledgerly"
+              backup_password_status=${PIPESTATUS[1]}
               set -e
-              if [[ "$activate_status" -eq 0 ]]; then
-                break
-              fi
-              if [[ "$activate_status" -ne 255 ]]; then
-                exit "$activate_status"
+              if [[ "$backup_password_status" -ne 0 ]]; then
+                if [[ "$backup_password_status" -ne 255 ]]; then
+                  exit "$backup_password_status"
+                fi
+              else
+                set +e
+                ssh "${SSH_OPTS[@]}" "$DEPLOY_USER@$DEPLOY_HOST" \
+                  "exec bash '$REMOTE_RELEASE/deploy_vm_release.sh' activate '$REMOTE_RELEASE' /opt/ledgerly"
+                activate_status=$?
+                set -e
+                if [[ "$activate_status" -eq 0 ]]; then
+                  break
+                fi
+                if [[ "$activate_status" -ne 255 ]]; then
+                  exit "$activate_status"
+                fi
               fi
             fi
             test "$attempt" -lt 5

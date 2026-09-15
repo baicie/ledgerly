@@ -219,6 +219,35 @@ activate_runtime() {
   switch_runtime "$release_dir"
 }
 
+configure_backup_password() {
+  local env_file="$APP_DIR/.env.prod"
+  local temporary
+  local backup_password
+  local existing_password
+
+  test -f "$env_file" || die "missing $env_file"
+  IFS= read -r backup_password || die "missing backup password input"
+  test -n "$backup_password" || die "empty backup password input"
+
+  existing_password=$(sed -n \
+    's/^[[:space:]]*LEDGER_BACKUP_PASSWORD[[:space:]]*=[[:space:]]*//p' \
+    "$env_file" | tail -n 1)
+  if [[ -n "$existing_password" &&
+        "$existing_password" != "CHANGE_ME_BACKUP_PASSWORD" ]]; then
+    printf 'LEDGER_BACKUP_PASSWORD is already configured\n'
+    return 0
+  fi
+
+  umask 077
+  temporary="${env_file}.tmp.$$"
+  grep -vE '^[[:space:]]*LEDGER_BACKUP_PASSWORD[[:space:]]*=' \
+    "$env_file" > "$temporary" || true
+  printf 'LEDGER_BACKUP_PASSWORD=%s\n' "$backup_password" >> "$temporary"
+  chmod 600 "$temporary"
+  mv -f "$temporary" "$env_file"
+  printf 'LEDGER_BACKUP_PASSWORD configured\n'
+}
+
 read_deploy_input() {
   IFS= read -r GHCR_TOKEN || die "missing GHCR token input"
   IFS= read -r GHCR_USERNAME || die "missing GHCR username input"
@@ -333,11 +362,14 @@ main() {
     activate)
       activate_runtime "${2:?release directory is required}"
       ;;
+    set-backup-password)
+      configure_backup_password
+      ;;
     deploy)
       deploy_release
       ;;
     *)
-      die "usage: $0 activate RELEASE_DIR [APP_DIR] | deploy [APP_DIR]"
+      die "usage: $0 activate RELEASE_DIR [APP_DIR] | set-backup-password [APP_DIR] | deploy [APP_DIR]"
       ;;
   esac
 }
