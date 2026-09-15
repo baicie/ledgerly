@@ -224,7 +224,13 @@ jobs:
           cat > /tmp/notes.md <<EOF
           ## Ledgerly ${{ github.ref_name }}
 
-          ### Client (this release)
+          ### v0.0.21 highlights
+          - Complete the cloud attachment pipeline: direct upload, remote catalog, retry governance, multipart transfer, resumable missing-part upload, and S3-presigned part URLs.
+          - Support OpenCode Go's session routing requirements with stable \`x-opencode-session\` IDs, explicit User-Agent, and model-specific chat, messages, and responses endpoints.
+          - Harden attachment cleanup, S3 upload completion, PostgreSQL migrations, and production deployment verification.
+          - Refresh major client and server dependencies, including Riverpod 3, local_auth 3, jsonwebtoken 10, hmac 0.13, sha2 0.11, go_router 18, ed25519-dalek 3, and uuid 1.26.
+
+          ### Client (cumulative)
           - Restore the original shell layout. Switch or create books from the feed header instead of a dropdown bar above every page.
           - Keep multiple local books isolated (daily vs travel). The default Personal book is shown as the standard ledger.
           - Daily insights now appear on historical days in the feed, not just today. Older days generate on demand; today, yesterday, and last month still auto-fill.
