@@ -88,6 +88,8 @@ enum AiProviderKind {
   }
 }
 
+enum AiWireProtocol { chatCompletions, messages, responses }
+
 class AiSettings {
   const AiSettings({
     required this.apiKey,
@@ -133,6 +135,25 @@ class AiSettings {
   bool get usesDeepSeekThinking {
     final host = origin.host.toLowerCase();
     return host == 'api.deepseek.com' || host.endsWith('.deepseek.com');
+  }
+
+  bool get usesOpenCode {
+    final host = origin.host.toLowerCase();
+    return provider == AiProviderKind.opencode ||
+        host == 'opencode.ai' ||
+        host.endsWith('.opencode.ai');
+  }
+
+  AiWireProtocol get wireProtocol {
+    if (!usesOpenCode) return AiWireProtocol.chatCompletions;
+    final selectedModel = model.trim().toLowerCase();
+    if (selectedModel.contains('minimax') || selectedModel.startsWith('qwen')) {
+      return AiWireProtocol.messages;
+    }
+    if (selectedModel.contains('gpt') || selectedModel.startsWith('grok')) {
+      return AiWireProtocol.responses;
+    }
+    return AiWireProtocol.chatCompletions;
   }
 
   Uri get origin {
@@ -219,11 +240,13 @@ class AiChatRequest {
     required this.settings,
     required this.systemPrompt,
     required this.userPrompt,
+    this.sessionId,
   });
 
   final AiSettings settings;
   final String systemPrompt;
   final String userPrompt;
+  final String? sessionId;
 }
 
 class AiChatResult {

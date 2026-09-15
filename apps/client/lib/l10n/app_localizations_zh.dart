@@ -761,7 +761,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiCapabilityOpencode =>
-      'OpenCode 使用 Zen Go 网关 https://opencode.ai/zen/go/v1。网页浏览器会拦截跨域请求，测试连接在网页里会失败；请保存后用 App。预设仅包含 Chat Completions 模型，GPT / Claude 本期不接。';
+      'OpenCode 使用 Zen Go 网关 https://opencode.ai/zen/go/v1。客户端会发送稳定的 x-opencode-session，并按模型选择 chat/completions、messages 或 responses。网页浏览器会拦截跨域请求，测试连接在网页里会失败；请保存后用 App。';
 
   @override
   String aiCapabilityUsage(String hint) {

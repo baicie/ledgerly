@@ -773,7 +773,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiCapabilityOpencode =>
-      'OpenCode uses the Zen Go gateway https://opencode.ai/zen/go/v1. Browsers block cross-origin requests, so Test connection fails on web; save the key and use the app. Presets only include Chat Completions models. GPT / Claude are out of scope for now.';
+      'OpenCode uses the Zen Go gateway https://opencode.ai/zen/go/v1. The client sends a stable x-opencode-session and selects chat/completions, messages, or responses by model. Browsers block cross-origin requests, so Test connection fails on web; save the key and use the app.';
 
   @override
   String aiCapabilityUsage(String hint) {
