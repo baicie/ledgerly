@@ -35,6 +35,8 @@ pub struct MemoryStore {
     pub subscriptions: HashMap<String, String>,
     pub fx_rates: Vec<FxRateRecord>,
     pub revisions: Vec<RevisionRecord>,
+    pub audit_events: Vec<AuditEventRecord>,
+    pub attachments: Vec<AttachmentRecord>,
 }
 
 #[derive(Clone)]
@@ -277,6 +279,24 @@ pub struct InviteRecord {
 }
 
 #[derive(Clone)]
+pub struct AttachmentRecord {
+    pub id: String,
+    pub book_id: String,
+    pub transaction_id: Option<String>,
+    pub file_name: Option<String>,
+    pub object_key: String,
+    pub content_hash: Option<String>,
+    pub mime_type: Option<String>,
+    pub size_bytes: Option<i64>,
+    pub upload_status: String,
+    pub upload_mode: String,
+    pub multipart_upload_id: Option<String>,
+    pub multipart_parts: Vec<String>,
+    pub created_by: Option<String>,
+    pub created_at: time::OffsetDateTime,
+}
+
+#[derive(Clone)]
 pub struct FxRateRecord {
     pub book_id: String,
     pub base_currency: String,
@@ -292,6 +312,20 @@ pub struct RevisionRecord {
     pub version: i64,
     pub operation: String,
     pub payload: Value,
+}
+
+#[derive(Clone)]
+pub struct AuditEventRecord {
+    pub id: String,
+    pub occurred_at: time::OffsetDateTime,
+    pub actor_type: String,
+    pub actor_id: Option<String>,
+    pub action: String,
+    pub outcome: String,
+    pub target_type: Option<String>,
+    pub target_id: Option<String>,
+    pub request_id: Option<String>,
+    pub metadata: Value,
 }
 
 pub fn scoped_account_id(book_id: &str, key: &str) -> String {

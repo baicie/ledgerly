@@ -946,8 +946,18 @@
   },
   "recurringLocalHelp": "Posts on day 1–31 each month; if that date does not exist, it posts on the last day. Stored only on this device. Duplicates are skipped.",
   "recurringSubtitle": "Automatic monthly posting",
-  "attachmentsLocalHelp": "Attachments stay on this device and are not synced.",
-  "attachmentsSubtitle": "Stored on this device only",
+  "attachmentsLocalHelp": "Attachments are always saved locally. Signed-in users can also upload them to cloud storage.",
+  "attachmentsSubtitle": "Local-first with optional cloud upload",
+  "attachmentCloudUpload": "Upload to cloud",
+  "attachmentCloudRetry": "Retry cloud upload",
+  "attachmentCloudUploaded": "Uploaded to cloud",
+  "attachmentCloudUploading": "Uploading to cloud",
+  "attachmentCloudFailed": "Cloud upload failed",
+  "attachmentCloudSignIn": "Sign in to upload attachments",
+  "attachmentCloudUploadSuccess": "Attachment uploaded",
+  "attachmentCloudUploadFailure": "Attachment upload failed. Please try again later.",
+  "attachmentCloudDeleteFailure": "Could not delete the cloud attachment. Please try again.",
+  "attachmentCloudSyncFailure": "Cloud attachments could not be refreshed.",
   "addAttachment": "Add file",
   "addImage": "Add photo",
   "noAttachments": "No attachments yet",
@@ -1181,7 +1191,7 @@
   },
   "dataGovernanceBackupShare": "Share / save elsewhere",
   "dataGovernanceRestore": "Restore",
-  "dataGovernanceRestoreSubtitle": "Pick a backup file, preview it, then replace this device's data.",
+  "dataGovernanceRestoreSubtitle": "Pick a backup file, preview it, then replace or merge it into this device.",
   "dataGovernanceRestoreAction": "Pick a backup file",
   "dataGovernanceRestoreInProgress": "Restoring…",
   "dataGovernanceRestorePreview": "Preview",
@@ -1215,6 +1225,11 @@
     }
   },
   "dataGovernanceRestorePreviewEmpty": "This backup contains no data. Restoring will leave the device empty.",
+  "dataGovernanceRestoreModeReplace": "Replace local data",
+  "dataGovernanceRestoreModeMerge": "Merge new books",
+  "dataGovernanceRestoreMergeHint": "Books with the same ID and existing data are skipped. Only empty placeholder books can be replaced.",
+  "dataGovernanceRestoreReplaceAction": "Replace local data",
+  "dataGovernanceRestoreMergeAction": "Merge into device",
   "dataGovernanceRestoreConfirmTitle": "Replace local data?",
   "dataGovernanceRestoreConfirmBody": "Restore will overwrite every book on this device. A safety copy was written to {path} so you can roll back if anything looks wrong.",
   "@dataGovernanceRestoreConfirmBody": {
@@ -1224,7 +1239,92 @@
       }
     }
   },
+  "dataGovernanceRestoreConfirmMergeTitle": "Merge into this device?",
+  "dataGovernanceRestoreConfirmMergeBody": "Only new books and empty placeholder books will be merged. Books with the same ID and existing data are skipped. A safety copy was written to {path}.",
+  "@dataGovernanceRestoreConfirmMergeBody": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreMergeSuccess": "Merged {added} new books, replaced {replaced} empty books, skipped {skipped} existing books.",
+  "@dataGovernanceRestoreMergeSuccess": {
+    "placeholders": {
+      "added": {
+        "type": "int"
+      },
+      "replaced": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceRestoreMergeNoChanges": "Nothing new to merge. Existing books were kept unchanged.",
   "dataGovernanceRestoreSuccess": "Restore complete. Reloading…",
+  "dataGovernanceRestoreHistory": "Restore history · {count}",
+  "@dataGovernanceRestoreHistory": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceRestoreAuditSuccess": "Succeeded",
+  "dataGovernanceRestoreAuditFailed": "Failed",
+  "dataGovernanceRestoreAuditBackup": "Source backup: {backupId}",
+  "@dataGovernanceRestoreAuditBackup": {
+    "placeholders": {
+      "backupId": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreAuditSafety": "Safety backup: {path}",
+  "@dataGovernanceRestoreAuditSafety": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreAuditError": "Error: {error}",
+  "@dataGovernanceRestoreAuditError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreAuditDelete": "Delete entry and safety backup",
+  "dataGovernanceRestoreAuditDeleteConfirmTitle": "Delete restore entry?",
+  "dataGovernanceRestoreAuditDeleteConfirmBody": "This also deletes the linked safety backup: {path}",
+  "@dataGovernanceRestoreAuditDeleteConfirmBody": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreAuditDeleteHistoryOnly": "This entry has no linked safety backup, so only the history entry will be deleted.",
+  "dataGovernanceRestoreAuditDeleteSuccess": "Restore entry deleted, freeing {size}.",
+  "@dataGovernanceRestoreAuditDeleteSuccess": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreAuditDeleteFailed": "Could not delete restore entry: {error}",
+  "@dataGovernanceRestoreAuditDeleteFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "dataGovernanceWipe": "Wipe local data",
   "dataGovernanceWipeSubtitle": "Delete every transaction, budget, rule, and attachment. There is no undo.",
   "dataGovernanceWipeAction": "Wipe everything",
@@ -1379,9 +1479,461 @@
   "dataGovernanceRestoreLegacyUnencryptedDetail": "Consider using a password-encrypted backup for sensitive financial data",
   "dataGovernanceStatusEncrypted": "Password protected",
   "dataGovernanceEncryptLostPasswordWarning": "If you lose the password the backup cannot be recovered",
+  "dataGovernanceIncrementalBackup": "Incremental backup",
+  "dataGovernanceIncrementalBackupHint": "Writes changes since the local base backup; keep that base file to restore",
+  "dataGovernanceIncrementalEncryptedDisabled": "Incremental backups are not encrypted; encrypted export writes a full backup",
+  "dataGovernanceStatusIncremental": "Incremental backup · local base required",
+  "dataGovernanceLocalBackups": "{count} local backups · {size}",
+  "@dataGovernanceLocalBackups": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceCleanupBackups": "Clean old backups",
+  "dataGovernanceCleanupSubtitle": "Manual, base, and latest backups are protected; keep the newest 3 automatic backups.",
+  "dataGovernanceArtifactListTitle": "Backup files",
+  "dataGovernanceArtifactActions": "Backup actions",
+  "dataGovernanceArtifactKindFull": "Full",
+  "dataGovernanceArtifactKindIncremental": "Incremental",
+  "dataGovernanceArtifactKindEncrypted": "Encrypted",
+  "dataGovernanceArtifactSourceManual": "Manual",
+  "dataGovernanceArtifactSourceAutomatic": "Automatic",
+  "dataGovernanceArtifactSourceSafety": "Pre-restore",
+  "dataGovernanceArtifactCurrentBase": "Current base",
+  "dataGovernanceArtifactLatest": "Latest",
+  "dataGovernanceArtifactShare": "Share",
+  "dataGovernanceArtifactDrill": "Recovery drill",
+  "dataGovernanceArtifactRotate": "Change password",
+  "dataGovernanceArtifactRestore": "Load into restore preview",
+  "dataGovernanceArtifactDelete": "Delete this backup",
+  "dataGovernanceArtifactUnlockPrompt": "Enter this backup's password",
+  "dataGovernanceArtifactRotateTitle": "Change backup password",
+  "dataGovernanceArtifactRotateOldPassword": "Old password",
+  "dataGovernanceArtifactRotateNewPassword": "New password",
+  "dataGovernanceArtifactRotateConfirmPassword": "Confirm new password",
+  "dataGovernanceArtifactRotateSuccess": "New encrypted backup created while keeping the original: {path} ({size})",
+  "@dataGovernanceArtifactRotateSuccess": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceArtifactRestoreLoaded": "Loaded into the restore preview. Scroll down to choose a restore mode.",
+  "dataGovernanceArtifactLoadFailed": "Could not load backup: {error}",
+  "@dataGovernanceArtifactLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceArtifactDeleteConfirmTitle": "Delete backup file?",
+  "dataGovernanceArtifactDeleteConfirmBody": "This will delete from this device: {path}",
+  "@dataGovernanceArtifactDeleteConfirmBody": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceArtifactDeleteSuccess": "Backup deleted, freeing {size}.",
+  "@dataGovernanceArtifactDeleteSuccess": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceArtifactDeleteFailed": "Could not delete backup: {error}",
+  "@dataGovernanceArtifactDeleteFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceCleanupConfirmTitle": "Clean old automatic backups?",
+  "dataGovernanceCleanupConfirmBody": "Manual exports and the base required by incremental backups will not be deleted.",
+  "dataGovernanceCleanupSuccess": "Deleted {count} backups and freed {size}.",
+  "@dataGovernanceCleanupSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceCleanupPartial": "Deleted {count} backups and freed {size}; {failed} could not be deleted.",
+  "@dataGovernanceCleanupPartial": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceCleanupNoChanges": "No old backups needed cleaning.",
+  "dataGovernanceCleanupFailed": "Could not clean backups: {error}",
+  "@dataGovernanceCleanupFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceConsolidateBackup": "Create portable full backup",
+  "dataGovernanceConsolidatePasswordTitle": "Set a portable backup password",
+  "dataGovernanceConsolidatePasswordBody": "You can set a password; leave it blank for an unencrypted backup.",
+  "dataGovernanceConsolidatePasswordLabel": "Backup password (optional)",
+  "dataGovernanceConsolidatePasswordConfirm": "Confirm backup password",
+  "dataGovernanceConsolidateSuccess": "Portable backup created: {path} ({size})",
+  "@dataGovernanceConsolidateSuccess": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceConsolidateNoChanges": "The latest backup is already a standalone full backup.",
+  "dataGovernanceConsolidateFailed": "Could not create portable backup: {error}",
+  "@dataGovernanceConsolidateFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceVerifyBackups": "Check integrity",
+  "dataGovernanceVerifyNoBackups": "There are no cataloged backups to verify.",
+  "dataGovernanceVerifyAllHealthy": "Verified {count} healthy backups.",
+  "@dataGovernanceVerifyAllHealthy": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceVerifyIssuesTitle": "Backup integrity issues",
+  "dataGovernanceVerifyIssueSummary": "{healthy} healthy · {missing} missing · {corrupted} corrupted",
+  "@dataGovernanceVerifyIssueSummary": {
+    "placeholders": {
+      "healthy": {
+        "type": "int"
+      },
+      "missing": {
+        "type": "int"
+      },
+      "corrupted": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceVerifyMissing": "File is missing",
+  "dataGovernanceVerifyCorrupted": "File is corrupted",
+  "dataGovernanceVerifyFailed": "Could not verify backups: {error}",
+  "@dataGovernanceVerifyFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRecoveryDrill": "Recovery drill",
+  "dataGovernanceRecoveryDrillPasswordTitle": "Enter the password for the recovery drill",
+  "dataGovernanceRecoveryDrillSuccessTitle": "Recovery drill passed",
+  "dataGovernanceRecoveryDrillSuccess": "Successfully materialized or decrypted the backup: {books} books, {transactions} transactions, and {attachments} attachments.",
+  "@dataGovernanceRecoveryDrillSuccess": {
+    "placeholders": {
+      "books": {
+        "type": "int"
+      },
+      "transactions": {
+        "type": "int"
+      },
+      "attachments": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceRecoveryDrillSuccessBody": "The drill only reads the backup and does not modify local data.",
+  "dataGovernanceRecoveryDrillPath": "Backup path: {path}",
+  "@dataGovernanceRecoveryDrillPath": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRecoveryDrillFailed": "Recovery drill failed: {error}",
+  "@dataGovernanceRecoveryDrillFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceHealthRecoveryDrillNever": "Recovery drill: not run yet",
+  "dataGovernanceHealthRecoveryDrillSuccess": "Last recovery drill passed: {date}",
+  "@dataGovernanceHealthRecoveryDrillSuccess": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceHealthRecoveryDrillFailed": "Last recovery drill failed: {date}",
+  "@dataGovernanceHealthRecoveryDrillFailed": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceHealthTitle": "Backup policy health",
+  "dataGovernanceHealthChecking": "Checking…",
+  "dataGovernanceHealthHealthy": "Healthy",
+  "dataGovernanceHealthWarning": "Needs attention",
+  "dataGovernanceHealthCritical": "At risk",
+  "dataGovernanceHealthNoIssues": "The backup policy is currently healthy.",
+  "dataGovernanceHealthRefresh": "Check again",
+  "dataGovernanceHealthSummary": "{count} local backups · Next run {nextDue}",
+  "@dataGovernanceHealthSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "nextDue": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceHealthNotScheduled": "Not scheduled",
+  "dataGovernanceHealthIssueNoBackup": "There is no local backup yet.",
+  "dataGovernanceHealthIssueStale": "The latest backup is {days} days old.",
+  "@dataGovernanceHealthIssueStale": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceHealthIssueAutoDisabled": "Automatic backup is disabled.",
+  "dataGovernanceHealthIssuePasswordMissing": "Encrypted automatic backup has no usable password.",
+  "dataGovernanceHealthIssueSecureStorage": "System secure storage is unavailable.",
+  "dataGovernanceHealthIssueVerificationFailed": "The backup catalog integrity check failed.",
+  "dataGovernanceHealthIssueMissing": "{count} backup files are missing.",
+  "@dataGovernanceHealthIssueMissing": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceHealthIssueCorrupted": "{count} backup files are corrupted.",
+  "@dataGovernanceHealthIssueCorrupted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceHealthIssueNotCataloged": "The latest backup is not registered in the local catalog.",
+  "dataGovernanceHealthIssueLatestIncremental": "The latest backup is a local-only incremental file.",
+  "dataGovernanceHealthIssueBaseMissing": "The incremental base is missing from the backup catalog.",
+  "dataGovernanceHealthIssueRestoreFailed": "The latest restore attempt failed; review restore history.",
+  "dataGovernanceHealthIssueExternalUnavailable": "The external backup directory is unavailable.",
+  "dataGovernanceHealthIssueMirrorFailed": "The latest backup has not been mirrored successfully.",
+  "dataGovernanceHealthIssueMirrorMissing": "{count} external mirror files are missing.",
+  "@dataGovernanceHealthIssueMirrorMissing": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceHealthIssueMirrorCorrupted": "{count} external mirror files are corrupted.",
+  "@dataGovernanceHealthIssueMirrorCorrupted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceHealthIssueMirrorExtra": "The external directory has {count} unregistered backups.",
+  "@dataGovernanceHealthIssueMirrorExtra": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceHealthIssueRecoveryDrillNever": "No recovery drill has been completed for the latest backup policy.",
+  "dataGovernanceHealthIssueRecoveryDrillFailed": "The latest recovery drill failed; run it again.",
+  "dataGovernanceHealthIssueRecoveryDrillStale": "The last successful recovery drill was {days} days ago.",
+  "@dataGovernanceHealthIssueRecoveryDrillStale": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceHealthActionBackup": "Back up now",
+  "dataGovernanceHealthActionEnableAuto": "Enable automatic backup",
+  "dataGovernanceHealthActionPassword": "Set automatic backup password",
+  "dataGovernanceHealthActionInspect": "Inspect backup files",
+  "dataGovernanceHealthActionExternalDirectory": "Check external backup directory",
+  "dataGovernanceHealthActionRecoveryDrill": "Run recovery drill",
+  "dataGovernanceHealthExportReport": "Export governance report",
+  "dataGovernanceHealthReportJson": "Full JSON report",
+  "dataGovernanceHealthReportCsv": "CSV summary",
+  "dataGovernanceHealthReportExported": "Governance report created: {path}",
+  "@dataGovernanceHealthReportExported": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceHealthReportFailed": "Could not export governance report: {error}",
+  "@dataGovernanceHealthReportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "dataGovernanceAutoBackup": "Automatic backup",
   "dataGovernanceAutoBackupSubtitle": "Checked when you open the app; writes a local snapshot when due",
   "dataGovernanceAutoBackupWarning": "Automatic backups are not encrypted. Use a password export for sensitive books.",
+  "dataGovernanceAutoEncrypt": "Encrypt automatic backups",
+  "dataGovernanceAutoEncryptEnabled": "Password stays in system secure storage; each run writes an independent encrypted full backup",
+  "dataGovernanceAutoEncryptDisabled": "When off, automatic backups continue as plaintext incrementals",
+  "dataGovernanceAutoEncryptWarning": "The password stays in system secure storage; losing it makes automatic backups unrecoverable.",
+  "dataGovernanceAutoEncryptPasswordTitle": "Set automatic backup password",
+  "dataGovernanceAutoEncryptPasswordBody": "The password is stored in system secure storage and used only for automatic backup encryption.",
+  "dataGovernanceAutoEncryptPasswordLabel": "Automatic backup password",
+  "dataGovernanceAutoEncryptPasswordConfirm": "Confirm automatic backup password",
+  "dataGovernanceAutoEncryptNeedsPassword": "The encrypted automatic backup password is missing, so no backup was written.",
+  "dataGovernanceAutoEncryptUnavailable": "System secure storage is unavailable, so no backup was written.",
+  "dataGovernanceAutoEncryptFailed": "Could not save the automatic backup password: {error}",
+  "@dataGovernanceAutoEncryptFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupDirectory": "External backup directory",
+  "dataGovernanceExternalBackupNotConfigured": "Not configured; backups stay only in the app directory",
+  "dataGovernanceExternalBackupChoose": "Choose directory",
+  "dataGovernanceExternalBackupClear": "Remove external directory",
+  "dataGovernanceExternalBackupMirrorNow": "Mirror now",
+  "dataGovernanceExternalBackupVerify": "Check mirror",
+  "dataGovernanceExternalBackupVerifyHealthy": "{count} external mirror files are healthy.",
+  "@dataGovernanceExternalBackupVerifyHealthy": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupVerifyIssuesTitle": "External mirror issues",
+  "dataGovernanceExternalBackupVerifyIssueSummary": "{healthy} healthy · {missing} missing · {corrupted} corrupted · {extra} extra",
+  "@dataGovernanceExternalBackupVerifyIssueSummary": {
+    "placeholders": {
+      "healthy": {
+        "type": "int"
+      },
+      "missing": {
+        "type": "int"
+      },
+      "corrupted": {
+        "type": "int"
+      },
+      "extra": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupVerifyMissing": "External copy is missing",
+  "dataGovernanceExternalBackupVerifyCorrupted": "External copy size or SHA-256 differs",
+  "dataGovernanceExternalBackupVerifyExtra": "External file is not registered locally",
+  "dataGovernanceExternalBackupVerifyFailed": "Could not verify external mirror: {error}",
+  "@dataGovernanceExternalBackupVerifyFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupImport": "Import locally",
+  "dataGovernanceExternalBackupImported": "Imported external backup: {backupId}",
+  "@dataGovernanceExternalBackupImported": {
+    "placeholders": {
+      "backupId": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupImportFailed": "Could not import external backup: {error}",
+  "@dataGovernanceExternalBackupImportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupSelected": "Directory set: {mirrored} mirrored, {failed} failed.",
+  "@dataGovernanceExternalBackupSelected": {
+    "placeholders": {
+      "mirrored": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupMirrorResult": "External mirror complete: {mirrored} succeeded, {failed} failed.",
+  "@dataGovernanceExternalBackupMirrorResult": {
+    "placeholders": {
+      "mirrored": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupMirrorFailed": "External mirror failed: {error}",
+  "@dataGovernanceExternalBackupMirrorFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceArtifactMirrored": "Mirrored",
+  "dataGovernanceArtifactMirrorFailed": "Mirror failed",
   "dataGovernanceAutoIntervalDays": "{n} days",
   "@dataGovernanceAutoIntervalDays": {
     "placeholders": {

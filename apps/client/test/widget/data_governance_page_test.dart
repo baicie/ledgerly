@@ -8,8 +8,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:ledgerly_client/application/backup_auto_password_store.dart';
+import 'package:ledgerly_client/application/backup_catalog_store.dart';
 import 'package:ledgerly_client/application/backup_encryption.dart';
 import 'package:ledgerly_client/application/backup_metadata_store.dart';
+import 'package:ledgerly_client/application/backup_mirror_store.dart';
+import 'package:ledgerly_client/application/backup_recovery_drill_audit.dart';
+import 'package:ledgerly_client/application/backup_restore_audit.dart';
 import 'package:ledgerly_client/application/backup_schedule.dart';
 import 'package:ledgerly_client/application/backup_service.dart';
 import 'package:ledgerly_client/application/merchant_rule_store.dart';
@@ -96,6 +101,82 @@ void main() {
     expect(find.byKey(const Key('data-governance-restore')), findsOneWidget);
   });
 
+  testWidgets('health card reports a missing backup with an action',
+      (tester) async {
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('data-governance-health-card')),
+      findsOneWidget,
+    );
+    expect(find.text(l10n.dataGovernanceHealthCritical), findsOneWidget);
+    expect(
+      find.text(l10n.dataGovernanceHealthIssueNoBackup),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('data-governance-health-action')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('health card exports a privacy-safe governance report',
+      (tester) async {
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-health-report-export')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('data-governance-health-report-json')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(filePort.reportFiles, hasLength(1));
+    final report = filePort.reportFiles.values.single;
+    expect(report, contains('ledgerly-governance-report'));
+    expect(report, isNot(contains('picked-backup')));
+  });
+
+  testWidgets('health action runs a drill and records recovery readiness',
+      (tester) async {
+    await backupService.exportToFile();
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(l10n.dataGovernanceHealthIssueRecoveryDrillNever),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const Key('data-governance-health-action')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('data-governance-drill-result-dialog')),
+      findsOneWidget,
+    );
+    final audits = await BackupRecoveryDrillAuditStore().read();
+    expect(audits, hasLength(1));
+    expect(audits.single.status, BackupRecoveryDrillAuditStatus.success);
+  });
+
   testWidgets('export writes the snapshot through the file port',
       (tester) async {
     await _pumpPage(tester, backupService, booksLoader: loadBooks);
@@ -157,6 +238,145 @@ void main() {
         .where((entry) => entry.key.startsWith('memory-safety'))
         .toList();
     expect(safetyEntries.length, 1);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    final audits = await BackupRestoreAuditStore().read();
+    expect(audits, hasLength(1));
+    expect(audits.single.status, BackupRestoreAuditStatus.success);
+    expect(audits.single.mode, BackupRestoreAuditMode.replace);
+    expect(audits.single.safetyPath, safetyEntries.single.key);
+    expect(
+      find.byKey(const Key('data-governance-restore-history')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('restore preview can switch to merge mode and reports its result',
+      (tester) async {
+    final document = await backupService.export();
+    filePort.pickResult = 'picked-merge-backup';
+    filePort.envelopes['picked-merge-backup'] = document;
+
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-restore-pick')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    await tester.tap(find.text(l10n.dataGovernanceRestoreModeMerge));
+    await tester.pump();
+    expect(
+      find.byKey(const Key('data-governance-restore-merge-hint')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-restore-confirm')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text(l10n.dataGovernanceRestoreConfirmMergeTitle),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-restore-dialog-confirm')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(
+      find.text(l10n.dataGovernanceRestoreMergeSuccess(0, 1, 0)),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('failed restore is recorded in the audit history',
+      (tester) async {
+    final document = await backupService.export();
+    filePort.pickResult = 'picked-failing-restore';
+    filePort.envelopes['picked-failing-restore'] = document;
+    final failingService = _FailingRestoreBackupService(
+      database: database,
+      recurring: recurring,
+      budgets: budgets,
+      attachments: attachments,
+      merchantRules: merchantRules,
+      filePort: filePort,
+      deviceIdLoader: () async => 'governance-test-device',
+      encryption: BackupEncryption.testing(),
+    );
+
+    await _pumpPage(tester, failingService, booksLoader: loadBooks);
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-restore-pick')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(
+      find.byKey(const Key('data-governance-restore-confirm')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('data-governance-restore-dialog-confirm')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final audits = await BackupRestoreAuditStore().read();
+    expect(audits, hasLength(1));
+    expect(audits.single.status, BackupRestoreAuditStatus.failed);
+    expect(audits.single.safetyPath, isNotNull);
+    expect(audits.single.errorSummary, contains('restore failed'));
+  });
+
+  testWidgets('restore history deletes its linked safety backup',
+      (tester) async {
+    final safetyPath = await backupService.writeSafetyBackup();
+    final auditStore = BackupRestoreAuditStore();
+    await auditStore.record(
+      at: DateTime.now().toUtc(),
+      mode: BackupRestoreAuditMode.replace,
+      status: BackupRestoreAuditStatus.success,
+      backupId: 'source-backup',
+      safetyPath: safetyPath,
+    );
+    final audit = (await auditStore.read()).single;
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+
+    final history = find.byKey(
+      const Key('data-governance-restore-history'),
+    );
+    await tester.ensureVisible(history);
+    await tester.tap(history);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(
+        Key('data-governance-restore-audit-${audit.id}-actions'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(
+        Key('data-governance-restore-audit-${audit.id}-delete'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(
+        const Key('data-governance-restore-audit-delete-confirm'),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(filePort.rawFiles.containsKey(safetyPath), isFalse);
+    expect(await auditStore.read(), isEmpty);
   });
 
   testWidgets('wipe requires the user to type DELETE', (tester) async {
@@ -794,6 +1014,383 @@ void main() {
     expect(find.text(l10n.dataGovernanceStatusEncrypted), findsOneWidget);
   });
 
+  testWidgets('incremental option disables when encrypted export is selected',
+      (tester) async {
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
+    final incremental = find.byKey(
+      const Key('data-governance-incremental-checkbox'),
+    );
+
+    expect(
+      tester.widget<CheckboxListTile>(incremental).onChanged,
+      isNotNull,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-encrypt-checkbox')),
+    );
+    await tester.pump();
+
+    final disabled = tester.widget<CheckboxListTile>(incremental);
+    expect(disabled.value, isFalse);
+    expect(disabled.onChanged, isNull);
+    expect(
+      find.text(l10n.dataGovernanceIncrementalEncryptedDisabled),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('status card marks an incremental backup as local-only',
+      (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      BackupMetadataStore.kLastBackupAt,
+      DateTime.now().toUtc().toIso8601String(),
+    );
+    await prefs.setBool(BackupMetadataStore.kLastBackupIncremental, true);
+
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
+
+    expect(
+      find.byKey(const Key('data-governance-status-incremental')),
+      findsOneWidget,
+    );
+    expect(
+      find.text(l10n.dataGovernanceStatusIncremental),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('backup catalog shows count and confirms cleanup',
+      (tester) async {
+    await backupService.exportToFile();
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
+
+    expect(
+      find.byKey(const Key('data-governance-backup-catalog')),
+      findsOneWidget,
+    );
+    expect(
+      find.text(l10n.dataGovernanceLocalBackups(1, '0.0 MB')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-cleanup-action')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('data-governance-cleanup-dialog')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-cleanup-confirm')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(
+      find.text(l10n.dataGovernanceCleanupNoChanges),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('catalog artifact can run a recovery drill', (tester) async {
+    await backupService.exportToFile();
+    final artifact = (await BackupCatalogStore().read()).single;
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+
+    await _expandBackupCatalog(tester);
+    expect(
+      find.byKey(Key('data-governance-artifact-${artifact.backupId}')),
+      findsOneWidget,
+    );
+    await _selectArtifactAction(tester, artifact, 'drill');
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('data-governance-drill-result-dialog')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('catalog artifact can load into the restore preview',
+      (tester) async {
+    await backupService.exportToFile();
+    final artifact = (await BackupCatalogStore().read()).single;
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+
+    await _expandBackupCatalog(tester);
+    await _selectArtifactAction(tester, artifact, 'restore');
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('data-governance-restore-preview')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('catalog artifact delete confirms and removes the file',
+      (tester) async {
+    await backupService.exportToFile();
+    final safetyPath = await backupService.writeSafetyBackup();
+    final safety = (await BackupCatalogStore().read()).firstWhere(
+      (artifact) => artifact.path == safetyPath,
+    );
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+
+    await _expandBackupCatalog(tester);
+    await _selectArtifactAction(tester, safety, 'delete');
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('data-governance-artifact-delete-dialog')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-artifact-delete-confirm')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(filePort.rawFiles.containsKey(safetyPath), isFalse);
+    expect(
+      (await BackupCatalogStore().read()).map((artifact) => artifact.path),
+      isNot(contains(safetyPath)),
+    );
+  });
+
+  testWidgets('catalog encrypted artifact can rotate its password',
+      (tester) async {
+    final oldPath = await backupService.exportToFile(
+      password: 'password123',
+    );
+    final artifact = (await BackupCatalogStore().read()).single;
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+
+    await _expandBackupCatalog(tester);
+    await _selectArtifactAction(tester, artifact, 'rotate');
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('data-governance-artifact-rotate-dialog')),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('data-governance-artifact-rotate-old')),
+      'password123',
+    );
+    await tester.enterText(
+      find.byKey(const Key('data-governance-artifact-rotate-new')),
+      'newpassword456',
+    );
+    await tester.enterText(
+      find.byKey(const Key('data-governance-artifact-rotate-confirm')),
+      'newpassword456',
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const Key('data-governance-artifact-rotate-submit')),
+    );
+    await tester.pump();
+    await _flushBackupCrypto(tester);
+    await tester.pumpAndSettle();
+
+    final metadata = await BackupMetadataStore().read();
+    expect(metadata.lastBackupPath, isNot(oldPath));
+    expect(metadata.lastBackupId, isNotNull);
+    expect(filePort.rawFiles.containsKey(oldPath), isTrue);
+    expect(filePort.rawFiles, hasLength(2));
+  });
+
+  testWidgets('incremental backup can be consolidated for sharing',
+      (tester) async {
+    await backupService.exportToFile();
+    await backupService.exportToFile(incremental: true);
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+
+    final consolidate = find.byKey(
+      const Key('data-governance-consolidate-action'),
+    );
+    expect(consolidate, findsOneWidget);
+
+    await tester.tap(consolidate);
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('data-governance-portable-password-dialog')),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const Key('data-governance-portable-password-submit')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(consolidate, findsNothing);
+    final metadata = await BackupMetadataStore().read();
+    expect(metadata.lastBackupEncrypted, isFalse);
+    final share = tester.widget<OutlinedButton>(
+      find.byKey(const Key('data-governance-export-share')),
+    );
+    expect(share.onPressed, isNotNull);
+  });
+
+  testWidgets('portable backup can be encrypted with a password',
+      (tester) async {
+    final basePath = await backupService.exportToFile();
+    final base = filePort.envelopes[basePath]!;
+    await backupService.exportToFile(incremental: true);
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-consolidate-action')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('data-governance-portable-password')),
+      'short',
+    );
+    await tester.pump();
+    expect(
+      find.text(l10n.dataGovernancePasswordTooShort),
+      findsOneWidget,
+    );
+    final disabledSubmit = tester.widget<FilledButton>(
+      find.byKey(const Key('data-governance-portable-password-submit')),
+    );
+    expect(disabledSubmit.onPressed, isNull);
+
+    await tester.enterText(
+      find.byKey(const Key('data-governance-portable-password')),
+      'password123',
+    );
+    await tester.enterText(
+      find.byKey(const Key('data-governance-portable-password-confirm')),
+      'password123',
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const Key('data-governance-portable-password-submit')),
+    );
+    await tester.pump();
+    await _flushBackupCrypto(tester);
+    await tester.pumpAndSettle();
+
+    final metadata = await BackupMetadataStore().read();
+    expect(metadata.lastBackupEncrypted, isTrue);
+    expect(metadata.lastBackupIncremental, isFalse);
+    expect(metadata.baseBackupId, base.backupId);
+    expect(metadata.baseBackupPath, basePath);
+    final portable = filePort.envelopes[metadata.lastBackupPath!]!;
+    expect(portable.isEncrypted, isTrue);
+    expect(portable.isIncremental, isFalse);
+  });
+
+  testWidgets('integrity check reports corrupted catalog files',
+      (tester) async {
+    final path = await backupService.exportToFile();
+    filePort.rawFiles[path] = Uint8List.fromList([1, 2, 3]);
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-verify-action')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('data-governance-integrity-dialog')),
+      findsOneWidget,
+    );
+    expect(
+      find.text(l10n.dataGovernanceVerifyIssuesTitle),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('recovery drill validates the latest plaintext backup',
+      (tester) async {
+    await backupService.exportToFile();
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-drill-action')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('data-governance-drill-result-dialog')),
+      findsOneWidget,
+    );
+    expect(
+      find.text(l10n.dataGovernanceRecoveryDrillSuccessTitle),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('encrypted recovery drill requires the correct password',
+      (tester) async {
+    await backupService.exportToFile(password: 'password123');
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
+
+    await tester.tap(
+      find.byKey(const Key('data-governance-drill-action')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(
+      find.byKey(const Key('data-governance-drill-password-dialog')),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('data-governance-drill-password')),
+      'wrong-password',
+    );
+    await tester.tap(
+      find.byKey(const Key('data-governance-drill-submit')),
+    );
+    await tester.pump();
+    await _flushBackupCrypto(tester);
+    expect(
+      find.text(l10n.dataGovernanceUnlockWrongPassword),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('data-governance-drill-password')),
+      'password123',
+    );
+    await tester.tap(
+      find.byKey(const Key('data-governance-drill-submit')),
+    );
+    await tester.pump();
+    await _flushBackupCrypto(tester);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('data-governance-drill-result-dialog')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('auto-backup switch is off by default', (tester) async {
     await _pumpPage(tester, backupService, booksLoader: loadBooks);
     final l10n = await AppLocalizations.delegate.load(const Locale('zh'));
@@ -807,6 +1404,70 @@ void main() {
       find.byKey(const Key('data-governance-auto-backup-switch')),
     );
     expect(toggle.value, isFalse);
+    final encryptedToggle = tester.widget<SwitchListTile>(
+      find.byKey(const Key('data-governance-auto-encrypt-switch')),
+    );
+    expect(encryptedToggle.value, isFalse);
+  });
+
+  testWidgets('encrypted auto backup stores and clears its password',
+      (tester) async {
+    final passwordStore = MemoryBackupAutoPasswordStore();
+    await _pumpPage(
+      tester,
+      backupService,
+      booksLoader: loadBooks,
+      autoPasswordStore: passwordStore,
+    );
+    final switchFinder = find.byKey(
+      const Key('data-governance-auto-encrypt-switch'),
+    );
+
+    await tester.ensureVisible(switchFinder);
+    await tester.tap(switchFinder);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('data-governance-auto-encrypt-password-dialog')),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('data-governance-auto-encrypt-password')),
+      'password123',
+    );
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(
+        const Key('data-governance-auto-encrypt-password-confirm'),
+      ),
+      'password123',
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(
+        const Key('data-governance-auto-encrypt-password-submit'),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('data-governance-auto-encrypt-password-dialog')),
+      findsNothing,
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool(BackupScheduleStore.kEncrypted), isTrue);
+    expect(passwordStore.password, 'password123');
+
+    await tester.ensureVisible(switchFinder);
+    await tester.tap(switchFinder);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(prefs.getBool(BackupScheduleStore.kEncrypted), isFalse);
+    expect(passwordStore.password, isNull);
   });
 
   testWidgets('enabling auto backup persists and writes a baseline snapshot',
@@ -860,12 +1521,52 @@ void main() {
     );
     expect(chip.selected, isTrue);
   });
+
+  testWidgets('external backup directory can be selected and cleared',
+      (tester) async {
+    filePort.directoryPickResult = '/external/ledgerly';
+    await _pumpPage(tester, backupService, booksLoader: loadBooks);
+    final choose = find.byKey(
+      const Key('data-governance-external-directory-choose'),
+    );
+
+    await tester.ensureVisible(choose);
+    await tester.tap(choose);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(
+      prefs.getString(BackupMirrorStore.preferencesKey),
+      '/external/ledgerly',
+    );
+    expect(find.text('/external/ledgerly'), findsOneWidget);
+    expect(
+      find.byKey(const Key('data-governance-external-directory-mirror')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(
+        const Key('data-governance-external-directory-clear'),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(
+      prefs.getString(BackupMirrorStore.preferencesKey),
+      isNull,
+    );
+  });
 }
 
 Future<void> _pumpPage(
   WidgetTester tester,
   BackupService service, {
   BooksLoader? booksLoader,
+  BackupAutoPasswordStore? autoPasswordStore,
 }) async {
   // The page renders both the backup section and a danger section.
   // The wipe button lives at the bottom of the layout, so we use a
@@ -882,6 +1583,8 @@ Future<void> _pumpPage(
         booksProvider.overrideWith(
           (ref) => booksLoader?.call() ?? Future.value(const <Book>[]),
         ),
+        if (autoPasswordStore != null)
+          backupAutoPasswordStoreProvider.overrideWithValue(autoPasswordStore),
       ],
       child: const MaterialApp(
         home: DataGovernancePage(),
@@ -894,11 +1597,55 @@ Future<void> _pumpPage(
   await tester.pump();
 }
 
+Future<void> _expandBackupCatalog(WidgetTester tester) async {
+  final catalog = find.byKey(const Key('data-governance-artifact-list'));
+  await tester.ensureVisible(catalog);
+  await tester.tap(catalog);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _selectArtifactAction(
+  WidgetTester tester,
+  BackupArtifact artifact,
+  String action,
+) async {
+  final actions = find.byKey(
+    Key('data-governance-artifact-${artifact.backupId}-actions'),
+  );
+  await tester.ensureVisible(actions);
+  await tester.tap(actions);
+  await tester.pumpAndSettle();
+  await tester.tap(
+    find.byKey(
+      Key('data-governance-artifact-${artifact.backupId}-$action'),
+    ),
+  );
+  await tester.pump();
+}
+
 Future<void> _flushBackupCrypto(WidgetTester tester) async {
   for (var i = 0; i < 10; i++) {
     await tester.runAsync(() async {
       await Future<void>.delayed(const Duration(milliseconds: 100));
     });
     await tester.pump();
+  }
+}
+
+class _FailingRestoreBackupService extends BackupService {
+  _FailingRestoreBackupService({
+    required super.database,
+    required super.recurring,
+    required super.budgets,
+    required super.attachments,
+    required super.merchantRules,
+    required super.filePort,
+    required super.deviceIdLoader,
+    super.encryption,
+  });
+
+  @override
+  Future<void> restore(BackupDocument document, {String? password}) {
+    throw StateError('restore failed');
   }
 }

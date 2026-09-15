@@ -1782,10 +1782,43 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get attachmentsLocalHelp =>
-      'Attachments stay on this device and are not synced.';
+      'Attachments are always saved locally. Signed-in users can also upload them to cloud storage.';
 
   @override
-  String get attachmentsSubtitle => 'Stored on this device only';
+  String get attachmentsSubtitle => 'Local-first with optional cloud upload';
+
+  @override
+  String get attachmentCloudUpload => 'Upload to cloud';
+
+  @override
+  String get attachmentCloudRetry => 'Retry cloud upload';
+
+  @override
+  String get attachmentCloudUploaded => 'Uploaded to cloud';
+
+  @override
+  String get attachmentCloudUploading => 'Uploading to cloud';
+
+  @override
+  String get attachmentCloudFailed => 'Cloud upload failed';
+
+  @override
+  String get attachmentCloudSignIn => 'Sign in to upload attachments';
+
+  @override
+  String get attachmentCloudUploadSuccess => 'Attachment uploaded';
+
+  @override
+  String get attachmentCloudUploadFailure =>
+      'Attachment upload failed. Please try again later.';
+
+  @override
+  String get attachmentCloudDeleteFailure =>
+      'Could not delete the cloud attachment. Please try again.';
+
+  @override
+  String get attachmentCloudSyncFailure =>
+      'Cloud attachments could not be refreshed.';
 
   @override
   String get addAttachment => 'Add file';
@@ -2147,7 +2180,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dataGovernanceRestoreSubtitle =>
-      'Pick a backup file, preview it, then replace this device\'s data.';
+      'Pick a backup file, preview it, then replace or merge it into this device.';
 
   @override
   String get dataGovernanceRestoreAction => 'Pick a backup file';
@@ -2176,6 +2209,22 @@ class AppLocalizationsEn extends AppLocalizations {
       'This backup contains no data. Restoring will leave the device empty.';
 
   @override
+  String get dataGovernanceRestoreModeReplace => 'Replace local data';
+
+  @override
+  String get dataGovernanceRestoreModeMerge => 'Merge new books';
+
+  @override
+  String get dataGovernanceRestoreMergeHint =>
+      'Books with the same ID and existing data are skipped. Only empty placeholder books can be replaced.';
+
+  @override
+  String get dataGovernanceRestoreReplaceAction => 'Replace local data';
+
+  @override
+  String get dataGovernanceRestoreMergeAction => 'Merge into device';
+
+  @override
   String get dataGovernanceRestoreConfirmTitle => 'Replace local data?';
 
   @override
@@ -2184,7 +2233,79 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get dataGovernanceRestoreConfirmMergeTitle =>
+      'Merge into this device?';
+
+  @override
+  String dataGovernanceRestoreConfirmMergeBody(String path) {
+    return 'Only new books and empty placeholder books will be merged. Books with the same ID and existing data are skipped. A safety copy was written to $path.';
+  }
+
+  @override
+  String dataGovernanceRestoreMergeSuccess(
+      int added, int replaced, int skipped) {
+    return 'Merged $added new books, replaced $replaced empty books, skipped $skipped existing books.';
+  }
+
+  @override
+  String get dataGovernanceRestoreMergeNoChanges =>
+      'Nothing new to merge. Existing books were kept unchanged.';
+
+  @override
   String get dataGovernanceRestoreSuccess => 'Restore complete. Reloading…';
+
+  @override
+  String dataGovernanceRestoreHistory(int count) {
+    return 'Restore history · $count';
+  }
+
+  @override
+  String get dataGovernanceRestoreAuditSuccess => 'Succeeded';
+
+  @override
+  String get dataGovernanceRestoreAuditFailed => 'Failed';
+
+  @override
+  String dataGovernanceRestoreAuditBackup(String backupId) {
+    return 'Source backup: $backupId';
+  }
+
+  @override
+  String dataGovernanceRestoreAuditSafety(String path) {
+    return 'Safety backup: $path';
+  }
+
+  @override
+  String dataGovernanceRestoreAuditError(String error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String get dataGovernanceRestoreAuditDelete =>
+      'Delete entry and safety backup';
+
+  @override
+  String get dataGovernanceRestoreAuditDeleteConfirmTitle =>
+      'Delete restore entry?';
+
+  @override
+  String dataGovernanceRestoreAuditDeleteConfirmBody(String path) {
+    return 'This also deletes the linked safety backup: $path';
+  }
+
+  @override
+  String get dataGovernanceRestoreAuditDeleteHistoryOnly =>
+      'This entry has no linked safety backup, so only the history entry will be deleted.';
+
+  @override
+  String dataGovernanceRestoreAuditDeleteSuccess(String size) {
+    return 'Restore entry deleted, freeing $size.';
+  }
+
+  @override
+  String dataGovernanceRestoreAuditDeleteFailed(String error) {
+    return 'Could not delete restore entry: $error';
+  }
 
   @override
   String get dataGovernanceWipe => 'Wipe local data';
@@ -2356,6 +2477,419 @@ class AppLocalizationsEn extends AppLocalizations {
       'If you lose the password the backup cannot be recovered';
 
   @override
+  String get dataGovernanceIncrementalBackup => 'Incremental backup';
+
+  @override
+  String get dataGovernanceIncrementalBackupHint =>
+      'Writes changes since the local base backup; keep that base file to restore';
+
+  @override
+  String get dataGovernanceIncrementalEncryptedDisabled =>
+      'Incremental backups are not encrypted; encrypted export writes a full backup';
+
+  @override
+  String get dataGovernanceStatusIncremental =>
+      'Incremental backup · local base required';
+
+  @override
+  String dataGovernanceLocalBackups(int count, String size) {
+    return '$count local backups · $size';
+  }
+
+  @override
+  String get dataGovernanceCleanupBackups => 'Clean old backups';
+
+  @override
+  String get dataGovernanceCleanupSubtitle =>
+      'Manual, base, and latest backups are protected; keep the newest 3 automatic backups.';
+
+  @override
+  String get dataGovernanceArtifactListTitle => 'Backup files';
+
+  @override
+  String get dataGovernanceArtifactActions => 'Backup actions';
+
+  @override
+  String get dataGovernanceArtifactKindFull => 'Full';
+
+  @override
+  String get dataGovernanceArtifactKindIncremental => 'Incremental';
+
+  @override
+  String get dataGovernanceArtifactKindEncrypted => 'Encrypted';
+
+  @override
+  String get dataGovernanceArtifactSourceManual => 'Manual';
+
+  @override
+  String get dataGovernanceArtifactSourceAutomatic => 'Automatic';
+
+  @override
+  String get dataGovernanceArtifactSourceSafety => 'Pre-restore';
+
+  @override
+  String get dataGovernanceArtifactCurrentBase => 'Current base';
+
+  @override
+  String get dataGovernanceArtifactLatest => 'Latest';
+
+  @override
+  String get dataGovernanceArtifactShare => 'Share';
+
+  @override
+  String get dataGovernanceArtifactDrill => 'Recovery drill';
+
+  @override
+  String get dataGovernanceArtifactRotate => 'Change password';
+
+  @override
+  String get dataGovernanceArtifactRestore => 'Load into restore preview';
+
+  @override
+  String get dataGovernanceArtifactDelete => 'Delete this backup';
+
+  @override
+  String get dataGovernanceArtifactUnlockPrompt =>
+      'Enter this backup\'s password';
+
+  @override
+  String get dataGovernanceArtifactRotateTitle => 'Change backup password';
+
+  @override
+  String get dataGovernanceArtifactRotateOldPassword => 'Old password';
+
+  @override
+  String get dataGovernanceArtifactRotateNewPassword => 'New password';
+
+  @override
+  String get dataGovernanceArtifactRotateConfirmPassword =>
+      'Confirm new password';
+
+  @override
+  String dataGovernanceArtifactRotateSuccess(String path, String size) {
+    return 'New encrypted backup created while keeping the original: $path ($size)';
+  }
+
+  @override
+  String get dataGovernanceArtifactRestoreLoaded =>
+      'Loaded into the restore preview. Scroll down to choose a restore mode.';
+
+  @override
+  String dataGovernanceArtifactLoadFailed(String error) {
+    return 'Could not load backup: $error';
+  }
+
+  @override
+  String get dataGovernanceArtifactDeleteConfirmTitle => 'Delete backup file?';
+
+  @override
+  String dataGovernanceArtifactDeleteConfirmBody(String path) {
+    return 'This will delete from this device: $path';
+  }
+
+  @override
+  String dataGovernanceArtifactDeleteSuccess(String size) {
+    return 'Backup deleted, freeing $size.';
+  }
+
+  @override
+  String dataGovernanceArtifactDeleteFailed(String error) {
+    return 'Could not delete backup: $error';
+  }
+
+  @override
+  String get dataGovernanceCleanupConfirmTitle =>
+      'Clean old automatic backups?';
+
+  @override
+  String get dataGovernanceCleanupConfirmBody =>
+      'Manual exports and the base required by incremental backups will not be deleted.';
+
+  @override
+  String dataGovernanceCleanupSuccess(int count, String size) {
+    return 'Deleted $count backups and freed $size.';
+  }
+
+  @override
+  String dataGovernanceCleanupPartial(int count, String size, int failed) {
+    return 'Deleted $count backups and freed $size; $failed could not be deleted.';
+  }
+
+  @override
+  String get dataGovernanceCleanupNoChanges =>
+      'No old backups needed cleaning.';
+
+  @override
+  String dataGovernanceCleanupFailed(String error) {
+    return 'Could not clean backups: $error';
+  }
+
+  @override
+  String get dataGovernanceConsolidateBackup => 'Create portable full backup';
+
+  @override
+  String get dataGovernanceConsolidatePasswordTitle =>
+      'Set a portable backup password';
+
+  @override
+  String get dataGovernanceConsolidatePasswordBody =>
+      'You can set a password; leave it blank for an unencrypted backup.';
+
+  @override
+  String get dataGovernanceConsolidatePasswordLabel =>
+      'Backup password (optional)';
+
+  @override
+  String get dataGovernanceConsolidatePasswordConfirm =>
+      'Confirm backup password';
+
+  @override
+  String dataGovernanceConsolidateSuccess(String path, String size) {
+    return 'Portable backup created: $path ($size)';
+  }
+
+  @override
+  String get dataGovernanceConsolidateNoChanges =>
+      'The latest backup is already a standalone full backup.';
+
+  @override
+  String dataGovernanceConsolidateFailed(String error) {
+    return 'Could not create portable backup: $error';
+  }
+
+  @override
+  String get dataGovernanceVerifyBackups => 'Check integrity';
+
+  @override
+  String get dataGovernanceVerifyNoBackups =>
+      'There are no cataloged backups to verify.';
+
+  @override
+  String dataGovernanceVerifyAllHealthy(int count) {
+    return 'Verified $count healthy backups.';
+  }
+
+  @override
+  String get dataGovernanceVerifyIssuesTitle => 'Backup integrity issues';
+
+  @override
+  String dataGovernanceVerifyIssueSummary(
+      int healthy, int missing, int corrupted) {
+    return '$healthy healthy · $missing missing · $corrupted corrupted';
+  }
+
+  @override
+  String get dataGovernanceVerifyMissing => 'File is missing';
+
+  @override
+  String get dataGovernanceVerifyCorrupted => 'File is corrupted';
+
+  @override
+  String dataGovernanceVerifyFailed(String error) {
+    return 'Could not verify backups: $error';
+  }
+
+  @override
+  String get dataGovernanceRecoveryDrill => 'Recovery drill';
+
+  @override
+  String get dataGovernanceRecoveryDrillPasswordTitle =>
+      'Enter the password for the recovery drill';
+
+  @override
+  String get dataGovernanceRecoveryDrillSuccessTitle => 'Recovery drill passed';
+
+  @override
+  String dataGovernanceRecoveryDrillSuccess(
+      int books, int transactions, int attachments) {
+    return 'Successfully materialized or decrypted the backup: $books books, $transactions transactions, and $attachments attachments.';
+  }
+
+  @override
+  String get dataGovernanceRecoveryDrillSuccessBody =>
+      'The drill only reads the backup and does not modify local data.';
+
+  @override
+  String dataGovernanceRecoveryDrillPath(String path) {
+    return 'Backup path: $path';
+  }
+
+  @override
+  String dataGovernanceRecoveryDrillFailed(String error) {
+    return 'Recovery drill failed: $error';
+  }
+
+  @override
+  String get dataGovernanceHealthRecoveryDrillNever =>
+      'Recovery drill: not run yet';
+
+  @override
+  String dataGovernanceHealthRecoveryDrillSuccess(String date) {
+    return 'Last recovery drill passed: $date';
+  }
+
+  @override
+  String dataGovernanceHealthRecoveryDrillFailed(String date) {
+    return 'Last recovery drill failed: $date';
+  }
+
+  @override
+  String get dataGovernanceHealthTitle => 'Backup policy health';
+
+  @override
+  String get dataGovernanceHealthChecking => 'Checking…';
+
+  @override
+  String get dataGovernanceHealthHealthy => 'Healthy';
+
+  @override
+  String get dataGovernanceHealthWarning => 'Needs attention';
+
+  @override
+  String get dataGovernanceHealthCritical => 'At risk';
+
+  @override
+  String get dataGovernanceHealthNoIssues =>
+      'The backup policy is currently healthy.';
+
+  @override
+  String get dataGovernanceHealthRefresh => 'Check again';
+
+  @override
+  String dataGovernanceHealthSummary(int count, String nextDue) {
+    return '$count local backups · Next run $nextDue';
+  }
+
+  @override
+  String get dataGovernanceHealthNotScheduled => 'Not scheduled';
+
+  @override
+  String get dataGovernanceHealthIssueNoBackup =>
+      'There is no local backup yet.';
+
+  @override
+  String dataGovernanceHealthIssueStale(int days) {
+    return 'The latest backup is $days days old.';
+  }
+
+  @override
+  String get dataGovernanceHealthIssueAutoDisabled =>
+      'Automatic backup is disabled.';
+
+  @override
+  String get dataGovernanceHealthIssuePasswordMissing =>
+      'Encrypted automatic backup has no usable password.';
+
+  @override
+  String get dataGovernanceHealthIssueSecureStorage =>
+      'System secure storage is unavailable.';
+
+  @override
+  String get dataGovernanceHealthIssueVerificationFailed =>
+      'The backup catalog integrity check failed.';
+
+  @override
+  String dataGovernanceHealthIssueMissing(int count) {
+    return '$count backup files are missing.';
+  }
+
+  @override
+  String dataGovernanceHealthIssueCorrupted(int count) {
+    return '$count backup files are corrupted.';
+  }
+
+  @override
+  String get dataGovernanceHealthIssueNotCataloged =>
+      'The latest backup is not registered in the local catalog.';
+
+  @override
+  String get dataGovernanceHealthIssueLatestIncremental =>
+      'The latest backup is a local-only incremental file.';
+
+  @override
+  String get dataGovernanceHealthIssueBaseMissing =>
+      'The incremental base is missing from the backup catalog.';
+
+  @override
+  String get dataGovernanceHealthIssueRestoreFailed =>
+      'The latest restore attempt failed; review restore history.';
+
+  @override
+  String get dataGovernanceHealthIssueExternalUnavailable =>
+      'The external backup directory is unavailable.';
+
+  @override
+  String get dataGovernanceHealthIssueMirrorFailed =>
+      'The latest backup has not been mirrored successfully.';
+
+  @override
+  String dataGovernanceHealthIssueMirrorMissing(int count) {
+    return '$count external mirror files are missing.';
+  }
+
+  @override
+  String dataGovernanceHealthIssueMirrorCorrupted(int count) {
+    return '$count external mirror files are corrupted.';
+  }
+
+  @override
+  String dataGovernanceHealthIssueMirrorExtra(int count) {
+    return 'The external directory has $count unregistered backups.';
+  }
+
+  @override
+  String get dataGovernanceHealthIssueRecoveryDrillNever =>
+      'No recovery drill has been completed for the latest backup policy.';
+
+  @override
+  String get dataGovernanceHealthIssueRecoveryDrillFailed =>
+      'The latest recovery drill failed; run it again.';
+
+  @override
+  String dataGovernanceHealthIssueRecoveryDrillStale(int days) {
+    return 'The last successful recovery drill was $days days ago.';
+  }
+
+  @override
+  String get dataGovernanceHealthActionBackup => 'Back up now';
+
+  @override
+  String get dataGovernanceHealthActionEnableAuto => 'Enable automatic backup';
+
+  @override
+  String get dataGovernanceHealthActionPassword =>
+      'Set automatic backup password';
+
+  @override
+  String get dataGovernanceHealthActionInspect => 'Inspect backup files';
+
+  @override
+  String get dataGovernanceHealthActionExternalDirectory =>
+      'Check external backup directory';
+
+  @override
+  String get dataGovernanceHealthActionRecoveryDrill => 'Run recovery drill';
+
+  @override
+  String get dataGovernanceHealthExportReport => 'Export governance report';
+
+  @override
+  String get dataGovernanceHealthReportJson => 'Full JSON report';
+
+  @override
+  String get dataGovernanceHealthReportCsv => 'CSV summary';
+
+  @override
+  String dataGovernanceHealthReportExported(String path) {
+    return 'Governance report created: $path';
+  }
+
+  @override
+  String dataGovernanceHealthReportFailed(String error) {
+    return 'Could not export governance report: $error';
+  }
+
+  @override
   String get dataGovernanceAutoBackup => 'Automatic backup';
 
   @override
@@ -2365,6 +2899,136 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get dataGovernanceAutoBackupWarning =>
       'Automatic backups are not encrypted. Use a password export for sensitive books.';
+
+  @override
+  String get dataGovernanceAutoEncrypt => 'Encrypt automatic backups';
+
+  @override
+  String get dataGovernanceAutoEncryptEnabled =>
+      'Password stays in system secure storage; each run writes an independent encrypted full backup';
+
+  @override
+  String get dataGovernanceAutoEncryptDisabled =>
+      'When off, automatic backups continue as plaintext incrementals';
+
+  @override
+  String get dataGovernanceAutoEncryptWarning =>
+      'The password stays in system secure storage; losing it makes automatic backups unrecoverable.';
+
+  @override
+  String get dataGovernanceAutoEncryptPasswordTitle =>
+      'Set automatic backup password';
+
+  @override
+  String get dataGovernanceAutoEncryptPasswordBody =>
+      'The password is stored in system secure storage and used only for automatic backup encryption.';
+
+  @override
+  String get dataGovernanceAutoEncryptPasswordLabel =>
+      'Automatic backup password';
+
+  @override
+  String get dataGovernanceAutoEncryptPasswordConfirm =>
+      'Confirm automatic backup password';
+
+  @override
+  String get dataGovernanceAutoEncryptNeedsPassword =>
+      'The encrypted automatic backup password is missing, so no backup was written.';
+
+  @override
+  String get dataGovernanceAutoEncryptUnavailable =>
+      'System secure storage is unavailable, so no backup was written.';
+
+  @override
+  String dataGovernanceAutoEncryptFailed(String error) {
+    return 'Could not save the automatic backup password: $error';
+  }
+
+  @override
+  String get dataGovernanceExternalBackupDirectory =>
+      'External backup directory';
+
+  @override
+  String get dataGovernanceExternalBackupNotConfigured =>
+      'Not configured; backups stay only in the app directory';
+
+  @override
+  String get dataGovernanceExternalBackupChoose => 'Choose directory';
+
+  @override
+  String get dataGovernanceExternalBackupClear => 'Remove external directory';
+
+  @override
+  String get dataGovernanceExternalBackupMirrorNow => 'Mirror now';
+
+  @override
+  String get dataGovernanceExternalBackupVerify => 'Check mirror';
+
+  @override
+  String dataGovernanceExternalBackupVerifyHealthy(int count) {
+    return '$count external mirror files are healthy.';
+  }
+
+  @override
+  String get dataGovernanceExternalBackupVerifyIssuesTitle =>
+      'External mirror issues';
+
+  @override
+  String dataGovernanceExternalBackupVerifyIssueSummary(
+      int healthy, int missing, int corrupted, int extra) {
+    return '$healthy healthy · $missing missing · $corrupted corrupted · $extra extra';
+  }
+
+  @override
+  String get dataGovernanceExternalBackupVerifyMissing =>
+      'External copy is missing';
+
+  @override
+  String get dataGovernanceExternalBackupVerifyCorrupted =>
+      'External copy size or SHA-256 differs';
+
+  @override
+  String get dataGovernanceExternalBackupVerifyExtra =>
+      'External file is not registered locally';
+
+  @override
+  String dataGovernanceExternalBackupVerifyFailed(String error) {
+    return 'Could not verify external mirror: $error';
+  }
+
+  @override
+  String get dataGovernanceExternalBackupImport => 'Import locally';
+
+  @override
+  String dataGovernanceExternalBackupImported(String backupId) {
+    return 'Imported external backup: $backupId';
+  }
+
+  @override
+  String dataGovernanceExternalBackupImportFailed(String error) {
+    return 'Could not import external backup: $error';
+  }
+
+  @override
+  String dataGovernanceExternalBackupSelected(int mirrored, int failed) {
+    return 'Directory set: $mirrored mirrored, $failed failed.';
+  }
+
+  @override
+  String dataGovernanceExternalBackupMirrorResult(int mirrored, int failed) {
+    return 'External mirror complete: $mirrored succeeded, $failed failed.';
+  }
+
+  @override
+  String dataGovernanceExternalBackupMirrorFailed(String error) {
+    return 'External mirror failed: $error';
+  }
+
+  @override
+  String get dataGovernanceArtifactMirrored => 'Mirrored';
+
+  @override
+  String get dataGovernanceArtifactMirrorFailed => 'Mirror failed';
 
   @override
   String dataGovernanceAutoIntervalDays(int n) {

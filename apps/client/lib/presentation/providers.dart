@@ -4,7 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../application/auto_backup.dart';
+import '../application/attachment_upload_service.dart';
+import '../application/backup_auto_password_store.dart';
+import '../application/backup_catalog_store.dart';
+import '../application/backup_governance_report.dart';
+import '../application/backup_health.dart';
 import '../application/backup_metadata_store.dart';
+import '../application/backup_mirror_store.dart';
+import '../application/backup_recovery_drill_audit.dart';
+import '../application/backup_restore_audit.dart';
 import '../application/backup_schedule.dart';
 import '../application/backup_service.dart';
 import '../application/feed_search.dart';
@@ -212,6 +220,14 @@ final backupMetadataProvider = FutureProvider<BackupMetadata>((ref) async {
   return store.read();
 });
 
+final backupCatalogStoreProvider = Provider<BackupCatalogStore>((ref) {
+  return BackupCatalogStore();
+});
+
+final backupCatalogProvider = FutureProvider<List<BackupArtifact>>((ref) async {
+  return ref.watch(backupCatalogStoreProvider).read();
+});
+
 /// Ephemeral export password. The data-governance page writes the
 /// value as the user types and clears it after a successful export so
 /// it never lives past the current backup action.
@@ -228,12 +244,71 @@ final backupServiceProvider = Provider<BackupService>((ref) {
     filePort: ref.watch(backupFilePortProvider),
     deviceIdLoader: session.getOrCreateDeviceId,
     metadata: ref.watch(backupMetadataStoreProvider),
+    catalog: ref.watch(backupCatalogStoreProvider),
+    audits: ref.watch(backupRestoreAuditStoreProvider),
+    mirror: ref.watch(backupMirrorStoreProvider),
+    drillAudits: ref.watch(backupRecoveryDrillAuditStoreProvider),
+  );
+});
+
+final backupRecoveryDrillAuditStoreProvider =
+    Provider<BackupRecoveryDrillAuditStore>((ref) {
+  return BackupRecoveryDrillAuditStore();
+});
+
+final backupRestoreAuditStoreProvider =
+    Provider<BackupRestoreAuditStore>((ref) {
+  return BackupRestoreAuditStore();
+});
+
+final backupMirrorStoreProvider = Provider<BackupMirrorStore>((ref) {
+  return BackupMirrorStore();
+});
+
+final backupMirrorDirectoryProvider = FutureProvider<String?>((ref) {
+  return ref.watch(backupMirrorStoreProvider).read();
+});
+
+final backupRestoreAuditsProvider =
+    FutureProvider<List<BackupRestoreAudit>>((ref) async {
+  return ref.watch(backupRestoreAuditStoreProvider).read();
+});
+
+final backupHealthServiceProvider = Provider<BackupHealthService>((ref) {
+  return BackupHealthService(
+    metadata: ref.watch(backupMetadataStoreProvider),
+    schedule: ref.watch(backupScheduleStoreProvider),
+    catalog: ref.watch(backupCatalogStoreProvider),
+    passwords: ref.watch(backupAutoPasswordStoreProvider),
+    audits: ref.watch(backupRestoreAuditStoreProvider),
+    mirror: ref.watch(backupMirrorStoreProvider),
+    filePort: ref.watch(backupFilePortProvider),
+    backups: ref.watch(backupServiceProvider),
+    drillAudits: ref.watch(backupRecoveryDrillAuditStoreProvider),
+  );
+});
+
+final backupHealthProvider = FutureProvider<BackupHealthSnapshot>((ref) {
+  return ref.watch(backupHealthServiceProvider).check();
+});
+
+final backupGovernanceReportServiceProvider =
+    Provider<BackupGovernanceReportService>((ref) {
+  return BackupGovernanceReportService(
+    health: ref.watch(backupHealthServiceProvider),
+    catalog: ref.watch(backupCatalogStoreProvider),
+    audits: ref.watch(backupRestoreAuditStoreProvider),
+    recoveryDrills: ref.watch(backupRecoveryDrillAuditStoreProvider),
   );
 });
 
 final backupScheduleStoreProvider = Provider<BackupScheduleStore>((ref) {
   return BackupScheduleStore();
 });
+
+final backupAutoPasswordStoreProvider = Provider<BackupAutoPasswordStore>(
+  (ref) => PlatformBackupAutoPasswordStore(),
+);
 
 final backupScheduleProvider = FutureProvider<BackupSchedule>((ref) async {
   return ref.watch(backupScheduleStoreProvider).read();
@@ -244,6 +319,7 @@ final autoBackupCoordinatorProvider = Provider<AutoBackupCoordinator>((ref) {
     schedule: ref.watch(backupScheduleStoreProvider),
     metadata: ref.watch(backupMetadataStoreProvider),
     backups: ref.watch(backupServiceProvider),
+    passwords: ref.watch(backupAutoPasswordStoreProvider),
   );
 });
 
@@ -284,6 +360,46 @@ final localAttachmentRepositoryProvider =
     ref.watch(databaseProvider),
     byteStore: ref.watch(attachmentByteStoreProvider),
   );
+});
+
+final attachmentUploadServiceProvider =
+    Provider<AttachmentUploadService>((ref) {
+  return AttachmentUploadService(
+    repository: ref.watch(localAttachmentRepositoryProvider),
+    api: ref.watch(syncApiProvider),
+    auth: ref.watch(authRepositoryProvider),
+    ledger: ref.watch(ledgerRepositoryProvider),
+  );
+});
+
+final canUploadAttachmentsProvider = Provider<bool>((ref) {
+  if (ref.watch(isLocalModeProvider)) return false;
+  return ref.watch(authControllerProvider).state.status ==
+      AuthStatus.authenticated;
+});
+
+final attachmentCloudSyncProvider =
+    FutureProvider.autoDispose<AttachmentCloudSyncResult?>((ref) async {
+  if (!ref.watch(canUploadAttachmentsProvider)) return null;
+  final localBookId = ref.watch(selectedBookIdProvider);
+  final result = await ref
+      .read(attachmentUploadServiceProvider)
+      .syncRemote(localBookId: localBookId);
+  ref.invalidate(localAttachmentsProvider);
+  return result;
+});
+
+final attachmentRetryProvider =
+    FutureProvider.autoDispose<AttachmentRetryReport?>((ref) async {
+  if (!ref.watch(canUploadAttachmentsProvider)) return null;
+  final localBookId = ref.watch(selectedBookIdProvider);
+  final report = await ref
+      .read(attachmentUploadServiceProvider)
+      .retryFailedUploads(localBookId: localBookId);
+  if (report.attempted > 0) {
+    ref.invalidate(localAttachmentsProvider);
+  }
+  return report;
 });
 
 final recurringSchedulerProvider = Provider<RecurringScheduler>((ref) {

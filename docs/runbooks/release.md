@@ -18,7 +18,9 @@ override，它会创建私有的 `ledgerly-postgres` 容器和独立卷：
 ```bash
 cp infrastructure/docker/env.vm.example /opt/ledgerly/.env.prod
 # 修改 POSTGRES_PASSWORD、DATABASE_URL、JWT_*、OBJECT_STORE_HMAC_SECRET、
-# CORS_ALLOWED_ORIGINS 和 OBJECT_STORE_PUBLIC_BASE
+# CORS_ALLOWED_ORIGINS、OBJECT_STORE_PUBLIC_BASE 和 LEDGER_BACKUP_PASSWORD
+# 轮换期间可设置 JWT_ED25519_PREVIOUS_SEED、
+# OBJECT_STORE_HMAC_PREVIOUS_SECRET 和 LEDGER_BACKUP_PASSWORD_PREVIOUS
 ```
 
 如果复用已有 PG，则执行 `scripts/provision_host_pg.sh` 建库，并将
@@ -35,6 +37,11 @@ scp infrastructure/docker/env.vm.example ubuntu@82.156.234.84:/opt/ledgerly/.env
 # 编辑 POSTGRES_PASSWORD、DATABASE_URL=postgres://ledgerly:...@postgres:5432/ledgerly
 # 设置 CORS_ALLOWED_ORIGINS=https://实际的-Web-站点域名
 # AUTH_COOKIE_SECURE 必须保持 true，并在 TLS 反向代理后对外服务
+# BACKUP_OFFSITE_HOST_MOUNT 可改为外接盘的绝对路径，例如 /mnt/backup-disk/ledgerly
+# RECOVERY_DRILL_DATABASE_URL 可配置具有 CREATEDB 权限的管理连接
+# OBSERVABILITY_ENABLED=true 时需同时设置 ALERTMANAGER_WEBHOOK_URL
+# 和 GRAFANA_ADMIN_PASSWORD
+# 生产对象存储可设置 OBJECT_STORE_BACKEND=s3 并填写 S3_* 配置
 ```
 
 ### 3. GitHub Secrets（仓库 Settings → Secrets）
@@ -132,6 +139,11 @@ Cookie 传输，因此 API 和 Web 站点都必须使用 TLS。Cookie 使用
 `app.ledgerly.example.com` 与 `api.ledgerly.example.com`）；不同注册域名的
 组合不会发送刷新 Cookie。
 
+服务端镜像基于 PostgreSQL 16 运行环境，内含 `pg_dump` / `pg_restore`。Compose
+默认将自动备份写入 `ledgerly_backups` 卷，并将 bundle 复制到
+`ledgerly_backups_offsite`；生产异地保存时应把
+`BACKUP_OFFSITE_HOST_MOUNT` 设置为已挂载的外部磁盘路径。
+
 Android APK 按 ABI 拆分发布：大多数现代手机使用 `ledgerly-android-arm64-v8a.apk`，旧版 32 位 ARM 设备使用 `ledgerly-android-armeabi-v7a.apk`，x86_64 设备或模拟器使用 `ledgerly-android-x86_64.apk`。
 
 Release workflow 会在上传前调用 `apksigner verify --print-certs`，并要求三个 APK 都只有一个签名证书且匹配上述固定指纹。缺少 Secret、密码或别名错误、JKS 被替换、APK 签名无效时，发布都会失败。
@@ -177,8 +189,21 @@ docker compose -f infrastructure/docker/docker-compose.prod.yml --env-file .env.
 ```bash
 # 目标机默认只监听回环地址，先通过 SSH 登录后验收
 ssh ubuntu@82.156.234.84 'curl -sf http://127.0.0.1:8081/health/ready'
+ssh ubuntu@82.156.234.84 'curl -sf http://127.0.0.1:8081/health/backup'
+ssh ubuntu@82.156.234.84 'curl -sf http://127.0.0.1:8081/metrics | grep "^backup_"'
 # 客户端：Release 页下载 web/apk；验证空地址本地模式及可选 HTTPS/原生 HTTP API 模式
 ```
+
+`/health/backup` 首次部署可能为 `never_run`。自动 job 成功后应为 `ready`；
+超过 `BACKUP_INTERVAL_HOURS` 为 `stale`，运行失败为 `failed`。
+定时恢复演练结果位于 `/health/backup.lastRecoveryDrill`。
+Prometheus 指标和容量告警见
+[备份可观测性与容量告警 Runbook](backup-observability.md)。
+Prometheus、Alertmanager 和 Grafana 的可选生产部署见
+[生产观测栈 Runbook](observability-stack.md)。
+S3 对象存储配置和迁移见 [S3 对象存储 Runbook](s3-object-storage.md)。
+安全审计与密钥轮换见
+[安全审计与密钥轮换 Runbook](security-audit-and-key-rotation.md)。
 
 ## 五、回滚
 

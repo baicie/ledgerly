@@ -125,6 +125,7 @@ class _LedgerlyAppState extends ConsumerState<LedgerlyApp>
       ref.invalidate(selectedMonthAiInsightProvider);
       ref.invalidate(recurringCatchUpProvider);
       ref.invalidate(autoBackupTickProvider);
+      ref.invalidate(attachmentRetryProvider);
       // Drain any payment notifications captured while the app was closed.
       ref.invalidate(autoLedgerSyncProvider);
     }
@@ -134,6 +135,7 @@ class _LedgerlyAppState extends ConsumerState<LedgerlyApp>
   Widget build(BuildContext context) {
     ref.watch(recurringCatchUpProvider);
     ref.watch(autoBackupTickProvider);
+    ref.watch(attachmentRetryProvider);
     ref.listen(recurringCatchUpProvider, (previous, next) {
       next.whenData((posted) {
         if (posted > 0) invalidateLedgerViews(ref);
@@ -141,7 +143,10 @@ class _LedgerlyAppState extends ConsumerState<LedgerlyApp>
     });
     ref.listen(autoBackupTickProvider, (previous, next) {
       next.whenData((result) {
-        if (result.ran) ref.invalidate(backupMetadataProvider);
+        if (result.ran) {
+          ref.invalidate(backupMetadataProvider);
+          ref.invalidate(backupCatalogProvider);
+        }
       });
     });
     ref.listen(autoLedgerSyncProvider, (previous, next) {

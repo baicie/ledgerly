@@ -3,12 +3,14 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
+import 'package:crypto/crypto.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../application/backup_encryption.dart';
 import '../application/backup_service.dart';
+import 'atomic_file_writer.dart';
 
 /// File-system boundary for backup I/O. The [BackupFilePort] contract
 /// lives in `backup_service.dart`; this file supplies the platform
@@ -21,12 +23,15 @@ import '../application/backup_service.dart';
 ///   * `parsePlaintextZip` — the inverse, used after decryption so the
 ///     service can hand the unwrapped document straight to `restore`.
 class PluginBackupFilePort implements BackupFilePort {
-  const PluginBackupFilePort({
+  PluginBackupFilePort({
     Future<Directory> Function()? documentsDirectoryLoader,
-  }) : _documentsDirectoryLoader =
-            documentsDirectoryLoader ?? getApplicationDocumentsDirectory;
+    AtomicFileWriter? atomicWriter,
+  })  : _documentsDirectoryLoader =
+            documentsDirectoryLoader ?? getApplicationDocumentsDirectory,
+        _atomicWriter = atomicWriter ?? AtomicFileWriter();
 
   final Future<Directory> Function() _documentsDirectoryLoader;
+  final AtomicFileWriter _atomicWriter;
 
   /// Pattern used to build user-facing filenames. Kept as a getter so
   /// tests can stub [DateTime.now] if they ever need a deterministic
@@ -41,12 +46,29 @@ class PluginBackupFilePort implements BackupFilePort {
     return '$y-$m-${d}_$h$mi';
   }
 
-  String _exportFileName() => 'ledgerly-backup-$_timestamp.ledgerly.zip';
+  String _backupIdSuffix(BackupDocument document) {
+    final backupId = document.backupId;
+    if (backupId == null || backupId.isEmpty) return '';
+    final length = backupId.length < 8 ? backupId.length : 8;
+    return '-${backupId.substring(0, length)}';
+  }
 
-  String _exportEncryptedFileName() =>
-      'ledgerly-backup-$_timestamp.ledgerly.enc.zip';
+  String _exportFileName(String suffix) =>
+      'ledgerly-backup-${_timestamp()}$suffix.ledgerly.zip';
 
-  String _safetyFileName() => 'ledgerly-pre-restore-$_timestamp.ledgerly.zip';
+  String _exportEncryptedFileName(String suffix) =>
+      'ledgerly-backup-${_timestamp()}$suffix.ledgerly.enc.zip';
+
+  String _exportIncrementalFileName(String suffix) =>
+      'ledgerly-incremental-${_timestamp()}$suffix.ledgerly.inc.zip';
+
+  String _safetyFileName(String suffix) =>
+      'ledgerly-pre-restore-${_timestamp()}$suffix.ledgerly.zip';
+
+  String _reportFileName(String extension) {
+    final micros = DateTime.now().toUtc().microsecondsSinceEpoch;
+    return 'ledgerly-governance-${_timestamp()}-$micros.$extension';
+  }
 
   @override
   Future<String> writeBackup(
@@ -55,13 +77,17 @@ class PluginBackupFilePort implements BackupFilePort {
   }) async {
     final dir = await _documentsDirectoryLoader();
     final isEncrypted = document.encrypted != null;
-    final fileName =
-        isEncrypted ? _exportEncryptedFileName() : _exportFileName();
+    final suffix = _backupIdSuffix(document);
+    final fileName = isEncrypted
+        ? _exportEncryptedFileName(suffix)
+        : document.isIncremental
+            ? _exportIncrementalFileName(suffix)
+            : _exportFileName(suffix);
     final file = File('${dir.path}/$fileName');
     final bytes = isEncrypted
         ? _buildEncryptedZipBytes(document)
         : _buildZipBytes(document, deviceId: deviceId);
-    await file.writeAsBytes(bytes, flush: true);
+    await _atomicWriter.write(file, bytes);
     return file.path;
   }
 
@@ -71,9 +97,11 @@ class PluginBackupFilePort implements BackupFilePort {
     required String deviceId,
   }) async {
     final dir = await _documentsDirectoryLoader();
-    final file = File('${dir.path}/${_safetyFileName()}');
+    final file = File(
+      '${dir.path}/${_safetyFileName(_backupIdSuffix(document))}',
+    );
     final bytes = _buildZipBytes(document, deviceId: deviceId);
-    await file.writeAsBytes(bytes, flush: true);
+    await _atomicWriter.write(file, bytes);
     return file.path;
   }
 
@@ -110,6 +138,11 @@ class PluginBackupFilePort implements BackupFilePort {
   }
 
   @override
+  Future<String?> pickBackupDirectory() {
+    return FilePicker.getDirectoryPath();
+  }
+
+  @override
   Future<String?> shareBackup(String source) async {
     final file = XFile(source, mimeType: 'application/zip');
     await SharePlus.instance.share(
@@ -121,9 +154,106 @@ class PluginBackupFilePort implements BackupFilePort {
     return _basename(source);
   }
 
+  @override
+  Future<int> fileSize(String source) async {
+    final file = File(source);
+    return await file.exists() ? file.length() : 0;
+  }
+
+  @override
+  Future<String?> fileSha256(String source) async {
+    final file = File(source);
+    if (!await file.exists()) return null;
+    final digest = await sha256.bind(file.openRead()).first;
+    return digest.toString();
+  }
+
+  @override
+  Future<void> deleteBackup(String source) async {
+    final file = File(source);
+    if (await file.exists()) await file.delete();
+  }
+
+  @override
+  Future<String> writeGovernanceReport(
+    String contents, {
+    required String extension,
+  }) async {
+    final dir = await _documentsDirectoryLoader();
+    final file = File('${dir.path}/${_reportFileName(extension)}');
+    await _atomicWriter.write(file, utf8.encode(contents));
+    return file.path;
+  }
+
+  @override
+  Future<String> mirrorBackup(String source, String directory) async {
+    final sourceFile = File(source);
+    if (!await sourceFile.exists()) {
+      throw BackupFormatException('待镜像备份不存在：$source');
+    }
+    final targetDirectory = Directory(directory);
+    if (!await targetDirectory.exists()) {
+      throw FileSystemException('外部备份目录不存在', directory);
+    }
+    final target = File(
+      '${targetDirectory.path}/${_basename(source)}',
+    );
+    await _atomicWriter.write(target, await sourceFile.readAsBytes());
+    return target.path;
+  }
+
+  @override
+  Future<bool> isBackupDirectoryAvailable(String directory) async {
+    try {
+      return await Directory(directory).exists();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<List<String>> listBackupFiles(String directory) async {
+    final dir = Directory(directory);
+    if (!await dir.exists()) {
+      throw FileSystemException('外部备份目录不存在', directory);
+    }
+    final files = <String>[];
+    await for (final entity in dir.list(followLinks: false)) {
+      if (entity is! File) continue;
+      final name = _basename(entity.path);
+      if (_looksLikeBackupFile(name)) files.add(entity.path);
+    }
+    files.sort();
+    return files;
+  }
+
+  @override
+  Future<String> importBackupFile(String source) async {
+    final sourceFile = File(source);
+    if (!await sourceFile.exists()) {
+      throw BackupFormatException('外部备份不存在：$source');
+    }
+    final dir = await _documentsDirectoryLoader();
+    final micros = DateTime.now().toUtc().microsecondsSinceEpoch;
+    final target = File(
+      '${dir.path}/ledgerly-imported-$micros-${_basename(source)}',
+    );
+    await _atomicWriter.write(target, await sourceFile.readAsBytes());
+    return target.path;
+  }
+
   String _basename(String path) {
-    final index = path.lastIndexOf(Platform.pathSeparator);
+    final slash = path.lastIndexOf('/');
+    final backslash = path.lastIndexOf(r'\');
+    final index = slash > backslash ? slash : backslash;
     return index < 0 ? path : path.substring(index + 1);
+  }
+
+  bool _looksLikeBackupFile(String name) {
+    return name.startsWith('ledgerly-') &&
+        (name.endsWith('.ledgerly.zip') ||
+            name.endsWith('.ledgerly.enc.zip') ||
+            name.endsWith('.ledgerly.inc.zip'));
   }
 }
 
@@ -436,7 +566,7 @@ BackupDocument _decodeLegacyJson(Uint8List bytes, {Object? zipError}) {
 
 /// Convenience factory so the rest of the app does not need to import
 /// `package:path_provider` directly.
-BackupFilePort createPlatformBackupFilePort() => const PluginBackupFilePort();
+BackupFilePort createPlatformBackupFilePort() => PluginBackupFilePort();
 
 /// In-memory port for tests. Records every operation so assertions can
 /// inspect what the page asked the port to do without touching disk.
@@ -444,8 +574,13 @@ class InMemoryBackupFilePort implements BackupFilePort {
   InMemoryBackupFilePort({
     Map<String, BackupDocument>? envelopes,
     this.pickResult,
+    this.directoryPickResult,
   })  : envelopes = envelopes ?? <String, BackupDocument>{},
-        rawFiles = <String, Uint8List>{};
+        rawFiles = <String, Uint8List>{},
+        reportFiles = <String, String>{},
+        mirroredFiles = <String, String>{},
+        externalExtraFiles = <String>{},
+        unavailableDirectories = <String>{};
 
   /// Stored envelopes keyed by the source identifier returned by
   /// [writeBackup] / [writePreRestoreSafetyBackup]. Defaults to an
@@ -459,8 +594,23 @@ class InMemoryBackupFilePort implements BackupFilePort {
   /// in memory.
   Map<String, Uint8List> rawFiles;
 
+  /// Governance reports written during tests, keyed by returned id.
+  Map<String, String> reportFiles;
+
+  /// Mirrored backup source paths mapped to their external destination.
+  Map<String, String> mirroredFiles;
+
+  /// Files that exist externally but are not linked to a catalog artifact.
+  Set<String> externalExtraFiles;
+
+  /// Directory paths treated as unavailable in tests.
+  Set<String> unavailableDirectories;
+
   /// What [pickBackupSource] returns. `null` means the user cancelled.
   String? pickResult;
+
+  /// What [pickBackupDirectory] returns.
+  String? directoryPickResult;
 
   /// Counter so each write returns a unique auto-incrementing id when
   /// callers don't supply their own.
@@ -507,7 +657,83 @@ class InMemoryBackupFilePort implements BackupFilePort {
   Future<String?> pickBackupSource() async => pickResult;
 
   @override
+  Future<String?> pickBackupDirectory() async => directoryPickResult;
+
+  @override
   Future<String?> shareBackup(String source) async => source;
+
+  @override
+  Future<int> fileSize(String source) async {
+    final raw = rawFiles[source];
+    if (raw != null) return raw.length;
+    return envelopes.containsKey(source) ? 1 : 0;
+  }
+
+  @override
+  Future<String?> fileSha256(String source) async {
+    final raw = rawFiles[source];
+    return raw == null ? null : sha256.convert(raw).toString();
+  }
+
+  @override
+  Future<void> deleteBackup(String source) async {
+    rawFiles.remove(source);
+    envelopes.remove(source);
+    reportFiles.remove(source);
+  }
+
+  @override
+  Future<String> writeGovernanceReport(
+    String contents, {
+    required String extension,
+  }) async {
+    final id = 'memory-report-${++_counter}.$extension';
+    reportFiles[id] = contents;
+    return id;
+  }
+
+  @override
+  Future<String> mirrorBackup(String source, String directory) async {
+    if (!rawFiles.containsKey(source) && !reportFiles.containsKey(source)) {
+      throw BackupFormatException('InMemoryBackupFilePort: missing $source');
+    }
+    final target = '$directory/${source.split(RegExp(r'[/\\]')).last}';
+    final sourceRaw = rawFiles[source];
+    if (sourceRaw != null) {
+      rawFiles[target] = Uint8List.fromList(sourceRaw);
+    }
+    mirroredFiles[source] = target;
+    return target;
+  }
+
+  @override
+  Future<bool> isBackupDirectoryAvailable(String directory) async {
+    return !unavailableDirectories.contains(directory);
+  }
+
+  @override
+  Future<List<String>> listBackupFiles(String directory) async {
+    final prefix = directory.endsWith('/') ? directory : '$directory/';
+    final files = <String>{
+      for (final path in mirroredFiles.values)
+        if (path.startsWith(prefix)) path,
+      for (final path in externalExtraFiles)
+        if (path.startsWith(prefix)) path,
+    }.toList()
+      ..sort();
+    return files;
+  }
+
+  @override
+  Future<String> importBackupFile(String source) async {
+    final raw = rawFiles[source];
+    if (raw == null) {
+      throw BackupFormatException('InMemoryBackupFilePort: missing $source');
+    }
+    final id = 'memory-imported-${++_counter}';
+    rawFiles[id] = Uint8List.fromList(raw);
+    return id;
+  }
 
   @override
   Future<Uint8List> buildPlaintextZip(

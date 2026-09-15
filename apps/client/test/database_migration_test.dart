@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Variable;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ledgerly_client/data/database.dart';
@@ -202,5 +203,136 @@ void main() {
         'local_attachments',
       ]),
     );
+  });
+
+  test('v10 migration adds persisted cloud upload state', () async {
+    final underlying = sqlite3.openInMemory();
+    underlying.execute('''
+      CREATE TABLE local_attachments (
+        id TEXT NOT NULL PRIMARY KEY,
+        book_id TEXT NOT NULL,
+        transaction_id TEXT NOT NULL,
+        file_name TEXT NOT NULL,
+        mime TEXT NOT NULL,
+        relative_path TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      );
+      INSERT INTO local_attachments (
+        id, book_id, transaction_id, file_name, mime, relative_path, created_at
+      ) VALUES (
+        'attachment-1', 'book-1', 'transaction-1', 'receipt.jpg',
+        'image/jpeg', 'attachments/attachment-1', 1700000000
+      );
+      PRAGMA user_version = 9;
+    ''');
+    final db = AppDatabase.forTesting(NativeDatabase.opened(underlying));
+    addTearDown(db.close);
+
+    final columns =
+        await db.customSelect("PRAGMA table_info('local_attachments')").get();
+    final row = await db.customSelect(
+        'SELECT * FROM local_attachments WHERE id = ?',
+        variables: [
+          const Variable<String>('attachment-1'),
+        ]).getSingle();
+
+    expect(
+      columns.map((column) => column.read<String>('name')),
+      containsAll([
+        'cloud_upload_status',
+        'remote_attachment_id',
+        'remote_object_key',
+        'remote_upload_error',
+      ]),
+    );
+    expect(row.read<String>('cloud_upload_status'), 'local');
+  });
+
+  test('v11 migration adds persisted retry backoff', () async {
+    final underlying = sqlite3.openInMemory();
+    underlying.execute('''
+      CREATE TABLE local_attachments (
+        id TEXT NOT NULL PRIMARY KEY,
+        book_id TEXT NOT NULL,
+        transaction_id TEXT NOT NULL,
+        file_name TEXT NOT NULL,
+        mime TEXT NOT NULL,
+        relative_path TEXT NOT NULL,
+        cloud_upload_status TEXT NOT NULL DEFAULT 'local',
+        remote_attachment_id TEXT,
+        remote_object_key TEXT,
+        remote_upload_error TEXT,
+        created_at INTEGER NOT NULL
+      );
+      INSERT INTO local_attachments (
+        id, book_id, transaction_id, file_name, mime, relative_path, created_at
+      ) VALUES (
+        'attachment-1', 'book-1', 'transaction-1', 'receipt.jpg',
+        'image/jpeg', 'attachments/attachment-1', 1700000000
+      );
+      PRAGMA user_version = 10;
+    ''');
+    final db = AppDatabase.forTesting(NativeDatabase.opened(underlying));
+    addTearDown(db.close);
+
+    final columns =
+        await db.customSelect("PRAGMA table_info('local_attachments')").get();
+    final row = await db.customSelect(
+        'SELECT * FROM local_attachments WHERE id = ?',
+        variables: [
+          const Variable<String>('attachment-1'),
+        ]).getSingle();
+
+    expect(
+      columns.map((column) => column.read<String>('name')),
+      containsAll(['retry_attempt_count', 'next_retry_at']),
+    );
+    expect(row.read<int>('retry_attempt_count'), 0);
+    expect(row.read<int?>('next_retry_at'), isNull);
+  });
+
+  test('v12 migration adds persisted multipart session hints', () async {
+    final underlying = sqlite3.openInMemory();
+    underlying.execute('''
+      CREATE TABLE local_attachments (
+        id TEXT NOT NULL PRIMARY KEY,
+        book_id TEXT NOT NULL,
+        transaction_id TEXT NOT NULL,
+        file_name TEXT NOT NULL,
+        mime TEXT NOT NULL,
+        relative_path TEXT NOT NULL,
+        cloud_upload_status TEXT NOT NULL DEFAULT 'local',
+        remote_attachment_id TEXT,
+        remote_object_key TEXT,
+        remote_upload_error TEXT,
+        retry_attempt_count INTEGER NOT NULL DEFAULT 0,
+        next_retry_at INTEGER,
+        created_at INTEGER NOT NULL
+      );
+      INSERT INTO local_attachments (
+        id, book_id, transaction_id, file_name, mime, relative_path, created_at
+      ) VALUES (
+        'attachment-1', 'book-1', 'transaction-1', 'receipt.jpg',
+        'image/jpeg', 'attachments/attachment-1', 1700000000
+      );
+      PRAGMA user_version = 11;
+    ''');
+    final db = AppDatabase.forTesting(NativeDatabase.opened(underlying));
+    addTearDown(db.close);
+
+    final columns =
+        await db.customSelect("PRAGMA table_info('local_attachments')").get();
+    final row = await db.customSelect(
+        'SELECT * FROM local_attachments WHERE id = ?',
+        variables: [
+          const Variable<String>('attachment-1'),
+        ]).getSingle();
+
+    expect(
+      columns.map((column) => column.read<String>('name')),
+      containsAll(['remote_upload_mode', 'remote_part_size_bytes']),
+    );
+    expect(row.read<String?>('remote_upload_mode'), isNull);
+    expect(row.read<int?>('remote_part_size_bytes'), isNull);
   });
 }

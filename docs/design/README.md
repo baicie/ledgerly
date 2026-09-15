@@ -26,5 +26,31 @@
 | [phase-10-password-encrypted-backup.md](./phase-10-password-encrypted-backup.md) | 密码加密备份 |
 | [phase-11-argon2id-kdf.md](./phase-11-argon2id-kdf.md) | Argon2id 密钥派生 |
 | [phase-12-auto-backup.md](./phase-12-auto-backup.md) | 打开应用时的自动备份调度 |
+| [phase-13-merge-restore.md](./phase-13-merge-restore.md) | 跨账本 merge 恢复 |
+| [phase-14-incremental-backup.md](./phase-14-incremental-backup.md) | 增量 diff 备份 |
+| [phase-15-backup-retention.md](./phase-15-backup-retention.md) | 备份目录与保留策略 |
+| [phase-16-portable-consolidation.md](./phase-16-portable-consolidation.md) | 增量备份便携化 |
+| [phase-17-backup-integrity.md](./phase-17-backup-integrity.md) | 备份完整性检查 |
+| [phase-18-encrypted-portable-backup.md](./phase-18-encrypted-portable-backup.md) | 加密便携备份 |
+| [phase-19-recovery-drill.md](./phase-19-recovery-drill.md) | 备份恢复演练 |
+| [phase-20-backup-catalog-actions.md](./phase-20-backup-catalog-actions.md) | 备份目录逐项操作 |
+| [phase-21-password-rotation.md](./phase-21-password-rotation.md) | 加密备份密码轮换 |
+| [phase-22-encrypted-auto-backup.md](./phase-22-encrypted-auto-backup.md) | 加密自动备份 |
+| [phase-23-restore-audit.md](./phase-23-restore-audit.md) | 恢复审计与安全备份历史 |
+| [phase-24-backup-health-center.md](./phase-24-backup-health-center.md) | 备份策略健康中心 |
+| [phase-25-atomic-backup-write.md](./phase-25-atomic-backup-write.md) | 原子备份写入与故障注入 |
+| [phase-26-governance-report.md](./phase-26-governance-report.md) | 备份治理报告导出 |
+| [phase-27-external-backup-mirror.md](./phase-27-external-backup-mirror.md) | 外部备份目录与镜像 |
+| [phase-28-external-mirror-verification.md](./phase-28-external-mirror-verification.md) | 外部镜像校验与恢复入口 |
+| [phase-29-disaster-recovery-drill.md](./phase-29-disaster-recovery-drill.md) | 端到端灾难恢复演练 |
+| [phase-30-recovery-drill-audit.md](./phase-30-recovery-drill-audit.md) | 恢复演练审计与就绪度 |
+| [phase-31-server-disaster-recovery-drill.md](./phase-31-server-disaster-recovery-drill.md) | 服务端 PostgreSQL 恢复演练 |
+| [phase-32-object-store-disaster-recovery.md](./phase-32-object-store-disaster-recovery.md) | 对象存储附件灾备与恢复 |
+| [phase-33-encrypted-backup-bundle.md](./phase-33-encrypted-backup-bundle.md) | 服务端加密备份包与异地复制 |
+| [phase-34-streaming-bundle-and-retention.md](./phase-34-streaming-bundle-and-retention.md) | 流式加密 bundle 与保留策略 |
+| [phase-35-automated-backup-orchestration.md](./phase-35-automated-backup-orchestration.md) | 自动备份编排与验证状态 |
+| [phase-36-production-backup-deployment.md](./phase-36-production-backup-deployment.md) | 生产备份部署接线与监控 |
+| [phase-37-one-command-restore-audit.md](./phase-37-one-command-restore-audit.md) | 一键加密 Bundle 恢复与审计 |
+| [phase-38-scheduled-recovery-drill.md](./phase-38-scheduled-recovery-drill.md) | 生产定时恢复演练 |
 
 状态：文档在对应阶段分支创建并完善；基线阶段仅保留本索引。

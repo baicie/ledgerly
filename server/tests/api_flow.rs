@@ -117,6 +117,492 @@ async fn object_store_signed_put_get() {
 }
 
 #[tokio::test]
+async fn attachment_catalog_lifecycle_uses_memory_metadata_and_local_objects() {
+    let cfg = Config::for_test();
+    let app = app_router(AppState::new(cfg.clone()));
+    let email = "attachment-catalog@example.com";
+    assert_eq!(register_user(&app, email).await.status(), StatusCode::OK);
+    let login = post_json(
+        &app,
+        "/v1/auth/login",
+        json!({
+            "email": email,
+            "password": "password123",
+            "deviceId": "attachment-catalog-device"
+        }),
+    )
+    .await;
+    let login = json_body(login).await;
+    let token = login["accessToken"].as_str().unwrap();
+    let book_id = login["bookId"].as_str().unwrap();
+
+    let upgrade = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/billing/dev-upgrade")
+                .header("authorization", format!("Bearer {token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(json!({"plan": "plus"}).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(upgrade.status(), StatusCode::OK);
+
+    let bytes = b"local attachment";
+    let session = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/v1/books/{book_id}/attachments/upload-session"))
+                .header("authorization", format!("Bearer {token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "fileName": "receipt.txt",
+                        "mimeType": "text/plain",
+                        "size": bytes.len()
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(session.status(), StatusCode::OK);
+    let session = json_body(session).await;
+    assert_eq!(session["uploadMode"], "proxy");
+
+    let upload_path = session["uploadUrl"]
+        .as_str()
+        .unwrap()
+        .trim_start_matches(&cfg.object_store_public_base);
+    let upload = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri(upload_path)
+                .body(Body::from(bytes.as_slice()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(upload.status(), StatusCode::NO_CONTENT);
+
+    let complete = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!(
+                    "/v1/books/{book_id}/attachments/{}/complete",
+                    session["attachmentId"].as_str().unwrap()
+                ))
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(complete.status(), StatusCode::OK);
+
+    let list = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/v1/books/{book_id}/attachments"))
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(list.status(), StatusCode::OK);
+    let list = json_body(list).await;
+    assert_eq!(list["attachments"].as_array().unwrap().len(), 1);
+    assert_eq!(list["attachments"][0]["fileName"], "receipt.txt");
+    assert_eq!(list["attachments"][0]["uploadStatus"], "ready");
+    assert_eq!(list["attachments"][0]["downloadMode"], "proxy");
+
+    let delete = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri(format!(
+                    "/v1/books/{book_id}/attachments/{}",
+                    session["attachmentId"].as_str().unwrap()
+                ))
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(delete.status(), StatusCode::NO_CONTENT);
+
+    let list = app
+        .oneshot(
+            Request::builder()
+                .uri(format!("/v1/books/{book_id}/attachments"))
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let list = json_body(list).await;
+    assert!(list["attachments"].as_array().unwrap().is_empty());
+    let _ = std::fs::remove_dir_all(cfg.object_store_dir);
+}
+
+#[tokio::test]
+async fn multipart_attachment_uses_fixed_size_parts_and_can_be_aborted() {
+    let cfg = Config::for_test();
+    let app = app_router(AppState::new(cfg.clone()));
+    let email = "multipart-attachment@example.com";
+    assert_eq!(register_user(&app, email).await.status(), StatusCode::OK);
+    let login = post_json(
+        &app,
+        "/v1/auth/login",
+        json!({
+            "email": email,
+            "password": "password123",
+            "deviceId": "multipart-device"
+        }),
+    )
+    .await;
+    let login = json_body(login).await;
+    let token = login["accessToken"].as_str().unwrap();
+    let book_id = login["bookId"].as_str().unwrap();
+    let upgrade = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/billing/dev-upgrade")
+                .header("authorization", format!("Bearer {token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(json!({"plan": "plus"}).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(upgrade.status(), StatusCode::OK);
+
+    let part_size = ledger_server::infrastructure::object_store::MULTIPART_PART_SIZE_BYTES;
+    let total_size = 7 * 1024 * 1024 + 1234;
+    let session = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/v1/books/{book_id}/attachments/upload-session"))
+                .header("authorization", format!("Bearer {token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "fileName": "large.bin",
+                        "mimeType": "application/octet-stream",
+                        "size": total_size
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(session.status(), StatusCode::OK);
+    let session = json_body(session).await;
+    let attachment_id = session["attachmentId"].as_str().unwrap();
+    assert_eq!(session["uploadMode"], "multipart");
+    assert_eq!(session["partSizeBytes"], part_size);
+
+    let part_upload_url = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!(
+                    "/v1/books/{book_id}/attachments/{attachment_id}/parts/1/upload-url"
+                ))
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(part_upload_url.status(), StatusCode::OK);
+    let part_upload_url = json_body(part_upload_url).await;
+    assert_eq!(part_upload_url["uploadMode"], "proxy");
+    assert!(part_upload_url["uploadUrl"].is_null());
+    assert_eq!(part_upload_url["partNumber"], 1);
+    assert_eq!(part_upload_url["totalParts"], 2);
+
+    let first_part = vec![0x11_u8; part_size];
+    let second_part = vec![0x22_u8; total_size - part_size];
+    for (part_number, part) in [(1, &first_part), (2, &second_part)] {
+        let upload = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("PUT")
+                    .uri(format!(
+                        "/v1/books/{book_id}/attachments/{attachment_id}/parts/{part_number}"
+                    ))
+                    .header("authorization", format!("Bearer {token}"))
+                    .header("content-type", "application/octet-stream")
+                    .body(Body::from(part.clone()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(upload.status(), StatusCode::OK);
+        if part_number == 1 {
+            let status = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri(format!(
+                            "/v1/books/{book_id}/attachments/{attachment_id}/multipart"
+                        ))
+                        .header("authorization", format!("Bearer {token}"))
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            let status = json_body(status).await;
+            assert_eq!(status["uploadStatus"], "pending");
+            assert_eq!(status["uploadedPartNumbers"], json!([1]));
+            assert_eq!(status["totalParts"], 2);
+        }
+    }
+
+    let complete = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!(
+                    "/v1/books/{book_id}/attachments/{attachment_id}/complete"
+                ))
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(complete.status(), StatusCode::OK);
+
+    let list = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/v1/books/{book_id}/attachments"))
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let list = json_body(list).await;
+    let item = &list["attachments"][0];
+    assert_eq!(item["id"], attachment_id);
+    assert_eq!(item["uploadStatus"], "ready");
+    assert_eq!(item["sizeBytes"], total_size as i64);
+    let download_path = item["downloadUrl"]
+        .as_str()
+        .unwrap()
+        .trim_start_matches(&cfg.object_store_public_base);
+    let download = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(download_path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let bytes = download.into_body().collect().await.unwrap().to_bytes();
+    assert_eq!(bytes.len(), total_size);
+    assert_eq!(bytes[0], 0x11);
+    assert_eq!(bytes[part_size], 0x22);
+
+    let abort_session = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/v1/books/{book_id}/attachments/upload-session"))
+                .header("authorization", format!("Bearer {token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "fileName": "abort.bin",
+                        "mimeType": "application/octet-stream",
+                        "size": total_size
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let abort_session = json_body(abort_session).await;
+    let abort_id = abort_session["attachmentId"].as_str().unwrap();
+    let first_upload = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri(format!(
+                    "/v1/books/{book_id}/attachments/{abort_id}/parts/1"
+                ))
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::from(first_part))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(first_upload.status(), StatusCode::OK);
+    let abort = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri(format!(
+                    "/v1/books/{book_id}/attachments/{abort_id}/multipart"
+                ))
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(abort.status(), StatusCode::NO_CONTENT);
+    let list = app
+        .oneshot(
+            Request::builder()
+                .uri(format!("/v1/books/{book_id}/attachments"))
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let list = json_body(list).await;
+    assert_eq!(list["attachments"].as_array().unwrap().len(), 1);
+    let _ = std::fs::remove_dir_all(cfg.object_store_dir);
+}
+
+#[tokio::test]
+async fn multipart_direct_part_registration_validates_and_persists() {
+    let mut cfg = Config::for_test();
+    cfg.object_storage_backend = ledger_server::config::ObjectStoreBackend::S3;
+    cfg.s3_bucket = Some("ledgerly-test".into());
+    cfg.s3_access_key_id = Some("test-access".into());
+    cfg.s3_secret_access_key = Some("test-secret".into());
+    let state = AppState::new(cfg);
+    let app = app_router(state.clone());
+    let email = "multipart-direct-part@example.com";
+    assert_eq!(register_user(&app, email).await.status(), StatusCode::OK);
+    let login = post_json(
+        &app,
+        "/v1/auth/login",
+        json!({
+            "email": email,
+            "password": "password123",
+            "deviceId": "multipart-direct-device"
+        }),
+    )
+    .await;
+    let login = json_body(login).await;
+    let token = login["accessToken"].as_str().unwrap();
+    let book_id = login["bookId"].as_str().unwrap();
+    let upgrade = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/billing/dev-upgrade")
+                .header("authorization", format!("Bearer {token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(json!({"plan": "plus"}).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(upgrade.status(), StatusCode::OK);
+
+    let attachment_id = "direct-part-attachment";
+    let size_bytes = ledger_server::infrastructure::object_store::MULTIPART_PART_SIZE_BYTES + 1;
+    state
+        .store
+        .write()
+        .await
+        .attachments
+        .push(ledger_server::state::AttachmentRecord {
+            id: attachment_id.into(),
+            book_id: book_id.into(),
+            transaction_id: None,
+            file_name: Some("direct.bin".into()),
+            object_key: format!("books/{book_id}/{attachment_id}"),
+            content_hash: None,
+            mime_type: Some("application/octet-stream".into()),
+            size_bytes: Some(size_bytes as i64),
+            upload_status: "pending".into(),
+            upload_mode: "multipart".into(),
+            multipart_upload_id: Some("upload-id".into()),
+            multipart_parts: Vec::new(),
+            created_by: None,
+            created_at: time::OffsetDateTime::now_utc(),
+        });
+
+    let complete = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!(
+                    "/v1/books/{book_id}/attachments/{attachment_id}/parts/1/complete"
+                ))
+                .header("authorization", format!("Bearer {token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(json!({"partId": "\"etag-1\""}).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(complete.status(), StatusCode::OK);
+    let complete = json_body(complete).await;
+    assert_eq!(complete["partNumber"], 1);
+    assert_eq!(complete["partId"], "\"etag-1\"");
+    assert_eq!(complete["uploadedParts"], 1);
+
+    let status = app
+        .oneshot(
+            Request::builder()
+                .uri(format!(
+                    "/v1/books/{book_id}/attachments/{attachment_id}/multipart"
+                ))
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(status.status(), StatusCode::OK);
+    let status = json_body(status).await;
+    assert_eq!(status["uploadedPartNumbers"], json!([1]));
+}
+
+#[tokio::test]
 async fn sync_requires_auth() {
     let app = app_router(test_state());
     let res = app

@@ -930,8 +930,18 @@
   },
   "recurringLocalHelp": "每月 1 到 31 日自动记账；没有那天就记在月末。只保存在本机，重复的不会再记一笔。",
   "recurringSubtitle": "每月固定日期自动记账",
-  "attachmentsLocalHelp": "附件只保存在本机，不会同步到服务器。",
-  "attachmentsSubtitle": "只保存在本机，不同步",
+  "attachmentsLocalHelp": "附件始终先保存在本机；登录后可额外上传到云端存储。",
+  "attachmentsSubtitle": "本地优先，可选云端上传",
+  "attachmentCloudUpload": "上传到云端",
+  "attachmentCloudRetry": "重试云端上传",
+  "attachmentCloudUploaded": "已上传云端",
+  "attachmentCloudUploading": "正在上传云端",
+  "attachmentCloudFailed": "云端上传失败",
+  "attachmentCloudSignIn": "登录后可上传附件",
+  "attachmentCloudUploadSuccess": "附件已上传",
+  "attachmentCloudUploadFailure": "附件上传失败，请稍后重试。",
+  "attachmentCloudDeleteFailure": "无法删除云端附件，请稍后重试。",
+  "attachmentCloudSyncFailure": "云端附件刷新失败。",
   "addAttachment": "添加文件",
   "addImage": "添加图片",
   "noAttachments": "还没有附件",
@@ -1166,7 +1176,7 @@
   },
   "dataGovernanceBackupShare": "分享 / 另存到其他位置",
   "dataGovernanceRestore": "恢复",
-  "dataGovernanceRestoreSubtitle": "选择备份文件，预览后再覆盖本机数据。",
+  "dataGovernanceRestoreSubtitle": "选择备份文件，预览后替换或合并到本机数据。",
   "dataGovernanceRestoreAction": "选择备份文件",
   "dataGovernanceRestoreInProgress": "正在恢复…",
   "dataGovernanceRestorePreview": "预览",
@@ -1200,6 +1210,11 @@
     }
   },
   "dataGovernanceRestorePreviewEmpty": "备份里没有任何数据，恢复后本机会变空。",
+  "dataGovernanceRestoreModeReplace": "替换本机数据",
+  "dataGovernanceRestoreModeMerge": "合并新账本",
+  "dataGovernanceRestoreMergeHint": "同 ID 且已有数据的账本会整本跳过；仅空占位账本会被替换。",
+  "dataGovernanceRestoreReplaceAction": "替换本机数据",
+  "dataGovernanceRestoreMergeAction": "合并到本机",
   "dataGovernanceRestoreConfirmTitle": "确认覆盖本机数据？",
   "dataGovernanceRestoreConfirmBody": "恢复会覆盖本机的全部账本。已自动写入安全备份到 {path}，出问题可以回滚。",
   "@dataGovernanceRestoreConfirmBody": {
@@ -1209,7 +1224,92 @@
       }
     }
   },
+  "dataGovernanceRestoreConfirmMergeTitle": "确认合并到本机？",
+  "dataGovernanceRestoreConfirmMergeBody": "只会新增账本或替换空占位账本；同 ID 且已有数据的账本会跳过。安全备份已写入 {path}。",
+  "@dataGovernanceRestoreConfirmMergeBody": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreMergeSuccess": "已合并 {added} 个新账本，替换 {replaced} 个空账本，跳过 {skipped} 个已有账本。",
+  "@dataGovernanceRestoreMergeSuccess": {
+    "placeholders": {
+      "added": {
+        "type": "int"
+      },
+      "replaced": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceRestoreMergeNoChanges": "没有可合并的新账本，已有账本保持不变。",
   "dataGovernanceRestoreSuccess": "恢复完成，正在刷新…",
+  "dataGovernanceRestoreHistory": "恢复历史 · {count} 次",
+  "@dataGovernanceRestoreHistory": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceRestoreAuditSuccess": "成功",
+  "dataGovernanceRestoreAuditFailed": "失败",
+  "dataGovernanceRestoreAuditBackup": "来源备份：{backupId}",
+  "@dataGovernanceRestoreAuditBackup": {
+    "placeholders": {
+      "backupId": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreAuditSafety": "安全备份：{path}",
+  "@dataGovernanceRestoreAuditSafety": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreAuditError": "错误：{error}",
+  "@dataGovernanceRestoreAuditError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreAuditDelete": "删除记录和安全备份",
+  "dataGovernanceRestoreAuditDeleteConfirmTitle": "删除恢复记录？",
+  "dataGovernanceRestoreAuditDeleteConfirmBody": "将同时删除关联安全备份：{path}",
+  "@dataGovernanceRestoreAuditDeleteConfirmBody": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreAuditDeleteHistoryOnly": "这条记录没有关联安全备份，只删除恢复历史。",
+  "dataGovernanceRestoreAuditDeleteSuccess": "已删除恢复记录，释放 {size}。",
+  "@dataGovernanceRestoreAuditDeleteSuccess": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRestoreAuditDeleteFailed": "删除恢复记录失败：{error}",
+  "@dataGovernanceRestoreAuditDeleteFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "dataGovernanceWipe": "清空本机数据",
   "dataGovernanceWipeSubtitle": "删除全部流水、预算、规则和附件，无法撤销。",
   "dataGovernanceWipeAction": "全部清空",
@@ -1364,9 +1464,461 @@
   "dataGovernanceRestoreLegacyUnencryptedDetail": "建议使用带密码的加密备份来保护敏感财务数据",
   "dataGovernanceStatusEncrypted": "密码保护",
   "dataGovernanceEncryptLostPasswordWarning": "密码丢失将无法恢复，请妥善保管",
+  "dataGovernanceIncrementalBackup": "增量备份",
+  "dataGovernanceIncrementalBackupHint": "只记录本机基础备份后的变化；恢复时需要保留基础文件",
+  "dataGovernanceIncrementalEncryptedDisabled": "增量备份不加密；加密导出始终生成完整备份",
+  "dataGovernanceStatusIncremental": "增量备份 · 需要本机基础文件",
+  "dataGovernanceLocalBackups": "本机备份 {count} 份 · {size}",
+  "@dataGovernanceLocalBackups": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceCleanupBackups": "清理旧备份",
+  "dataGovernanceCleanupSubtitle": "保护手工备份、基础备份和最近备份；自动备份保留最新 3 份。",
+  "dataGovernanceArtifactListTitle": "备份文件",
+  "dataGovernanceArtifactActions": "备份操作",
+  "dataGovernanceArtifactKindFull": "完整",
+  "dataGovernanceArtifactKindIncremental": "增量",
+  "dataGovernanceArtifactKindEncrypted": "加密",
+  "dataGovernanceArtifactSourceManual": "手工",
+  "dataGovernanceArtifactSourceAutomatic": "自动",
+  "dataGovernanceArtifactSourceSafety": "恢复前",
+  "dataGovernanceArtifactCurrentBase": "当前基础",
+  "dataGovernanceArtifactLatest": "最近备份",
+  "dataGovernanceArtifactShare": "分享",
+  "dataGovernanceArtifactDrill": "恢复演练",
+  "dataGovernanceArtifactRotate": "更改密码",
+  "dataGovernanceArtifactRestore": "加载到恢复预览",
+  "dataGovernanceArtifactDelete": "删除此备份",
+  "dataGovernanceArtifactUnlockPrompt": "输入该备份的密码",
+  "dataGovernanceArtifactRotateTitle": "更改备份密码",
+  "dataGovernanceArtifactRotateOldPassword": "旧密码",
+  "dataGovernanceArtifactRotateNewPassword": "新密码",
+  "dataGovernanceArtifactRotateConfirmPassword": "确认新密码",
+  "dataGovernanceArtifactRotateSuccess": "已生成新密码备份并保留原文件：{path}（{size}）",
+  "@dataGovernanceArtifactRotateSuccess": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceArtifactRestoreLoaded": "已加载到恢复预览，请向下确认恢复模式。",
+  "dataGovernanceArtifactLoadFailed": "读取备份失败：{error}",
+  "@dataGovernanceArtifactLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceArtifactDeleteConfirmTitle": "删除备份文件？",
+  "dataGovernanceArtifactDeleteConfirmBody": "将从本机删除：{path}",
+  "@dataGovernanceArtifactDeleteConfirmBody": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceArtifactDeleteSuccess": "已删除备份，释放 {size}。",
+  "@dataGovernanceArtifactDeleteSuccess": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceArtifactDeleteFailed": "删除备份失败：{error}",
+  "@dataGovernanceArtifactDeleteFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceCleanupConfirmTitle": "确认清理旧自动备份？",
+  "dataGovernanceCleanupConfirmBody": "手工导出以及增量恢复所依赖的基础备份不会被删除。",
+  "dataGovernanceCleanupSuccess": "已清理 {count} 份备份，释放 {size}。",
+  "@dataGovernanceCleanupSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceCleanupPartial": "已清理 {count} 份备份并释放 {size}；{failed} 份删除失败。",
+  "@dataGovernanceCleanupPartial": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceCleanupNoChanges": "没有需要清理的旧备份。",
+  "dataGovernanceCleanupFailed": "清理备份失败：{error}",
+  "@dataGovernanceCleanupFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceConsolidateBackup": "生成便携备份",
+  "dataGovernanceConsolidatePasswordTitle": "设置便携备份密码",
+  "dataGovernanceConsolidatePasswordBody": "可选设置密码；留空将生成未加密备份。",
+  "dataGovernanceConsolidatePasswordLabel": "备份密码（可选）",
+  "dataGovernanceConsolidatePasswordConfirm": "确认备份密码",
+  "dataGovernanceConsolidateSuccess": "已生成便携备份：{path}（{size}）",
+  "@dataGovernanceConsolidateSuccess": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceConsolidateNoChanges": "最近一次已是独立的完整备份。",
+  "dataGovernanceConsolidateFailed": "生成便携备份失败：{error}",
+  "@dataGovernanceConsolidateFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceVerifyBackups": "检查完整性",
+  "dataGovernanceVerifyNoBackups": "本机没有可检查的备份。",
+  "dataGovernanceVerifyAllHealthy": "已检查 {count} 份备份，全部正常。",
+  "@dataGovernanceVerifyAllHealthy": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceVerifyIssuesTitle": "备份完整性异常",
+  "dataGovernanceVerifyIssueSummary": "{healthy} 份正常 · {missing} 份缺失 · {corrupted} 份损坏",
+  "@dataGovernanceVerifyIssueSummary": {
+    "placeholders": {
+      "healthy": {
+        "type": "int"
+      },
+      "missing": {
+        "type": "int"
+      },
+      "corrupted": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceVerifyMissing": "文件不存在",
+  "dataGovernanceVerifyCorrupted": "文件已损坏",
+  "dataGovernanceVerifyFailed": "检查备份失败：{error}",
+  "@dataGovernanceVerifyFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRecoveryDrill": "恢复演练",
+  "dataGovernanceRecoveryDrillPasswordTitle": "输入密码以演练恢复",
+  "dataGovernanceRecoveryDrillSuccessTitle": "恢复演练通过",
+  "dataGovernanceRecoveryDrillSuccess": "已成功合成或解密备份：{books} 个账本、{transactions} 笔流水、{attachments} 个附件。",
+  "@dataGovernanceRecoveryDrillSuccess": {
+    "placeholders": {
+      "books": {
+        "type": "int"
+      },
+      "transactions": {
+        "type": "int"
+      },
+      "attachments": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceRecoveryDrillSuccessBody": "演练仅读取备份，不会修改本机数据。",
+  "dataGovernanceRecoveryDrillPath": "备份路径：{path}",
+  "@dataGovernanceRecoveryDrillPath": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceRecoveryDrillFailed": "恢复演练失败：{error}",
+  "@dataGovernanceRecoveryDrillFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceHealthRecoveryDrillNever": "恢复演练：尚未执行",
+  "dataGovernanceHealthRecoveryDrillSuccess": "最近恢复演练通过：{date}",
+  "@dataGovernanceHealthRecoveryDrillSuccess": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceHealthRecoveryDrillFailed": "最近恢复演练失败：{date}",
+  "@dataGovernanceHealthRecoveryDrillFailed": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceHealthTitle": "备份策略健康",
+  "dataGovernanceHealthChecking": "检查中…",
+  "dataGovernanceHealthHealthy": "健康",
+  "dataGovernanceHealthWarning": "需要关注",
+  "dataGovernanceHealthCritical": "存在风险",
+  "dataGovernanceHealthNoIssues": "备份策略当前正常。",
+  "dataGovernanceHealthRefresh": "重新检查",
+  "dataGovernanceHealthSummary": "备份目录 {count} 份 · 下次计划 {nextDue}",
+  "@dataGovernanceHealthSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "nextDue": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceHealthNotScheduled": "未启用",
+  "dataGovernanceHealthIssueNoBackup": "尚无本机备份。",
+  "dataGovernanceHealthIssueStale": "最近备份已过去 {days} 天。",
+  "@dataGovernanceHealthIssueStale": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceHealthIssueAutoDisabled": "自动备份未启用。",
+  "dataGovernanceHealthIssuePasswordMissing": "加密自动备份缺少可用密码。",
+  "dataGovernanceHealthIssueSecureStorage": "系统安全存储当前不可用。",
+  "dataGovernanceHealthIssueVerificationFailed": "备份目录完整性检查失败。",
+  "dataGovernanceHealthIssueMissing": "{count} 份备份文件缺失。",
+  "@dataGovernanceHealthIssueMissing": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceHealthIssueCorrupted": "{count} 份备份文件损坏。",
+  "@dataGovernanceHealthIssueCorrupted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceHealthIssueNotCataloged": "最近备份未登记到本机目录。",
+  "dataGovernanceHealthIssueLatestIncremental": "最近备份是仅本机可恢复的增量文件。",
+  "dataGovernanceHealthIssueBaseMissing": "增量恢复所需的 base 不在备份目录中。",
+  "dataGovernanceHealthIssueRestoreFailed": "最近一次恢复操作失败，请检查恢复历史。",
+  "dataGovernanceHealthIssueExternalUnavailable": "外部备份目录当前不可用。",
+  "dataGovernanceHealthIssueMirrorFailed": "最近备份尚未成功镜像到外部目录。",
+  "dataGovernanceHealthIssueMirrorMissing": "{count} 份外部镜像缺失。",
+  "@dataGovernanceHealthIssueMirrorMissing": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceHealthIssueMirrorCorrupted": "{count} 份外部镜像损坏。",
+  "@dataGovernanceHealthIssueMirrorCorrupted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceHealthIssueMirrorExtra": "外部目录有 {count} 份未登记备份。",
+  "@dataGovernanceHealthIssueMirrorExtra": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceHealthIssueRecoveryDrillNever": "当前备份策略尚未完成恢复演练。",
+  "dataGovernanceHealthIssueRecoveryDrillFailed": "最近一次恢复演练失败，请重新执行。",
+  "dataGovernanceHealthIssueRecoveryDrillStale": "上次成功恢复演练已过去 {days} 天。",
+  "@dataGovernanceHealthIssueRecoveryDrillStale": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceHealthActionBackup": "立即备份",
+  "dataGovernanceHealthActionEnableAuto": "启用自动备份",
+  "dataGovernanceHealthActionPassword": "设置自动备份密码",
+  "dataGovernanceHealthActionInspect": "检查备份文件",
+  "dataGovernanceHealthActionExternalDirectory": "检查外部备份目录",
+  "dataGovernanceHealthActionRecoveryDrill": "执行恢复演练",
+  "dataGovernanceHealthExportReport": "导出治理报告",
+  "dataGovernanceHealthReportJson": "JSON 完整报告",
+  "dataGovernanceHealthReportCsv": "CSV 摘要",
+  "dataGovernanceHealthReportExported": "治理报告已生成：{path}",
+  "@dataGovernanceHealthReportExported": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceHealthReportFailed": "导出治理报告失败：{error}",
+  "@dataGovernanceHealthReportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "dataGovernanceAutoBackup": "自动备份",
   "dataGovernanceAutoBackupSubtitle": "打开应用时检查；到期则写入本地快照",
   "dataGovernanceAutoBackupWarning": "自动备份不加密。敏感账本请继续使用密码导出。",
+  "dataGovernanceAutoEncrypt": "加密自动备份",
+  "dataGovernanceAutoEncryptEnabled": "密码保存在系统安全存储中；每次生成独立加密全量",
+  "dataGovernanceAutoEncryptDisabled": "关闭时自动备份继续使用明文增量",
+  "dataGovernanceAutoEncryptWarning": "密码保存在系统安全存储中；忘记密码将无法恢复自动备份。",
+  "dataGovernanceAutoEncryptPasswordTitle": "设置自动备份密码",
+  "dataGovernanceAutoEncryptPasswordBody": "密码将保存在系统安全存储中，仅用于自动备份加密。",
+  "dataGovernanceAutoEncryptPasswordLabel": "自动备份密码",
+  "dataGovernanceAutoEncryptPasswordConfirm": "确认自动备份密码",
+  "dataGovernanceAutoEncryptNeedsPassword": "加密自动备份缺少密码，本次未生成备份。",
+  "dataGovernanceAutoEncryptUnavailable": "系统安全存储不可用，本次未生成备份。",
+  "dataGovernanceAutoEncryptFailed": "保存自动备份密码失败：{error}",
+  "@dataGovernanceAutoEncryptFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupDirectory": "外部备份目录",
+  "dataGovernanceExternalBackupNotConfigured": "未配置；备份仅保存在本机应用目录",
+  "dataGovernanceExternalBackupChoose": "选择目录",
+  "dataGovernanceExternalBackupClear": "移除外部目录",
+  "dataGovernanceExternalBackupMirrorNow": "立即镜像",
+  "dataGovernanceExternalBackupVerify": "检查镜像",
+  "dataGovernanceExternalBackupVerifyHealthy": "{count} 份外部镜像正常。",
+  "@dataGovernanceExternalBackupVerifyHealthy": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupVerifyIssuesTitle": "外部镜像异常",
+  "dataGovernanceExternalBackupVerifyIssueSummary": "{healthy} 份正常 · {missing} 份缺失 · {corrupted} 份损坏 · {extra} 份额外文件",
+  "@dataGovernanceExternalBackupVerifyIssueSummary": {
+    "placeholders": {
+      "healthy": {
+        "type": "int"
+      },
+      "missing": {
+        "type": "int"
+      },
+      "corrupted": {
+        "type": "int"
+      },
+      "extra": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupVerifyMissing": "外部副本缺失",
+  "dataGovernanceExternalBackupVerifyCorrupted": "外部副本大小或 SHA-256 不一致",
+  "dataGovernanceExternalBackupVerifyExtra": "外部文件未登记到本机目录",
+  "dataGovernanceExternalBackupVerifyFailed": "检查外部镜像失败：{error}",
+  "@dataGovernanceExternalBackupVerifyFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupImport": "导入本机",
+  "dataGovernanceExternalBackupImported": "已导入外部备份：{backupId}",
+  "@dataGovernanceExternalBackupImported": {
+    "placeholders": {
+      "backupId": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupImportFailed": "导入外部备份失败：{error}",
+  "@dataGovernanceExternalBackupImportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupSelected": "目录已设置：镜像 {mirrored} 份，失败 {failed} 份。",
+  "@dataGovernanceExternalBackupSelected": {
+    "placeholders": {
+      "mirrored": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupMirrorResult": "外部镜像完成：成功 {mirrored} 份，失败 {failed} 份。",
+  "@dataGovernanceExternalBackupMirrorResult": {
+    "placeholders": {
+      "mirrored": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "dataGovernanceExternalBackupMirrorFailed": "外部镜像失败：{error}",
+  "@dataGovernanceExternalBackupMirrorFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataGovernanceArtifactMirrored": "已镜像",
+  "dataGovernanceArtifactMirrorFailed": "镜像失败",
   "dataGovernanceAutoIntervalDays": "{n} 天",
   "@dataGovernanceAutoIntervalDays": {
     "placeholders": {

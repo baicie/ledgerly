@@ -10,6 +10,10 @@ class BackupMetadata {
     this.lastAttachmentCount = 0,
     this.lastAttachmentSizeBytes = 0,
     this.lastBackupEncrypted = false,
+    this.lastBackupId,
+    this.lastBackupIncremental = false,
+    this.baseBackupId,
+    this.baseBackupPath,
   });
 
   /// UTC instant of the last successful [BackupService.exportToFile].
@@ -34,7 +38,19 @@ class BackupMetadata {
   /// requires a password to restore.
   final bool lastBackupEncrypted;
 
+  /// Stable ID of the most recent output file.
+  final String? lastBackupId;
+
+  /// Whether the most recent output was a delta file.
+  final bool lastBackupIncremental;
+
+  /// Local unencrypted full backup used as the delta base.
+  final String? baseBackupId;
+  final String? baseBackupPath;
+
   bool get hasBackup => lastBackupAt != null;
+
+  bool get hasIncrementalBase => baseBackupId != null && baseBackupPath != null;
 
   /// Age since the last backup, or `null` if there isn't one.
   Duration? ageFrom(DateTime now) =>
@@ -78,6 +94,11 @@ class BackupMetadataStore {
   static const String kLastAttachmentSize =
       'ledgerly.backup.lastAttachmentSizeBytes';
   static const String kLastBackupEncrypted = 'ledgerly.backup.lastEncrypted';
+  static const String kLastBackupId = 'ledgerly.backup.lastId';
+  static const String kLastBackupIncremental =
+      'ledgerly.backup.lastIncremental';
+  static const String kBaseBackupId = 'ledgerly.backup.baseId';
+  static const String kBaseBackupPath = 'ledgerly.backup.basePath';
 
   final Future<SharedPreferences> Function() _prefsLoader;
 
@@ -91,12 +112,20 @@ class BackupMetadataStore {
     final rawCount = prefs.getInt(kLastAttachmentCount) ?? 0;
     final rawSize = prefs.getInt(kLastAttachmentSize) ?? 0;
     final encrypted = prefs.getBool(kLastBackupEncrypted) ?? false;
+    final backupId = prefs.getString(kLastBackupId);
+    final incremental = prefs.getBool(kLastBackupIncremental) ?? false;
+    final baseId = prefs.getString(kBaseBackupId);
+    final basePath = prefs.getString(kBaseBackupPath);
     if (rawAt == null) {
       return BackupMetadata(
         lastBackupPath: rawPath,
         lastAttachmentCount: rawCount,
         lastAttachmentSizeBytes: rawSize,
         lastBackupEncrypted: encrypted,
+        lastBackupId: backupId,
+        lastBackupIncremental: incremental,
+        baseBackupId: baseId,
+        baseBackupPath: basePath,
       );
     }
     final parsed = DateTime.tryParse(rawAt);
@@ -112,6 +141,10 @@ class BackupMetadataStore {
       lastAttachmentCount: rawCount,
       lastAttachmentSizeBytes: rawSize,
       lastBackupEncrypted: encrypted,
+      lastBackupId: backupId,
+      lastBackupIncremental: incremental,
+      baseBackupId: baseId,
+      baseBackupPath: basePath,
     );
   }
 
@@ -122,6 +155,7 @@ class BackupMetadataStore {
     int attachmentCount = 0,
     int attachmentSizeBytes = 0,
     bool encrypted = false,
+    String? backupId,
   }) async {
     final prefs = await _prefsLoader();
     await prefs.setString(kLastBackupAt, at.toUtc().toIso8601String());
@@ -129,6 +163,39 @@ class BackupMetadataStore {
     await prefs.setInt(kLastAttachmentCount, attachmentCount);
     await prefs.setInt(kLastAttachmentSize, attachmentSizeBytes);
     await prefs.setBool(kLastBackupEncrypted, encrypted);
+    await prefs.setBool(kLastBackupIncremental, false);
+    if (backupId == null) {
+      await prefs.remove(kLastBackupId);
+    } else {
+      await prefs.setString(kLastBackupId, backupId);
+    }
+    if (backupId != null && !encrypted) {
+      await prefs.setString(kBaseBackupId, backupId);
+      await prefs.setString(kBaseBackupPath, path);
+    }
+  }
+
+  /// Record a successful incremental write while preserving the base
+  /// full-backup reference that the delta was built against.
+  Future<void> recordIncremental({
+    required String path,
+    required DateTime at,
+    required String backupId,
+    required String baseBackupId,
+    required String baseBackupPath,
+    int attachmentCount = 0,
+    int attachmentSizeBytes = 0,
+  }) async {
+    final prefs = await _prefsLoader();
+    await prefs.setString(kLastBackupAt, at.toUtc().toIso8601String());
+    await prefs.setString(kLastBackupPath, path);
+    await prefs.setInt(kLastAttachmentCount, attachmentCount);
+    await prefs.setInt(kLastAttachmentSize, attachmentSizeBytes);
+    await prefs.setBool(kLastBackupEncrypted, false);
+    await prefs.setBool(kLastBackupIncremental, true);
+    await prefs.setString(kLastBackupId, backupId);
+    await prefs.setString(kBaseBackupId, baseBackupId);
+    await prefs.setString(kBaseBackupPath, baseBackupPath);
   }
 
   /// Wipe the persisted record. Called after a destructive
@@ -141,5 +208,9 @@ class BackupMetadataStore {
     await prefs.remove(kLastAttachmentCount);
     await prefs.remove(kLastAttachmentSize);
     await prefs.remove(kLastBackupEncrypted);
+    await prefs.remove(kLastBackupId);
+    await prefs.remove(kLastBackupIncremental);
+    await prefs.remove(kBaseBackupId);
+    await prefs.remove(kBaseBackupPath);
   }
 }

@@ -100,9 +100,19 @@ async fn ensure_session_active(state: &AppState, claims: &Claims) -> Result<(), 
 
 pub fn decode_access_token(state: &AppState, token: &str) -> Result<Claims, ApiError> {
     let validation = Validation::new(Algorithm::EdDSA);
-    decode::<Claims>(token, &state.config.jwt_decoding_key, &validation)
-        .map(|data| data.claims)
-        .map_err(|_| ApiError::new(StatusCode::UNAUTHORIZED, "UNAUTHORIZED", "invalid token"))
+    if let Ok(data) = decode::<Claims>(token, &state.config.jwt_decoding_key, &validation) {
+        return Ok(data.claims);
+    }
+    if let Some(previous_key) = &state.config.jwt_previous_decoding_key {
+        if let Ok(data) = decode::<Claims>(token, previous_key, &validation) {
+            return Ok(data.claims);
+        }
+    }
+    Err(ApiError::new(
+        StatusCode::UNAUTHORIZED,
+        "UNAUTHORIZED",
+        "invalid token",
+    ))
 }
 
 pub async fn require_book_member(
@@ -184,4 +194,37 @@ pub async fn require_plan(state: &AppState, user_id: &str, min: &str) -> Result<
         ));
     }
     Ok(plan)
+}
+
+#[cfg(test)]
+mod tests {
+    use jsonwebtoken::{encode, Algorithm, Header};
+
+    use super::{decode_access_token, Claims};
+    use crate::config::Config;
+    use crate::state::AppState;
+
+    #[test]
+    fn previous_jwt_key_accepts_tokens_during_rotation() {
+        let previous = Config::for_test_with_jwt_seed("previous-test-seed");
+        let mut current = Config::for_test_with_jwt_seed("current-test-seed");
+        current.jwt_previous_decoding_key = Some(previous.jwt_decoding_key.clone());
+        current.jwt_previous_ed25519_seed = Some("previous-test-seed".into());
+        let state = AppState::new(current);
+        let claims = Claims {
+            sub: "user-1".into(),
+            session_id: "session-1".into(),
+            device_id: "device-1".into(),
+            token_version: 1,
+            exp: (time::OffsetDateTime::now_utc().unix_timestamp() + 900) as usize,
+        };
+        let token = encode(
+            &Header::new(Algorithm::EdDSA),
+            &claims,
+            &previous.jwt_encoding_key,
+        )
+        .unwrap();
+
+        assert_eq!(decode_access_token(&state, &token).unwrap().sub, "user-1");
+    }
 }

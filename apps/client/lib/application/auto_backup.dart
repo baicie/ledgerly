@@ -1,8 +1,15 @@
+import 'backup_auto_password_store.dart';
 import 'backup_metadata_store.dart';
 import 'backup_schedule.dart';
 import 'backup_service.dart';
 
-enum AutoBackupSkipReason { disabled, notDue, inProgress }
+enum AutoBackupSkipReason {
+  disabled,
+  notDue,
+  inProgress,
+  encryptedPasswordMissing,
+  encryptedPasswordUnavailable,
+}
 
 /// Outcome of one opportunistic backup check. [ran] means a new file
 /// was written; otherwise [skipReason] or [error] explains why not.
@@ -37,13 +44,16 @@ class AutoBackupCoordinator {
     required BackupScheduleStore schedule,
     required BackupMetadataStore metadata,
     required BackupService backups,
+    required BackupAutoPasswordStore passwords,
   })  : _schedule = schedule,
         _metadata = metadata,
-        _backups = backups;
+        _backups = backups,
+        _passwords = passwords;
 
   final BackupScheduleStore _schedule;
   final BackupMetadataStore _metadata;
   final BackupService _backups;
+  final BackupAutoPasswordStore _passwords;
 
   bool _running = false;
 
@@ -62,7 +72,26 @@ class AutoBackupCoordinator {
       if (!schedule.isDue(metadata.lastBackupAt, clock)) {
         return AutoBackupTickResult.skipped(AutoBackupSkipReason.notDue);
       }
-      final path = await _backups.exportToFile();
+      String? password;
+      if (schedule.encrypted) {
+        try {
+          password = await _passwords.read();
+        } catch (_) {
+          return AutoBackupTickResult.skipped(
+            AutoBackupSkipReason.encryptedPasswordUnavailable,
+          );
+        }
+        if (password == null || password.length < 8) {
+          return AutoBackupTickResult.skipped(
+            AutoBackupSkipReason.encryptedPasswordMissing,
+          );
+        }
+      }
+      final path = await _backups.exportToFile(
+        password: password,
+        incremental: !schedule.encrypted,
+        automatic: true,
+      );
       return AutoBackupTickResult.ran(path);
     } catch (error) {
       return AutoBackupTickResult.failed(error);
