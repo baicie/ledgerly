@@ -1140,7 +1140,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
         );
     final healthAsync = ref.watch(backupHealthProvider);
     final externalBackupDirectory =
-        ref.watch(backupMirrorDirectoryProvider).valueOrNull;
+        ref.watch(backupMirrorDirectoryProvider).value;
     final localBackupBytes = catalog.fold<int>(
       0,
       (sum, artifact) => sum + artifact.sizeBytes,
@@ -1187,7 +1187,7 @@ class _DataGovernancePageState extends ConsumerState<DataGovernancePage> {
               sliver: SliverToBoxAdapter(
                 child: _BackupHealthCard(
                   l10n: l10n,
-                  snapshot: healthAsync.valueOrNull,
+                  snapshot: healthAsync.value,
                   loading: healthAsync.isLoading,
                   onRefresh: () => ref.invalidate(backupHealthProvider),
                   onAction: _busy

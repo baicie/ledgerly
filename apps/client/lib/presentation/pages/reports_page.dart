@@ -158,8 +158,8 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     final range = ref.read(reportsRangeProvider);
     final label = _rangeLabel(range);
 
-    final sData = summary.valueOrNull;
-    final tData = trend.valueOrNull;
+    final sData = summary.value;
+    final tData = trend.value;
     if (sData == null || tData == null) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -279,8 +279,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
   /// Switch the range to a single-month view for the given [month]. Used
   /// when the user taps a trend point and wants to drill into that month.
   void _jumpToMonth(WidgetRef ref, DateTime month) {
-    ref.read(reportsRangeProvider.notifier).state =
-        ReportsRange.month(month);
+    ref.read(reportsRangeProvider.notifier).state = ReportsRange.month(month);
     unawaitedPersist(ref, ref.read(reportsRangeProvider));
     ref.invalidate(reportSummaryProvider);
     ref.invalidate(reportTrendProvider);
@@ -374,8 +373,9 @@ class _HeroSummaryContent extends StatelessWidget {
           ? 0.0
           : (left.toDouble() / totalBudget.toDouble()).clamp(-1.0, 1.0);
       final pctLabel = '${(pct * 100).toStringAsFixed(0)}%';
-      budgetText =
-          left >= BigInt.zero ? pctLabel : '−${(-pct * 100).toStringAsFixed(0)}%';
+      budgetText = left >= BigInt.zero
+          ? pctLabel
+          : '−${(-pct * 100).toStringAsFixed(0)}%';
       budgetColor = pct >= 0
           ? (pct >= 0.3 ? Colors.green.shade700 : Colors.orange.shade700)
           : theme.colorScheme.error;
@@ -671,9 +671,8 @@ class _SummaryCardState extends ConsumerState<_SummaryCard> {
       data: (summary) {
         final currency = summary.baseCurrency;
         final visible = summary.categories.take(5).toList();
-        final overflow = summary.categories.length > 5
-            ? summary.categories.length - 5
-            : 0;
+        final overflow =
+            summary.categories.length > 5 ? summary.categories.length - 5 : 0;
         final slices = [
           for (final c in summary.categories)
             CategorySlice(label: c.name, amountMinor: c.amountMinor),
@@ -767,8 +766,8 @@ class _SummaryCardState extends ConsumerState<_SummaryCard> {
                           categories: summary.categories,
                         ),
                         icon: const Icon(Icons.unfold_more),
-                        label: Text(L10n.current.reportsAllCategories(
-                            overflow)),
+                        label:
+                            Text(L10n.current.reportsAllCategories(overflow)),
                       ),
                     ),
                   ],
@@ -930,7 +929,8 @@ class _TrendCardState extends State<_TrendCard> {
                                 left: 0,
                                 right: 0,
                                 bottom: 0,
-                                child: _TrendTooltip(point: points[_selectedIndex!]),
+                                child: _TrendTooltip(
+                                    point: points[_selectedIndex!]),
                               ),
                           ],
                         ),
@@ -987,9 +987,7 @@ class _TrendCardState extends State<_TrendCard> {
     int bestIndex = 0;
     double bestDistance = double.infinity;
     for (var i = 0; i < points.length; i++) {
-      final step = points.length == 1
-          ? 0.0
-          : chartWidth / (points.length - 1);
+      final step = points.length == 1 ? 0.0 : chartWidth / (points.length - 1);
       final x = padLeft + step * i;
       final d = (position.dx - x).abs();
       if (d < bestDistance) {
@@ -1008,7 +1006,7 @@ class _TrendCardState extends State<_TrendCard> {
 
   void _jumpToSelected() {
     if (_selectedIndex == null) return;
-    final points = widget.value.valueOrNull;
+    final points = widget.value.value;
     if (points == null) return;
     final monthStr = points[_selectedIndex!].month; // YYYY-MM
     final parts = monthStr.split('-');
@@ -1163,7 +1161,8 @@ class _BudgetRow extends StatelessWidget {
           borderRadius: BorderRadius.circular(4),
           child: LinearProgressIndicator(
             value: ratio > 1 ? 1 : ratio,
-            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+            backgroundColor:
+                Theme.of(context).colorScheme.surfaceContainerHighest,
             color: color,
             minHeight: 8,
           ),
@@ -1362,8 +1361,8 @@ class _EmptyCard extends StatelessWidget {
                 width: 64,
                 height: 64,
                 decoration: BoxDecoration(
-                  color:
-                      theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  color: theme.colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.5),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -1409,8 +1408,7 @@ class _Legend extends StatelessWidget {
         Container(
           width: 12,
           height: 12,
-          decoration:
-              BoxDecoration(color: color, shape: BoxShape.circle),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 4),
         Text(label, style: Theme.of(context).textTheme.bodySmall),
@@ -1461,7 +1459,8 @@ class _TrendPainter extends CustomPainter {
       if (p.netMinor < minNet) minNet = p.netMinor;
       if (p.netMinor > maxNet) maxNet = p.netMinor;
     }
-    final scale = absMax == BigInt.zero ? 0.0 : chartHeight / 2 / absMax.toDouble();
+    final scale =
+        absMax == BigInt.zero ? 0.0 : chartHeight / 2 / absMax.toDouble();
     // Zero baseline for signed net (income & expense always >= 0; pin to top of chart space).
     final zeroBaselineY = padTop + chartHeight / 2;
 
@@ -1527,9 +1526,7 @@ class _TrendPainter extends CustomPainter {
       );
     }
 
-    final step = points.length == 1
-        ? 0.0
-        : chartWidth / (points.length - 1);
+    final step = points.length == 1 ? 0.0 : chartWidth / (points.length - 1);
 
     final incomePath = Path();
     final expensePath = Path();
@@ -1539,11 +1536,12 @@ class _TrendPainter extends CustomPainter {
     for (var i = 0; i < points.length; i++) {
       final x = padLeft + step * i;
       // Income & expense share the top-anchored scale (they're always >= 0).
-      final topScale = absMax == BigInt.zero
-          ? 0.0
-          : chartHeight / absMax.toDouble();
-      final incomeY = padTop + chartHeight - points[i].incomeMinor.toDouble() * topScale;
-      final expenseY = padTop + chartHeight - points[i].expenseMinor.toDouble() * topScale;
+      final topScale =
+          absMax == BigInt.zero ? 0.0 : chartHeight / absMax.toDouble();
+      final incomeY =
+          padTop + chartHeight - points[i].incomeMinor.toDouble() * topScale;
+      final expenseY =
+          padTop + chartHeight - points[i].expenseMinor.toDouble() * topScale;
       // Net uses signed scale around the middle line.
       final netY = zeroBaselineY - points[i].netMinor.toDouble() * scale;
       if (i == 0) {
@@ -1621,10 +1619,9 @@ class _TrendPainter extends CustomPainter {
     } else {
       // Plain dots
       for (var i = 0; i < points.length; i++) {
-        canvas.drawCircle(dotPositions[i * 2], 3,
-            Paint()..color = incomeColor);
-        canvas.drawCircle(dotPositions[i * 2 + 1], 3,
-            Paint()..color = expenseColor);
+        canvas.drawCircle(dotPositions[i * 2], 3, Paint()..color = incomeColor);
+        canvas.drawCircle(
+            dotPositions[i * 2 + 1], 3, Paint()..color = expenseColor);
       }
       for (final p in netPositions) {
         canvas.drawCircle(p, 2.5, Paint()..color = netColor);

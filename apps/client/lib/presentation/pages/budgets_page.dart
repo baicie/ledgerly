@@ -62,8 +62,9 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
   }
 
   Future<void> _loadLocal() async {
-    final records =
-        await ref.read(localBudgetRepositoryProvider).list(ref.read(selectedBookIdProvider));
+    final records = await ref
+        .read(localBudgetRepositoryProvider)
+        .list(ref.read(selectedBookIdProvider));
     final transactions = await ref.read(monthTransactionsProvider.future);
     final categories =
         await ref.read(categoryAccountsProvider('expense').future);
@@ -222,8 +223,7 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
   Widget build(BuildContext context) {
     final l10n = l10nOf(context);
     final categoriesState = ref.watch(categoryAccountsProvider('expense'));
-    final categories =
-        categoriesState.valueOrNull ?? const <CategoryAccountRow>[];
+    final categories = categoriesState.value ?? const <CategoryAccountRow>[];
     final totals = _budgetTotals();
 
     return Scaffold(
@@ -315,12 +315,12 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
                                         _budgets[index],
                                         categories,
                                       ),
-                                      onDelete: ref.watch(apiEndpointProvider) ==
-                                              null
-                                          ? () => _deleteLocal(
-                                                '${_budgets[index]['id']}',
-                                              )
-                                          : null,
+                                      onDelete:
+                                          ref.watch(apiEndpointProvider) == null
+                                              ? () => _deleteLocal(
+                                                    '${_budgets[index]['id']}',
+                                                  )
+                                              : null,
                                     ),
                                   ],
                                 ],

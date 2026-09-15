@@ -44,8 +44,9 @@ class _RecurringPageState extends ConsumerState<RecurringPage> {
   Future<void> _load() async {
     setState(() => _busy = true);
     try {
-      final rules =
-          await ref.read(localRecurringRepositoryProvider).list(ref.read(selectedBookIdProvider));
+      final rules = await ref
+          .read(localRecurringRepositoryProvider)
+          .list(ref.read(selectedBookIdProvider));
       if (!mounted) return;
       setState(() {
         _rules = rules;
@@ -69,7 +70,9 @@ class _RecurringPageState extends ConsumerState<RecurringPage> {
     try {
       await ref.read(localRecurringRepositoryProvider).insert(
             bookId: ref.read(selectedBookIdProvider),
-            name: _name.text.trim().isEmpty ? l10n.monthlyRent : _name.text.trim(),
+            name: _name.text.trim().isEmpty
+                ? l10n.monthlyRent
+                : _name.text.trim(),
             kind: _kind,
             amountMinor: amount,
             categoryAccountId: _categoryId!,
@@ -90,9 +93,9 @@ class _RecurringPageState extends ConsumerState<RecurringPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = l10nOf(context);
-    final categories = ref.watch(categoryAccountsProvider(_kind)).valueOrNull ??
+    final categories = ref.watch(categoryAccountsProvider(_kind)).value ??
         const <CategoryAccountRow>[];
-    final accounts = (ref.watch(accountBalancesProvider).valueOrNull ??
+    final accounts = (ref.watch(accountBalancesProvider).value ??
             const <AccountBalanceRow>[])
         .where((row) => row.type == 'asset')
         .toList();
@@ -165,7 +168,8 @@ class _RecurringPageState extends ConsumerState<RecurringPage> {
                       initialValue: accounts.any((a) => a.id == _accountId)
                           ? _accountId
                           : accounts.first.id,
-                      decoration: InputDecoration(labelText: l10n.fundingAccount),
+                      decoration:
+                          InputDecoration(labelText: l10n.fundingAccount),
                       items: [
                         for (final account in accounts)
                           DropdownMenuItem(
