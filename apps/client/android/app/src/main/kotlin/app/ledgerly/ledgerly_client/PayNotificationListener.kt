@@ -43,13 +43,27 @@ class PayNotificationListener : NotificationListenerService() {
             """.trimIndent(),
         )
 
-        val event = PaymentParser.parse(
+        val result = PaymentParser.parse(
             packageName = packageName,
             content = content,
             timestamp = sbn.postTime,
-        ) ?: return
+        )
 
-        PaymentEventStore.save(this, event)
+        when (result) {
+            is PaymentParseResult.Parsed -> {
+                PaymentEventStore.save(this, result.event)
+            }
+            else -> {
+                PaymentEventStore.saveUnparsed(
+                    context = this,
+                    packageName = packageName,
+                    platform = result.platform,
+                    reasonTag = result.reasonTag,
+                    content = content,
+                    timestamp = sbn.postTime,
+                )
+            }
+        }
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
