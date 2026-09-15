@@ -23,6 +23,8 @@ class SettingsContent extends StatelessWidget {
     required this.onAi,
     required this.onLogout,
     this.onAutoLedger,
+    this.onKeyboard,
+    this.onGovernance,
   });
 
   final bool isLocal;
@@ -42,6 +44,8 @@ class SettingsContent extends StatelessWidget {
   final VoidCallback onAi;
   final VoidCallback? onLogout;
   final VoidCallback? onAutoLedger;
+  final VoidCallback? onKeyboard;
+  final VoidCallback? onGovernance;
 
   @override
   Widget build(BuildContext context) {
@@ -110,6 +114,13 @@ class SettingsContent extends StatelessWidget {
                     l10n.importCsv,
                     l10n.importCsvSubtitle,
                     onImport!,
+                  ),
+                if (onGovernance != null)
+                  _routeTile(
+                    Icons.shield_moon_outlined,
+                    l10n.dataGovernanceTitle,
+                    l10n.dataGovernanceSubtitle,
+                    onGovernance!,
                   ),
               ],
             ),
@@ -197,6 +208,23 @@ class SettingsContent extends StatelessWidget {
                     l10n.autoLedgerTitle,
                     l10n.autoLedgerSubtitle,
                     onAutoLedger!,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        if (onKeyboard != null)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            sliver: SliverToBoxAdapter(
+              child: _SettingsGroup(
+                title: l10n.systemSection,
+                children: [
+                  _routeTile(
+                    Icons.keyboard_outlined,
+                    l10n.keyboardShortcutsTitle,
+                    l10n.keyboardShortcutsSubtitle,
+                    onKeyboard!,
                   ),
                 ],
               ),

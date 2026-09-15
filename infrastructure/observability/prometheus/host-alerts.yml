@@ -1,0 +1,116 @@
+groups:
+  - name: ledgerly-host
+    rules:
+      - alert: LedgerlyNodeExporterDown
+        expr: up{job="node-exporter"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ledgerly node exporter is down"
+          description: "Prometheus cannot scrape host metrics for two minutes."
+
+      - alert: LedgerlyCadvisorDown
+        expr: up{job="cadvisor"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ledgerly cAdvisor is down"
+          description: "Prometheus cannot scrape container metrics for two minutes."
+
+      - alert: LedgerlyFilesystemSpaceLow
+        expr: >-
+          (
+            1
+            - node_filesystem_avail_bytes{
+                job="node-exporter",
+                fstype!~"tmpfs|overlay|squashfs|ramfs|proc|sysfs|devpts|cgroup2?"
+              }
+              /
+              node_filesystem_size_bytes{
+                job="node-exporter",
+                fstype!~"tmpfs|overlay|squashfs|ramfs|proc|sysfs|devpts|cgroup2?"
+              }
+            > 0.85
+          )
+          and on (instance, mountpoint, device)
+          node_filesystem_size_bytes{job="node-exporter"} > 1e9
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ledgerly host filesystem is above 85%"
+          description: "{{ $labels.mountpoint }} has less than 15% free space."
+
+      - alert: LedgerlyFilesystemInodesLow
+        expr: >-
+          (
+            1
+            - node_filesystem_files_free{job="node-exporter",fstype!~"tmpfs|overlay|squashfs|ramfs|proc|sysfs|devpts|cgroup2?"}
+              /
+              node_filesystem_files{job="node-exporter",fstype!~"tmpfs|overlay|squashfs|ramfs|proc|sysfs|devpts|cgroup2?"}
+            > 0.85
+          )
+          and on (instance, mountpoint, device)
+          node_filesystem_files{job="node-exporter"} > 10000
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ledgerly host filesystem inode usage is above 85%"
+          description: "{{ $labels.mountpoint }} has less than 15% free inodes."
+
+      - alert: LedgerlyMemoryPressure
+        expr: >-
+          1
+          - node_memory_MemAvailable_bytes{job="node-exporter"}
+            /
+            node_memory_MemTotal_bytes{job="node-exporter"}
+          > 0.9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ledgerly host memory pressure is high"
+          description: "Less than 10% of host memory has remained available for ten minutes."
+
+      - alert: LedgerlyCpuSaturation
+        expr: >-
+          100
+          - (
+            avg by (instance) (
+              rate(node_cpu_seconds_total{job="node-exporter",mode="idle"}[5m])
+            ) * 100
+          )
+          > 90
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ledgerly host CPU utilization is above 90%"
+          description: "Host CPU utilization has remained above 90% for fifteen minutes."
+
+      - alert: LedgerlyContainerRestartLoop
+        expr: >-
+          changes(
+            container_start_time_seconds{job="cadvisor",name=~"ledgerly-.*"}[30m]
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ledgerly container is restarting repeatedly"
+          description: "{{ $labels.name }} restarted more than once in thirty minutes."
+
+      - alert: LedgerlyContainerOom
+        expr: >-
+          increase(
+            container_oom_events_total{job="cadvisor",name=~"ledgerly-.*"}[10m]
+          ) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Ledgerly container hit an out-of-memory event"
+          description: "{{ $labels.name }} recorded an OOM event in the last ten minutes."

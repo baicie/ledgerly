@@ -1,0 +1,101 @@
+groups:
+  - name: ledgerly-backup
+    rules:
+      - alert: LedgerlyBackupFailed
+        expr: max by (job) (backup_state{state="failed"}) == 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Ledgerly backup is failing"
+          description: "The latest backup run failed. Inspect /health/backup and the backup worker logs."
+
+      - alert: LedgerlyBackupStale
+        expr: max by (job) (backup_state{state="stale"}) == 1
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Ledgerly backup is stale"
+          description: "No backup has completed within BACKUP_INTERVAL_HOURS."
+
+      - alert: LedgerlyBackupNeverRun
+        expr: max by (job) (backup_state{state="never_run"}) == 1
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ledgerly backup has never completed"
+          description: "BACKUP_DIR is configured but no successful backup status is available."
+
+      - alert: LedgerlyRecoveryDrillFailed
+        expr: max by (job) (backup_recovery_drill_state{state="failed"}) == 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Ledgerly recovery drill failed"
+          description: "The latest isolated restore drill failed. Treat backups as unverified until repaired."
+
+      - alert: LedgerlyRecoveryDrillStale
+        expr: max by (job) (backup_recovery_drill_state{state="stale"}) == 1
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ledgerly recovery drill is stale"
+          description: "No recovery drill has completed within RECOVERY_DRILL_INTERVAL_HOURS."
+
+      - alert: LedgerlyRecoveryDrillNeverRun
+        expr: max by (job) (backup_recovery_drill_state{state="never_run"}) == 1
+        for: 24h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ledgerly recovery drill has never completed"
+          description: "Recovery drills are enabled but no result is available."
+
+      - alert: LedgerlyBackupCapacityWarning
+        expr: max by (job, location) (backup_capacity_utilization_percent{severity="warning"}) >= 100
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ledgerly backup storage reached its warning threshold"
+          description: "Bundle storage on {{ $labels.location }} is at or above BACKUP_CAPACITY_WARN_BYTES."
+
+      - alert: LedgerlyBackupCapacityCritical
+        expr: max by (job, location) (backup_capacity_utilization_percent{severity="critical"}) >= 100
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Ledgerly backup storage reached its critical threshold"
+          description: "Bundle storage on {{ $labels.location }} is at or above BACKUP_CAPACITY_CRITICAL_BYTES."
+
+      - alert: LedgerlyBackupCleanupFailing
+        expr: sum by (job, location) (increase(backup_cleanup_failures_total[6h])) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ledgerly backup retention cleanup is failing"
+          description: "Retention cleanup failed for {{ $labels.location }} storage. Check disk permissions and capacity."
+
+      - alert: LedgerlyBackupMetricsCollectionFailing
+        expr: sum by (job, component) (increase(backup_metrics_collection_errors_total[30m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ledgerly backup metrics collection is failing"
+          description: "The server cannot collect {{ $labels.component }} metrics. Inspect status files and storage permissions."
+
+      - alert: LedgerlyBackupReplicationDisabled
+        expr: (backup_replication_enabled == 0) and on (job) (max by (job) (backup_state{state="disabled"}) == 0)
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ledgerly offsite backup replication is disabled"
+          description: "Backups are enabled without BACKUP_OFFSITE_DIR configured."

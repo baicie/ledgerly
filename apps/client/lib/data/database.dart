@@ -32,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 12;
 
   static const aiInsightsTableDdl = '''
 CREATE TABLE IF NOT EXISTS ai_insights (
@@ -89,6 +89,26 @@ CREATE TABLE IF NOT EXISTS local_attachments (
   file_name TEXT NOT NULL,
   mime TEXT NOT NULL,
   relative_path TEXT NOT NULL,
+  cloud_upload_status TEXT NOT NULL DEFAULT 'local',
+  remote_attachment_id TEXT,
+  remote_object_key TEXT,
+  remote_upload_error TEXT,
+  retry_attempt_count INTEGER NOT NULL DEFAULT 0,
+  next_retry_at INTEGER,
+  remote_upload_mode TEXT,
+  remote_part_size_bytes INTEGER,
+  created_at INTEGER NOT NULL
+);
+''';
+
+  static const localAttachmentsTableLegacyDdl = '''
+CREATE TABLE IF NOT EXISTS local_attachments (
+  id TEXT NOT NULL PRIMARY KEY,
+  book_id TEXT NOT NULL,
+  transaction_id TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  mime TEXT NOT NULL,
+  relative_path TEXT NOT NULL,
   created_at INTEGER NOT NULL
 );
 ''';
@@ -124,7 +144,7 @@ CREATE TABLE IF NOT EXISTS local_attachments (
           if (from < 7) {
             await customStatement(localBudgetsTableDdl);
             await customStatement(localRecurringTableDdl);
-            await customStatement(localAttachmentsTableDdl);
+            await customStatement(localAttachmentsTableLegacyDdl);
           }
           if (from < 8) {
             await m.addColumn(transactions, transactions.source);
@@ -133,6 +153,36 @@ CREATE TABLE IF NOT EXISTS local_attachments (
             await m.addColumn(
               transactions,
               transactions.sourceEventFingerprint,
+            );
+          }
+          if (from < 10) {
+            await customStatement(
+              "ALTER TABLE local_attachments ADD COLUMN cloud_upload_status TEXT NOT NULL DEFAULT 'local'",
+            );
+            await customStatement(
+              'ALTER TABLE local_attachments ADD COLUMN remote_attachment_id TEXT',
+            );
+            await customStatement(
+              'ALTER TABLE local_attachments ADD COLUMN remote_object_key TEXT',
+            );
+            await customStatement(
+              'ALTER TABLE local_attachments ADD COLUMN remote_upload_error TEXT',
+            );
+          }
+          if (from < 11) {
+            await customStatement(
+              'ALTER TABLE local_attachments ADD COLUMN retry_attempt_count INTEGER NOT NULL DEFAULT 0',
+            );
+            await customStatement(
+              'ALTER TABLE local_attachments ADD COLUMN next_retry_at INTEGER',
+            );
+          }
+          if (from < 12) {
+            await customStatement(
+              'ALTER TABLE local_attachments ADD COLUMN remote_upload_mode TEXT',
+            );
+            await customStatement(
+              'ALTER TABLE local_attachments ADD COLUMN remote_part_size_bytes INTEGER',
             );
           }
         },
