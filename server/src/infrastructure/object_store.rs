@@ -19,7 +19,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::put;
 use axum::Router;
 use futures_util::TryStreamExt;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use object_store::aws::{AmazonS3, AmazonS3Builder};
 use object_store::multipart::{MultipartStore, PartId};
 use object_store::path::Path as ObjectPath;
