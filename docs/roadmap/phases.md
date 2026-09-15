@@ -362,6 +362,81 @@
 - [x] 审计写入指标和每日保留清理
 - [x] 密钥轮换与审计 Runbook
 
+## S3 直传与大附件治理（Phase 44）
+
+- [x] S3 presigned PUT/GET 直传与直读
+- [x] local 代理上传保持兼容
+- [x] 内部/公网 S3 endpoint 分离
+- [x] `ATTACHMENT_MAX_BYTES` 创建和完成双重校验
+- [x] HEAD 大小校验、SHA-256 回读和异常对象删除
+- [x] 直传模式与失败原因写入审计
+- [x] S3Mock 真实直传与 complete 集成测试
+
+## 客户端附件云端上传（Phase 45）
+
+- [x] 本地附件持久化云端上传状态和远端标识
+- [x] 数据库 v10 兼容迁移
+- [x] 客户端 create session / PUT / complete 上传服务
+- [x] 直传与 local proxy 协议兼容
+- [x] 上传失败状态与显式重试入口
+- [x] local-only 模式不访问远端 API
+- [x] 成功、失败和迁移自动化测试
+
+## 跨设备附件目录与生命周期（Phase 46）
+
+- [x] 服务端附件文件名 migration 与列表 API
+- [x] ready 附件短期下载 URL
+- [x] 服务端对象优先删除附件
+- [x] 内存附件元数据完整生命周期
+- [x] 客户端远端附件下载与本地合并
+- [x] 远端删除同步清理本地副本
+- [x] 删除本地已上传附件时同步删除远端
+- [x] 远端账号绑定保护与自动化测试
+
+## 附件后台治理与失败重试（Phase 47）
+
+- [x] `ATTACHMENT_PENDING_TTL_HOURS` 配置
+- [x] 超时 pending/failed 附件定时清理
+- [x] 对象优先删除与 PostgreSQL 行锁并发保护
+- [x] 清理 job 周期续排与 Prometheus 指标
+- [x] 客户端持久化重试次数和下次重试时间
+- [x] 瞬时错误指数退避、永久错误停止自动重试
+- [x] 应用启动、恢复和附件页手动重试入口
+- [x] v11 migration 与两端自动化测试
+
+## Multipart 大附件上传（Phase 48）
+
+- [x] `ATTACHMENT_MAX_BYTES` 上限提升至 20 GiB
+- [x] 5 MiB 固定分片上传 API
+- [x] PostgreSQL multipart 状态与行锁更新
+- [x] S3 Multipart API 与本地分片拼接
+- [x] 客户端范围读取，避免整体加载大附件
+- [x] complete 大小与 SHA-256 校验
+- [x] 显式 abort 与定时清理
+- [x] 单文件、multipart 和客户端分片测试
+
+## 可恢复并行 Multipart（Phase 49）
+
+- [x] multipart 分片状态查询 API
+- [x] 客户端持久化远端上传模式和分片大小
+- [x] 失败重试复用原会话
+- [x] 仅补传缺失分片
+- [x] 每批最多 3 个分片并发上传
+- [x] 服务端 ready 状态自动收敛
+- [x] 永久失败和重试耗尽时 abort
+- [x] v12 migration 与恢复测试
+
+## S3 分片预签名直传（Phase 50）
+
+- [x] SigV4 分片级 presigned PUT URL
+- [x] direct/proxy 上传模式协商
+- [x] 客户端直传并登记 S3 ETag
+- [x] 服务端代理上传回退
+- [x] local 模式保持代理协议
+- [x] S3Mock 直传分片集成测试
+- [x] Flutter 直传与恢复测试
+- [x] bucket CORS `ETag` 暴露说明
+
 ### 待后续完善
 
 - 扩大商户分类覆盖（目前第一版关键词匹配）

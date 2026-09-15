@@ -36,6 +36,7 @@ pub struct MemoryStore {
     pub fx_rates: Vec<FxRateRecord>,
     pub revisions: Vec<RevisionRecord>,
     pub audit_events: Vec<AuditEventRecord>,
+    pub attachments: Vec<AttachmentRecord>,
 }
 
 #[derive(Clone)]
@@ -275,6 +276,24 @@ pub struct InviteRecord {
     pub email: String,
     pub role: String,
     pub token: String,
+}
+
+#[derive(Clone)]
+pub struct AttachmentRecord {
+    pub id: String,
+    pub book_id: String,
+    pub transaction_id: Option<String>,
+    pub file_name: Option<String>,
+    pub object_key: String,
+    pub content_hash: Option<String>,
+    pub mime_type: Option<String>,
+    pub size_bytes: Option<i64>,
+    pub upload_status: String,
+    pub upload_mode: String,
+    pub multipart_upload_id: Option<String>,
+    pub multipart_parts: Vec<String>,
+    pub created_by: Option<String>,
+    pub created_at: time::OffsetDateTime,
 }
 
 #[derive(Clone)]

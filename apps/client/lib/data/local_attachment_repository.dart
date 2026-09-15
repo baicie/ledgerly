@@ -6,6 +6,20 @@ import 'package:uuid/uuid.dart';
 
 import 'database.dart';
 
+enum AttachmentCloudStatus {
+  local,
+  uploading,
+  ready,
+  failed;
+
+  static AttachmentCloudStatus parse(String? value) {
+    return AttachmentCloudStatus.values.firstWhere(
+      (status) => status.name == value,
+      orElse: () => AttachmentCloudStatus.local,
+    );
+  }
+}
+
 class LocalAttachmentRecord {
   const LocalAttachmentRecord({
     required this.id,
@@ -15,6 +29,14 @@ class LocalAttachmentRecord {
     required this.mime,
     required this.relativePath,
     required this.createdAt,
+    this.cloudUploadStatus = AttachmentCloudStatus.local,
+    this.remoteAttachmentId,
+    this.remoteObjectKey,
+    this.remoteUploadError,
+    this.retryAttemptCount = 0,
+    this.nextRetryAt,
+    this.remoteUploadMode,
+    this.remotePartSizeBytes,
   });
 
   final String id;
@@ -24,6 +46,14 @@ class LocalAttachmentRecord {
   final String mime;
   final String relativePath;
   final DateTime createdAt;
+  final AttachmentCloudStatus cloudUploadStatus;
+  final String? remoteAttachmentId;
+  final String? remoteObjectKey;
+  final String? remoteUploadError;
+  final int retryAttemptCount;
+  final DateTime? nextRetryAt;
+  final String? remoteUploadMode;
+  final int? remotePartSizeBytes;
 }
 
 class LocalAttachmentRepository {
@@ -39,6 +69,16 @@ class LocalAttachmentRepository {
   Future<Uint8List?> readBytes(String relativePath) =>
       _byteStore.read(relativePath);
 
+  Future<int?> byteLength(String relativePath) =>
+      _byteStore.length(relativePath);
+
+  Future<Uint8List?> readRange(
+    String relativePath, {
+    required int start,
+    required int end,
+  }) =>
+      _byteStore.readRange(relativePath, start: start, end: end);
+
   /// Persist raw bytes for an attachment and return the path it was
   /// written to. Used by the backup restore flow to rehydrate the
   /// binary side of an attachment after a cross-device restore.
@@ -50,7 +90,8 @@ class LocalAttachmentRepository {
 
   /// Drop the binary behind an attachment. Metadata stays so the
   /// caller can still see "附件被清空" in the UI.
-  Future<void> deleteBytes(String relativePath) => _byteStore.delete(relativePath);
+  Future<void> deleteBytes(String relativePath) =>
+      _byteStore.delete(relativePath);
 
   Future<List<LocalAttachmentRecord>> list({
     required String bookId,
@@ -120,6 +161,228 @@ VALUES (?, ?, ?, ?, ?, ?, ?)
     );
   }
 
+  Future<void> markCloudUploading(String id) {
+    return _db.customStatement(
+      '''
+UPDATE local_attachments
+SET cloud_upload_status = ?, remote_upload_error = NULL
+WHERE id = ?
+''',
+      [AttachmentCloudStatus.uploading.name, id],
+    );
+  }
+
+  Future<void> markCloudUploadStarted({
+    required String id,
+    required String remoteAttachmentId,
+    required String remoteObjectKey,
+    required String uploadMode,
+    int? partSizeBytes,
+  }) {
+    return _db.customStatement(
+      '''
+UPDATE local_attachments
+SET cloud_upload_status = ?,
+    remote_attachment_id = ?,
+    remote_object_key = ?,
+    remote_upload_mode = ?,
+    remote_part_size_bytes = ?,
+    remote_upload_error = NULL
+WHERE id = ?
+''',
+      [
+        AttachmentCloudStatus.uploading.name,
+        remoteAttachmentId,
+        remoteObjectKey,
+        uploadMode,
+        partSizeBytes,
+        id,
+      ],
+    );
+  }
+
+  Future<void> markCloudReady({
+    required String id,
+    required String remoteAttachmentId,
+    required String remoteObjectKey,
+  }) {
+    return _db.customStatement(
+      '''
+UPDATE local_attachments
+SET cloud_upload_status = ?,
+    remote_attachment_id = ?,
+    remote_object_key = ?,
+    remote_upload_error = NULL,
+    retry_attempt_count = 0,
+    next_retry_at = NULL
+WHERE id = ?
+''',
+      [
+        AttachmentCloudStatus.ready.name,
+        remoteAttachmentId,
+        remoteObjectKey,
+        id,
+      ],
+    );
+  }
+
+  Future<void> markCloudFailed(
+    String id,
+    String error, {
+    required int retryAttemptCount,
+    required DateTime? nextRetryAt,
+  }) {
+    return _db.customStatement(
+      '''
+UPDATE local_attachments
+SET cloud_upload_status = ?,
+    remote_upload_error = ?,
+    retry_attempt_count = ?,
+    next_retry_at = ?
+WHERE id = ?
+''',
+      [
+        AttachmentCloudStatus.failed.name,
+        error,
+        retryAttemptCount,
+        nextRetryAt?.millisecondsSinceEpoch,
+        id,
+      ],
+    );
+  }
+
+  Future<List<LocalAttachmentRecord>> listCloudRetryCandidates({
+    required String bookId,
+    required int maxAttempts,
+    required DateTime now,
+    int limit = 10,
+  }) async {
+    final rows = await _db.customSelect(
+      '''
+SELECT * FROM local_attachments
+WHERE book_id = ?
+  AND cloud_upload_status = ?
+  AND retry_attempt_count < ?
+  AND (next_retry_at IS NULL OR next_retry_at <= ?)
+ORDER BY next_retry_at, created_at
+LIMIT ?
+''',
+      variables: [
+        Variable<String>(bookId),
+        Variable<String>(AttachmentCloudStatus.failed.name),
+        Variable<int>(maxAttempts),
+        Variable<int>(now.millisecondsSinceEpoch),
+        Variable<int>(limit),
+      ],
+      readsFrom: {},
+    ).get();
+    return [for (final row in rows) _map(row)];
+  }
+
+  Future<LocalAttachmentRecord> upsertRemote({
+    required String remoteAttachmentId,
+    required String bookId,
+    required String transactionId,
+    required String fileName,
+    required String mime,
+    required String relativePath,
+    required DateTime createdAt,
+    required String remoteObjectKey,
+  }) async {
+    final rows = await _db.customSelect(
+      '''
+SELECT * FROM local_attachments
+WHERE book_id = ? AND (id = ? OR remote_attachment_id = ?)
+LIMIT 1
+''',
+      variables: [
+        Variable<String>(bookId),
+        Variable<String>(remoteAttachmentId),
+        Variable<String>(remoteAttachmentId),
+      ],
+      readsFrom: {},
+    ).get();
+    final existing = rows.isEmpty ? null : _map(rows.single);
+    if (existing == null) {
+      final record = LocalAttachmentRecord(
+        id: remoteAttachmentId,
+        bookId: bookId,
+        transactionId: transactionId,
+        fileName: fileName,
+        mime: mime,
+        relativePath: relativePath,
+        createdAt: createdAt,
+        cloudUploadStatus: AttachmentCloudStatus.ready,
+        remoteAttachmentId: remoteAttachmentId,
+        remoteObjectKey: remoteObjectKey,
+      );
+      await _db.customStatement(
+        '''
+INSERT INTO local_attachments
+  (id, book_id, transaction_id, file_name, mime, relative_path,
+   cloud_upload_status, remote_attachment_id, remote_object_key, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+''',
+        [
+          record.id,
+          record.bookId,
+          record.transactionId,
+          record.fileName,
+          record.mime,
+          record.relativePath,
+          record.cloudUploadStatus.name,
+          record.remoteAttachmentId,
+          record.remoteObjectKey,
+          record.createdAt.millisecondsSinceEpoch,
+        ],
+      );
+      return record;
+    }
+
+    await _db.customStatement(
+      '''
+UPDATE local_attachments
+SET transaction_id = ?,
+    file_name = ?,
+    mime = ?,
+    relative_path = ?,
+    cloud_upload_status = ?,
+    remote_attachment_id = ?,
+    remote_object_key = ?,
+    remote_upload_error = NULL,
+    retry_attempt_count = 0,
+    next_retry_at = NULL,
+    remote_upload_mode = NULL,
+    remote_part_size_bytes = NULL,
+    created_at = ?
+WHERE id = ?
+''',
+      [
+        transactionId,
+        fileName,
+        mime,
+        relativePath,
+        AttachmentCloudStatus.ready.name,
+        remoteAttachmentId,
+        remoteObjectKey,
+        createdAt.millisecondsSinceEpoch,
+        existing.id,
+      ],
+    );
+    return LocalAttachmentRecord(
+      id: existing.id,
+      bookId: bookId,
+      transactionId: transactionId,
+      fileName: fileName,
+      mime: mime,
+      relativePath: relativePath,
+      createdAt: createdAt,
+      cloudUploadStatus: AttachmentCloudStatus.ready,
+      remoteAttachmentId: remoteAttachmentId,
+      remoteObjectKey: remoteObjectKey,
+    );
+  }
+
   /// Bulk-read every attachment across all books. Used by
   /// backup/restore so a single call covers every book.
   Future<List<LocalAttachmentRecord>> listAll() async {
@@ -177,6 +440,36 @@ VALUES (?, ?, ?, ?, ?, ?, ?)
         row.read<int>('created_at'),
         isUtc: true,
       ),
+      cloudUploadStatus: AttachmentCloudStatus.parse(
+        row.read<String?>('cloud_upload_status'),
+      ),
+      remoteAttachmentId: row.read<String?>('remote_attachment_id'),
+      remoteObjectKey: row.read<String?>('remote_object_key'),
+      remoteUploadError: row.read<String?>('remote_upload_error'),
+      retryAttemptCount: row.read<int>('retry_attempt_count'),
+      nextRetryAt: switch (row.read<int?>('next_retry_at')) {
+        final milliseconds? => DateTime.fromMillisecondsSinceEpoch(
+            milliseconds,
+            isUtc: true,
+          ),
+        null => null,
+      },
+      remoteUploadMode: row.read<String?>('remote_upload_mode'),
+      remotePartSizeBytes: row.read<int?>('remote_part_size_bytes'),
+    );
+  }
+
+  Future<void> clearRemoteUploadState(String id) {
+    return _db.customStatement(
+      '''
+UPDATE local_attachments
+SET remote_attachment_id = NULL,
+    remote_object_key = NULL,
+    remote_upload_mode = NULL,
+    remote_part_size_bytes = NULL
+WHERE id = ?
+''',
+      [id],
     );
   }
 }
@@ -188,6 +481,12 @@ VALUES (?, ?, ?, ?, ?, ?, ?)
 abstract class AttachmentByteStore {
   Future<String> write({required String id, required Uint8List bytes});
   Future<Uint8List?> read(String relativePath);
+  Future<int?> length(String relativePath);
+  Future<Uint8List?> readRange(
+    String relativePath, {
+    required int start,
+    required int end,
+  });
   Future<void> delete(String relativePath);
 }
 
@@ -218,6 +517,32 @@ class FileAttachmentByteStore implements AttachmentByteStore {
   }
 
   @override
+  Future<int?> length(String relativePath) async {
+    final file = await _file(relativePath);
+    if (!await file.exists()) return null;
+    return file.length();
+  }
+
+  @override
+  Future<Uint8List?> readRange(
+    String relativePath, {
+    required int start,
+    required int end,
+  }) async {
+    final file = await _file(relativePath);
+    if (!await file.exists()) return null;
+    final length = await file.length();
+    if (start < 0 || end < start || end > length) return null;
+    final handle = await file.open();
+    try {
+      await handle.setPosition(start);
+      return await handle.read(end - start);
+    } finally {
+      await handle.close();
+    }
+  }
+
+  @override
   Future<void> delete(String relativePath) async {
     final file = await _file(relativePath);
     if (await file.exists()) await file.delete();
@@ -242,6 +567,22 @@ class MemoryAttachmentByteStore implements AttachmentByteStore {
 
   @override
   Future<Uint8List?> read(String relativePath) async => files[relativePath];
+
+  @override
+  Future<int?> length(String relativePath) async => files[relativePath]?.length;
+
+  @override
+  Future<Uint8List?> readRange(
+    String relativePath, {
+    required int start,
+    required int end,
+  }) async {
+    final bytes = files[relativePath];
+    if (bytes == null || start < 0 || end < start || end > bytes.length) {
+      return null;
+    }
+    return Uint8List.sublistView(bytes, start, end);
+  }
 
   @override
   Future<void> delete(String relativePath) async {

@@ -6,6 +6,8 @@ use uuid::Uuid;
 
 use crate::config::Config;
 
+const ATTACHMENT_CLEANUP_INTERVAL_HOURS: u64 = 6;
+
 /// Background job worker using PostgreSQL SKIP LOCKED.
 pub async fn run_worker(pool: PgPool, worker_id: String, config: Config) -> anyhow::Result<()> {
     crate::obs::job_worker_event("started", &worker_id);
@@ -172,6 +174,18 @@ async fn execute_job(pool: &PgPool, config: &Config, job: &JobRow) -> anyhow::Re
                 )
                 .await;
             }
+        }
+        "purge_attachment_uploads" => {
+            crate::infrastructure::attachment_cleanup::purge_stale_attachments(pool, config)
+                .await?;
+            let _ = enqueue_at(
+                pool,
+                "purge_attachment_uploads",
+                serde_json::json!({}),
+                0,
+                &format!("now() + interval '{ATTACHMENT_CLEANUP_INTERVAL_HOURS} hours'"),
+            )
+            .await;
         }
         other => {
             crate::obs::job_rule_skip(other, "UNKNOWN_JOB_TYPE");
