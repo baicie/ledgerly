@@ -265,7 +265,7 @@ void main() {
   });
 }
 
-Override get _booksOverride => booksProvider.overrideWith(
+final _booksOverride = booksProvider.overrideWith(
   (ref) async => [
     Book(
       id: defaultBookId,

@@ -31,7 +31,7 @@ void main() {
     ),
   ];
 
-  List<Override> overrides() => [
+  final bookOverrides = [
     booksProvider.overrideWith((ref) async => books),
   ];
 
@@ -40,7 +40,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: overrides(),
+        overrides: bookOverrides,
         child: const MaterialApp(
           home: Scaffold(
             body: LedgerlyPageHeader(
@@ -77,7 +77,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          ...overrides(),
+          ...bookOverrides,
           apiEndpointProvider.overrideWithValue(null),
           aiSettingsStoreProvider.overrideWithValue(MemoryAiSettingsStore()),
           monthTransactionsProvider.overrideWith((ref) async => []),
