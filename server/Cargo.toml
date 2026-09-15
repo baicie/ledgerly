@@ -45,7 +45,7 @@ clap = { version = "4", features = ["derive", "env"] }
 argon2 = "0.5"
 aes-gcm = "0.10"
 password-hash = "0.5"
-jsonwebtoken = "9"
+jsonwebtoken = { version = "10", features = ["rust_crypto"] }
 rand = "0.8"
 sha2 = "0.11"
 hex = "0.4"
