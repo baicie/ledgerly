@@ -132,12 +132,7 @@ pub fn sync_bootstrap_span(book_id: &str) -> Span {
 // NOTE: Amounts are NEVER logged. Only the entity_type and operation
 // are recorded to keep the span low-cardinality.
 #[inline]
-pub fn ledger_event(
-    level: Level,
-    entity_type: &str,
-    operation: &str,
-    entity_id: &str,
-) {
+pub fn ledger_event(level: Level, entity_type: &str, operation: &str, entity_id: &str) {
     match level {
         Level::ERROR => tracing::error!(
             domain = "ledger",

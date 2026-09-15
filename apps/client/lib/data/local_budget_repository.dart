@@ -75,6 +75,45 @@ VALUES (?, ?, ?, ?, ?, ?)
     );
   }
 
+  /// Bulk-read every budget across all books. Used by
+  /// backup/restore so a single call covers every book.
+  Future<List<LocalBudgetRecord>> listAll() async {
+    final rows = await _db.customSelect(
+      'SELECT * FROM local_budgets ORDER BY created_at DESC',
+      readsFrom: {},
+    ).get();
+    return [for (final row in rows) _map(row)];
+  }
+
+  /// Wipe every local budget. Used by [BackupService.wipeLocalData].
+  Future<void> deleteAll() {
+    return _db.customStatement('DELETE FROM local_budgets', const []);
+  }
+
+  /// Re-insert a [LocalBudgetRecord] from a JSON-shaped map. Used by
+  /// [BackupService.restore] so the on-disk payload round-trips without
+  /// reshaping.
+  Future<void> insertRaw(Map<String, dynamic> raw) async {
+    final amountMinor = BigInt.parse(raw['amountMinor'] as String);
+    await _db.customStatement(
+      '''
+INSERT INTO local_budgets
+  (id, book_id, name, amount_minor, category_account_id, created_at)
+VALUES (?, ?, ?, ?, ?, ?)
+''',
+      [
+        raw['id'] as String,
+        raw['bookId'] as String,
+        raw['name'] as String,
+        amountMinor.toString(),
+        raw['categoryAccountId'] as String,
+        DateTime.parse(raw['createdAt'] as String)
+            .toUtc()
+            .millisecondsSinceEpoch,
+      ],
+    );
+  }
+
   LocalBudgetRecord _map(QueryRow row) {
     return LocalBudgetRecord(
       id: row.read<String>('id'),

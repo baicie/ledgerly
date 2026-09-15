@@ -6,7 +6,9 @@
 //! Security: count values are never incremented from error payloads.
 
 use axum::extract::Request;
-use metrics::{counter, describe_counter, describe_gauge, describe_histogram, gauge, histogram, Unit};
+use metrics::{
+    counter, describe_counter, describe_gauge, describe_histogram, gauge, histogram, Unit,
+};
 use metrics_exporter_prometheus::PrometheusHandle;
 
 /// Prometheus handle stored in app state for /metrics endpoint.
@@ -61,7 +63,7 @@ pub fn register_metrics() {
         Unit::Count,
         "Sync pull responses, labelled by outcome."
     );
-    describe_counter!(
+    describe_gauge!(
         "postgres_pool_connections",
         Unit::Count,
         "Current PostgreSQL pool connection count."
@@ -75,6 +77,151 @@ pub fn register_metrics() {
         "postgres_pool_max_connections",
         Unit::Count,
         "Maximum PostgreSQL pool connections configured."
+    );
+    describe_gauge!(
+        "backup_state",
+        Unit::Count,
+        "Current backup readiness state, with exactly one state set to 1."
+    );
+    describe_gauge!(
+        "backup_last_run_timestamp_seconds",
+        Unit::Seconds,
+        "Unix timestamp of the last backup run, labelled by outcome."
+    );
+    describe_gauge!(
+        "backup_age_seconds",
+        Unit::Seconds,
+        "Age of the last completed backup run."
+    );
+    describe_gauge!(
+        "backup_last_run_duration_seconds",
+        Unit::Seconds,
+        "Duration of the last completed backup run, labelled by outcome."
+    );
+    describe_gauge!(
+        "backup_bundle_count",
+        Unit::Count,
+        "Number of valid retained backup bundles, labelled by location."
+    );
+    describe_gauge!(
+        "backup_bundle_bytes",
+        Unit::Bytes,
+        "Stored payload and manifest bytes in valid retained bundles."
+    );
+    describe_gauge!(
+        "backup_bundle_invalid",
+        Unit::Count,
+        "Number of invalid retained bundle directories, labelled by location."
+    );
+    describe_gauge!(
+        "backup_replication_enabled",
+        Unit::Count,
+        "Whether offsite backup replication is configured."
+    );
+    describe_gauge!(
+        "backup_capacity_limit_bytes",
+        Unit::Bytes,
+        "Configured backup capacity threshold, labelled by location and severity."
+    );
+    describe_gauge!(
+        "backup_capacity_utilization_percent",
+        Unit::Percent,
+        "Backup storage usage as a percentage of the configured threshold."
+    );
+    describe_gauge!(
+        "backup_recovery_drill_state",
+        Unit::Count,
+        "Current recovery drill state, with exactly one state set to 1."
+    );
+    describe_gauge!(
+        "backup_recovery_drill_age_seconds",
+        Unit::Seconds,
+        "Age of the last completed recovery drill."
+    );
+    describe_gauge!(
+        "backup_recovery_drill_last_run_timestamp_seconds",
+        Unit::Seconds,
+        "Unix timestamp of the last recovery drill, labelled by outcome."
+    );
+    describe_gauge!(
+        "backup_recovery_drill_last_run_duration_seconds",
+        Unit::Seconds,
+        "Duration of the last recovery drill, labelled by outcome."
+    );
+    describe_gauge!(
+        "backup_restore_state",
+        Unit::Count,
+        "Current one-command restore state, with exactly one state set to 1."
+    );
+    describe_gauge!(
+        "backup_restore_age_seconds",
+        Unit::Seconds,
+        "Age of the last completed one-command restore."
+    );
+    describe_gauge!(
+        "backup_restore_last_run_timestamp_seconds",
+        Unit::Seconds,
+        "Unix timestamp of the last one-command restore, labelled by outcome."
+    );
+    describe_gauge!(
+        "backup_restore_last_run_duration_seconds",
+        Unit::Seconds,
+        "Duration of the last one-command restore, labelled by outcome."
+    );
+    describe_counter!(
+        "backup_runs_total",
+        Unit::Count,
+        "Backup runs completed in this process, labelled by outcome."
+    );
+    describe_counter!(
+        "backup_recovery_drill_runs_total",
+        Unit::Count,
+        "Recovery drills completed in this process, labelled by outcome."
+    );
+    describe_counter!(
+        "backup_restore_runs_total",
+        Unit::Count,
+        "One-command restores completed in this process, labelled by outcome."
+    );
+    describe_counter!(
+        "backup_cleanup_failures_total",
+        Unit::Count,
+        "Backup bundle retention cleanup failures, labelled by location."
+    );
+    describe_counter!(
+        "backup_metrics_collection_errors_total",
+        Unit::Count,
+        "Backup metric collection failures, labelled by component."
+    );
+    describe_counter!(
+        "object_store_operations_total",
+        Unit::Count,
+        "Object storage operations, labelled by backend, operation, and outcome."
+    );
+    describe_counter!(
+        "attachment_cleanup_deleted_total",
+        Unit::Count,
+        "Stale pending/failed attachments removed by the cleanup worker."
+    );
+    describe_counter!(
+        "attachment_cleanup_failures_total",
+        Unit::Count,
+        "Stale attachments retained after object storage cleanup failures."
+    );
+    describe_histogram!(
+        "object_store_operation_duration_seconds",
+        Unit::Seconds,
+        "Object storage operation latency, labelled by backend and operation."
+    );
+    describe_counter!(
+        "audit_events_total",
+        Unit::Count,
+        "Security audit events, labelled by action and outcome."
+    );
+    describe_counter!(
+        "audit_write_failures_total",
+        Unit::Count,
+        "Security audit persistence failures."
     );
 }
 
@@ -113,9 +260,13 @@ static AUTH_ERROR_CODES: &[&str] = &[
 /// Known job types.
 static JOB_TYPES: &[&str] = &[
     "purge_expired_sessions",
+    "purge_audit_events",
     "enqueue_recurring_scan",
     "generate_due_recurring",
     "auto_ledger_sweep",
+    "backup_bundle",
+    "recovery_drill",
+    "purge_attachment_uploads",
     "worker",
 ];
 
@@ -141,6 +292,15 @@ pub fn record_job_recurring_generated() {
     counter!("job_recurring_generated_total").increment(1);
 }
 
+pub fn record_attachment_cleanup(deleted: usize, failed: usize) {
+    if deleted > 0 {
+        counter!("attachment_cleanup_deleted_total").increment(deleted as u64);
+    }
+    if failed > 0 {
+        counter!("attachment_cleanup_failures_total").increment(failed as u64);
+    }
+}
+
 /// Records a sync push mutation result.
 pub fn record_sync_push(outcome: &'static str) {
     counter!("sync_push_mutations_total", "outcome" => outcome).increment(1);
@@ -156,6 +316,233 @@ pub fn record_postgres_pool_connections(current: u32, min: u32, max: u32) {
     gauge!("postgres_pool_connections", "role" => "current").set(current as f64);
     gauge!("postgres_pool_min_connections", "role" => "config").set(min as f64);
     gauge!("postgres_pool_max_connections", "role" => "config").set(max as f64);
+}
+
+static BACKUP_STATES: &[&str] = &["disabled", "never_run", "failed", "stale", "ready"];
+static RUN_OUTCOMES: &[&str] = &["success", "failure"];
+static STORAGE_LOCATIONS: &[&str] = &["local", "offsite"];
+static CAPACITY_SEVERITIES: &[&str] = &["warning", "critical"];
+static METRIC_COMPONENTS: &[&str] = &[
+    "backup_status",
+    "recovery_drill_status",
+    "restore_status",
+    "storage",
+];
+static OBJECT_STORE_BACKENDS: &[&str] = &["local", "s3"];
+static OBJECT_STORE_OPERATIONS: &[&str] = &[
+    "put", "get", "head", "list", "sign", "delete", "backup", "restore", "migrate",
+];
+static AUDIT_ACTIONS: &[&str] = &[
+    "auth.register",
+    "auth.login",
+    "auth.refresh",
+    "auth.logout",
+    "attachment.upload_session",
+    "attachment.complete",
+    "attachment.delete",
+    "attachment.multipart_abort",
+    "invite.create",
+    "billing.upgrade",
+    "backup.run",
+    "backup.restore",
+    "recovery_drill.run",
+];
+static AUDIT_OUTCOMES: &[&str] = &["success", "failure", "denied"];
+
+pub fn record_backup_status(
+    state: &str,
+    outcome: Option<&str>,
+    timestamp_seconds: Option<f64>,
+    duration_seconds: Option<f64>,
+    age_seconds: Option<f64>,
+) {
+    record_run_status(
+        "backup_state",
+        "backup_last_run_timestamp_seconds",
+        "backup_last_run_duration_seconds",
+        "backup_age_seconds",
+        state,
+        outcome,
+        timestamp_seconds,
+        duration_seconds,
+        age_seconds,
+    );
+}
+
+pub fn record_recovery_drill_status(
+    state: &str,
+    outcome: Option<&str>,
+    timestamp_seconds: Option<f64>,
+    duration_seconds: Option<f64>,
+    age_seconds: Option<f64>,
+) {
+    record_run_status(
+        "backup_recovery_drill_state",
+        "backup_recovery_drill_last_run_timestamp_seconds",
+        "backup_recovery_drill_last_run_duration_seconds",
+        "backup_recovery_drill_age_seconds",
+        state,
+        outcome,
+        timestamp_seconds,
+        duration_seconds,
+        age_seconds,
+    );
+}
+
+pub fn record_restore_status(
+    state: &str,
+    outcome: Option<&str>,
+    timestamp_seconds: Option<f64>,
+    duration_seconds: Option<f64>,
+    age_seconds: Option<f64>,
+) {
+    record_run_status(
+        "backup_restore_state",
+        "backup_restore_last_run_timestamp_seconds",
+        "backup_restore_last_run_duration_seconds",
+        "backup_restore_age_seconds",
+        state,
+        outcome,
+        timestamp_seconds,
+        duration_seconds,
+        age_seconds,
+    );
+}
+
+#[allow(clippy::too_many_arguments)]
+fn record_run_status(
+    state_metric: &'static str,
+    timestamp_metric: &'static str,
+    duration_metric: &'static str,
+    age_metric: &'static str,
+    state: &str,
+    outcome: Option<&str>,
+    timestamp_seconds: Option<f64>,
+    duration_seconds: Option<f64>,
+    age_seconds: Option<f64>,
+) {
+    let state = static_label(BACKUP_STATES, state);
+    for candidate in BACKUP_STATES {
+        gauge!(state_metric, "state" => *candidate).set(if *candidate == state {
+            1.0
+        } else {
+            0.0
+        });
+    }
+
+    let outcome = outcome.map(|value| static_label(RUN_OUTCOMES, value));
+    for candidate in RUN_OUTCOMES {
+        gauge!(timestamp_metric, "outcome" => *candidate).set(if outcome == Some(*candidate) {
+            timestamp_seconds.unwrap_or_default()
+        } else {
+            0.0
+        });
+        gauge!(duration_metric, "outcome" => *candidate).set(if outcome == Some(*candidate) {
+            duration_seconds.unwrap_or_default()
+        } else {
+            0.0
+        });
+    }
+    gauge!(age_metric).set(age_seconds.unwrap_or_default());
+}
+
+pub fn record_backup_storage(
+    location: &'static str,
+    bundle_count: usize,
+    total_bytes: u64,
+    invalid_count: usize,
+) {
+    let location = static_label(STORAGE_LOCATIONS, location);
+    gauge!("backup_bundle_count", "location" => location).set(bundle_count as f64);
+    gauge!("backup_bundle_bytes", "location" => location).set(total_bytes as f64);
+    gauge!("backup_bundle_invalid", "location" => location).set(invalid_count as f64);
+}
+
+pub fn record_backup_capacity(
+    location: &'static str,
+    used_bytes: u64,
+    warn_bytes: u64,
+    critical_bytes: u64,
+) {
+    let location = static_label(STORAGE_LOCATIONS, location);
+    for (severity, limit_bytes) in [("warning", warn_bytes), ("critical", critical_bytes)] {
+        let severity = static_label(CAPACITY_SEVERITIES, severity);
+        gauge!(
+            "backup_capacity_limit_bytes",
+            "location" => location,
+            "severity" => severity
+        )
+        .set(limit_bytes as f64);
+        gauge!(
+            "backup_capacity_utilization_percent",
+            "location" => location,
+            "severity" => severity
+        )
+        .set(used_bytes as f64 / limit_bytes.max(1) as f64 * 100.0);
+    }
+}
+
+pub fn record_replication_enabled(enabled: bool) {
+    gauge!("backup_replication_enabled").set(if enabled { 1.0 } else { 0.0 });
+}
+
+pub fn record_backup_run(outcome: &'static str) {
+    let outcome = static_label(RUN_OUTCOMES, outcome);
+    counter!("backup_runs_total", "outcome" => outcome).increment(1);
+}
+
+pub fn record_recovery_drill_run(outcome: &'static str) {
+    let outcome = static_label(RUN_OUTCOMES, outcome);
+    counter!("backup_recovery_drill_runs_total", "outcome" => outcome).increment(1);
+}
+
+pub fn record_restore_run(outcome: &'static str) {
+    let outcome = static_label(RUN_OUTCOMES, outcome);
+    counter!("backup_restore_runs_total", "outcome" => outcome).increment(1);
+}
+
+pub fn record_backup_cleanup_failure(location: &'static str) {
+    let location = static_label(STORAGE_LOCATIONS, location);
+    counter!("backup_cleanup_failures_total", "location" => location).increment(1);
+}
+
+pub fn record_backup_metrics_collection_error(component: &'static str) {
+    let component = static_label(METRIC_COMPONENTS, component);
+    counter!("backup_metrics_collection_errors_total", "component" => component).increment(1);
+}
+
+pub fn record_object_store_operation(
+    backend: &'static str,
+    operation: &'static str,
+    outcome: &'static str,
+    duration_seconds: f64,
+) {
+    let backend = static_label(OBJECT_STORE_BACKENDS, backend);
+    let operation = static_label(OBJECT_STORE_OPERATIONS, operation);
+    let outcome = static_label(RUN_OUTCOMES, outcome);
+    counter!(
+        "object_store_operations_total",
+        "backend" => backend,
+        "operation" => operation,
+        "outcome" => outcome
+    )
+    .increment(1);
+    histogram!(
+        "object_store_operation_duration_seconds",
+        "backend" => backend,
+        "operation" => operation
+    )
+    .record(duration_seconds);
+}
+
+pub fn record_audit_event(action: &str, outcome: &'static str) {
+    let action = static_label(AUDIT_ACTIONS, action);
+    let outcome = static_label(AUDIT_OUTCOMES, outcome);
+    counter!("audit_events_total", "action" => action, "outcome" => outcome).increment(1);
+}
+
+pub fn record_audit_write_failure() {
+    counter!("audit_write_failures_total").increment(1);
 }
 
 // ---------------------------------------------------------------------------
@@ -190,6 +577,7 @@ static HTTP_ROUTES: &[&str] = &[
     "/v1/auth/refresh",
     "/v1/auth/logout",
     "/v1/auth/me",
+    "/v1/audit/events",
     "/v1/books",
     "/v1/transactions",
     "/v1/sync/push",
@@ -268,8 +656,7 @@ pub async fn http_metrics_middleware(
 /// Implementation note: returning a typed `TraceLayer` here requires
 /// working around tower-http's high-arity generics. We instead expose
 /// `make_span_fn` and let `bootstrap.rs` wrap it with `TraceLayer::new_for_http`.
-pub fn make_span_fn(
-) -> impl Fn(&Request) -> tracing::Span + Clone + Send + Sync + 'static {
+pub fn make_span_fn() -> impl Fn(&Request) -> tracing::Span + Clone + Send + Sync + 'static {
     |request: &Request| {
         let route = request
             .extensions()

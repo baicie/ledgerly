@@ -72,8 +72,7 @@ async fn summary(
         .await
         .unwrap_or_default();
 
-        let (income, expense, categories) =
-            aggregate_entries(rows, &base, &rates);
+        let (income, expense, categories) = aggregate_entries(rows, &base, &rates);
 
         return Ok(Json(serde_json::json!({
             "plan": plan,
@@ -349,8 +348,7 @@ async fn budget_pg(
         };
 
         // Convert budget to base currency.
-        let budget_in_base =
-            convert_amount(budget_amount, &budget_currency, &base, &rates);
+        let budget_in_base = convert_amount(budget_amount, &budget_currency, &base, &rates);
 
         items.push(serde_json::json!({
             "id": id,
@@ -383,7 +381,11 @@ async fn budget_mem(
     let mut budget_map: std::collections::BTreeMap<String, (String, i64)> =
         std::collections::BTreeMap::new(); // id -> (name, amount_minor)
 
-    for change in store.changes.iter().filter(|c| c.book_id == book_id && c.entity_type == "budget") {
+    for change in store
+        .changes
+        .iter()
+        .filter(|c| c.book_id == book_id && c.entity_type == "budget")
+    {
         if let Some(id) = change.payload.get("id").and_then(|v| v.as_str()) {
             let name = change
                 .payload
@@ -480,12 +482,7 @@ fn aggregate_entries(
     (income, expense, categories)
 }
 
-fn convert_amount(
-    amount: i64,
-    currency: &str,
-    base: &str,
-    rates: &[(String, String, f64)],
-) -> i64 {
+fn convert_amount(amount: i64, currency: &str, base: &str, rates: &[(String, String, f64)]) -> i64 {
     if currency == base {
         return amount;
     }

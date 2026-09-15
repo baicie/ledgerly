@@ -41,8 +41,8 @@ impl IntoResponse for ApiError {
         // `http.request` span, otherwise mint a fresh one. This means
         // any error logged within a request handler will carry the
         // same correlation ID the client sees in the response body.
-        let request_id = crate::obs::current_request_id()
-            .unwrap_or_else(|| format!("req_{}", Uuid::now_v7()));
+        let request_id =
+            crate::obs::current_request_id().unwrap_or_else(|| format!("req_{}", Uuid::now_v7()));
 
         let body = ApiErrorBody {
             code: self.code.to_string(),

@@ -125,6 +125,53 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     );
   }
 
+  /// Bulk-read every recurring rule across all books. Used by
+  /// backup/restore so a single call covers every book.
+  Future<List<LocalRecurringRule>> listAll() async {
+    final rows = await _db.customSelect(
+      'SELECT * FROM local_recurring_rules ORDER BY created_at DESC',
+      readsFrom: {},
+    ).get();
+    return [for (final row in rows) _map(row)];
+  }
+
+  /// Wipe every recurring rule. Used by [BackupService.wipeLocalData] so a
+  /// data-reset leaves no local bookkeeping behind.
+  Future<void> deleteAll() {
+    return _db.customStatement('DELETE FROM local_recurring_rules', const []);
+  }
+
+  /// Re-insert a [LocalRecurringRule] from a JSON-shaped map. Used by
+  /// [BackupService.restore] so the on-disk payload round-trips without
+  /// reshaping.
+  Future<void> insertRaw(Map<String, dynamic> raw) async {
+    final amountMinor = BigInt.parse(raw['amountMinor'] as String);
+    final active = (raw['active'] as bool?) ?? true;
+    await _db.customStatement(
+      '''
+INSERT INTO local_recurring_rules
+  (id, book_id, name, kind, amount_minor, category_account_id, account_id,
+   day_of_month, next_run_date, active, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+''',
+      [
+        raw['id'] as String,
+        raw['bookId'] as String,
+        raw['name'] as String,
+        raw['kind'] as String,
+        amountMinor.toString(),
+        raw['categoryAccountId'] as String,
+        raw['accountId'] as String,
+        (raw['dayOfMonth'] as num).toInt(),
+        raw['nextRunDate'] as String,
+        active ? 1 : 0,
+        DateTime.parse(raw['createdAt'] as String)
+            .toUtc()
+            .millisecondsSinceEpoch,
+      ],
+    );
+  }
+
   LocalRecurringRule _map(QueryRow row) {
     return LocalRecurringRule(
       id: row.read<String>('id'),

@@ -2,6 +2,8 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use axum::Router;
 use http_body_util::BodyExt;
+use ledger_server::infrastructure::attachment_cleanup;
+use ledger_server::infrastructure::audit::{self, AuditEvent, AuditOutcome};
 use ledger_server::{app_router, migrate, AppState, Config};
 use serde_json::json;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -61,6 +63,280 @@ async fn postgres_migrate_applies_auth_session_indexes() {
     assert!(indexes
         .iter()
         .any(|name| name == "idx_device_sessions_active_created_at"));
+}
+
+#[tokio::test]
+async fn postgres_attachment_cleanup_removes_only_stale_uploads() {
+    let Some(url) = pg_url() else {
+        if std::env::var("REQUIRE_POSTGRES_TESTS").ok().as_deref() == Some("true") {
+            panic!("DATABASE_URL is required for PostgreSQL integration tests");
+        }
+        eprintln!(
+            "skip postgres_attachment_cleanup_removes_only_stale_uploads: DATABASE_URL unset"
+        );
+        return;
+    };
+
+    let mut config = Config::for_test();
+    config.database_url = Some(url.clone());
+    config.attachment_pending_ttl_hours = 24;
+    migrate(&config).await.expect("migrate");
+    let pool = sqlx::PgPool::connect(&url).await.expect("connect");
+    let suffix = uuid::Uuid::now_v7().simple().to_string();
+    let user_id = format!("cleanup-user-{suffix}");
+    let book_id = format!("cleanup-book-{suffix}");
+    sqlx::query(
+        "INSERT INTO users (id, email, password_hash, display_name)
+         VALUES ($1, $2, 'test-hash', 'Cleanup')",
+    )
+    .bind(&user_id)
+    .bind(format!("{user_id}@test.example"))
+    .execute(&pool)
+    .await
+    .expect("insert cleanup user");
+    sqlx::query("INSERT INTO books (id, name, owner_id) VALUES ($1, 'Cleanup', $2)")
+        .bind(&book_id)
+        .bind(&user_id)
+        .execute(&pool)
+        .await
+        .expect("insert cleanup book");
+
+    let stale_key = format!("books/{book_id}/stale");
+    let fresh_key = format!("books/{book_id}/fresh");
+    let ready_key = format!("books/{book_id}/ready");
+    for key in [&stale_key, &fresh_key, &ready_key] {
+        let path = config.object_store_dir.join(key);
+        std::fs::create_dir_all(path.parent().unwrap()).expect("create object parent");
+        std::fs::write(path, b"attachment").expect("write object");
+    }
+    let stale_multipart_key = format!("books/{book_id}/stale-multipart");
+    let stale_multipart_dir = config
+        .object_store_dir
+        .join(".multipart")
+        .join(&stale_multipart_key);
+    std::fs::create_dir_all(&stale_multipart_dir).expect("create multipart directory");
+    std::fs::write(stale_multipart_dir.join("part-00000000"), b"part")
+        .expect("write multipart part");
+    for (id, key, status, age_hours) in [
+        ("stale", stale_key.as_str(), "pending", 25),
+        ("fresh", fresh_key.as_str(), "failed", 1),
+        ("ready", ready_key.as_str(), "ready", 48),
+    ] {
+        sqlx::query(
+            "INSERT INTO attachments
+             (id, book_id, object_key, upload_status, created_at)
+             VALUES ($1, $2, $3, $4, now() - ($5::bigint * interval '1 hour'))",
+        )
+        .bind(format!("{book_id}:{id}"))
+        .bind(&book_id)
+        .bind(key)
+        .bind(status)
+        .bind(age_hours)
+        .execute(&pool)
+        .await
+        .expect("insert cleanup attachment");
+    }
+    sqlx::query(
+        "INSERT INTO attachments
+         (id, book_id, object_key, upload_status, upload_mode, created_at)
+         VALUES ($1, $2, $3, 'pending', 'multipart',
+                 now() - ($4::bigint * interval '1 hour'))",
+    )
+    .bind(format!("{book_id}:stale-multipart"))
+    .bind(&book_id)
+    .bind(&stale_multipart_key)
+    .bind(25)
+    .execute(&pool)
+    .await
+    .expect("insert stale multipart attachment");
+
+    let report = attachment_cleanup::purge_stale_attachments(&pool, &config)
+        .await
+        .expect("purge stale attachments");
+
+    assert_eq!(report.scanned, 2);
+    assert_eq!(report.deleted, 2);
+    assert_eq!(report.failed, 0);
+    let remaining: Vec<(String, String)> = sqlx::query_as(
+        "SELECT object_key, upload_status FROM attachments WHERE book_id=$1 ORDER BY object_key",
+    )
+    .bind(&book_id)
+    .fetch_all(&pool)
+    .await
+    .expect("read remaining attachments");
+    assert_eq!(remaining.len(), 2);
+    assert!(remaining
+        .iter()
+        .any(|(key, status)| key == &fresh_key && status == "failed"));
+    assert!(remaining
+        .iter()
+        .any(|(key, status)| key == &ready_key && status == "ready"));
+    assert!(!config.object_store_dir.join(&stale_key).exists());
+    assert!(!stale_multipart_dir.exists());
+    assert!(config.object_store_dir.join(&fresh_key).exists());
+    assert!(config.object_store_dir.join(&ready_key).exists());
+
+    let _ = sqlx::query("DELETE FROM attachments WHERE book_id=$1")
+        .bind(&book_id)
+        .execute(&pool)
+        .await;
+    let _ = sqlx::query("DELETE FROM books WHERE id=$1")
+        .bind(&book_id)
+        .execute(&pool)
+        .await;
+    let _ = sqlx::query("DELETE FROM users WHERE id=$1")
+        .bind(&user_id)
+        .execute(&pool)
+        .await;
+    let _ = std::fs::remove_dir_all(&config.object_store_dir);
+}
+
+#[tokio::test]
+async fn postgres_multipart_direct_part_registration_persists() {
+    let Some(url) = pg_url() else {
+        if std::env::var("REQUIRE_POSTGRES_TESTS").ok().as_deref() == Some("true") {
+            panic!("DATABASE_URL is required for PostgreSQL integration tests");
+        }
+        eprintln!("skip postgres_multipart_direct_part_registration_persists: DATABASE_URL unset");
+        return;
+    };
+
+    let mut config = Config::for_test();
+    config.database_url = Some(url);
+    config.object_storage_backend = ledger_server::config::ObjectStoreBackend::S3;
+    config.s3_bucket = Some("ledgerly-test".into());
+    config.s3_access_key_id = Some("test-access".into());
+    config.s3_secret_access_key = Some("test-secret".into());
+    migrate(&config).await.expect("migrate");
+    let state = AppState::new_async(config).await.expect("state");
+    let app = app_router(state.clone());
+    let suffix = uuid::Uuid::now_v7().simple().to_string();
+    let email = format!("multipart-part-{suffix}@example.com");
+    let register = post_json(
+        &app,
+        "/v1/auth/register",
+        json!({
+            "email": email,
+            "password": "password123",
+            "displayName": "Multipart Part"
+        }),
+    )
+    .await;
+    assert_eq!(register.status(), StatusCode::OK);
+    let login = post_json(
+        &app,
+        "/v1/auth/login",
+        json!({
+            "email": email,
+            "password": "password123",
+            "deviceId": "multipart-part-login"
+        }),
+    )
+    .await;
+    assert_eq!(login.status(), StatusCode::OK);
+    let login = json_body(login).await;
+    let token = login["accessToken"].as_str().unwrap().to_string();
+    let book_id = login["bookId"].as_str().unwrap().to_string();
+    let upgrade = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/billing/dev-upgrade")
+                .header("authorization", format!("Bearer {token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(json!({"plan": "plus"}).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(upgrade.status(), StatusCode::OK);
+
+    let pool = state.pool.as_ref().expect("postgres pool");
+    let attachment_id = format!("direct-part-{suffix}");
+    let size_bytes = ledger_server::infrastructure::object_store::MULTIPART_PART_SIZE_BYTES + 1;
+    sqlx::query(
+        "INSERT INTO attachments
+         (id, book_id, object_key, size_bytes, upload_status, upload_mode, multipart_upload_id)
+         VALUES ($1, $2, $3, $4, 'pending', 'multipart', 'upload-id')",
+    )
+    .bind(&attachment_id)
+    .bind(&book_id)
+    .bind(format!("books/{book_id}/{attachment_id}"))
+    .bind(size_bytes as i64)
+    .execute(pool)
+    .await
+    .expect("insert multipart attachment");
+
+    let complete = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!(
+                    "/v1/books/{book_id}/attachments/{attachment_id}/parts/1/complete"
+                ))
+                .header("authorization", format!("Bearer {token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(json!({"partId": "\"etag-1\""}).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(complete.status(), StatusCode::OK);
+
+    let parts: serde_json::Value =
+        sqlx::query_scalar("SELECT multipart_parts FROM attachments WHERE id=$1")
+            .bind(&attachment_id)
+            .fetch_one(pool)
+            .await
+            .expect("read multipart parts");
+    assert_eq!(parts, json!(["\"etag-1\"", ""]));
+
+    let _ = sqlx::query("DELETE FROM attachments WHERE id=$1")
+        .bind(&attachment_id)
+        .execute(pool)
+        .await;
+    let _ = sqlx::query("DELETE FROM books WHERE id=$1")
+        .bind(&book_id)
+        .execute(pool)
+        .await;
+    let _ = sqlx::query("DELETE FROM users WHERE email=$1")
+        .bind(&email)
+        .execute(pool)
+        .await;
+}
+
+#[tokio::test]
+async fn postgres_audit_events_persist() {
+    let Some(url) = pg_url() else {
+        if std::env::var("REQUIRE_POSTGRES_TESTS").ok().as_deref() == Some("true") {
+            panic!("DATABASE_URL is required for PostgreSQL integration tests");
+        }
+        eprintln!("skip postgres_audit_events_persist: DATABASE_URL unset");
+        return;
+    };
+
+    let mut config = Config::for_test();
+    config.database_url = Some(url);
+    migrate(&config).await.expect("migrate");
+    let state = AppState::new_async(config).await.expect("state");
+    audit::record(
+        &state,
+        AuditEvent::system("backup.run", AuditOutcome::Success)
+            .target("run", "audit-postgres-test"),
+    )
+    .await;
+
+    let pool = state.pool.as_ref().expect("postgres pool");
+    let count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM audit_events
+         WHERE action='backup.run' AND target_id='audit-postgres-test'",
+    )
+    .fetch_one(pool)
+    .await
+    .expect("query audit event");
+    assert_eq!(count, 1);
 }
 
 #[tokio::test]
@@ -1066,35 +1342,32 @@ async fn postgres_auto_ledger_dedup_same_fingerprint_rejected() {
     let first_status = first["receipts"][0]["status"].as_str().unwrap();
     let second_status = second["receipts"][0]["status"].as_str().unwrap();
 
-    // Exactly one applied, one rejected.
+    // Both receipts are applied so each device clears its pending mutation.
+    // Exactly one is the normal insert; the loser is marked AUTO_LEDGER_DEDUPED.
     assert_eq!(
         [first_status, second_status]
             .iter()
             .filter(|s| **s == "applied")
             .count(),
-        1,
-        "expected exactly one applied receipt"
-    );
-    assert_eq!(
-        [first_status, second_status]
-            .iter()
-            .filter(|s| **s == "rejected")
-            .count(),
-        1,
-        "expected exactly one rejected receipt"
+        2,
+        "both devices should receive applied receipts"
     );
 
-    // The rejected receipt carries AUTO_LEDGER_DEDUPED.
-    let (deduped_receipt, _applied_receipt) = if first_status == "rejected" {
-        (&first["receipts"][0], &second["receipts"][0])
-    } else {
-        (&second["receipts"][0], &first["receipts"][0])
-    };
+    let first_result_code = first["receipts"][0]["resultCode"].as_str().unwrap();
+    let second_result_code = second["receipts"][0]["resultCode"].as_str().unwrap();
+    let mut result_codes = [first_result_code, second_result_code];
+    result_codes.sort_unstable();
     assert_eq!(
-        deduped_receipt["resultCode"].as_str().unwrap(),
-        "AUTO_LEDGER_DEDUPED",
-        "rejected receipt should carry AUTO_LEDGER_DEDUPED resultCode"
+        result_codes,
+        ["AUTO_LEDGER_DEDUPED", "OK"],
+        "one insert should succeed and the race loser should be deduplicated"
     );
+
+    let deduped_receipt = if first_result_code == "AUTO_LEDGER_DEDUPED" {
+        &first["receipts"][0]
+    } else {
+        &second["receipts"][0]
+    };
     assert_eq!(
         deduped_receipt["entityVersion"].as_i64().unwrap(),
         1,
