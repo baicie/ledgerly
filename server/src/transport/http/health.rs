@@ -2,6 +2,8 @@ use axum::{extract::State, Json};
 use serde_json::json;
 
 use crate::error::ApiError;
+use crate::infrastructure::backup_runtime;
+use crate::infrastructure::object_store;
 use crate::infrastructure::postgres;
 use crate::state::AppState;
 
@@ -10,6 +12,15 @@ pub async fn live() -> Json<serde_json::Value> {
 }
 
 pub async fn ready(State(state): State<AppState>) -> Result<Json<serde_json::Value>, ApiError> {
+    object_store::health_check(&state.config)
+        .await
+        .map_err(|_| {
+            ApiError::new(
+                axum::http::StatusCode::SERVICE_UNAVAILABLE,
+                "OBJECT_STORE_UNAVAILABLE",
+                "object storage unavailable",
+            )
+        })?;
     if let Some(pool) = &state.pool {
         postgres::ping(pool).await?;
         return Ok(Json(json!({ "status": "ready", "store": "postgres" })));
@@ -19,4 +30,62 @@ pub async fn ready(State(state): State<AppState>) -> Result<Json<serde_json::Val
 
 pub async fn startup() -> Json<serde_json::Value> {
     Json(json!({ "status": "started" }))
+}
+
+pub async fn backup(State(state): State<AppState>) -> Result<Json<serde_json::Value>, ApiError> {
+    let snapshot = backup_runtime::backup_readiness(&state.config).map_err(|_| {
+        ApiError::new(
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            "BACKUP_STATUS_ERROR",
+            "backup status unavailable",
+        )
+    })?;
+    let restore = backup_runtime::restore_status(&state.config).map_err(|_| {
+        ApiError::new(
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            "RESTORE_STATUS_ERROR",
+            "restore status unavailable",
+        )
+    })?;
+    let recovery_drill = backup_runtime::recovery_drill_status(&state.config).map_err(|_| {
+        ApiError::new(
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            "RECOVERY_DRILL_STATUS_ERROR",
+            "recovery drill status unavailable",
+        )
+    })?;
+    let status = snapshot.readiness.as_str();
+    let run = snapshot.status;
+    Ok(Json(json!({
+        "status": status,
+        "intervalHours": state.config.backup_interval_hours,
+        "ageSeconds": snapshot.age_seconds,
+        "lastCompletedAt": run.as_ref().map(|status| status.completed_at.clone()),
+        "fileCount": run.as_ref().map(|status| status.file_count),
+        "totalSizeBytes": run.as_ref().map(|status| status.total_size_bytes),
+        "replicated": run.as_ref().map(|status| status.replicated),
+        "lastRestore": restore.map(|status| json!({
+            "outcome": match status.outcome {
+                crate::infrastructure::backup_status::RestoreRunOutcome::Success => "success",
+                crate::infrastructure::backup_status::RestoreRunOutcome::Failed => "failed",
+            },
+            "completedAt": status.completed_at,
+            "durationMs": status.duration_ms,
+            "objectCount": status.object_count,
+            "bookCount": status.book_count,
+            "transactionCount": status.transaction_count,
+        })),
+        "lastRecoveryDrill": recovery_drill.map(|status| json!({
+            "outcome": match status.outcome {
+                crate::infrastructure::backup_status::RecoveryDrillOutcome::Success => "success",
+                crate::infrastructure::backup_status::RecoveryDrillOutcome::Failed => "failed",
+            },
+            "completedAt": status.completed_at,
+            "durationMs": status.duration_ms,
+            "bundleCreatedAt": status.bundle_created_at,
+            "objectCount": status.object_count,
+            "bookCount": status.book_count,
+            "transactionCount": status.transaction_count,
+        })),
+    })))
 }

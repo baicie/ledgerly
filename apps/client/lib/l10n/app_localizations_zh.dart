@@ -394,7 +394,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get reportsBaseCurrency => '基础货币';
 
   @override
-  String reportsUpdatedAgo(String time) => '$time前更新';
+  String reportsUpdatedAgo(Object time) {
+    return '$time前更新';
+  }
 
   @override
   String get reportsUpdatedJustNow => '刚刚更新';
@@ -451,7 +453,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiInsightPeriodMonth => '本月';
 
   @override
-  String reportsAllCategories(int count) => '全部类别（$count）';
+  String reportsAllCategories(Object count) {
+    return '全部类别（$count）';
+  }
 
   @override
   String get reportsNoCategories => '没有匹配的类别。';
@@ -493,15 +497,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get reportsRangeEnd => '结束';
 
   @override
-  String get commonCancel => '取消';
-
-  @override
-  String get commonConfirm => '确认';
-
-  @override
-  String get commonRetry => '重试';
-
-  @override
   String get reportsExport => '导出与分享';
 
   @override
@@ -521,6 +516,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get reportsTrendJumpToMonth => '跳转到该月';
+
+  @override
+  String get commonCancel => '取消';
+
+  @override
+  String get commonConfirm => '确认';
+
+  @override
+  String get commonRetry => '重试';
 
   @override
   String get localShort => '本地';
@@ -859,10 +863,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get syncPendingLabel => '待上传变更';
 
   @override
-  String syncPendingCount(int count) {
-    if (count == 0) return '无待上传';
-    if (count == 1) return '1 项待上传';
-    return '$count 项待上传';
+  String syncPendingCount(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 项待上传',
+      one: '1 项待上传',
+      zero: '无待上传',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -887,7 +896,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get conflictResolved => '冲突已处理';
 
   @override
-  String conflictRemoteVersion(String version) => '云端版本 $version';
+  String conflictRemoteVersion(Object version) {
+    return '云端版本 $version';
+  }
 
   @override
   String get exportCsv => '导出 CSV';
@@ -1707,10 +1718,40 @@ class AppLocalizationsZh extends AppLocalizations {
   String get recurringSubtitle => '每月固定日期自动记账';
 
   @override
-  String get attachmentsLocalHelp => '附件只保存在本机，不会同步到服务器。';
+  String get attachmentsLocalHelp => '附件始终先保存在本机；登录后可额外上传到云端存储。';
 
   @override
-  String get attachmentsSubtitle => '只保存在本机，不同步';
+  String get attachmentsSubtitle => '本地优先，可选云端上传';
+
+  @override
+  String get attachmentCloudUpload => '上传到云端';
+
+  @override
+  String get attachmentCloudRetry => '重试云端上传';
+
+  @override
+  String get attachmentCloudUploaded => '已上传云端';
+
+  @override
+  String get attachmentCloudUploading => '正在上传云端';
+
+  @override
+  String get attachmentCloudFailed => '云端上传失败';
+
+  @override
+  String get attachmentCloudSignIn => '登录后可上传附件';
+
+  @override
+  String get attachmentCloudUploadSuccess => '附件已上传';
+
+  @override
+  String get attachmentCloudUploadFailure => '附件上传失败，请稍后重试。';
+
+  @override
+  String get attachmentCloudDeleteFailure => '无法删除云端附件，请稍后重试。';
+
+  @override
+  String get attachmentCloudSyncFailure => '云端附件刷新失败。';
 
   @override
   String get addAttachment => '添加文件';
@@ -1970,4 +2011,881 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get autoLedgerRuleDeleteBody => '以后匹配该规则的通知将回落到内置默认。';
+
+  @override
+  String get systemSection => '系统';
+
+  @override
+  String get keyboardShortcutsTitle => '键盘快捷键';
+
+  @override
+  String get keyboardShortcutsSubtitle => '查看 Ledgerly 支持的全部快捷键。';
+
+  @override
+  String get keyboardShortcutsGeneral => '通用';
+
+  @override
+  String get keyboardShortcutsBookkeeping => '记账';
+
+  @override
+  String get keyboardShortcutsSync => '同步';
+
+  @override
+  String get keyboardShortcutsOpenPalette => '打开命令面板';
+
+  @override
+  String get keyboardShortcutsOpenPaletteDescription => '跨页面和动作的模糊搜索。';
+
+  @override
+  String get keyboardShortcutsCloseDialog => '关闭弹窗';
+
+  @override
+  String get keyboardShortcutsCloseDialogDescription => '收起任何打开的弹层。';
+
+  @override
+  String get keyboardShortcutsNewTransaction => '新建流水';
+
+  @override
+  String get keyboardShortcutsNewTransactionDescription => '打开快速记账编辑器。';
+
+  @override
+  String get keyboardShortcutsTriggerSync => '立即同步';
+
+  @override
+  String get keyboardShortcutsTriggerSyncDescription => '在命令面板里触发一次立即同步。';
+
+  @override
+  String get commandPaletteTitle => '命令面板';
+
+  @override
+  String get commandPaletteHint => '输入命令或搜索…';
+
+  @override
+  String get commandPaletteNoResults => '未找到匹配的命令';
+
+  @override
+  String get commandPaletteStatus => 'Esc 关闭 · ↑↓ 选择 · ↵ 执行';
+
+  @override
+  String get dataGovernanceTitle => '数据治理';
+
+  @override
+  String get dataGovernanceSubtitle => '备份、恢复或清空本机的全部数据';
+
+  @override
+  String get dataGovernanceBackup => '备份';
+
+  @override
+  String get dataGovernanceBackupSubtitle => '导出全部账本、账户、预算和规则的快照。';
+
+  @override
+  String get dataGovernanceBackupAction => '导出全量快照';
+
+  @override
+  String get dataGovernanceBackupInProgress => '正在导出…';
+
+  @override
+  String dataGovernanceBackupSuccess(String path) {
+    return '备份已保存到 $path';
+  }
+
+  @override
+  String get dataGovernanceBackupShare => '分享 / 另存到其他位置';
+
+  @override
+  String get dataGovernanceRestore => '恢复';
+
+  @override
+  String get dataGovernanceRestoreSubtitle => '选择备份文件，预览后替换或合并到本机数据。';
+
+  @override
+  String get dataGovernanceRestoreAction => '选择备份文件';
+
+  @override
+  String get dataGovernanceRestoreInProgress => '正在恢复…';
+
+  @override
+  String get dataGovernanceRestorePreview => '预览';
+
+  @override
+  String dataGovernanceRestorePreviewSummary(
+      int books,
+      int accounts,
+      int transactions,
+      int entries,
+      int rules,
+      int budgets,
+      int attachments,
+      int merchantRules) {
+    return '$books 个账本 · $accounts 个账户 · $transactions 笔交易 · $entries 条分录 · $rules 条周期 · $budgets 个预算 · $attachments 个附件 · $merchantRules 条商户规则';
+  }
+
+  @override
+  String get dataGovernanceRestorePreviewEmpty => '备份里没有任何数据，恢复后本机会变空。';
+
+  @override
+  String get dataGovernanceRestoreModeReplace => '替换本机数据';
+
+  @override
+  String get dataGovernanceRestoreModeMerge => '合并新账本';
+
+  @override
+  String get dataGovernanceRestoreMergeHint => '同 ID 且已有数据的账本会整本跳过；仅空占位账本会被替换。';
+
+  @override
+  String get dataGovernanceRestoreReplaceAction => '替换本机数据';
+
+  @override
+  String get dataGovernanceRestoreMergeAction => '合并到本机';
+
+  @override
+  String get dataGovernanceRestoreConfirmTitle => '确认覆盖本机数据？';
+
+  @override
+  String dataGovernanceRestoreConfirmBody(String path) {
+    return '恢复会覆盖本机的全部账本。已自动写入安全备份到 $path，出问题可以回滚。';
+  }
+
+  @override
+  String get dataGovernanceRestoreConfirmMergeTitle => '确认合并到本机？';
+
+  @override
+  String dataGovernanceRestoreConfirmMergeBody(String path) {
+    return '只会新增账本或替换空占位账本；同 ID 且已有数据的账本会跳过。安全备份已写入 $path。';
+  }
+
+  @override
+  String dataGovernanceRestoreMergeSuccess(
+      int added, int replaced, int skipped) {
+    return '已合并 $added 个新账本，替换 $replaced 个空账本，跳过 $skipped 个已有账本。';
+  }
+
+  @override
+  String get dataGovernanceRestoreMergeNoChanges => '没有可合并的新账本，已有账本保持不变。';
+
+  @override
+  String get dataGovernanceRestoreSuccess => '恢复完成，正在刷新…';
+
+  @override
+  String dataGovernanceRestoreHistory(int count) {
+    return '恢复历史 · $count 次';
+  }
+
+  @override
+  String get dataGovernanceRestoreAuditSuccess => '成功';
+
+  @override
+  String get dataGovernanceRestoreAuditFailed => '失败';
+
+  @override
+  String dataGovernanceRestoreAuditBackup(String backupId) {
+    return '来源备份：$backupId';
+  }
+
+  @override
+  String dataGovernanceRestoreAuditSafety(String path) {
+    return '安全备份：$path';
+  }
+
+  @override
+  String dataGovernanceRestoreAuditError(String error) {
+    return '错误：$error';
+  }
+
+  @override
+  String get dataGovernanceRestoreAuditDelete => '删除记录和安全备份';
+
+  @override
+  String get dataGovernanceRestoreAuditDeleteConfirmTitle => '删除恢复记录？';
+
+  @override
+  String dataGovernanceRestoreAuditDeleteConfirmBody(String path) {
+    return '将同时删除关联安全备份：$path';
+  }
+
+  @override
+  String get dataGovernanceRestoreAuditDeleteHistoryOnly =>
+      '这条记录没有关联安全备份，只删除恢复历史。';
+
+  @override
+  String dataGovernanceRestoreAuditDeleteSuccess(String size) {
+    return '已删除恢复记录，释放 $size。';
+  }
+
+  @override
+  String dataGovernanceRestoreAuditDeleteFailed(String error) {
+    return '删除恢复记录失败：$error';
+  }
+
+  @override
+  String get dataGovernanceWipe => '清空本机数据';
+
+  @override
+  String get dataGovernanceWipeSubtitle => '删除全部流水、预算、规则和附件，无法撤销。';
+
+  @override
+  String get dataGovernanceWipeAction => '全部清空';
+
+  @override
+  String get dataGovernanceWipeInProgress => '正在清空…';
+
+  @override
+  String get dataGovernanceWipeConfirmTitle => '确认清空本机的全部数据？';
+
+  @override
+  String get dataGovernanceWipeConfirmBody =>
+      '这会删除本机的全部流水、账户、预算和规则，操作不可撤销。请输入 DELETE 以确认。';
+
+  @override
+  String get dataGovernanceWipeConfirmHint => '输入 DELETE';
+
+  @override
+  String get dataGovernanceWipeConfirmError => '请输入大写的 DELETE 确认操作。';
+
+  @override
+  String get dataGovernanceWipeSuccess => '本机数据已清空，正在重启…';
+
+  @override
+  String dataGovernanceImportFailed(String error) {
+    return '读取备份失败：$error';
+  }
+
+  @override
+  String dataGovernanceBackupFailed(String error) {
+    return '导出备份失败：$error';
+  }
+
+  @override
+  String dataGovernanceWipeFailed(String error) {
+    return '清空本机数据失败：$error';
+  }
+
+  @override
+  String dataGovernanceRestoreFailed(String error) {
+    return '恢复失败：$error';
+  }
+
+  @override
+  String get dataGovernanceSectionBackup => '备份与恢复';
+
+  @override
+  String get dataGovernanceSectionDanger => '危险操作';
+
+  @override
+  String get dataGovernanceStatusTitle => '上次备份';
+
+  @override
+  String get dataGovernanceStatusNever => '从未备份';
+
+  @override
+  String dataGovernanceStatusRecent(String ago) {
+    return '$ago 之前';
+  }
+
+  @override
+  String dataGovernanceStatusAt(String date, String time) {
+    return '$date $time';
+  }
+
+  @override
+  String dataGovernanceStaleBannerTitle(int days) {
+    return '距离上次备份已 $days 天';
+  }
+
+  @override
+  String get dataGovernanceStaleBannerAction => '立即备份';
+
+  @override
+  String get dataGovernanceSelectBooks => '选择账本';
+
+  @override
+  String get dataGovernanceSelectBooksHint => '不选 = 导出全部';
+
+  @override
+  String dataGovernanceExportAll(int n) {
+    return '导出全部账本（$n）';
+  }
+
+  @override
+  String dataGovernanceExportSelected(int n) {
+    return '导出 $n 个账本';
+  }
+
+  @override
+  String dataGovernanceStatusAttachments(int n, String size) {
+    return '$n 个附件 · $size';
+  }
+
+  @override
+  String dataGovernanceAttachmentSizeBytes(String size) {
+    return '$size MB';
+  }
+
+  @override
+  String dataGovernanceRestoreAttachmentsV2(int n) {
+    return '本次恢复将一并导入 $n 个附件';
+  }
+
+  @override
+  String get dataGovernanceRestoreNoAttachmentsV1 => '该备份是 schema v1，不含附件二进制。';
+
+  @override
+  String get dataGovernanceEncryptWithPassword => '使用密码加密';
+
+  @override
+  String get dataGovernancePasswordHint => '至少 8 位；丢失将无法恢复备份';
+
+  @override
+  String get dataGovernancePasswordConfirmHint => '再次输入密码';
+
+  @override
+  String get dataGovernancePasswordMismatch => '两次输入的密码不一致';
+
+  @override
+  String get dataGovernancePasswordTooShort => '密码至少 8 位';
+
+  @override
+  String dataGovernanceExportEncryptedAll(int n) {
+    return '导出加密的全部账本（$n）';
+  }
+
+  @override
+  String dataGovernanceExportEncryptedSelected(int n) {
+    return '导出加密的 $n 个账本';
+  }
+
+  @override
+  String get dataGovernanceUnlockPrompt => '输入备份密码';
+
+  @override
+  String get dataGovernanceUnlockWrongPassword => '密码错误，请重试';
+
+  @override
+  String dataGovernanceUnlockLockedFor(int seconds) {
+    return '输入锁定，$seconds 秒后重试';
+  }
+
+  @override
+  String get dataGovernanceRestoreLegacyUnencrypted => '该备份未加密（schema v2）';
+
+  @override
+  String get dataGovernanceRestoreLegacyUnencryptedDetail =>
+      '建议使用带密码的加密备份来保护敏感财务数据';
+
+  @override
+  String get dataGovernanceStatusEncrypted => '密码保护';
+
+  @override
+  String get dataGovernanceEncryptLostPasswordWarning => '密码丢失将无法恢复，请妥善保管';
+
+  @override
+  String get dataGovernanceIncrementalBackup => '增量备份';
+
+  @override
+  String get dataGovernanceIncrementalBackupHint => '只记录本机基础备份后的变化；恢复时需要保留基础文件';
+
+  @override
+  String get dataGovernanceIncrementalEncryptedDisabled =>
+      '增量备份不加密；加密导出始终生成完整备份';
+
+  @override
+  String get dataGovernanceStatusIncremental => '增量备份 · 需要本机基础文件';
+
+  @override
+  String dataGovernanceLocalBackups(int count, String size) {
+    return '本机备份 $count 份 · $size';
+  }
+
+  @override
+  String get dataGovernanceCleanupBackups => '清理旧备份';
+
+  @override
+  String get dataGovernanceCleanupSubtitle => '保护手工备份、基础备份和最近备份；自动备份保留最新 3 份。';
+
+  @override
+  String get dataGovernanceArtifactListTitle => '备份文件';
+
+  @override
+  String get dataGovernanceArtifactActions => '备份操作';
+
+  @override
+  String get dataGovernanceArtifactKindFull => '完整';
+
+  @override
+  String get dataGovernanceArtifactKindIncremental => '增量';
+
+  @override
+  String get dataGovernanceArtifactKindEncrypted => '加密';
+
+  @override
+  String get dataGovernanceArtifactSourceManual => '手工';
+
+  @override
+  String get dataGovernanceArtifactSourceAutomatic => '自动';
+
+  @override
+  String get dataGovernanceArtifactSourceSafety => '恢复前';
+
+  @override
+  String get dataGovernanceArtifactCurrentBase => '当前基础';
+
+  @override
+  String get dataGovernanceArtifactLatest => '最近备份';
+
+  @override
+  String get dataGovernanceArtifactShare => '分享';
+
+  @override
+  String get dataGovernanceArtifactDrill => '恢复演练';
+
+  @override
+  String get dataGovernanceArtifactRotate => '更改密码';
+
+  @override
+  String get dataGovernanceArtifactRestore => '加载到恢复预览';
+
+  @override
+  String get dataGovernanceArtifactDelete => '删除此备份';
+
+  @override
+  String get dataGovernanceArtifactUnlockPrompt => '输入该备份的密码';
+
+  @override
+  String get dataGovernanceArtifactRotateTitle => '更改备份密码';
+
+  @override
+  String get dataGovernanceArtifactRotateOldPassword => '旧密码';
+
+  @override
+  String get dataGovernanceArtifactRotateNewPassword => '新密码';
+
+  @override
+  String get dataGovernanceArtifactRotateConfirmPassword => '确认新密码';
+
+  @override
+  String dataGovernanceArtifactRotateSuccess(String path, String size) {
+    return '已生成新密码备份并保留原文件：$path（$size）';
+  }
+
+  @override
+  String get dataGovernanceArtifactRestoreLoaded => '已加载到恢复预览，请向下确认恢复模式。';
+
+  @override
+  String dataGovernanceArtifactLoadFailed(String error) {
+    return '读取备份失败：$error';
+  }
+
+  @override
+  String get dataGovernanceArtifactDeleteConfirmTitle => '删除备份文件？';
+
+  @override
+  String dataGovernanceArtifactDeleteConfirmBody(String path) {
+    return '将从本机删除：$path';
+  }
+
+  @override
+  String dataGovernanceArtifactDeleteSuccess(String size) {
+    return '已删除备份，释放 $size。';
+  }
+
+  @override
+  String dataGovernanceArtifactDeleteFailed(String error) {
+    return '删除备份失败：$error';
+  }
+
+  @override
+  String get dataGovernanceCleanupConfirmTitle => '确认清理旧自动备份？';
+
+  @override
+  String get dataGovernanceCleanupConfirmBody => '手工导出以及增量恢复所依赖的基础备份不会被删除。';
+
+  @override
+  String dataGovernanceCleanupSuccess(int count, String size) {
+    return '已清理 $count 份备份，释放 $size。';
+  }
+
+  @override
+  String dataGovernanceCleanupPartial(int count, String size, int failed) {
+    return '已清理 $count 份备份并释放 $size；$failed 份删除失败。';
+  }
+
+  @override
+  String get dataGovernanceCleanupNoChanges => '没有需要清理的旧备份。';
+
+  @override
+  String dataGovernanceCleanupFailed(String error) {
+    return '清理备份失败：$error';
+  }
+
+  @override
+  String get dataGovernanceConsolidateBackup => '生成便携备份';
+
+  @override
+  String get dataGovernanceConsolidatePasswordTitle => '设置便携备份密码';
+
+  @override
+  String get dataGovernanceConsolidatePasswordBody => '可选设置密码；留空将生成未加密备份。';
+
+  @override
+  String get dataGovernanceConsolidatePasswordLabel => '备份密码（可选）';
+
+  @override
+  String get dataGovernanceConsolidatePasswordConfirm => '确认备份密码';
+
+  @override
+  String dataGovernanceConsolidateSuccess(String path, String size) {
+    return '已生成便携备份：$path（$size）';
+  }
+
+  @override
+  String get dataGovernanceConsolidateNoChanges => '最近一次已是独立的完整备份。';
+
+  @override
+  String dataGovernanceConsolidateFailed(String error) {
+    return '生成便携备份失败：$error';
+  }
+
+  @override
+  String get dataGovernanceVerifyBackups => '检查完整性';
+
+  @override
+  String get dataGovernanceVerifyNoBackups => '本机没有可检查的备份。';
+
+  @override
+  String dataGovernanceVerifyAllHealthy(int count) {
+    return '已检查 $count 份备份，全部正常。';
+  }
+
+  @override
+  String get dataGovernanceVerifyIssuesTitle => '备份完整性异常';
+
+  @override
+  String dataGovernanceVerifyIssueSummary(
+      int healthy, int missing, int corrupted) {
+    return '$healthy 份正常 · $missing 份缺失 · $corrupted 份损坏';
+  }
+
+  @override
+  String get dataGovernanceVerifyMissing => '文件不存在';
+
+  @override
+  String get dataGovernanceVerifyCorrupted => '文件已损坏';
+
+  @override
+  String dataGovernanceVerifyFailed(String error) {
+    return '检查备份失败：$error';
+  }
+
+  @override
+  String get dataGovernanceRecoveryDrill => '恢复演练';
+
+  @override
+  String get dataGovernanceRecoveryDrillPasswordTitle => '输入密码以演练恢复';
+
+  @override
+  String get dataGovernanceRecoveryDrillSuccessTitle => '恢复演练通过';
+
+  @override
+  String dataGovernanceRecoveryDrillSuccess(
+      int books, int transactions, int attachments) {
+    return '已成功合成或解密备份：$books 个账本、$transactions 笔流水、$attachments 个附件。';
+  }
+
+  @override
+  String get dataGovernanceRecoveryDrillSuccessBody => '演练仅读取备份，不会修改本机数据。';
+
+  @override
+  String dataGovernanceRecoveryDrillPath(String path) {
+    return '备份路径：$path';
+  }
+
+  @override
+  String dataGovernanceRecoveryDrillFailed(String error) {
+    return '恢复演练失败：$error';
+  }
+
+  @override
+  String get dataGovernanceHealthRecoveryDrillNever => '恢复演练：尚未执行';
+
+  @override
+  String dataGovernanceHealthRecoveryDrillSuccess(String date) {
+    return '最近恢复演练通过：$date';
+  }
+
+  @override
+  String dataGovernanceHealthRecoveryDrillFailed(String date) {
+    return '最近恢复演练失败：$date';
+  }
+
+  @override
+  String get dataGovernanceHealthTitle => '备份策略健康';
+
+  @override
+  String get dataGovernanceHealthChecking => '检查中…';
+
+  @override
+  String get dataGovernanceHealthHealthy => '健康';
+
+  @override
+  String get dataGovernanceHealthWarning => '需要关注';
+
+  @override
+  String get dataGovernanceHealthCritical => '存在风险';
+
+  @override
+  String get dataGovernanceHealthNoIssues => '备份策略当前正常。';
+
+  @override
+  String get dataGovernanceHealthRefresh => '重新检查';
+
+  @override
+  String dataGovernanceHealthSummary(int count, String nextDue) {
+    return '备份目录 $count 份 · 下次计划 $nextDue';
+  }
+
+  @override
+  String get dataGovernanceHealthNotScheduled => '未启用';
+
+  @override
+  String get dataGovernanceHealthIssueNoBackup => '尚无本机备份。';
+
+  @override
+  String dataGovernanceHealthIssueStale(int days) {
+    return '最近备份已过去 $days 天。';
+  }
+
+  @override
+  String get dataGovernanceHealthIssueAutoDisabled => '自动备份未启用。';
+
+  @override
+  String get dataGovernanceHealthIssuePasswordMissing => '加密自动备份缺少可用密码。';
+
+  @override
+  String get dataGovernanceHealthIssueSecureStorage => '系统安全存储当前不可用。';
+
+  @override
+  String get dataGovernanceHealthIssueVerificationFailed => '备份目录完整性检查失败。';
+
+  @override
+  String dataGovernanceHealthIssueMissing(int count) {
+    return '$count 份备份文件缺失。';
+  }
+
+  @override
+  String dataGovernanceHealthIssueCorrupted(int count) {
+    return '$count 份备份文件损坏。';
+  }
+
+  @override
+  String get dataGovernanceHealthIssueNotCataloged => '最近备份未登记到本机目录。';
+
+  @override
+  String get dataGovernanceHealthIssueLatestIncremental => '最近备份是仅本机可恢复的增量文件。';
+
+  @override
+  String get dataGovernanceHealthIssueBaseMissing => '增量恢复所需的 base 不在备份目录中。';
+
+  @override
+  String get dataGovernanceHealthIssueRestoreFailed => '最近一次恢复操作失败，请检查恢复历史。';
+
+  @override
+  String get dataGovernanceHealthIssueExternalUnavailable => '外部备份目录当前不可用。';
+
+  @override
+  String get dataGovernanceHealthIssueMirrorFailed => '最近备份尚未成功镜像到外部目录。';
+
+  @override
+  String dataGovernanceHealthIssueMirrorMissing(int count) {
+    return '$count 份外部镜像缺失。';
+  }
+
+  @override
+  String dataGovernanceHealthIssueMirrorCorrupted(int count) {
+    return '$count 份外部镜像损坏。';
+  }
+
+  @override
+  String dataGovernanceHealthIssueMirrorExtra(int count) {
+    return '外部目录有 $count 份未登记备份。';
+  }
+
+  @override
+  String get dataGovernanceHealthIssueRecoveryDrillNever => '当前备份策略尚未完成恢复演练。';
+
+  @override
+  String get dataGovernanceHealthIssueRecoveryDrillFailed =>
+      '最近一次恢复演练失败，请重新执行。';
+
+  @override
+  String dataGovernanceHealthIssueRecoveryDrillStale(int days) {
+    return '上次成功恢复演练已过去 $days 天。';
+  }
+
+  @override
+  String get dataGovernanceHealthActionBackup => '立即备份';
+
+  @override
+  String get dataGovernanceHealthActionEnableAuto => '启用自动备份';
+
+  @override
+  String get dataGovernanceHealthActionPassword => '设置自动备份密码';
+
+  @override
+  String get dataGovernanceHealthActionInspect => '检查备份文件';
+
+  @override
+  String get dataGovernanceHealthActionExternalDirectory => '检查外部备份目录';
+
+  @override
+  String get dataGovernanceHealthActionRecoveryDrill => '执行恢复演练';
+
+  @override
+  String get dataGovernanceHealthExportReport => '导出治理报告';
+
+  @override
+  String get dataGovernanceHealthReportJson => 'JSON 完整报告';
+
+  @override
+  String get dataGovernanceHealthReportCsv => 'CSV 摘要';
+
+  @override
+  String dataGovernanceHealthReportExported(String path) {
+    return '治理报告已生成：$path';
+  }
+
+  @override
+  String dataGovernanceHealthReportFailed(String error) {
+    return '导出治理报告失败：$error';
+  }
+
+  @override
+  String get dataGovernanceAutoBackup => '自动备份';
+
+  @override
+  String get dataGovernanceAutoBackupSubtitle => '打开应用时检查；到期则写入本地快照';
+
+  @override
+  String get dataGovernanceAutoBackupWarning => '自动备份不加密。敏感账本请继续使用密码导出。';
+
+  @override
+  String get dataGovernanceAutoEncrypt => '加密自动备份';
+
+  @override
+  String get dataGovernanceAutoEncryptEnabled => '密码保存在系统安全存储中；每次生成独立加密全量';
+
+  @override
+  String get dataGovernanceAutoEncryptDisabled => '关闭时自动备份继续使用明文增量';
+
+  @override
+  String get dataGovernanceAutoEncryptWarning => '密码保存在系统安全存储中；忘记密码将无法恢复自动备份。';
+
+  @override
+  String get dataGovernanceAutoEncryptPasswordTitle => '设置自动备份密码';
+
+  @override
+  String get dataGovernanceAutoEncryptPasswordBody =>
+      '密码将保存在系统安全存储中，仅用于自动备份加密。';
+
+  @override
+  String get dataGovernanceAutoEncryptPasswordLabel => '自动备份密码';
+
+  @override
+  String get dataGovernanceAutoEncryptPasswordConfirm => '确认自动备份密码';
+
+  @override
+  String get dataGovernanceAutoEncryptNeedsPassword => '加密自动备份缺少密码，本次未生成备份。';
+
+  @override
+  String get dataGovernanceAutoEncryptUnavailable => '系统安全存储不可用，本次未生成备份。';
+
+  @override
+  String dataGovernanceAutoEncryptFailed(String error) {
+    return '保存自动备份密码失败：$error';
+  }
+
+  @override
+  String get dataGovernanceExternalBackupDirectory => '外部备份目录';
+
+  @override
+  String get dataGovernanceExternalBackupNotConfigured => '未配置；备份仅保存在本机应用目录';
+
+  @override
+  String get dataGovernanceExternalBackupChoose => '选择目录';
+
+  @override
+  String get dataGovernanceExternalBackupClear => '移除外部目录';
+
+  @override
+  String get dataGovernanceExternalBackupMirrorNow => '立即镜像';
+
+  @override
+  String get dataGovernanceExternalBackupVerify => '检查镜像';
+
+  @override
+  String dataGovernanceExternalBackupVerifyHealthy(int count) {
+    return '$count 份外部镜像正常。';
+  }
+
+  @override
+  String get dataGovernanceExternalBackupVerifyIssuesTitle => '外部镜像异常';
+
+  @override
+  String dataGovernanceExternalBackupVerifyIssueSummary(
+      int healthy, int missing, int corrupted, int extra) {
+    return '$healthy 份正常 · $missing 份缺失 · $corrupted 份损坏 · $extra 份额外文件';
+  }
+
+  @override
+  String get dataGovernanceExternalBackupVerifyMissing => '外部副本缺失';
+
+  @override
+  String get dataGovernanceExternalBackupVerifyCorrupted =>
+      '外部副本大小或 SHA-256 不一致';
+
+  @override
+  String get dataGovernanceExternalBackupVerifyExtra => '外部文件未登记到本机目录';
+
+  @override
+  String dataGovernanceExternalBackupVerifyFailed(String error) {
+    return '检查外部镜像失败：$error';
+  }
+
+  @override
+  String get dataGovernanceExternalBackupImport => '导入本机';
+
+  @override
+  String dataGovernanceExternalBackupImported(String backupId) {
+    return '已导入外部备份：$backupId';
+  }
+
+  @override
+  String dataGovernanceExternalBackupImportFailed(String error) {
+    return '导入外部备份失败：$error';
+  }
+
+  @override
+  String dataGovernanceExternalBackupSelected(int mirrored, int failed) {
+    return '目录已设置：镜像 $mirrored 份，失败 $failed 份。';
+  }
+
+  @override
+  String dataGovernanceExternalBackupMirrorResult(int mirrored, int failed) {
+    return '外部镜像完成：成功 $mirrored 份，失败 $failed 份。';
+  }
+
+  @override
+  String dataGovernanceExternalBackupMirrorFailed(String error) {
+    return '外部镜像失败：$error';
+  }
+
+  @override
+  String get dataGovernanceArtifactMirrored => '已镜像';
+
+  @override
+  String get dataGovernanceArtifactMirrorFailed => '镜像失败';
+
+  @override
+  String dataGovernanceAutoIntervalDays(int n) {
+    return '$n 天';
+  }
 }
