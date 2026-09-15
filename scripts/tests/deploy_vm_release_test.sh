@@ -13,6 +13,14 @@ SECOND_RELEASE="$APP_DIR/runtime-releases/2-1"
 
 mkdir -p "$FIRST_RELEASE" "$SECOND_RELEASE"
 printf 'OBSERVABILITY_ENABLED=true\n' > "$APP_DIR/.env.prod"
+printf 'first-backup-password\n' | configure_backup_password
+grep -Fxq 'LEDGER_BACKUP_PASSWORD=first-backup-password' "$APP_DIR/.env.prod"
+printf 'second-backup-password\n' | configure_backup_password
+grep -Fxq 'LEDGER_BACKUP_PASSWORD=first-backup-password' "$APP_DIR/.env.prod"
+if grep -Fq 'second-backup-password' "$APP_DIR/.env.prod"; then
+  printf 'configure_backup_password replaced an existing password\n' >&2
+  exit 1
+fi
 for release in "$FIRST_RELEASE" "$SECOND_RELEASE"; do
   touch "$release/docker-compose.prod.yml" "$release/docker-compose.vm.yml"
   mkdir -p \
