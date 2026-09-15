@@ -288,7 +288,7 @@ deploy_and_verify() {
     'touch /var/lib/ledgerly/objects/.deploy-write-test && rm /var/lib/ledgerly/objects/.deploy-write-test && touch /var/lib/ledgerly/backups/.deploy-write-test && rm /var/lib/ledgerly/backups/.deploy-write-test && touch /var/lib/ledgerly/backups-offsite/.deploy-write-test && rm /var/lib/ledgerly/backups-offsite/.deploy-write-test' || return 1
 
   printf 'deploy.verify pg-dump\n' >&2
-  compose exec -T ledger-server pg_dump --version | grep -Eq 'postgresql\) 16' || return 1
+  compose exec -T ledger-server pg_dump --version | grep -Eiq 'postgresql\) 16' || return 1
 
   printf 'deploy.verify indexes\n' >&2
   index_count=$(compose exec -T postgres sh -c \
