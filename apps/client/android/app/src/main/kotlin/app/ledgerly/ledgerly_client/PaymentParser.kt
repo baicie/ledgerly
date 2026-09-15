@@ -53,9 +53,7 @@ object PaymentParser {
         val platform = when (packageName) {
             "com.tencent.mm" -> PLATFORM_WECHAT
             "com.eg.android.AlipayGphone" -> PLATFORM_ALIPAY
-            else -> return PaymentParseResult.UnsupportedPlatform(
-                packageName = packageName,
-            )
+            else -> return PaymentParseResult.UnsupportedPlatform(packageName)
         }
 
         if (content.isBlank()) {
@@ -156,9 +154,9 @@ sealed class PaymentParseResult {
 
     /** Notification arrived from an app we do not handle. Dropped. */
     data class UnsupportedPlatform(
-        override val platform: String?,
         val packageName: String,
     ) : PaymentParseResult() {
+        override val platform: String? get() = null
         override val reasonTag: String get() = "unsupported_platform"
     }
 

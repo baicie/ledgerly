@@ -3,7 +3,6 @@ package app.ledgerly.ledgerly_client
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -19,6 +18,14 @@ class PaymentParserTest {
 
     private val ts = 1_788_705_000_000L
 
+    private fun parsedEvent(result: PaymentParseResult): PaymentEvent {
+        assertTrue(
+            "Expected parsed event but got ${result.reasonTag}",
+            result is PaymentParseResult.Parsed,
+        )
+        return (result as PaymentParseResult.Parsed).event
+    }
+
     @Test
     fun parsesAlipayExpenseWithMerchant() {
         val content = """
@@ -27,14 +34,14 @@ class PaymentParserTest {
             向美团外卖付款28.50元
         """.trimIndent()
 
-        val event = PaymentParser.parse(
-            packageName = "com.eg.android.AlipayGphone",
-            content = content,
-            timestamp = ts,
+        val event = parsedEvent(
+            PaymentParser.parse(
+                packageName = "com.eg.android.AlipayGphone",
+                content = content,
+                timestamp = ts,
+            ),
         )
 
-        assertNotNull(event)
-        event!!
         assertEquals("alipay", event.platform)
         assertEquals("expense", event.direction)
         assertEquals(2850L, event.amountMinor)
@@ -45,11 +52,13 @@ class PaymentParserTest {
     @Test
     fun parsesWechatExpenseWithYuanSymbol() {
         val content = "微信支付 支付 ¥32.00 向美团外卖"
-        val event = PaymentParser.parse(
-            packageName = "com.tencent.mm",
-            content = content,
-            timestamp = ts,
-        )!!
+        val event = parsedEvent(
+            PaymentParser.parse(
+                packageName = "com.tencent.mm",
+                content = content,
+                timestamp = ts,
+            ),
+        )
         assertEquals("wechat", event.platform)
         assertEquals("expense", event.direction)
         assertEquals(3200L, event.amountMinor)
@@ -59,75 +68,105 @@ class PaymentParserTest {
     @Test
     fun parsesAlipayIncome() {
         val content = "支付宝 收款到账 100.00元 来自 神秘人"
-        val event = PaymentParser.parse(
-            packageName = "com.eg.android.AlipayGphone",
-            content = content,
-            timestamp = ts,
-        )!!
+        val event = parsedEvent(
+            PaymentParser.parse(
+                packageName = "com.eg.android.AlipayGphone",
+                content = content,
+                timestamp = ts,
+            ),
+        )
         assertEquals("income", event.direction)
         assertEquals(10000L, event.amountMinor)
     }
 
     @Test
     fun ignoresUnrelatedPackages() {
-        val event = PaymentParser.parse(
+        val result = PaymentParser.parse(
             packageName = "com.example.other",
             content = "向美团外卖付款 28.50 元",
             timestamp = ts,
         )
-        assertNull(event)
+        assertTrue(result is PaymentParseResult.UnsupportedPlatform)
+        result as PaymentParseResult.UnsupportedPlatform
+        assertEquals("com.example.other", result.packageName)
+        assertNull(result.platform)
     }
 
     @Test
     fun ignoresContentWithoutPaymentKeywords() {
-        val event = PaymentParser.parse(
+        val result = PaymentParser.parse(
             packageName = "com.tencent.mm",
             content = "这是一条普通聊天消息，不含金额 28.50",
             timestamp = ts,
         )
-        assertNull(event)
+        assertTrue(result is PaymentParseResult.NoDirectionKeyword)
+        result as PaymentParseResult.NoDirectionKeyword
+        assertEquals("wechat", result.platform)
+        assertEquals("no_direction_keyword", result.reasonTag)
     }
 
     @Test
     fun ignoresContentWithoutAmount() {
         // Has the keyword but no recognisable amount.
-        val event = PaymentParser.parse(
+        val result = PaymentParser.parse(
             packageName = "com.tencent.mm",
             content = "微信支付 付款成功",
             timestamp = ts,
         )
-        assertNull(event)
+        assertTrue(result is PaymentParseResult.NoAmount)
+        result as PaymentParseResult.NoAmount
+        assertEquals("wechat", result.platform)
+        assertEquals("no_amount", result.reasonTag)
     }
 
     @Test
     fun merchantDefaultsToNullWhenNoPatternMatches() {
         val content = "支付宝 付款成功 28.50 元"
-        val event = PaymentParser.parse(
-            packageName = "com.eg.android.AlipayGphone",
-            content = content,
-            timestamp = ts,
-        )!!
+        val event = parsedEvent(
+            PaymentParser.parse(
+                packageName = "com.eg.android.AlipayGphone",
+                content = content,
+                timestamp = ts,
+            ),
+        )
         assertNull(event.merchant)
     }
 
     @Test
     fun truncatesRawTextToTwoThousandCharacters() {
-        val content = "a".repeat(5_000)
-        val event = PaymentParser.parse(
+        val content = "微信支付 付款 ¥1.00 " + "a".repeat(5_000)
+        val event = parsedEvent(
+            PaymentParser.parse(
+                packageName = "com.tencent.mm",
+                content = content,
+                timestamp = ts,
+            ),
+        )
+        assertEquals(2_000, event.rawText.length)
+    }
+
+    @Test
+    fun capturesBlankContentForDiagnosis() {
+        val result = PaymentParser.parse(
             packageName = "com.tencent.mm",
-            content = content,
+            content = "   ",
             timestamp = ts,
         )
-        // No keywords / amount in the body, so we should not produce an
-        // event at all.
-        assertNull(event)
+        assertTrue(result is PaymentParseResult.BlankContent)
+        result as PaymentParseResult.BlankContent
+        assertEquals("wechat", result.platform)
+        assertEquals("blank_content", result.reasonTag)
     }
 
     @Test
     fun idIsStableAcrossCalls() {
         val content = "支付宝 付款 28.50 元 美团外卖"
-        val a = PaymentParser.parse("com.eg.android.AlipayGphone", content, ts)!!
-        val b = PaymentParser.parse("com.eg.android.AlipayGphone", content, ts)!!
+        val a = parsedEvent(
+            PaymentParser.parse("com.eg.android.AlipayGphone", content, ts),
+        )
+        val b = parsedEvent(
+            PaymentParser.parse("com.eg.android.AlipayGphone", content, ts),
+        )
         assertEquals(a.id, b.id)
         assertTrue(a.id.contains("alipay-$ts-2850"))
     }
