@@ -8,6 +8,7 @@ use sha2::{Digest, Sha256};
 
 const DEFAULT_BACKUP_CAPACITY_WARN_BYTES: u64 = 20 * 1024 * 1024 * 1024;
 const DEFAULT_BACKUP_CAPACITY_CRITICAL_BYTES: u64 = 50 * 1024 * 1024 * 1024;
+const MAX_ATTACHMENT_BYTES: u64 = 20 * 1024 * 1024 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ObjectStoreBackend {
@@ -37,6 +38,9 @@ pub struct Config {
     pub s3_prefix: Option<String>,
     pub s3_force_path_style: bool,
     pub s3_allow_http: bool,
+    pub s3_public_endpoint: Option<String>,
+    pub attachment_max_bytes: u64,
+    pub attachment_pending_ttl_hours: u64,
     pub backup_dir: Option<PathBuf>,
     pub backup_offsite_dir: Option<PathBuf>,
     pub backup_keep: usize,
@@ -135,6 +139,17 @@ impl Config {
                 .map(|value| parse_bool("S3_ALLOW_HTTP", &value))
                 .transpose()?
                 .unwrap_or(false),
+            s3_public_endpoint: env::var("S3_PUBLIC_ENDPOINT")
+                .ok()
+                .filter(|value| !value.is_empty()),
+            attachment_max_bytes: parse_positive_u64_env(
+                "ATTACHMENT_MAX_BYTES",
+                100 * 1024 * 1024,
+            )?,
+            attachment_pending_ttl_hours: parse_positive_u64_env(
+                "ATTACHMENT_PENDING_TTL_HOURS",
+                24,
+            )?,
             backup_dir: env::var("BACKUP_DIR").ok().map(PathBuf::from),
             backup_offsite_dir: env::var("BACKUP_OFFSITE_DIR").ok().map(PathBuf::from),
             backup_keep: env::var("BACKUP_KEEP")
@@ -202,6 +217,9 @@ impl Config {
     }
 
     pub fn validate(&self) -> anyhow::Result<()> {
+        if self.attachment_max_bytes > MAX_ATTACHMENT_BYTES {
+            anyhow::bail!("ATTACHMENT_MAX_BYTES must not exceed 20 GiB");
+        }
         if self.backup_capacity_warn_bytes == 0
             || self.backup_capacity_critical_bytes == 0
             || self.backup_capacity_critical_bytes < self.backup_capacity_warn_bytes
@@ -291,6 +309,9 @@ impl Config {
             s3_prefix: None,
             s3_force_path_style: true,
             s3_allow_http: false,
+            s3_public_endpoint: None,
+            attachment_max_bytes: 100 * 1024 * 1024,
+            attachment_pending_ttl_hours: 24,
             backup_dir: None,
             backup_offsite_dir: None,
             backup_keep: 3,
@@ -368,6 +389,24 @@ impl Config {
             }
             if url.scheme() == "http" && !self.s3_allow_http {
                 anyhow::bail!("S3_ALLOW_HTTP=true is required for an HTTP S3 endpoint");
+            }
+        }
+        if let Some(endpoint) = self.s3_public_endpoint.as_deref() {
+            let url = url::Url::parse(endpoint)
+                .map_err(|_| anyhow::anyhow!("S3_PUBLIC_ENDPOINT must be a valid URL"))?;
+            if !matches!(url.scheme(), "http" | "https")
+                || url.host_str().is_none()
+                || !url.username().is_empty()
+                || url.password().is_some()
+                || url.query().is_some()
+                || url.fragment().is_some()
+            {
+                anyhow::bail!(
+                    "S3_PUBLIC_ENDPOINT must be an HTTP(S) URL without credentials or query"
+                );
+            }
+            if url.scheme() == "http" && !self.s3_allow_http {
+                anyhow::bail!("S3_ALLOW_HTTP=true is required for an HTTP public S3 endpoint");
             }
         }
         Ok(())
@@ -555,5 +594,34 @@ mod tests {
         config.s3_prefix = Some("../objects".into());
 
         assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn s3_public_endpoint_requires_clean_http_url() {
+        let mut config = Config::for_test();
+        config.object_storage_backend = ObjectStoreBackend::S3;
+        config.s3_bucket = Some("ledgerly".into());
+        config.s3_access_key_id = Some("test-access".into());
+        config.s3_secret_access_key = Some("test-secret".into());
+        config.s3_public_endpoint = Some("https://objects.example.com?token=secret".into());
+
+        assert!(config.validate().is_err());
+
+        config.s3_public_endpoint = Some("https://objects.example.com".into());
+        assert!(config.validate().is_ok());
+
+        config.s3_public_endpoint = Some("http://127.0.0.1:9000".into());
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn attachment_max_bytes_stays_within_multipart_limit() {
+        let mut config = Config::for_test();
+        config.attachment_max_bytes = 20 * 1024 * 1024 * 1024 + 1;
+
+        assert!(config.validate().is_err());
+
+        config.attachment_max_bytes = 20 * 1024 * 1024 * 1024;
+        assert!(config.validate().is_ok());
     }
 }

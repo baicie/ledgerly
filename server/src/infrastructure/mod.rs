@@ -1,3 +1,4 @@
+pub mod attachment_cleanup;
 pub mod audit;
 pub mod backup_bundle;
 pub mod backup_runtime;

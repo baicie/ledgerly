@@ -1782,10 +1782,43 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get attachmentsLocalHelp =>
-      'Attachments stay on this device and are not synced.';
+      'Attachments are always saved locally. Signed-in users can also upload them to cloud storage.';
 
   @override
-  String get attachmentsSubtitle => 'Stored on this device only';
+  String get attachmentsSubtitle => 'Local-first with optional cloud upload';
+
+  @override
+  String get attachmentCloudUpload => 'Upload to cloud';
+
+  @override
+  String get attachmentCloudRetry => 'Retry cloud upload';
+
+  @override
+  String get attachmentCloudUploaded => 'Uploaded to cloud';
+
+  @override
+  String get attachmentCloudUploading => 'Uploading to cloud';
+
+  @override
+  String get attachmentCloudFailed => 'Cloud upload failed';
+
+  @override
+  String get attachmentCloudSignIn => 'Sign in to upload attachments';
+
+  @override
+  String get attachmentCloudUploadSuccess => 'Attachment uploaded';
+
+  @override
+  String get attachmentCloudUploadFailure =>
+      'Attachment upload failed. Please try again later.';
+
+  @override
+  String get attachmentCloudDeleteFailure =>
+      'Could not delete the cloud attachment. Please try again.';
+
+  @override
+  String get attachmentCloudSyncFailure =>
+      'Cloud attachments could not be refreshed.';
 
   @override
   String get addAttachment => 'Add file';

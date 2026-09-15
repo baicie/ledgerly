@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../application/auto_backup.dart';
+import '../application/attachment_upload_service.dart';
 import '../application/backup_auto_password_store.dart';
 import '../application/backup_catalog_store.dart';
 import '../application/backup_governance_report.dart';
@@ -359,6 +360,46 @@ final localAttachmentRepositoryProvider =
     ref.watch(databaseProvider),
     byteStore: ref.watch(attachmentByteStoreProvider),
   );
+});
+
+final attachmentUploadServiceProvider =
+    Provider<AttachmentUploadService>((ref) {
+  return AttachmentUploadService(
+    repository: ref.watch(localAttachmentRepositoryProvider),
+    api: ref.watch(syncApiProvider),
+    auth: ref.watch(authRepositoryProvider),
+    ledger: ref.watch(ledgerRepositoryProvider),
+  );
+});
+
+final canUploadAttachmentsProvider = Provider<bool>((ref) {
+  if (ref.watch(isLocalModeProvider)) return false;
+  return ref.watch(authControllerProvider).state.status ==
+      AuthStatus.authenticated;
+});
+
+final attachmentCloudSyncProvider =
+    FutureProvider.autoDispose<AttachmentCloudSyncResult?>((ref) async {
+  if (!ref.watch(canUploadAttachmentsProvider)) return null;
+  final localBookId = ref.watch(selectedBookIdProvider);
+  final result = await ref
+      .read(attachmentUploadServiceProvider)
+      .syncRemote(localBookId: localBookId);
+  ref.invalidate(localAttachmentsProvider);
+  return result;
+});
+
+final attachmentRetryProvider =
+    FutureProvider.autoDispose<AttachmentRetryReport?>((ref) async {
+  if (!ref.watch(canUploadAttachmentsProvider)) return null;
+  final localBookId = ref.watch(selectedBookIdProvider);
+  final report = await ref
+      .read(attachmentUploadServiceProvider)
+      .retryFailedUploads(localBookId: localBookId);
+  if (report.attempted > 0) {
+    ref.invalidate(localAttachmentsProvider);
+  }
+  return report;
 });
 
 final recurringSchedulerProvider = Provider<RecurringScheduler>((ref) {

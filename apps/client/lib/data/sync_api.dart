@@ -113,6 +113,7 @@ class SyncApi {
   Future<Map<String, dynamic>> createUploadSession({
     required String bookId,
     String? transactionId,
+    String? fileName,
     String? mimeType,
     int? size,
   }) async {
@@ -120,6 +121,7 @@ class SyncApi {
       '/v1/books/$bookId/attachments/upload-session',
       data: {
         if (transactionId != null) 'transactionId': transactionId,
+        if (fileName != null) 'fileName': fileName,
         if (mimeType != null) 'mimeType': mimeType,
         if (size != null) 'size': size,
       },
@@ -137,9 +139,91 @@ class SyncApi {
     return Map<String, dynamic>.from(res.data as Map);
   }
 
-  Future<void> putSignedUrl({
+  Future<List<Map<String, dynamic>>> listAttachments({
+    required String bookId,
+  }) async {
+    final res = await _dio.get('/v1/books/$bookId/attachments');
+    final data = Map<String, dynamic>.from(res.data as Map);
+    return (data['attachments'] as List? ?? const [])
+        .map((entry) => Map<String, dynamic>.from(entry as Map))
+        .toList();
+  }
+
+  Future<void> deleteAttachment({
+    required String bookId,
+    required String attachmentId,
+  }) async {
+    await _dio.delete<void>('/v1/books/$bookId/attachments/$attachmentId');
+  }
+
+  Future<Map<String, dynamic>> uploadAttachmentPart({
+    required String bookId,
+    required String attachmentId,
+    required int partNumber,
+    required Uint8List bytes,
+  }) async {
+    final response = await _dio.put<Map<String, dynamic>>(
+      '/v1/books/$bookId/attachments/$attachmentId/parts/$partNumber',
+      data: bytes,
+      options: Options(
+        sendTimeout: const Duration(minutes: 2),
+        receiveTimeout: const Duration(minutes: 2),
+        headers: {
+          Headers.contentTypeHeader: 'application/octet-stream',
+        },
+      ),
+    );
+    return Map<String, dynamic>.from(response.data ?? const {});
+  }
+
+  Future<Map<String, dynamic>> multipartPartUploadUrl({
+    required String bookId,
+    required String attachmentId,
+    required int partNumber,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/v1/books/$bookId/attachments/$attachmentId/parts/$partNumber/upload-url',
+    );
+    return Map<String, dynamic>.from(response.data ?? const {});
+  }
+
+  Future<Map<String, dynamic>> completeMultipartPart({
+    required String bookId,
+    required String attachmentId,
+    required int partNumber,
+    required String partId,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/v1/books/$bookId/attachments/$attachmentId/parts/$partNumber/complete',
+      data: {'partId': partId},
+    );
+    return Map<String, dynamic>.from(response.data ?? const {});
+  }
+
+  Future<void> abortMultipartUpload({
+    required String bookId,
+    required String attachmentId,
+  }) async {
+    await _dio.delete<void>(
+      '/v1/books/$bookId/attachments/$attachmentId/multipart',
+    );
+  }
+
+  Future<Map<String, dynamic>> multipartUploadStatus({
+    required String bookId,
+    required String attachmentId,
+  }) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/v1/books/$bookId/attachments/$attachmentId/multipart',
+    );
+    return Map<String, dynamic>.from(response.data ?? const {});
+  }
+
+  Future<String?> putSignedUrl({
     required String uploadUrl,
     required List<int> bytes,
+    Map<String, String> headers = const {},
+    String? contentType = 'application/octet-stream',
   }) async {
     final uri = ApiEndpoint.validateResourceUrl(
       uploadUrl,
@@ -147,15 +231,33 @@ class SyncApi {
       isWeb: _isWeb,
       requireHttps: _requireHttps,
     );
-    await _uploadDio.put(
+    final response = await _uploadDio.put(
       uri.toString(),
       data: bytes,
       options: Options(
         headers: {
-          Headers.contentTypeHeader: 'application/octet-stream',
+          ...headers,
+          if (contentType != null) Headers.contentTypeHeader: contentType,
         },
       ),
     );
+    return _responseHeader(response.headers, 'etag');
+  }
+
+  Future<Uint8List> downloadSignedUrl({
+    required String downloadUrl,
+  }) async {
+    final uri = ApiEndpoint.validateResourceUrl(
+      downloadUrl,
+      isRelease: _isRelease,
+      isWeb: _isWeb,
+      requireHttps: _requireHttps,
+    );
+    final response = await _uploadDio.get<List<int>>(
+      uri.toString(),
+      options: Options(responseType: ResponseType.bytes),
+    );
+    return Uint8List.fromList(response.data ?? const []);
   }
 
   Future<Map<String, dynamic>> reportSummary({
@@ -268,5 +370,10 @@ class SyncApi {
     return (data['rules'] as List)
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
+  }
+
+  String? _responseHeader(Headers headers, String name) {
+    final value = headers.value(name)?.trim();
+    return value == null || value.isEmpty ? null : value;
   }
 }

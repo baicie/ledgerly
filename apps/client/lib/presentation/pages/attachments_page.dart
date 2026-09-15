@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -9,36 +10,60 @@ import '../../l10n/l10n.dart';
 import '../providers.dart';
 import '../widgets/ledgerly_layout.dart';
 
-class AttachmentsPage extends ConsumerWidget {
+class AttachmentsPage extends ConsumerStatefulWidget {
   const AttachmentsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AttachmentsPage> createState() => _AttachmentsPageState();
+}
+
+class _AttachmentsPageState extends ConsumerState<AttachmentsPage> {
+  final _uploadingIds = <String>{};
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = l10nOf(context);
     final attachments = ref.watch(localAttachmentsProvider);
+    final cloudSync = ref.watch(attachmentCloudSyncProvider);
+    final showCloudUpload = !ref.watch(isLocalModeProvider);
+    final canUpload = ref.watch(canUploadAttachmentsProvider);
     return Scaffold(
       appBar: AppBar(title: Text(l10n.attachmentsUpload)),
       body: SafeArea(
         top: false,
         child: attachments.when(
-          data: (items) => ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              LedgerlySection(child: Text(l10n.attachmentsLocalHelp)),
-              const SizedBox(height: 12),
-              if (items.isEmpty)
-                LedgerlyEmptyState(
-                  icon: Icons.attachment_outlined,
-                  title: l10n.noAttachments,
-                  message: l10n.attachmentsLocalHelp,
-                )
-              else
-                for (final item in items)
-                  _AttachmentTile(
-                    item: item,
-                    onDelete: () => _delete(ref, item),
+          data: (items) => RefreshIndicator(
+            onRefresh: _refresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              children: [
+                LedgerlySection(child: Text(l10n.attachmentsLocalHelp)),
+                if (cloudSync.hasError) ...[
+                  const SizedBox(height: 8),
+                  LedgerlySection(
+                    child: Text(l10n.attachmentCloudSyncFailure),
                   ),
-            ],
+                ],
+                const SizedBox(height: 12),
+                if (items.isEmpty)
+                  LedgerlyEmptyState(
+                    icon: Icons.attachment_outlined,
+                    title: l10n.noAttachments,
+                    message: l10n.attachmentsLocalHelp,
+                  )
+                else
+                  for (final item in items)
+                    _AttachmentTile(
+                      item: item,
+                      onDelete: () => _delete(item),
+                      showCloudUpload: showCloudUpload,
+                      canUpload: canUpload,
+                      isUploading: _uploadingIds.contains(item.id),
+                      onUpload: () => _upload(item),
+                    ),
+              ],
+            ),
           ),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => Center(child: Text('$error')),
@@ -47,18 +72,80 @@ class AttachmentsPage extends ConsumerWidget {
     );
   }
 
-  Future<void> _delete(WidgetRef ref, LocalAttachmentRecord item) async {
-    await ref.read(attachmentStoreProvider).delete(item.relativePath);
-    await ref.read(localAttachmentRepositoryProvider).delete(item.id);
+  Future<void> _delete(LocalAttachmentRecord item) async {
+    try {
+      await ref.read(attachmentUploadServiceProvider).deleteAttachment(item);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10nOf(context).attachmentCloudDeleteFailure)),
+        );
+      }
+      return;
+    }
     ref.invalidate(localAttachmentsProvider);
+    ref.invalidate(attachmentCloudSyncProvider);
+  }
+
+  Future<void> _refresh() async {
+    ref.invalidate(attachmentCloudSyncProvider);
+    ref.invalidate(attachmentRetryProvider);
+    ref.invalidate(localAttachmentsProvider);
+    try {
+      await ref.read(attachmentCloudSyncProvider.future);
+    } catch (_) {
+      // Keep the local list refresh available when cloud sync is offline.
+    }
+    try {
+      await ref.read(attachmentRetryProvider.future);
+    } catch (_) {
+      // Retry failures remain persisted for the next lifecycle tick.
+    }
+    await ref.read(localAttachmentsProvider.future);
+  }
+
+  Future<void> _upload(LocalAttachmentRecord item) async {
+    setState(() => _uploadingIds.add(item.id));
+    try {
+      await ref.read(attachmentUploadServiceProvider).upload(item);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10nOf(context).attachmentCloudUploadSuccess)),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10nOf(context).attachmentCloudUploadFailure)),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _uploadingIds.remove(item.id));
+      }
+      ref.invalidate(localAttachmentsProvider);
+      ref.invalidate(attachmentCloudSyncProvider);
+      ref.invalidate(attachmentRetryProvider);
+    }
   }
 }
 
 class _AttachmentTile extends ConsumerWidget {
-  const _AttachmentTile({required this.item, required this.onDelete});
+  const _AttachmentTile({
+    required this.item,
+    required this.onDelete,
+    this.showCloudUpload = false,
+    this.canUpload = false,
+    this.isUploading = false,
+    this.onUpload,
+  });
 
   final LocalAttachmentRecord item;
   final VoidCallback onDelete;
+  final bool showCloudUpload;
+  final bool canUpload;
+  final bool isUploading;
+  final VoidCallback? onUpload;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -70,10 +157,70 @@ class _AttachmentTile extends ConsumerWidget {
       onTap: item.mime.startsWith('image/')
           ? () => _preview(context, ref, item)
           : null,
-      trailing: IconButton(
-        tooltip: l10n.deleteTransaction,
-        onPressed: onDelete,
-        icon: const Icon(Icons.delete_outline),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (showCloudUpload)
+            _CloudUploadButton(
+              item: item,
+              canUpload: canUpload,
+              isUploading: isUploading,
+              onUpload: onUpload,
+            ),
+          IconButton(
+            tooltip: l10n.deleteTransaction,
+            onPressed: onDelete,
+            icon: const Icon(Icons.delete_outline),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CloudUploadButton extends StatelessWidget {
+  const _CloudUploadButton({
+    required this.item,
+    required this.canUpload,
+    required this.isUploading,
+    required this.onUpload,
+  });
+
+  final LocalAttachmentRecord item;
+  final bool canUpload;
+  final bool isUploading;
+  final VoidCallback? onUpload;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
+    if (isUploading) {
+      return const Padding(
+        padding: EdgeInsets.all(12),
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+    if (item.cloudUploadStatus == AttachmentCloudStatus.ready) {
+      return IconButton(
+        tooltip: l10n.attachmentCloudUploaded,
+        onPressed: null,
+        icon: const Icon(Icons.cloud_done_outlined),
+      );
+    }
+    final failed = item.cloudUploadStatus == AttachmentCloudStatus.failed;
+    return IconButton(
+      tooltip: !canUpload
+          ? l10n.attachmentCloudSignIn
+          : failed
+              ? l10n.attachmentCloudRetry
+              : l10n.attachmentCloudUpload,
+      onPressed: canUpload ? onUpload : null,
+      icon: Icon(
+        failed ? Icons.cloud_off_outlined : Icons.cloud_upload_outlined,
       ),
     );
   }
@@ -131,7 +278,8 @@ Future<void> showTransactionAttachmentsSheet({
   return showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
-    builder: (context) => _TransactionAttachmentsSheet(transaction: transaction),
+    builder: (context) =>
+        _TransactionAttachmentsSheet(transaction: transaction),
   );
 }
 
@@ -149,11 +297,24 @@ class _TransactionAttachmentsSheetState
     extends ConsumerState<_TransactionAttachmentsSheet> {
   List<LocalAttachmentRecord> _items = const [];
   var _busy = false;
+  final _uploadingIds = <String>{};
 
   @override
   void initState() {
     super.initState();
     _load();
+    unawaited(_refreshCloud());
+  }
+
+  Future<void> _refreshCloud() async {
+    try {
+      ref.invalidate(attachmentRetryProvider);
+      await ref.read(attachmentCloudSyncProvider.future);
+      await ref.read(attachmentRetryProvider.future);
+      await _load();
+    } catch (_) {
+      // The attachments page and pull-to-refresh surface sync errors.
+    }
   }
 
   Future<void> _load() async {
@@ -189,9 +350,35 @@ class _TransactionAttachmentsSheetState
     }
   }
 
+  Future<void> _upload(LocalAttachmentRecord item) async {
+    setState(() => _uploadingIds.add(item.id));
+    try {
+      await ref.read(attachmentUploadServiceProvider).upload(item);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10nOf(context).attachmentCloudUploadSuccess)),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10nOf(context).attachmentCloudUploadFailure)),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _uploadingIds.remove(item.id));
+      }
+      ref.invalidate(localAttachmentsProvider);
+      await _load();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = l10nOf(context);
+    final showCloudUpload = !ref.watch(isLocalModeProvider);
+    final canUpload = ref.watch(canUploadAttachmentsProvider);
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
@@ -209,14 +396,29 @@ class _TransactionAttachmentsSheetState
             for (final item in _items)
               _AttachmentTile(
                 item: item,
+                showCloudUpload: showCloudUpload,
+                canUpload: canUpload,
+                isUploading: _uploadingIds.contains(item.id),
+                onUpload: () => _upload(item),
                 onDelete: () async {
-                  await ref
-                      .read(attachmentStoreProvider)
-                      .delete(item.relativePath);
-                  await ref
-                      .read(localAttachmentRepositoryProvider)
-                      .delete(item.id);
+                  try {
+                    await ref
+                        .read(attachmentUploadServiceProvider)
+                        .deleteAttachment(item);
+                  } catch (_) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                              l10nOf(context).attachmentCloudDeleteFailure),
+                        ),
+                      );
+                    }
+                    return;
+                  }
                   ref.invalidate(localAttachmentsProvider);
+                  ref.invalidate(attachmentCloudSyncProvider);
+                  ref.invalidate(attachmentRetryProvider);
                   await _load();
                 },
               ),

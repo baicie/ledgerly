@@ -3275,14 +3275,74 @@ abstract class AppLocalizations {
   /// No description provided for @attachmentsLocalHelp.
   ///
   /// In zh, this message translates to:
-  /// **'附件只保存在本机，不会同步到服务器。'**
+  /// **'附件始终先保存在本机；登录后可额外上传到云端存储。'**
   String get attachmentsLocalHelp;
 
   /// No description provided for @attachmentsSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'只保存在本机，不同步'**
+  /// **'本地优先，可选云端上传'**
   String get attachmentsSubtitle;
+
+  /// No description provided for @attachmentCloudUpload.
+  ///
+  /// In zh, this message translates to:
+  /// **'上传到云端'**
+  String get attachmentCloudUpload;
+
+  /// No description provided for @attachmentCloudRetry.
+  ///
+  /// In zh, this message translates to:
+  /// **'重试云端上传'**
+  String get attachmentCloudRetry;
+
+  /// No description provided for @attachmentCloudUploaded.
+  ///
+  /// In zh, this message translates to:
+  /// **'已上传云端'**
+  String get attachmentCloudUploaded;
+
+  /// No description provided for @attachmentCloudUploading.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在上传云端'**
+  String get attachmentCloudUploading;
+
+  /// No description provided for @attachmentCloudFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'云端上传失败'**
+  String get attachmentCloudFailed;
+
+  /// No description provided for @attachmentCloudSignIn.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录后可上传附件'**
+  String get attachmentCloudSignIn;
+
+  /// No description provided for @attachmentCloudUploadSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'附件已上传'**
+  String get attachmentCloudUploadSuccess;
+
+  /// No description provided for @attachmentCloudUploadFailure.
+  ///
+  /// In zh, this message translates to:
+  /// **'附件上传失败，请稍后重试。'**
+  String get attachmentCloudUploadFailure;
+
+  /// No description provided for @attachmentCloudDeleteFailure.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法删除云端附件，请稍后重试。'**
+  String get attachmentCloudDeleteFailure;
+
+  /// No description provided for @attachmentCloudSyncFailure.
+  ///
+  /// In zh, this message translates to:
+  /// **'云端附件刷新失败。'**
+  String get attachmentCloudSyncFailure;
 
   /// No description provided for @addAttachment.
   ///
