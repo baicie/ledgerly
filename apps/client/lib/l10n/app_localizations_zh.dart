@@ -1718,10 +1718,40 @@ class AppLocalizationsZh extends AppLocalizations {
   String get recurringSubtitle => '每月固定日期自动记账';
 
   @override
-  String get attachmentsLocalHelp => '附件只保存在本机，不会同步到服务器。';
+  String get attachmentsLocalHelp => '附件始终先保存在本机；登录后可额外上传到云端存储。';
 
   @override
-  String get attachmentsSubtitle => '只保存在本机，不同步';
+  String get attachmentsSubtitle => '本地优先，可选云端上传';
+
+  @override
+  String get attachmentCloudUpload => '上传到云端';
+
+  @override
+  String get attachmentCloudRetry => '重试云端上传';
+
+  @override
+  String get attachmentCloudUploaded => '已上传云端';
+
+  @override
+  String get attachmentCloudUploading => '正在上传云端';
+
+  @override
+  String get attachmentCloudFailed => '云端上传失败';
+
+  @override
+  String get attachmentCloudSignIn => '登录后可上传附件';
+
+  @override
+  String get attachmentCloudUploadSuccess => '附件已上传';
+
+  @override
+  String get attachmentCloudUploadFailure => '附件上传失败，请稍后重试。';
+
+  @override
+  String get attachmentCloudDeleteFailure => '无法删除云端附件，请稍后重试。';
+
+  @override
+  String get attachmentCloudSyncFailure => '云端附件刷新失败。';
 
   @override
   String get addAttachment => '添加文件';

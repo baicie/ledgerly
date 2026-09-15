@@ -198,6 +198,16 @@ pub fn register_metrics() {
         Unit::Count,
         "Object storage operations, labelled by backend, operation, and outcome."
     );
+    describe_counter!(
+        "attachment_cleanup_deleted_total",
+        Unit::Count,
+        "Stale pending/failed attachments removed by the cleanup worker."
+    );
+    describe_counter!(
+        "attachment_cleanup_failures_total",
+        Unit::Count,
+        "Stale attachments retained after object storage cleanup failures."
+    );
     describe_histogram!(
         "object_store_operation_duration_seconds",
         Unit::Seconds,
@@ -256,6 +266,7 @@ static JOB_TYPES: &[&str] = &[
     "auto_ledger_sweep",
     "backup_bundle",
     "recovery_drill",
+    "purge_attachment_uploads",
     "worker",
 ];
 
@@ -279,6 +290,15 @@ pub fn record_job_rule_skip(error_code: &'static str) {
 /// Records a recurring transaction materialization.
 pub fn record_job_recurring_generated() {
     counter!("job_recurring_generated_total").increment(1);
+}
+
+pub fn record_attachment_cleanup(deleted: usize, failed: usize) {
+    if deleted > 0 {
+        counter!("attachment_cleanup_deleted_total").increment(deleted as u64);
+    }
+    if failed > 0 {
+        counter!("attachment_cleanup_failures_total").increment(failed as u64);
+    }
 }
 
 /// Records a sync push mutation result.
@@ -309,8 +329,9 @@ static METRIC_COMPONENTS: &[&str] = &[
     "storage",
 ];
 static OBJECT_STORE_BACKENDS: &[&str] = &["local", "s3"];
-static OBJECT_STORE_OPERATIONS: &[&str] =
-    &["put", "get", "head", "list", "backup", "restore", "migrate"];
+static OBJECT_STORE_OPERATIONS: &[&str] = &[
+    "put", "get", "head", "list", "sign", "delete", "backup", "restore", "migrate",
+];
 static AUDIT_ACTIONS: &[&str] = &[
     "auth.register",
     "auth.login",
@@ -318,6 +339,8 @@ static AUDIT_ACTIONS: &[&str] = &[
     "auth.logout",
     "attachment.upload_session",
     "attachment.complete",
+    "attachment.delete",
+    "attachment.multipart_abort",
     "invite.create",
     "billing.upgrade",
     "backup.run",

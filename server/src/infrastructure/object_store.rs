@@ -3,25 +3,33 @@ use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
-use std::time::Instant;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{bail, Context};
+use aws_credential_types::Credentials;
+use aws_sigv4::http_request::{
+    sign as sigv4_sign, PayloadChecksumKind, PercentEncodingMode, SessionTokenMode, SignableBody,
+    SignableRequest, SignatureLocation, SigningSettings, UriPathNormalizationMode,
+};
+use aws_sigv4::sign::v4;
 use axum::body::Bytes;
 use axum::extract::{Path as AxumPath, Query, State};
-use axum::http::{header, HeaderMap, StatusCode};
+use axum::http::{header, HeaderMap, Method, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::put;
 use axum::Router;
 use futures_util::TryStreamExt;
 use hmac::{Hmac, Mac};
-use object_store::aws::AmazonS3Builder;
+use object_store::aws::{AmazonS3, AmazonS3Builder};
+use object_store::multipart::{MultipartStore, PartId};
 use object_store::path::Path as ObjectPath;
-use object_store::{Error as ObjectStoreError, ObjectStore, ObjectStoreExt};
+use object_store::signer::Signer;
+use object_store::{Error as ObjectStoreError, ObjectStore, ObjectStoreExt, PutPayload};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use uuid::Uuid;
 
 use crate::config::{Config, ObjectStoreBackend};
@@ -29,7 +37,7 @@ use crate::error::ApiError;
 use crate::state::AppState;
 
 type HmacSha256 = Hmac<Sha256>;
-type S3StoreCache = Mutex<HashMap<String, Arc<dyn ObjectStore>>>;
+type S3StoreCache = Mutex<HashMap<String, Arc<AmazonS3>>>;
 
 static S3_STORE_CACHE: OnceLock<S3StoreCache> = OnceLock::new();
 
@@ -37,6 +45,7 @@ const OBJECT_STORE_BACKUP_SCHEMA_VERSION: u32 = 1;
 const OBJECT_STORE_BACKUP_KIND: &str = "ledgerly-object-store-backup";
 const OBJECT_STORE_MANIFEST_FILE: &str = "manifest.json";
 const OBJECT_STORE_OBJECTS_DIR: &str = "objects";
+pub const MULTIPART_PART_SIZE_BYTES: usize = 5 * 1024 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -52,7 +61,8 @@ enum ObjectStoreClient {
         root: PathBuf,
     },
     S3 {
-        store: Arc<dyn ObjectStore>,
+        store: Arc<AmazonS3>,
+        signer: Arc<AmazonS3>,
         prefix: Option<String>,
     },
 }
@@ -63,10 +73,15 @@ impl ObjectStoreClient {
             ObjectStoreBackend::Local => Ok(Self::Local {
                 root: config.object_store_dir.clone(),
             }),
-            ObjectStoreBackend::S3 => Ok(Self::S3 {
-                store: cached_s3_store(config)?,
-                prefix: config.s3_prefix.clone(),
-            }),
+            ObjectStoreBackend::S3 => {
+                let internal_endpoint = config.s3_endpoint.as_deref();
+                let public_endpoint = config.s3_public_endpoint.as_deref().or(internal_endpoint);
+                Ok(Self::S3 {
+                    store: cached_s3_store(config, internal_endpoint)?,
+                    signer: cached_s3_store(config, public_endpoint)?,
+                    prefix: config.s3_prefix.clone(),
+                })
+            }
         }
     }
 
@@ -156,16 +171,80 @@ impl ObjectStoreClient {
         record_object_store_result(self.backend_label(), "head", started, result)
     }
 
+    async fn object_size(&self, object_key: &str) -> anyhow::Result<Option<u64>> {
+        let started = Instant::now();
+        let path = self.object_path(object_key);
+        let result = match (self, path) {
+            (Self::Local { root }, Ok(path)) => Ok(tokio::fs::metadata(root.join(path.as_ref()))
+                .await
+                .ok()
+                .filter(|metadata| metadata.is_file())
+                .map(|metadata| metadata.len())),
+            (Self::S3 { store, .. }, Ok(path)) => match store.head(&path).await {
+                Ok(metadata) => Ok(Some(metadata.size)),
+                Err(ObjectStoreError::NotFound { .. }) => Ok(None),
+                Err(error) => Err(error.into()),
+            },
+            (_, Err(error)) => Err(error),
+        };
+        record_object_store_result(self.backend_label(), "head", started, result)
+    }
+
     async fn object_metadata(&self, object_key: &str) -> anyhow::Result<StoredObjectMetadata> {
-        let bytes = self
-            .get_bytes(object_key)
-            .await?
-            .with_context(|| format!("object missing: {object_key}"))?;
-        Ok(StoredObjectMetadata {
-            key: validated_key(object_key)?,
-            size_bytes: bytes.len() as u64,
-            sha256: hex::encode(Sha256::digest(&bytes)),
-        })
+        let started = Instant::now();
+        let key = validated_key(object_key)?;
+        let path = self.object_path(&key);
+        let result = match (self, path) {
+            (Self::Local { root }, Ok(path)) => {
+                let path = root.join(path.as_ref());
+                match tokio::fs::File::open(path).await {
+                    Ok(mut file) => {
+                        let mut digest = Sha256::new();
+                        let mut size_bytes = 0_u64;
+                        let mut buffer = vec![0_u8; 64 * 1024];
+                        loop {
+                            let read = file.read(&mut buffer).await?;
+                            if read == 0 {
+                                break;
+                            }
+                            size_bytes += read as u64;
+                            digest.update(&buffer[..read]);
+                        }
+                        Ok(StoredObjectMetadata {
+                            key,
+                            size_bytes,
+                            sha256: hex::encode(digest.finalize()),
+                        })
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                        Err(anyhow::anyhow!("object missing: {object_key}"))
+                    }
+                    Err(error) => Err(error.into()),
+                }
+            }
+            (Self::S3 { store, .. }, Ok(path)) => match store.get(&path).await {
+                Ok(result) => {
+                    let mut stream = result.into_stream();
+                    let mut digest = Sha256::new();
+                    let mut size_bytes = 0_u64;
+                    while let Some(chunk) = stream.try_next().await? {
+                        size_bytes += chunk.len() as u64;
+                        digest.update(&chunk);
+                    }
+                    Ok(StoredObjectMetadata {
+                        key,
+                        size_bytes,
+                        sha256: hex::encode(digest.finalize()),
+                    })
+                }
+                Err(ObjectStoreError::NotFound { .. }) => {
+                    Err(anyhow::anyhow!("object missing: {object_key}"))
+                }
+                Err(error) => Err(error.into()),
+            },
+            (_, Err(error)) => Err(error),
+        };
+        record_object_store_result(self.backend_label(), "get", started, result)
     }
 
     async fn list_keys(&self) -> anyhow::Result<Vec<String>> {
@@ -178,7 +257,7 @@ impl ObjectStoreClient {
                 }
                 Ok(files.into_iter().map(|(key, _)| key).collect())
             }
-            Self::S3 { store, prefix } => {
+            Self::S3 { store, prefix, .. } => {
                 let prefix_path = prefix.as_deref().map(ObjectPath::from);
                 let mut stream = store.list(prefix_path.as_ref());
                 let mut keys = Vec::new();
@@ -207,7 +286,7 @@ impl ObjectStoreClient {
             Self::Local { root } => tokio::fs::create_dir_all(root)
                 .await
                 .context("create local object store root"),
-            Self::S3 { store, prefix } => {
+            Self::S3 { store, prefix, .. } => {
                 let started = Instant::now();
                 let prefix_path = prefix.as_deref().map(ObjectPath::from);
                 let result = store
@@ -219,12 +298,54 @@ impl ObjectStoreClient {
             }
         }
     }
+
+    async fn signed_url(
+        &self,
+        method: Method,
+        object_key: &str,
+        expires_in: std::time::Duration,
+    ) -> anyhow::Result<Option<String>> {
+        let started = Instant::now();
+        let result = match self {
+            Self::Local { .. } => Ok(None),
+            Self::S3 { signer, .. } => {
+                let path = self.object_path(object_key)?;
+                signer
+                    .signed_url(method, &path, expires_in)
+                    .await
+                    .map(|url| Some(url.to_string()))
+                    .map_err(Into::into)
+            }
+        };
+        record_object_store_result(self.backend_label(), "sign", started, result)
+    }
+
+    async fn delete(&self, object_key: &str) -> anyhow::Result<()> {
+        let started = Instant::now();
+        let path = self.object_path(object_key);
+        let result = match (self, path) {
+            (Self::Local { root }, Ok(path)) => {
+                let path = root.join(path.as_ref());
+                match tokio::fs::remove_file(path).await {
+                    Ok(()) => Ok(()),
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                    Err(error) => Err(error.into()),
+                }
+            }
+            (Self::S3 { store, .. }, Ok(path)) => store.delete(&path).await.map_err(Into::into),
+            (_, Err(error)) => Err(error),
+        };
+        record_object_store_result(self.backend_label(), "delete", started, result)
+    }
 }
 
-fn cached_s3_store(config: &Config) -> anyhow::Result<Arc<dyn ObjectStore>> {
+fn cached_s3_store(
+    config: &Config,
+    endpoint_override: Option<&str>,
+) -> anyhow::Result<Arc<AmazonS3>> {
     let mut key_material = Sha256::new();
     for value in [
-        config.s3_endpoint.as_deref().unwrap_or_default(),
+        endpoint_override.unwrap_or_default(),
         config.s3_region.as_str(),
         config.s3_bucket.as_deref().unwrap_or_default(),
         config.s3_access_key_id.as_deref().unwrap_or_default(),
@@ -269,14 +390,13 @@ fn cached_s3_store(config: &Config) -> anyhow::Result<Arc<dyn ObjectStore>> {
         .with_secret_access_key(secret_access_key)
         .with_allow_http(config.s3_allow_http)
         .with_virtual_hosted_style_request(!config.s3_force_path_style);
-    if let Some(endpoint) = config.s3_endpoint.as_deref() {
+    if let Some(endpoint) = endpoint_override {
         builder = builder.with_endpoint(endpoint);
     }
     if let Some(token) = config.s3_session_token.as_deref() {
         builder = builder.with_token(token);
     }
-    let store: Arc<dyn ObjectStore> =
-        Arc::new(builder.build().context("configure S3 object store")?);
+    let store = Arc::new(builder.build().context("configure S3 object store")?);
     cache
         .lock()
         .expect("S3 store cache")
@@ -363,6 +483,274 @@ pub fn sign_url(config: &Config, method: &str, object_key: &str, ttl_secs: u64) 
         config.object_store_public_base.trim_end_matches('/'),
         object_key.trim_start_matches('/'),
     )
+}
+
+pub async fn direct_url(
+    config: &Config,
+    method: Method,
+    object_key: &str,
+    ttl_secs: u64,
+) -> anyhow::Result<Option<String>> {
+    ObjectStoreClient::from_config(config)?
+        .signed_url(method, object_key, std::time::Duration::from_secs(ttl_secs))
+        .await
+}
+
+pub async fn multipart_part_upload_url_for_config(
+    config: &Config,
+    object_key: &str,
+    upload_id: Option<&str>,
+    part_number: usize,
+    ttl_secs: u64,
+) -> anyhow::Result<Option<String>> {
+    let started = Instant::now();
+    let client = ObjectStoreClient::from_config(config)?;
+    let result = match &client {
+        ObjectStoreClient::Local { .. } => Ok(None),
+        ObjectStoreClient::S3 { .. } => {
+            let upload_id = upload_id.context("multipart upload id is required")?;
+            let path = client.object_path(object_key)?;
+            presign_s3_multipart_part_url(config, &path, upload_id, part_number, ttl_secs).map(Some)
+        }
+    };
+    record_object_store_result(client.backend_label(), "sign", started, result)
+}
+
+fn presign_s3_multipart_part_url(
+    config: &Config,
+    path: &ObjectPath,
+    upload_id: &str,
+    part_number: usize,
+    ttl_secs: u64,
+) -> anyhow::Result<String> {
+    if part_number == 0 {
+        bail!("multipart part number must be positive");
+    }
+    let bucket = config
+        .s3_bucket
+        .as_deref()
+        .context("S3_BUCKET is required")?;
+    let access_key_id = config
+        .s3_access_key_id
+        .as_deref()
+        .context("S3_ACCESS_KEY_ID is required")?;
+    let secret_access_key = config
+        .s3_secret_access_key
+        .as_deref()
+        .context("S3_SECRET_ACCESS_KEY is required")?;
+    let endpoint = match (
+        config.s3_public_endpoint.as_deref(),
+        config.s3_endpoint.as_deref(),
+    ) {
+        (Some(endpoint), _) | (None, Some(endpoint)) => {
+            if config.s3_force_path_style {
+                format!("{}/{bucket}", endpoint.trim_end_matches('/'))
+            } else {
+                endpoint.trim_end_matches('/').to_string()
+            }
+        }
+        (None, None) if config.s3_force_path_style => {
+            format!("https://s3.{}.amazonaws.com/{bucket}", config.s3_region)
+        }
+        (None, None) => format!("https://{bucket}.s3.{}.amazonaws.com", config.s3_region),
+    };
+    let mut url: url::Url = format!("{endpoint}/{}", path.as_ref()).parse()?;
+    url.query_pairs_mut()
+        .append_pair("partNumber", &part_number.to_string())
+        .append_pair("uploadId", upload_id);
+
+    let credentials = Credentials::new(
+        access_key_id,
+        secret_access_key,
+        config.s3_session_token.clone(),
+        None,
+        "ledgerly-static",
+    );
+    let identity = credentials.into();
+    let mut settings = SigningSettings::default();
+    settings.signature_location = SignatureLocation::QueryParams;
+    settings.expires_in = Some(Duration::from_secs(ttl_secs));
+    settings.payload_checksum_kind = PayloadChecksumKind::NoHeader;
+    settings.percent_encoding_mode = PercentEncodingMode::Double;
+    settings.uri_path_normalization_mode = UriPathNormalizationMode::Disabled;
+    settings.session_token_mode = SessionTokenMode::Include;
+    let signing_params = v4::SigningParams::builder()
+        .identity(&identity)
+        .region(&config.s3_region)
+        .name("s3")
+        .time(SystemTime::now())
+        .settings(settings)
+        .build()?
+        .into();
+    let request = SignableRequest::new(
+        "PUT",
+        url.as_str(),
+        std::iter::empty(),
+        SignableBody::UnsignedPayload,
+    )?;
+    let signed = sigv4_sign(request, &signing_params)?;
+    {
+        let mut query = url.query_pairs_mut();
+        for (name, value) in signed.output().params() {
+            query.append_pair(name, value);
+        }
+    }
+    Ok(url.to_string())
+}
+
+pub async fn delete_object_for_config(config: &Config, object_key: &str) -> anyhow::Result<()> {
+    ObjectStoreClient::from_config(config)?
+        .delete(object_key)
+        .await
+}
+
+pub async fn start_multipart_for_config(
+    config: &Config,
+    object_key: &str,
+) -> anyhow::Result<Option<String>> {
+    let started = Instant::now();
+    let client = ObjectStoreClient::from_config(config)?;
+    let result = match &client {
+        ObjectStoreClient::Local { .. } => {
+            let dir = local_multipart_dir(config, object_key)?;
+            tokio::fs::create_dir_all(&dir).await?;
+            Ok(None)
+        }
+        ObjectStoreClient::S3 { store, .. } => {
+            let path = client.object_path(object_key)?;
+            MultipartStore::create_multipart(store.as_ref(), &path)
+                .await
+                .map(Some)
+                .map_err(Into::into)
+        }
+    };
+    record_object_store_result(client.backend_label(), "put", started, result)
+}
+
+pub async fn put_multipart_part_for_config(
+    config: &Config,
+    object_key: &str,
+    upload_id: Option<&str>,
+    part_number: usize,
+    bytes: Bytes,
+) -> anyhow::Result<String> {
+    let started = Instant::now();
+    let client = ObjectStoreClient::from_config(config)?;
+    let result = match &client {
+        ObjectStoreClient::Local { .. } => {
+            let part_id = format!("{part_number:08}");
+            let path = local_multipart_dir(config, object_key)?.join(format!("part-{part_id}"));
+            tokio::fs::write(path, bytes).await?;
+            Ok(part_id)
+        }
+        ObjectStoreClient::S3 { store, .. } => {
+            let upload_id = upload_id.context("multipart upload id is required")?;
+            let path = client.object_path(object_key)?;
+            MultipartStore::put_part(
+                store.as_ref(),
+                &path,
+                &upload_id.to_string(),
+                part_number,
+                PutPayload::from(bytes),
+            )
+            .await
+            .map(|part| part.content_id)
+            .map_err(Into::into)
+        }
+    };
+    record_object_store_result(client.backend_label(), "put", started, result)
+}
+
+pub async fn complete_multipart_for_config(
+    config: &Config,
+    object_key: &str,
+    upload_id: Option<&str>,
+    part_ids: &[String],
+) -> anyhow::Result<()> {
+    let started = Instant::now();
+    let client = ObjectStoreClient::from_config(config)?;
+    let result = match &client {
+        ObjectStoreClient::Local { .. } => {
+            let dir = local_multipart_dir(config, object_key)?;
+            let target = disk_path_anyhow(&config.object_store_dir, object_key)?;
+            if let Some(parent) = target.parent() {
+                tokio::fs::create_dir_all(parent).await?;
+            }
+            let temporary = target.with_extension(format!("tmp-{}", Uuid::now_v7()));
+            let mut output = tokio::fs::File::create(&temporary).await?;
+            for part_id in part_ids {
+                if part_id.is_empty()
+                    || part_id.contains('/')
+                    || part_id.contains('\\')
+                    || part_id.contains("..")
+                {
+                    bail!("invalid multipart part id");
+                }
+                let mut input = tokio::fs::File::open(dir.join(format!("part-{part_id}"))).await?;
+                tokio::io::copy(&mut input, &mut output).await?;
+            }
+            output.flush().await?;
+            drop(output);
+            tokio::fs::rename(&temporary, &target).await?;
+            match tokio::fs::remove_dir_all(&dir).await {
+                Ok(()) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error.into()),
+            }
+            Ok(())
+        }
+        ObjectStoreClient::S3 { store, .. } => {
+            let upload_id = upload_id.context("multipart upload id is required")?;
+            let path = client.object_path(object_key)?;
+            let parts = part_ids
+                .iter()
+                .map(|content_id| PartId {
+                    content_id: content_id.clone(),
+                })
+                .collect();
+            MultipartStore::complete_multipart(store.as_ref(), &path, &upload_id.to_string(), parts)
+                .await
+                .map(|_| ())
+                .map_err(Into::into)
+        }
+    };
+    record_object_store_result(client.backend_label(), "put", started, result)
+}
+
+pub async fn abort_multipart_for_config(
+    config: &Config,
+    object_key: &str,
+    upload_id: Option<&str>,
+) -> anyhow::Result<()> {
+    let started = Instant::now();
+    let client = ObjectStoreClient::from_config(config)?;
+    let result = match &client {
+        ObjectStoreClient::Local { .. } => {
+            let dir = local_multipart_dir(config, object_key)?;
+            match tokio::fs::remove_dir_all(dir).await {
+                Ok(()) => Ok(()),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                Err(error) => Err(error.into()),
+            }
+        }
+        ObjectStoreClient::S3 { store, .. } => {
+            let Some(upload_id) = upload_id else {
+                return Ok(());
+            };
+            let path = client.object_path(object_key)?;
+            MultipartStore::abort_multipart(store.as_ref(), &path, &upload_id.to_string())
+                .await
+                .map_err(Into::into)
+        }
+    };
+    record_object_store_result(client.backend_label(), "delete", started, result)
+}
+
+fn local_multipart_dir(config: &Config, object_key: &str) -> anyhow::Result<PathBuf> {
+    Ok(config
+        .object_store_dir
+        .join(".multipart")
+        .join(validated_key(object_key)?))
 }
 
 fn sign(config: &Config, method: &str, object_key: &str, expires: u64) -> String {
@@ -492,6 +880,15 @@ pub fn object_metadata(config: &Config, object_key: &str) -> anyhow::Result<Stor
 pub async fn object_exists_for_config(config: &Config, object_key: &str) -> anyhow::Result<bool> {
     ObjectStoreClient::from_config(config)?
         .object_exists(object_key)
+        .await
+}
+
+pub async fn object_size_for_config(
+    config: &Config,
+    object_key: &str,
+) -> anyhow::Result<Option<u64>> {
+    ObjectStoreClient::from_config(config)?
+        .object_size(object_key)
         .await
 }
 
@@ -1057,8 +1454,31 @@ fn object_store_api_err(_: anyhow::Error) -> ApiError {
 
 #[cfg(test)]
 mod tests {
-    use super::{sign, verify};
+    use std::collections::HashMap;
+
+    use super::{
+        object_metadata_for_config, presign_s3_multipart_part_url, put_object_bytes, sign, verify,
+    };
     use crate::config::Config;
+    use object_store::path::Path as ObjectPath;
+    use sha2::{Digest, Sha256};
+
+    #[tokio::test]
+    async fn streamed_metadata_hashes_multi_chunk_local_object() {
+        let config = Config::for_test();
+        let key = "books/book-a/large-attachment";
+        let bytes = (0..(3 * 64 * 1024 + 17))
+            .map(|index| (index % 251) as u8)
+            .collect::<Vec<_>>();
+        put_object_bytes(&config, key, &bytes).await.unwrap();
+
+        let metadata = object_metadata_for_config(&config, key).await.unwrap();
+
+        assert_eq!(metadata.key, key);
+        assert_eq!(metadata.size_bytes, bytes.len() as u64);
+        assert_eq!(metadata.sha256, hex::encode(Sha256::digest(&bytes)));
+        let _ = tokio::fs::remove_dir_all(&config.object_store_dir).await;
+    }
 
     #[test]
     fn previous_hmac_secret_keeps_existing_signed_urls_valid() {
@@ -1098,5 +1518,31 @@ mod tests {
             expires,
             &signature
         ));
+    }
+
+    #[test]
+    fn multipart_part_url_contains_sigv4_part_and_upload_parameters() {
+        let mut config = Config::for_test();
+        config.s3_region = "us-east-1".into();
+        config.s3_bucket = Some("ledgerly".into());
+        config.s3_access_key_id = Some("test-access".into());
+        config.s3_secret_access_key = Some("test-secret".into());
+        config.s3_endpoint = Some("http://127.0.0.1:9090".into());
+        config.s3_allow_http = true;
+        config.s3_force_path_style = true;
+        let path = ObjectPath::from("prefix/books/book-a/attachment");
+
+        let url = presign_s3_multipart_part_url(&config, &path, "upload+id/value", 7, 600).unwrap();
+        let url = url::Url::parse(&url).unwrap();
+        let query = url.query_pairs().into_owned().collect::<HashMap<_, _>>();
+
+        assert_eq!(url.path(), "/ledgerly/prefix/books/book-a/attachment");
+        assert_eq!(query.get("partNumber").map(String::as_str), Some("7"));
+        assert_eq!(
+            query.get("uploadId").map(String::as_str),
+            Some("upload+id/value")
+        );
+        assert_eq!(query.get("X-Amz-Expires").map(String::as_str), Some("600"));
+        assert_eq!(query.get("X-Amz-Signature").map(String::len), Some(64));
     }
 }

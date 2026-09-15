@@ -51,6 +51,8 @@ pub async fn run_api(config: Config, with_worker: bool) -> anyhow::Result<()> {
         crate::obs::app_event("boot", "ok", "postgres connected and migrated");
         let _ = jobs::enqueue(pool, "purge_expired_sessions", serde_json::json!({}), 0).await;
         let _ = jobs::enqueue_if_absent(pool, "purge_audit_events", serde_json::json!({})).await;
+        let _ =
+            jobs::enqueue_if_absent(pool, "purge_attachment_uploads", serde_json::json!({})).await;
         let _ = jobs::enqueue(pool, "enqueue_recurring_scan", serde_json::json!({}), 0).await;
         if config.backup_dir.is_some() {
             let _ = jobs::enqueue_if_absent(pool, "backup_bundle", serde_json::json!({})).await;
@@ -174,6 +176,7 @@ pub async fn run_worker_only(config: Config) -> anyhow::Result<()> {
     };
     postgres::migrate(&pool).await?;
     let _ = jobs::enqueue_if_absent(&pool, "purge_audit_events", serde_json::json!({})).await;
+    let _ = jobs::enqueue_if_absent(&pool, "purge_attachment_uploads", serde_json::json!({})).await;
     if config.backup_dir.is_some() {
         let _ = jobs::enqueue_if_absent(&pool, "backup_bundle", serde_json::json!({})).await;
     }
