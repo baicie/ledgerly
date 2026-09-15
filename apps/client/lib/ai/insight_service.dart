@@ -106,6 +106,9 @@ class InsightService {
           settings: settings,
           systemPrompt: resolveInsightSystemPrompt(settings),
           userPrompt: buildInsightUserPrompt(snapshot),
+          sessionId: 'ledgerly-${fnv1aHex(
+            '${settings.provider.name}:${settings.model}:${insightRecordId(_bookId, period)}',
+          )}',
         ),
       );
       final parsed = parseInsightContent(result.text);
