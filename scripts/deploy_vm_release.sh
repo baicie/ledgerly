@@ -260,9 +260,11 @@ read_deploy_input() {
 }
 
 deploy_and_verify() {
+  printf 'deploy.verify compose\n' >&2
   compose up -d --pull never --wait --wait-timeout 180 || return 1
 
   local published port ready_url ready_body backup_url backup_body backup_status index_count
+  printf 'deploy.verify ready\n' >&2
   published=$(compose port ledger-server 8080) || return 1
   test -n "$published" || return 1
   port=${published##*:}
@@ -271,6 +273,7 @@ deploy_and_verify() {
   printf '%s' "$ready_body" | python3 -c \
     'import json,sys; data=json.load(sys.stdin); assert data == {"status":"ready","store":"postgres"}' || return 1
 
+  printf 'deploy.verify backup-health\n' >&2
   backup_url="http://127.0.0.1:${port}/health/backup"
   backup_body=$(curl -fsS --retry 5 --retry-delay 2 --retry-connrefused "$backup_url") || return 1
   printf '%s' "$backup_body" | validate_backup_health_json || return 1
@@ -280,15 +283,19 @@ deploy_and_verify() {
     printf 'WARNING: backup readiness is %s\n' "$backup_status" >&2
   fi
 
+  printf 'deploy.verify writable-volumes\n' >&2
   compose exec -T ledger-server sh -c \
     'touch /var/lib/ledgerly/objects/.deploy-write-test && rm /var/lib/ledgerly/objects/.deploy-write-test && touch /var/lib/ledgerly/backups/.deploy-write-test && rm /var/lib/ledgerly/backups/.deploy-write-test && touch /var/lib/ledgerly/backups-offsite/.deploy-write-test && rm /var/lib/ledgerly/backups-offsite/.deploy-write-test' || return 1
 
+  printf 'deploy.verify pg-dump\n' >&2
   compose exec -T ledger-server pg_dump --version | grep -Eq 'postgresql\) 16' || return 1
 
+  printf 'deploy.verify indexes\n' >&2
   index_count=$(compose exec -T postgres sh -c \
     'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT count(*) FROM pg_indexes WHERE schemaname = '\''public'\'' AND indexname IN ('\''idx_device_sessions_refresh_token_hash'\'', '\''idx_device_sessions_active_created_at'\'');"') || return 1
   test "$index_count" = "2" || return 1
 
+  printf 'deploy.verify observability\n' >&2
   verify_observability || return 1
 }
 
