@@ -16,6 +16,8 @@ use serde_json::json;
 use tower::ServiceExt;
 use uuid::Uuid;
 
+static S3_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 struct TestDirectory {
     path: PathBuf,
 }
@@ -71,6 +73,7 @@ async fn s3_migration_backup_and_restore_round_trip() {
     if std::env::var("REQUIRE_S3_TESTS").ok().as_deref() != Some("true") {
         return;
     }
+    let _guard = S3_TEST_LOCK.lock().await;
 
     let source = TestDirectory::new("s3-source");
     let backup = TestDirectory::unused("s3-backup");
@@ -300,6 +303,7 @@ async fn upload_session_uses_direct_s3_url_and_completes() {
     if std::env::var("REQUIRE_S3_TESTS").ok().as_deref() != Some("true") {
         return;
     }
+    let _guard = S3_TEST_LOCK.lock().await;
 
     let prefix = format!("tests/{}/api", Uuid::now_v7().simple());
     let config = s3_config(&prefix);
